@@ -1,4 +1,6 @@
 {
+  "Widget.Settings.DingTalkGroupDocs": "Configurações de documentos do grupo",
+  "Tree.Settings.Leaderboard.Stage": "Estágio {0}",
   "DingTalkGroupDocs.Settings.Title": "DingTalk widget",
   "DingTalkGroupDocs.Settings.Description": "Organize group document links locally without downloading files.",
   "DingTalkGroupDocs.Sync.Button": "Sync links",

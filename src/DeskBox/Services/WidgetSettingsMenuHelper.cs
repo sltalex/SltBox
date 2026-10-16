@@ -48,7 +48,7 @@ internal static class WidgetSettingsMenuHelper
         WidgetKind.Search => "Widget.Settings.Search",
         WidgetKind.Tree => "Tree.Title",
         WidgetKind.SystemMonitor => "SystemMonitor.Title",
-        WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
+        WidgetKind.DingTalkGroupDocs => "Widget.Settings.DingTalkGroupDocs",
         _ => "Common.Configure"
     };
 

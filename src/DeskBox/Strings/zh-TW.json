@@ -1,4 +1,6 @@
 {
+  "Widget.Settings.DingTalkGroupDocs": "群組文件設定",
+  "Tree.Settings.Leaderboard.Stage": "第 {0} 階段",
   "DingTalkGroupDocs.Settings.Title": "釘釘格子",
   "DingTalkGroupDocs.Settings.Description": "自動整理群組文件連結，本機快取不下載檔案。",
   "DingTalkGroupDocs.Sync.Button": "同步連結",

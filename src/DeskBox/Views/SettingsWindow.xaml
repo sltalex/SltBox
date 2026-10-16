@@ -3423,21 +3423,34 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard
-                            HorizontalContentAlignment="Right"
-                            svc:Localized.HeaderKey="Settings.DingTalk.Title"
-                            svc:Localized.DescriptionKey="Settings.DingTalk.Description"
-                            ContentAlignment="Vertical">
-                            <Grid ColumnSpacing="8" MinWidth="260">
+                            HorizontalContentAlignment="Stretch"
+                            ContentAlignment="Left">
+                            <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock
                                     VerticalAlignment="Center"
+                                    Style="{StaticResource SettingTitleTextStyle}"
+                                    svc:Localized.Key="Settings.DingTalk.Title" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingDescriptionTextStyle}"
+                                    TextWrapping="NoWrap"
+                                    TextTrimming="CharacterEllipsis"
+                                    svc:Localized.Key="Settings.DingTalk.Description" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    MaxWidth="160"
+                                    VerticalAlignment="Center"
                                     Text="{Binding DingTalkStatusText}"
                                     TextWrapping="NoWrap"
                                     TextTrimming="CharacterEllipsis" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
                                     <Button Click="DingTalkLink_Click" IsEnabled="{Binding DingTalkActionsEnabled}" Visibility="{Binding DingTalkLinkVisibility}" svc:Localized.Key="Settings.DingTalk.Link" />
                                     <Button Click="DingTalkRefresh_Click" IsEnabled="{Binding DingTalkActionsEnabled}" Visibility="{Binding DingTalkLinkedVisibility}" svc:Localized.Key="Settings.DingTalk.Refresh" />
                                     <Button Click="DingTalkUnlink_Click" IsEnabled="{Binding DingTalkActionsEnabled}" Visibility="{Binding DingTalkLinkedVisibility}" svc:Localized.Key="Settings.DingTalk.Unlink" />

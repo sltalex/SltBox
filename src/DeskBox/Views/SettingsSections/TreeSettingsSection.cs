@@ -149,8 +149,6 @@ public sealed partial class TreeSettingsSection : UserControl
         _currentCard.Description = _localization.T("Tree.Settings.Card.Current.Description");
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _progressCard.Header = _localization.T("Tree.Settings.Card.Progress");
-        _leaderboardCard.Header = _localization.T("Tree.Settings.Card.Leaderboard");
-        _leaderboardCard.Description = _localization.T("Tree.Settings.Card.Leaderboard.Description");
         _enableLabel.Text = _localization.T("Tree.Settings.Enable");
         _statisticsLabel.Text = _localization.T("Tree.Settings.EnableStatistics");
         _statistics.OnContent = _localization.T("Tree.Settings.StatisticsRunning");
@@ -246,7 +244,9 @@ public sealed partial class TreeSettingsSection : UserControl
                 ? _localization.T("Tree.Settings.Leaderboard.SignIn")
                 : _cloud?.IsOffline == true
                     ? _localization.T("Tree.Settings.Leaderboard.Offline")
-                    : _localization.T("Tree.Settings.Leaderboard.Online");
+                    : string.Empty;
+            _leaderboardHint.Visibility = string.IsNullOrEmpty(_leaderboardHint.Text)
+                ? Visibility.Collapsed : Visibility.Visible;
             int? currentRank = _cloud?.CurrentUserRank.Rank;
             _currentRankHint.Visibility = signedIn && currentRank.HasValue ? Visibility.Visible : Visibility.Collapsed;
             _currentRankHint.Text = currentRank.HasValue
@@ -278,7 +278,7 @@ public sealed partial class TreeSettingsSection : UserControl
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             AddCell(grid, $"{medal} {entry.Rank}", 0, true);
             AddCell(grid, entry.IsCurrentUser ? _localization.Format("Tree.Settings.Leaderboard.Me", entry.Username) : entry.Username, 1, entry.IsCurrentUser);
-            AddStageCell(grid, _localization.T($"Tree.Stage.{entry.Stage}"), entry.Stage, 2);
+            AddStageCell(grid, _localization.Format("Tree.Settings.Leaderboard.Stage", entry.Stage), entry.Stage, 2);
             AddCell(grid, $"+{entry.TodayGrowth:N0}", 3, false);
             AddCell(grid, $"⚡ {entry.TotalEnergy:N0}  🍎 {entry.FruitTotal:N0}", 4, false);
             _leaderboard.Items.Add(grid);

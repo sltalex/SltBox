@@ -17,6 +17,7 @@ public sealed class WidgetSettingsMenuHelperTests
     [InlineData(WidgetKind.Tree, "TreeSettings")]
     [InlineData(WidgetKind.Search, "SearchSettings")]
     [InlineData(WidgetKind.SystemMonitor, "FeatureWidgets")]
+    [InlineData(WidgetKind.DingTalkGroupDocs, "DingTalkGroupDocsSettings")]
     public void GetSettingsSectionTag_Returns_Expected_Tag(WidgetKind kind, string expectedTag)
     {
         Assert.Equal(expectedTag, WidgetSettingsMenuHelper.GetSettingsSectionTag(kind));
@@ -41,6 +42,7 @@ public sealed class WidgetSettingsMenuHelperTests
         Assert.Equal("Widget.Settings.Glance", WidgetSettingsMenuHelper.GetLocalizationKey(WidgetKind.Glance));
         Assert.Equal("Widget.Settings.Search", WidgetSettingsMenuHelper.GetLocalizationKey(WidgetKind.Search));
         Assert.Equal("SystemMonitor.Title", WidgetSettingsMenuHelper.GetLocalizationKey(WidgetKind.SystemMonitor));
+        Assert.Equal("Widget.Settings.DingTalkGroupDocs", WidgetSettingsMenuHelper.GetLocalizationKey(WidgetKind.DingTalkGroupDocs));
     }
 
     [Fact]

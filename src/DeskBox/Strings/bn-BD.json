@@ -1,4 +1,6 @@
 {
+  "Widget.Settings.DingTalkGroupDocs": "গ্রুপ নথির সেটিংস",
+  "Tree.Settings.Leaderboard.Stage": "পর্যায় {0}",
   "DingTalkGroupDocs.Settings.Title": "DingTalk widget",
   "DingTalkGroupDocs.Settings.Description": "Organize group document links locally without downloading files.",
   "DingTalkGroupDocs.Sync.Button": "Sync links",

@@ -1,4 +1,6 @@
 {
+  "Widget.Settings.DingTalkGroupDocs": "群文档设置",
+  "Tree.Settings.Leaderboard.Stage": "第 {0} 阶段",
   "DingTalkGroupDocs.Settings.Title": "钉钉格子",
   "DingTalkGroupDocs.Settings.Description": "自动整理群文档链接，本地缓存不下载文件。",
   "DingTalkGroupDocs.Sync.Button": "同步链接",

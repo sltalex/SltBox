@@ -178,7 +178,7 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
     private void RenderLabels()
     {
         if (_localization is null) return;
-        _card.Header = _localization.T("DingTalkGroupDocs.Settings.Title");
+        _card.Header = _localization.T("DingTalkGroupDocs.Title");
         _card.Description = _localization.T("DingTalkGroupDocs.Settings.Description");
         _syncButton.Content = _localization.T("DingTalkGroupDocs.Sync.Button");
         _intervalLabel.Text = _localization.T("DingTalkGroupDocs.Sync.Interval");
