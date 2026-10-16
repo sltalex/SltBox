@@ -4,7 +4,25 @@ CREATE TABLE auth_users (
     username_normalized TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active'
+);
+
+CREATE TABLE admin_bootstrap (
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NULL REFERENCES auth_users(id) ON DELETE RESTRICT
+);
+INSERT INTO admin_bootstrap (id, user_id) VALUES (1, NULL);
+
+CREATE TABLE admin_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    result TEXT NOT NULL,
+    details_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE auth_sessions (
@@ -17,7 +35,8 @@ CREATE TABLE auth_sessions (
     refresh_expires_at TEXT NOT NULL,
     revoked_at TEXT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE auth_rate_limits (

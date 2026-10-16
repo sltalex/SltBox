@@ -27,6 +27,9 @@ internal sealed class AuthUserDto
 
     [JsonPropertyName("username")]
     public string Username { get; set; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "user";
 }
 
 internal sealed class AuthTokensDto

@@ -25,6 +25,10 @@ function auth_register(PDO $pdo, string $username, string $password, string $dev
     $userId = auth_random_id();
     try {
         $pdo->beginTransaction();
+        $bootstrap = $pdo->prepare('SELECT user_id FROM admin_bootstrap WHERE id = 1' .
+            ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : ''));
+        $bootstrap->execute();
+        $firstUser = $bootstrap->fetchColumn() === null;
         $statement = $pdo->prepare(
             'INSERT INTO auth_users (id, username, username_normalized, password_hash, created_at, updated_at) '
             . 'VALUES (:id, :username, :normalized, :password_hash, :created_at, :updated_at)'
@@ -37,6 +41,10 @@ function auth_register(PDO $pdo, string $username, string $password, string $dev
             ':created_at' => auth_sql_time($now),
             ':updated_at' => auth_sql_time($now),
         ]);
+        if ($firstUser) {
+            $owner = $pdo->prepare('UPDATE admin_bootstrap SET user_id = :user_id WHERE id = 1 AND user_id IS NULL');
+            $owner->execute([':user_id' => $userId]);
+        }
         $session = auth_issue_session($pdo, $userId, $displayName, $deviceId, $now);
         $pdo->commit();
         return $session;
@@ -62,13 +70,14 @@ function auth_login(PDO $pdo, string $username, string $password, string $device
     $bucket = hash('sha256', $remoteAddress . "\0" . $normalizedName);
     auth_rate_limit($pdo, 'login', $bucket, 5, 900, $clock);
     $statement = $pdo->prepare(
-        'SELECT id, username, password_hash FROM auth_users WHERE username_normalized = :username LIMIT 1'
+        'SELECT id, username, password_hash, status FROM auth_users WHERE username_normalized = :username LIMIT 1'
     );
     $statement->execute([':username' => $normalizedName]);
     $user = $statement->fetch(PDO::FETCH_ASSOC);
     if (!is_array($user) || !password_verify($password, (string)$user['password_hash'])) {
         throw new ApiError('invalid_credentials', 'The username or password is incorrect.', 401);
     }
+    if ($user['status'] !== 'active') { throw new ApiError('account_disabled', 'This account is disabled.', 403); }
     if (password_needs_rehash((string)$user['password_hash'], PASSWORD_DEFAULT)) {
         $update = $pdo->prepare('UPDATE auth_users SET password_hash = :password_hash, updated_at = :updated_at WHERE id = :id');
         $update->execute([
@@ -88,14 +97,14 @@ function auth_refresh(PDO $pdo, string $refreshToken, callable $clock): array
     }
     $now = $clock();
     $statement = $pdo->prepare(
-        'SELECT s.id, s.user_id, s.device_id, s.refresh_expires_at, s.revoked_at, u.username '
+        'SELECT s.id, s.user_id, s.device_id, s.refresh_expires_at, s.revoked_at, u.username, u.status '
         . 'FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id '
         . 'WHERE s.refresh_token_hash = :token_hash LIMIT 1'
     );
     $oldRefreshHash = hash('sha256', $refreshToken);
     $statement->execute([':token_hash' => $oldRefreshHash]);
     $session = $statement->fetch(PDO::FETCH_ASSOC);
-    if (!is_array($session) || $session['revoked_at'] !== null || auth_parse_sql_time((string)$session['refresh_expires_at']) <= $now) {
+    if (!is_array($session) || $session['status'] !== 'active' || $session['revoked_at'] !== null || auth_parse_sql_time((string)$session['refresh_expires_at']) <= $now) {
         throw new ApiError('invalid_session', 'The session is invalid or expired.', 401);
     }
     $tokens = auth_new_tokens($now);
@@ -117,7 +126,7 @@ function auth_refresh(PDO $pdo, string $refreshToken, callable $clock): array
         throw new ApiError('invalid_session', 'The session is invalid or expired.', 401);
     }
     return [
-        'user' => ['id' => (string)$session['user_id'], 'username' => (string)$session['username']],
+        'user' => auth_public_user($pdo, (string)$session['user_id'], (string)$session['username']),
         'session' => auth_public_tokens($tokens),
     ];
 }
@@ -125,7 +134,7 @@ function auth_refresh(PDO $pdo, string $refreshToken, callable $clock): array
 function auth_me(PDO $pdo, string $accessToken, callable $clock): array
 {
     $session = auth_find_access_session($pdo, $accessToken, $clock());
-    return ['user' => ['id' => (string)$session['user_id'], 'username' => (string)$session['username']]];
+    return ['user' => auth_public_user($pdo, (string)$session['user_id'], (string)$session['username'])];
 }
 
 function auth_logout(PDO $pdo, string $accessToken, callable $clock): void
@@ -175,7 +184,14 @@ function auth_issue_session(PDO $pdo, string $userId, string $username, string $
         ':refresh_expires' => auth_sql_time($tokens['refresh_expires_at_value']),
         ':created_at' => auth_sql_time($now), ':updated_at' => auth_sql_time($now),
     ]);
-    return ['user' => ['id' => $userId, 'username' => $username], 'session' => auth_public_tokens($tokens)];
+    return ['user' => auth_public_user($pdo, $userId, $username), 'session' => auth_public_tokens($tokens)];
+}
+
+function auth_public_user(PDO $pdo, string $userId, string $username): array
+{
+    $owner = $pdo->query('SELECT user_id FROM admin_bootstrap WHERE id = 1')->fetchColumn();
+    return ['id' => $userId, 'username' => $username,
+        'role' => $owner === $userId ? 'admin' : 'user'];
 }
 
 function auth_find_access_session(PDO $pdo, string $accessToken, DateTimeImmutable $now): array
@@ -184,12 +200,12 @@ function auth_find_access_session(PDO $pdo, string $accessToken, DateTimeImmutab
         throw new ApiError('invalid_session', 'The session is invalid or expired.', 401);
     }
     $statement = $pdo->prepare(
-        'SELECT s.id, s.user_id, s.access_expires_at, s.revoked_at, u.username FROM auth_sessions s '
+        'SELECT s.id, s.user_id, s.access_expires_at, s.revoked_at, u.username, u.status FROM auth_sessions s '
         . 'JOIN auth_users u ON u.id = s.user_id WHERE s.access_token_hash = :token_hash LIMIT 1'
     );
     $statement->execute([':token_hash' => hash('sha256', $accessToken)]);
     $session = $statement->fetch(PDO::FETCH_ASSOC);
-    if (!is_array($session) || $session['revoked_at'] !== null || auth_parse_sql_time((string)$session['access_expires_at']) <= $now) {
+    if (!is_array($session) || $session['status'] !== 'active' || $session['revoked_at'] !== null || auth_parse_sql_time((string)$session['access_expires_at']) <= $now) {
         throw new ApiError('invalid_session', 'The session is invalid or expired.', 401);
     }
     return $session;

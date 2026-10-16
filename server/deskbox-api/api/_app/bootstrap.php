@@ -24,6 +24,9 @@ function api_database(): PDO
 function api_run(string $method, callable $handler): never
 {
     try {
+        if (preg_match('~/api/v1/(auth|admin)/~', (string)($_SERVER['SCRIPT_NAME'] ?? '')) && !api_is_https($_SERVER)) {
+            throw new ApiError('https_required', 'HTTPS is required.', 403);
+        }
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
             header('Allow: ' . $method);
             throw new ApiError('method_not_allowed', 'Method not allowed.', 405);
@@ -37,6 +40,12 @@ function api_run(string $method, callable $handler): never
         error_log('[DeskBoxAuth] ' . get_class($error) . ': ' . $error->getMessage());
         api_json(['code' => 'server_error', 'message' => 'The account service is temporarily unavailable.'], 500);
     }
+}
+
+function api_is_https(array $server): bool
+{
+    return in_array(strtolower((string)($server['HTTPS'] ?? '')), ['on', '1'], true)
+        || (string)($server['SERVER_PORT'] ?? '') === '443';
 }
 
 function api_json(array $body, int $status): never

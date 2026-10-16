@@ -83,6 +83,9 @@ public sealed partial class SettingsWindow
 
         switch (section)
         {
+            case AdminSettingsSection admin:
+                admin.Initialize(_authSession, _localizationService);
+                break;
             case SearchSettingsSection searchSettings:
                 searchSettings.Configure(_searchSettingsViewModel, _localizationService, _hWnd);
                 break;

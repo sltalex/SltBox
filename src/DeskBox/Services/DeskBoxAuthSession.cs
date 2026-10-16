@@ -7,7 +7,7 @@ namespace DeskBox.Services;
 
 internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountApi
 {
-    internal const string DefaultApiBaseUrl = "http://sltbox.2leaves.cn/api/v1/auth/";
+    internal const string DefaultApiBaseUrl = "https://sltbox.2leaves.cn/api/v1/auth/";
     internal const string SessionCredentialKey = "deskbox-cloud:auth:session";
 
     private readonly ICredentialStore _credentialStore;
@@ -16,6 +16,7 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
     private readonly HttpClient _httpClient;
     private StoredAuthSession? _session;
     private bool _restoreAttempted;
+    private bool _serverVerified;
 
     internal DeskBoxAuthSession(
         ICredentialStore credentialStore,
@@ -37,7 +38,8 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
 
     public AuthUser? CurrentUser => _session is null
         ? null
-        : new AuthUser(_session.User.Id, _session.User.Username);
+        : new AuthUser(_session.User.Id, _session.User.Username,
+            _serverVerified && _session.User.Role == "admin" ? "admin" : "user");
 
     public Task<AuthUser> RegisterAsync(
         string username,
@@ -76,6 +78,7 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
                     stored,
                     AuthJsonContext.Default.StoredAuthSession);
                 ValidateStoredSession(_session);
+                _serverVerified = false;
             }
             catch (Exception ex) when (ex is JsonException or InvalidDataException)
             {
@@ -310,6 +313,7 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
         StoredAuthSession candidate = CopySession(_session!, body.User);
         await PersistSessionAsync(candidate, cancellationToken);
         _session = candidate;
+        _serverVerified = true;
         RaiseSessionChanged();
     }
 
@@ -372,6 +376,7 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
         };
         await PersistSessionAsync(candidate, cancellationToken);
         _session = candidate;
+        _serverVerified = true;
         RaiseSessionChanged();
     }
 
@@ -503,6 +508,7 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
     {
         bool changed = _session is not null;
         _session = null;
+        _serverVerified = false;
         await _credentialStore.RemoveSecretAsync(SessionCredentialKey, cancellationToken);
         if (changed)
         {
@@ -514,6 +520,7 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
     {
         bool changed = _session is not null;
         _session = null;
+        _serverVerified = false;
         try
         {
             await _credentialStore.RemoveSecretAsync(SessionCredentialKey, cancellationToken);

@@ -64,6 +64,7 @@ public sealed partial class SettingsWindow
         var results = new List<SettingsSearchResult>();
         foreach (SettingsSectionRoute route in SectionRoutes.Values.Where(route => route.Tag != "Advanced"))
         {
+            if (route.Tag == "Admin" && !IsVerifiedAdmin) continue;
             string title = _localizationService.T(route.TitleKey);
             results.Add(new SettingsSearchResult(
                 route.Tag,
@@ -444,6 +445,8 @@ public sealed partial class SettingsWindow
     {
         sectionTag = NormalizeSettingsSectionTag(sectionTag);
 
+        if (sectionTag == "Admin" && !IsVerifiedAdmin) sectionTag = "General";
+
         ShowSettingsSection(sectionTag);
         var navItem = GetNavItemForSection(sectionTag);
         if (navItem is not null && !ReferenceEquals(SettingsNavigationView.SelectedItem, navItem))
@@ -470,6 +473,7 @@ public sealed partial class SettingsWindow
     private void ShowSettingsSection(string sectionTag, bool isNestedSection = false)
     {
         sectionTag = NormalizeSettingsSectionTag(sectionTag);
+        if (sectionTag == "Admin" && !IsVerifiedAdmin) sectionTag = "General";
 
         if (!TryGetSectionRoute(sectionTag, out var route))
         {
@@ -564,6 +568,11 @@ public sealed partial class SettingsWindow
         {
             _backupSettingsViewModel.RefreshLocalStatus();
             _ = RefreshBackupSnapshotInventoryAsync();
+        }
+        if (sectionTag == "Admin" && _settingsSectionElements.TryGetValue("Admin", out var adminElement)
+            && adminElement is AdminSettingsSection adminSection)
+        {
+            _ = adminSection.RefreshAsync();
         }
         SettingsNavigationView.IsBackButtonVisible = isNestedSection
             ? NavigationViewBackButtonVisible.Visible

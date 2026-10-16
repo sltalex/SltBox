@@ -20,4 +20,4 @@ public interface IAuthSession
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
 
-public sealed record AuthUser(string Id, string Username);
+public sealed record AuthUser(string Id, string Username, string Role = "user");

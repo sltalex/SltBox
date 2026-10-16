@@ -74,6 +74,11 @@ public sealed partial class SettingsWindow
     {
         Title = _localizationService.T("Settings.WindowTitle");
         Localized.RefreshAll(_localizationService);
+        if (_settingsSectionElements.TryGetValue("Admin", out FrameworkElement? adminElement) &&
+            adminElement is DeskBox.Views.SettingsSections.AdminSettingsSection adminSection)
+        {
+            adminSection.RefreshLocalizedContent();
+        }
         RefreshSettingsSearchResults();
         ApplyToggleSwitchContentVisibility();
         RefreshFeatureWidgetList();

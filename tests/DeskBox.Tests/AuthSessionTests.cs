@@ -24,6 +24,48 @@ public sealed class AuthSessionTests
     }
 
     [Fact]
+    public async Task AdminRole_IsVisibleOnlyAfterServerVerification()
+    {
+        var credentials = new MemoryCredentialStore();
+        await credentials.SetSecretAsync(DeskBoxAuthSession.SessionCredentialKey,
+            """
+            {"user":{"id":"user-1","username":"Simon","role":"admin"},"accessToken":"access-1","refreshToken":"refresh-1","accessExpiresAt":"2026-10-15T00:00:00Z","refreshExpiresAt":"2026-11-14T00:00:00Z"}
+            """);
+        string? roleDuringRequest = null;
+        DeskBoxAuthSession? session = null;
+        using var http = Client((_, _) =>
+        {
+            roleDuringRequest = session!.CurrentUser?.Role;
+            return Json(HttpStatusCode.OK, "{\"user\":{\"id\":\"user-1\",\"username\":\"Simon\",\"role\":\"admin\"}}");
+        });
+        session = new DeskBoxAuthSession(credentials, http,
+            () => new DateTimeOffset(2026, 10, 14, 0, 0, 0, TimeSpan.Zero));
+
+        await session.RestoreAsync();
+
+        Assert.Equal("user", roleDuringRequest);
+        Assert.Equal("admin", session.CurrentUser?.Role);
+    }
+
+    [Fact]
+    public async Task AdminRole_RemainsHiddenWhenOfflineRestoreCannotValidate()
+    {
+        var credentials = new MemoryCredentialStore();
+        await credentials.SetSecretAsync(DeskBoxAuthSession.SessionCredentialKey,
+            """
+            {"user":{"id":"user-1","username":"Simon","role":"admin"},"accessToken":"access-1","refreshToken":"refresh-1","accessExpiresAt":"2026-10-15T00:00:00Z","refreshExpiresAt":"2026-11-14T00:00:00Z"}
+            """);
+        using var http = Client((_, _) => throw new HttpRequestException("offline"));
+        var session = new DeskBoxAuthSession(credentials, http,
+            () => new DateTimeOffset(2026, 10, 14, 0, 0, 0, TimeSpan.Zero));
+
+        await session.RestoreAsync();
+
+        Assert.True(session.IsAuthenticated);
+        Assert.Equal("user", session.CurrentUser?.Role);
+    }
+
+    [Fact]
     public async Task Restore_RetriesMeOnceAfterRefreshingUnauthorizedAccessToken()
     {
         var credentials = new MemoryCredentialStore();
