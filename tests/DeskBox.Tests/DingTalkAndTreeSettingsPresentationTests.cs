@@ -58,6 +58,8 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
         Assert.Equal(ui + "Grid", row.Name);
         Assert.Equal("Left", (string?)row.Parent!.Attribute("ContentAlignment"));
         Assert.Equal("Stretch", (string?)row.Parent.Attribute("HorizontalContentAlignment"));
+        Assert.Equal("Settings.DingTalk.Title", (string?)row.Parent.Attribute(localized + "Localized.HeaderKey"));
+        Assert.Equal("Settings.DingTalk.Description", (string?)row.Parent.Attribute(localized + "Localized.DescriptionKey"));
         Assert.Null(row.Element(ui + "Grid.RowDefinitions"));
         Assert.Equal(4, row.Element(ui + "Grid.ColumnDefinitions")!.Elements().Count());
         XElement description = Assert.Single(row.Elements(ui + "TextBlock").Where(

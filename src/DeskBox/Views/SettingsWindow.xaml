@@ -3424,6 +3424,8 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
 
                         <toolkit:SettingsCard
                             HorizontalContentAlignment="Stretch"
+                            svc:Localized.HeaderKey="Settings.DingTalk.Title"
+                            svc:Localized.DescriptionKey="Settings.DingTalk.Description"
                             ContentAlignment="Left">
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
