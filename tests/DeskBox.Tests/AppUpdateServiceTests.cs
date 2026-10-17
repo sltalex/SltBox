@@ -68,6 +68,8 @@ public sealed class AppUpdateServiceTests : IDisposable
         Assert.True(AppUpdateService.IsInstallerAssetName("DeskBox_Setup_1.2.4_arm64.exe", "arm64"));
         Assert.True(AppUpdateService.IsInstallerAssetName("DeskBox_Setup_1.4.8_x64.exe", "x64"));
         Assert.True(AppUpdateService.IsInstallerAssetName("DeskBox_Setup_1.4.8_arm64.exe", "arm64"));
+        Assert.True(AppUpdateService.IsInstallerAssetName("SltBox_Setup_2026101602_x64.exe", "x64"));
+        Assert.True(AppUpdateService.IsInstallerAssetName("SltBox_Setup_2026101602_arm64.exe", "arm64"));
         Assert.False(AppUpdateService.IsInstallerAssetName("DeskBox_Setup_1.4.3_x64_Full.exe", "x64"));
         Assert.False(AppUpdateService.IsInstallerAssetName("DeskBox_Setup_1.4.3_arm64_Full.exe", "arm64"));
         Assert.True(AppUpdateService.IsInstallerDownloadCompatibleWithArchitecture(
@@ -79,8 +81,11 @@ public sealed class AppUpdateServiceTests : IDisposable
         Assert.True(AppUpdateService.IsInstallerDownloadCompatibleWithArchitecture(
             "https://example.com/download/latest",
             "arm64"));
+        Assert.True(AppUpdateService.IsInstallerDownloadCompatibleWithArchitecture(
+            "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026101602_x64.exe",
+            "x64"));
         Assert.Equal(
-            $"DeskBox_Setup_1.2.4_{AppUpdateService.CurrentInstallerArchitectureSuffix}.exe",
+            $"SltBox_Setup_1.2.4_{AppUpdateService.CurrentInstallerArchitectureSuffix}.exe",
             AppUpdateService.GetInstallerFileName(new Uri("https://example.com/download/latest"), "1.2.4"));
     }
 
@@ -415,6 +420,39 @@ public sealed class AppUpdateServiceTests : IDisposable
         Assert.True(result.Success, $"{result.FailureKind}: {result.ErrorMessage}");
         Assert.True(File.Exists(result.FilePath));
         Assert.Equal(payload, await File.ReadAllBytesAsync(result.FilePath!));
+    }
+
+    [Fact]
+    public async Task DownloadUpdateAsync_ReusesVerifiedInstallerForTheSameVersion()
+    {
+        byte[] payload = Encoding.UTF8.GetBytes("cached-installer");
+        int requests = 0;
+        using var httpClient = CreateHttpClient(_ =>
+        {
+            requests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload)
+            };
+        });
+        var service = new AppUpdateService(httpClient, updateRootPath: _tempRoot);
+        var manifest = new AppUpdateManifest
+        {
+            Version = "1.2.6",
+            DownloadUrl = $"https://github.com/sltalex/SltBox/releases/download/v1.2.6/DeskBox_Setup_1.2.6_{AppUpdateService.CurrentInstallerArchitectureSuffix}.exe",
+            Sha256 = Convert.ToHexString(SHA256.HashData(payload)),
+            Size = payload.Length
+        };
+
+        AppUpdateDownloadResult first = await service.DownloadUpdateAsync(manifest);
+        AppUpdateDownloadResult second = await service.DownloadUpdateAsync(manifest);
+
+        Assert.True(first.Success);
+        Assert.True(second.Success);
+        Assert.Equal(first.FilePath, second.FilePath);
+        Assert.Equal(manifest.Version, service.DownloadedInstallerVersion);
+        Assert.Equal(first.FilePath, service.DownloadedInstallerPath);
+        Assert.Equal(1, requests);
     }
 
     [Fact]

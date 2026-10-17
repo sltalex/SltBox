@@ -59,6 +59,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             ["src/DeskBox/Services/TodoWidgetStore.cs"] = 3,
             ["src/DeskBox/Services/TreeProgressFileStore.cs"] = 2,
             ["src/DeskBox/Services/TreeCloudSyncService.cs"] = 9,
+            ["src/DeskBox/Services/UpdatePreferenceService.cs"] = 2,
             ["src/DeskBox/Services/WeatherService.cs"] = 5,
             ["src/DeskBox/Services/WidgetFileStackSettings.cs"] = 7,
             ["src/DeskBox/Services/WidgetLayoutStore.cs"] = 2,
@@ -84,8 +85,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             Assert.Equal(expectedCount, actual[path]);
         }
 
-        Assert.Equal(46, actual.Count);
-        Assert.Equal(122, actual.Values.Sum());
+        Assert.Equal(47, actual.Count);
+        Assert.Equal(124, actual.Values.Sum());
 
         string[] expectedContextOwners =
         [
@@ -124,6 +125,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             "src/DeskBox/Services/SyncStateStore.cs",
             "src/DeskBox/Services/TodoWidgetStore.cs",
             "src/DeskBox/Services/TreeProgressFileStore.cs",
+            "src/DeskBox/Services/UpdatePreferenceService.cs",
             "src/DeskBox/Services/WeatherService.cs",
             "src/DeskBox/Services/WidgetFileStackSettings.cs",
             "src/DeskBox/Services/WidgetLayoutStore.cs",
@@ -138,7 +140,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             .Order()
             .ToArray();
 
-        Assert.Equal(40, actualContextOwners.Length);
+        Assert.Equal(41, actualContextOwners.Length);
         Assert.Equal(expectedContextOwners, actualContextOwners);
     }
 

@@ -22,6 +22,7 @@ public sealed partial class AppUpdateService : IAppUpdateService
     private readonly string _manifestUrl;
     private readonly string _githubLatestReleaseApiUrl;
     private readonly string _updateRootPath;
+    private readonly SemaphoreSlim _downloadGate = new(1, 1);
 
     public AppUpdateService(
         HttpClient? httpClient = null,
@@ -47,6 +48,8 @@ public sealed partial class AppUpdateService : IAppUpdateService
 
     public AppUpdateCheckResult? LastCheckResult { get; private set; }
     public DateTime? LastCheckTimeUtc { get; private set; }
+    public string? DownloadedInstallerPath { get; private set; }
+    public string? DownloadedInstallerVersion { get; private set; }
     public event Action<AppUpdateCheckResult>? CheckCompleted;
 
     public string ManifestUrl => _manifestUrl;
@@ -166,6 +169,51 @@ public sealed partial class AppUpdateService : IAppUpdateService
         IProgress<AppUpdateDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        try
+        {
+            await _downloadGate.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return AppUpdateDownloadResult.Failed(AppUpdateDownloadFailureKind.Cancelled);
+        }
+
+        try
+        {
+            if (string.Equals(DownloadedInstallerVersion, manifest.Version, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(DownloadedInstallerPath) &&
+                File.Exists(DownloadedInstallerPath))
+            {
+                if (await IsCachedInstallerValidAsync(manifest, DownloadedInstallerPath, cancellationToken))
+                {
+                    long size = new FileInfo(DownloadedInstallerPath).Length;
+                    progress?.Report(new AppUpdateDownloadProgress(size, size));
+                    return AppUpdateDownloadResult.Completed(DownloadedInstallerPath);
+                }
+
+                DownloadedInstallerPath = null;
+                DownloadedInstallerVersion = null;
+            }
+
+            return await DownloadUpdateCoreAsync(manifest, progress, cancellationToken);
+        }
+        finally
+        {
+            _downloadGate.Release();
+        }
+    }
+
+    private async Task<AppUpdateDownloadResult> DownloadUpdateCoreAsync(
+        AppUpdateManifest manifest,
+        IProgress<AppUpdateDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(DownloadedInstallerVersion, manifest.Version, StringComparison.OrdinalIgnoreCase))
+        {
+            DownloadedInstallerPath = null;
+            DownloadedInstallerVersion = null;
+        }
+
         if (!TrySelectInstallerForArchitecture(
                 manifest,
                 CurrentInstallerArchitectureSuffix) ||
@@ -247,7 +295,7 @@ public sealed partial class AppUpdateService : IAppUpdateService
                         }
                         File.Move(tempPath, targetPath, overwrite: true);
                         progress?.Report(new AppUpdateDownloadProgress(manifest.Size, manifest.Size));
-                        return AppUpdateDownloadResult.Completed(targetPath);
+                        return CompleteDownload(manifest.Version, targetPath);
                     }
                 }
                 long requestedOffset = partialBytes;
@@ -333,7 +381,7 @@ public sealed partial class AppUpdateService : IAppUpdateService
 
                 File.Move(tempPath, targetPath, overwrite: true);
                 progress?.Report(new AppUpdateDownloadProgress(bytesReceived, totalBytes ?? bytesReceived));
-                return AppUpdateDownloadResult.Completed(targetPath);
+                return CompleteDownload(manifest.Version, targetPath);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -355,6 +403,35 @@ public sealed partial class AppUpdateService : IAppUpdateService
         }
 
         return lastFailure ?? AppUpdateDownloadResult.Failed(AppUpdateDownloadFailureKind.Network);
+    }
+
+    private static async Task<bool> IsCachedInstallerValidAsync(
+        AppUpdateManifest manifest,
+        string installerPath,
+        CancellationToken cancellationToken)
+    {
+        if ((manifest.Size > 0 && new FileInfo(installerPath).Length != manifest.Size) ||
+            string.IsNullOrWhiteSpace(manifest.Sha256))
+        {
+            return false;
+        }
+
+        await using FileStream stream = new(
+            installerPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+        string actual = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken));
+        return string.Equals(actual, NormalizeSha256(manifest.Sha256), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private AppUpdateDownloadResult CompleteDownload(string version, string targetPath)
+    {
+        DownloadedInstallerVersion = version;
+        DownloadedInstallerPath = targetPath;
+        return AppUpdateDownloadResult.Completed(targetPath);
     }
 
     public AppUpdateInstallResult StartInstallerHelper(string installerPath, bool silent = true)
@@ -734,7 +811,7 @@ public sealed partial class AppUpdateService : IAppUpdateService
         string fileName = Path.GetFileName(downloadUri.LocalPath);
         return string.IsNullOrWhiteSpace(fileName) ||
             !fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-            ? $"DeskBox_Setup_{SanitizePathSegment(version)}_{CurrentInstallerArchitectureSuffix}.exe"
+            ? $"SltBox_Setup_{SanitizePathSegment(version)}_{CurrentInstallerArchitectureSuffix}.exe"
             : SanitizeFileName(fileName);
     }
 
@@ -776,8 +853,14 @@ public sealed partial class AppUpdateService : IAppUpdateService
     internal static bool IsInstallerAssetName(string assetName, string architectureSuffix)
     {
         return !string.IsNullOrWhiteSpace(architectureSuffix) &&
-            assetName.StartsWith("DeskBox_Setup_", StringComparison.OrdinalIgnoreCase) &&
+            IsKnownInstallerAssetPrefix(assetName) &&
             assetName.EndsWith($"_{architectureSuffix}.exe", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsKnownInstallerAssetPrefix(string assetName)
+    {
+        return assetName.StartsWith("DeskBox_Setup_", StringComparison.OrdinalIgnoreCase) ||
+            assetName.StartsWith("SltBox_Setup_", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool IsInstallerDownloadCompatibleWithArchitecture(
@@ -791,7 +874,7 @@ public sealed partial class AppUpdateService : IAppUpdateService
         }
 
         string fileName = Path.GetFileName(uri.LocalPath);
-        if (!fileName.StartsWith("DeskBox_Setup_", StringComparison.OrdinalIgnoreCase))
+        if (!IsKnownInstallerAssetPrefix(fileName))
         {
             // Keep compatibility with a server endpoint that returns a
             // redirect or content-disposition filename instead of exposing

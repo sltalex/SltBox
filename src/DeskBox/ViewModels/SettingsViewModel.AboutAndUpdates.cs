@@ -100,6 +100,11 @@ public partial class SettingsViewModel
         }
     }
     public bool IsOneClickActionEnabled => !IsCheckingForUpdates && !IsDownloadingUpdate;
+    public Visibility SkipUpdateVersionVisibility =>
+        _availableUpdateManifest is not null ? Visibility.Visible : Visibility.Collapsed;
+    public string SkipUpdateVersionText => _availableUpdateManifest is null
+        ? _localizationService.T("Settings.Update.SkipVersion")
+        : _localizationService.Format("Settings.Update.SkipVersionWithNumber", _availableUpdateManifest.Version);
 
     private bool IsStoreUpdateDelivery => _appUpdateService.DeliveryKind == AppUpdateDeliveryKind.MicrosoftStore;
     private bool IsDirectInstallerUpdateDelivery => _appUpdateService.DeliveryKind == AppUpdateDeliveryKind.DirectInstaller;
@@ -182,6 +187,8 @@ public partial class SettingsViewModel
             return null;
         }
 
+        AppUpdateManifest manifest = _availableUpdateManifest;
+
         _updateOperationCts?.Cancel();
         _updateOperationCts = new CancellationTokenSource();
         _downloadedUpdateInstallerPath = null;
@@ -192,7 +199,7 @@ public partial class SettingsViewModel
         _updateTotalBytes = null;
         UpdateStatusText = IsStoreUpdateDelivery
             ? _localizationService.T("Settings.Update.Status.StoreInstalling")
-            : _localizationService.Format("Settings.Update.Status.Downloading", _availableUpdateManifest.Version);
+            : _localizationService.Format("Settings.Update.Status.Downloading", manifest.Version);
         UpdateDetailText = IsStoreUpdateDelivery
             ? _localizationService.T("Settings.Update.Detail.StoreInstalling")
             : _localizationService.T("Settings.Update.Detail.Downloading");
@@ -209,7 +216,7 @@ public partial class SettingsViewModel
 
         try
         {
-            var result = await _appUpdateService.DownloadUpdateAsync(_availableUpdateManifest, progress, _updateOperationCts.Token);
+            var result = await _appUpdateService.DownloadUpdateAsync(manifest, progress, _updateOperationCts.Token);
             if (result.Success && IsStoreUpdateDelivery)
             {
                 _availableUpdateManifest = null;
@@ -223,11 +230,31 @@ public partial class SettingsViewModel
 
             if (result.Success && !string.IsNullOrWhiteSpace(result.FilePath))
             {
+                if (_updatePreferenceService.IsSkipped(manifest.Version))
+                {
+                    return result;
+                }
+
+                _availableUpdateManifest = manifest;
                 _downloadedUpdateInstallerPath = result.FilePath;
                 _showManualUpdateFallback = false;
                 UpdateProgressValue = 100;
-                UpdateStatusText = _localizationService.Format("Settings.Update.Status.Downloaded", _availableUpdateManifest.Version);
+                UpdateStatusText = _localizationService.Format("Settings.Update.Status.Downloaded", manifest.Version);
                 UpdateDetailText = _localizationService.T("Settings.Update.Detail.Downloaded");
+                return result;
+            }
+
+            if (_updatePreferenceService.IsSkipped(manifest.Version))
+            {
+                _availableUpdateManifest = null;
+                _downloadedUpdateInstallerPath = null;
+                _showManualUpdateFallback = false;
+                _lastUpdateDownloadFailed = false;
+                UpdateStatusText = _localizationService.Format(
+                    "Settings.Update.Status.Skipped",
+                    manifest.Version);
+                UpdateDetailText = _localizationService.T("Settings.Update.Detail.Skipped");
+                NotifyUpdateActionPropertiesChanged();
                 return result;
             }
 
@@ -259,6 +286,45 @@ public partial class SettingsViewModel
         return result;
     }
 
+    public string? SkipCurrentUpdateVersion()
+    {
+        if (_availableUpdateManifest is not { } manifest)
+        {
+            return null;
+        }
+
+        _updatePreferenceService.Skip(manifest.Version);
+        _updateOperationCts?.Cancel();
+        _availableUpdateManifest = null;
+        _downloadedUpdateInstallerPath = null;
+        _showManualUpdateFallback = false;
+        _lastUpdateDownloadFailed = false;
+        UpdateStatusText = _localizationService.Format("Settings.Update.Status.Skipped", manifest.Version);
+        UpdateDetailText = _localizationService.T("Settings.Update.Detail.Skipped");
+        NotifyUpdateActionPropertiesChanged();
+        return manifest.Version;
+    }
+
+    public void AcceptDownloadedUpdate(AppUpdateManifest manifest, string installerPath)
+    {
+        if (_updatePreferenceService.IsSkipped(manifest.Version) ||
+            string.IsNullOrWhiteSpace(installerPath) ||
+            !File.Exists(installerPath))
+        {
+            return;
+        }
+
+        _latestUpdateManifest = manifest;
+        _availableUpdateManifest = manifest;
+        _downloadedUpdateInstallerPath = installerPath;
+        _showManualUpdateFallback = false;
+        _lastUpdateDownloadFailed = false;
+        UpdateProgressValue = 100;
+        UpdateStatusText = _localizationService.Format("Settings.Update.Status.Downloaded", manifest.Version);
+        UpdateDetailText = _localizationService.T("Settings.Update.Detail.Downloaded");
+        NotifyUpdateActionPropertiesChanged();
+    }
+
     private void ApplyCachedUpdateResult()
     {
         if (_appUpdateService.LastCheckResult is { } result)
@@ -276,16 +342,47 @@ public partial class SettingsViewModel
 
         if (result.IsUpdateAvailable && result.Manifest is not null)
         {
+            if (_updatePreferenceService.IsSkipped(result.Manifest.Version))
+            {
+                _availableUpdateManifest = null;
+                _downloadedUpdateInstallerPath = null;
+                _showManualUpdateFallback = false;
+                _lastUpdateDownloadFailed = false;
+                UpdateStatusText = _localizationService.Format(
+                    "Settings.Update.Status.Skipped",
+                    result.Manifest.Version);
+                UpdateDetailText = _localizationService.T("Settings.Update.Detail.Skipped");
+                NotifyUpdateActionPropertiesChanged();
+                return;
+            }
+
             _availableUpdateManifest = result.Manifest;
-            _downloadedUpdateInstallerPath = null;
+            _downloadedUpdateInstallerPath =
+                string.Equals(
+                    _appUpdateService.DownloadedInstallerVersion,
+                    result.Manifest.Version,
+                    StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(_appUpdateService.DownloadedInstallerPath)
+                    ? _appUpdateService.DownloadedInstallerPath
+                    : null;
             _showManualUpdateFallback = false;
             _lastUpdateDownloadFailed = false;
-            UpdateStatusText = IsStoreUpdateDelivery
-                ? _localizationService.T("Settings.Update.Status.StoreAvailable")
-                : _localizationService.Format("Settings.Update.Status.Available", result.Manifest.Version);
-            UpdateDetailText = _localizationService.T(IsStoreUpdateDelivery
-                ? "Settings.Update.Detail.StoreAvailable"
-                : "Settings.Update.Detail.Available");
+            if (_downloadedUpdateInstallerPath is not null)
+            {
+                UpdateStatusText = _localizationService.Format(
+                    "Settings.Update.Status.Downloaded",
+                    result.Manifest.Version);
+                UpdateDetailText = _localizationService.T("Settings.Update.Detail.Downloaded");
+            }
+            else
+            {
+                UpdateStatusText = IsStoreUpdateDelivery
+                    ? _localizationService.T("Settings.Update.Status.StoreAvailable")
+                    : _localizationService.Format("Settings.Update.Status.Available", result.Manifest.Version);
+                UpdateDetailText = _localizationService.T(IsStoreUpdateDelivery
+                    ? "Settings.Update.Detail.StoreAvailable"
+                    : "Settings.Update.Detail.Available");
+            }
         }
         else if (result.Status == AppUpdateCheckStatus.UpToDate)
         {
@@ -474,6 +571,8 @@ public partial class SettingsViewModel
         OnPropertyChanged(nameof(UpdateCardVisibility));
         OnPropertyChanged(nameof(OneClickActionButtonText));
         OnPropertyChanged(nameof(IsOneClickActionEnabled));
+        OnPropertyChanged(nameof(SkipUpdateVersionVisibility));
+        OnPropertyChanged(nameof(SkipUpdateVersionText));
     }
 
     private string GetReadyUpdateDetailText()

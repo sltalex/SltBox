@@ -32,6 +32,8 @@ namespace DeskBox.ViewModels;
     nameof(ManualUpdateDownloadUrl),
     nameof(OneClickActionButtonText),
     nameof(ReleaseNotesButtonVisibility),
+    nameof(SkipUpdateVersionText),
+    nameof(SkipUpdateVersionVisibility),
     nameof(SelectedLanguage),
     nameof(UpdateAutoCheckVisibility),
     nameof(UpdateDetailText),

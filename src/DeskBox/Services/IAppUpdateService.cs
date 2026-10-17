@@ -12,6 +12,8 @@ public interface IAppUpdateService
 {
     AppUpdateCheckResult? LastCheckResult { get; }
     DateTime? LastCheckTimeUtc { get; }
+    string? DownloadedInstallerPath => null;
+    string? DownloadedInstallerVersion => null;
     event Action<AppUpdateCheckResult>? CheckCompleted;
     string ManifestUrl { get; }
     AppUpdateDeliveryKind DeliveryKind { get; }

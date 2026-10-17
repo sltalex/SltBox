@@ -74,6 +74,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     private readonly DingTalkAccountService _dingTalkAccountService;
     private readonly WidgetContentFactory _widgetContentFactory;
     private readonly IAppUpdateService _appUpdateService;
+    private readonly UpdatePreferenceService _updatePreferenceService;
     private readonly CancellationTokenSource _lifetimeCts = new();
     private bool _isDisposed;
     private CancellationTokenSource? _updateOperationCts;
@@ -174,7 +175,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         IDingTalkDwsClient dingTalkDwsClient,
         DingTalkAccountService dingTalkAccountService,
         LocalizationService? localizationService = null,
-        IAppUpdateService? appUpdateService = null)
+        IAppUpdateService? appUpdateService = null,
+        UpdatePreferenceService? updatePreferenceService = null)
     {
         _settingsService = settingsService;
         _todoSettings = todoSettings;
@@ -202,6 +204,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         _localizationService = localizationService ?? new LocalizationService(settingsService);
         _widgetContentFactory = new WidgetContentFactory(_localizationService);
         _appUpdateService = appUpdateService ?? new AppUpdateService();
+        _updatePreferenceService = updatePreferenceService ?? UpdatePreferenceService.Current;
         _isRestoringDefaults = true;
         UpdateStatusText = _localizationService.T("Settings.Update.Status.Ready");
         UpdateDetailText = GetReadyUpdateDetailText();

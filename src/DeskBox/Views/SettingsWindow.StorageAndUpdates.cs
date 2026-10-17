@@ -20,6 +20,8 @@ namespace DeskBox.Views;
 
 public sealed partial class SettingsWindow
 {
+    private string? _queuedDownloadedUpdatePromptVersion;
+
     private async void ChangeManagedStoragePathButton_Click(object sender, RoutedEventArgs e)
     {
         await ChangeManagedStoragePathAsync();
@@ -338,39 +340,7 @@ public sealed partial class SettingsWindow
         // If update is already downloaded, show install confirmation dialog.
         if (ViewModel.IsUpdateDownloaded)
         {
-            if (SettingsRoot.XamlRoot is null) return;
-
-            var dialog = new ContentDialog
-            {
-                XamlRoot = SettingsRoot.XamlRoot,
-                Title = _localizationService.T("Settings.Update.InstallConfirmTitle"),
-                Content = new TextBlock
-                {
-                    Text = _localizationService.T("Settings.Update.InstallConfirmBody"),
-                    TextWrapping = TextWrapping.Wrap
-                },
-                PrimaryButtonText = _localizationService.T("Settings.Update.OneClick.Install"),
-                CloseButtonText = _localizationService.T("Common.Cancel"),
-                DefaultButton = ContentDialogButton.Primary
-            };
-
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-            if (!await CreatePreUpdateRecoverySnapshotAsync())
-            {
-                return;
-            }
-
-            var result = ViewModel.StartDownloadedUpdateInstall();
-            if (!result.Success)
-            {
-                await ShowInfoDialogAsync(
-                    _localizationService.T("Settings.Update.InstallStartFailedTitle"),
-                    result.ErrorMessage ?? _localizationService.T("Settings.Update.InstallStartFailedBody"));
-                return;
-            }
-
-            await App.Current.ShutdownForUpdateAsync();
+            await ConfirmAndInstallDownloadedUpdateAsync(isAutomaticDownload: false);
             return;
         }
 
@@ -380,6 +350,84 @@ public sealed partial class SettingsWindow
         {
             await ShowDownloadFailureDialogAsync(downloadResult);
         }
+    }
+
+    private void SkipUpdateVersionButton_Click(object sender, RoutedEventArgs e)
+    {
+        string? skippedVersion = ViewModel.SkipCurrentUpdateVersion();
+        if (!string.IsNullOrWhiteSpace(skippedVersion))
+        {
+            App.Current.OnUpdateVersionSkipped(skippedVersion);
+        }
+    }
+
+    public void QueueDownloadedUpdatePrompt(AppUpdateManifest manifest, string installerPath)
+    {
+        ViewModel.AcceptDownloadedUpdate(manifest, installerPath);
+        if (!ViewModel.IsUpdateDownloaded ||
+            string.Equals(_queuedDownloadedUpdatePromptVersion, manifest.Version, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _queuedDownloadedUpdatePromptVersion = manifest.Version;
+        if (SettingsRoot.XamlRoot is not null)
+        {
+            _ = ConfirmAndInstallDownloadedUpdateAsync(isAutomaticDownload: true);
+            return;
+        }
+
+        RoutedEventHandler? loadedHandler = null;
+        loadedHandler = (_, _) =>
+        {
+            SettingsRoot.Loaded -= loadedHandler;
+            _ = ConfirmAndInstallDownloadedUpdateAsync(isAutomaticDownload: true);
+        };
+        SettingsRoot.Loaded += loadedHandler;
+    }
+
+    private async Task ConfirmAndInstallDownloadedUpdateAsync(bool isAutomaticDownload)
+    {
+        if (SettingsRoot.XamlRoot is null || !ViewModel.IsUpdateDownloaded)
+        {
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = SettingsRoot.XamlRoot,
+            Title = _localizationService.T(isAutomaticDownload
+                ? "Settings.Update.DownloadedPromptTitle"
+                : "Settings.Update.InstallConfirmTitle"),
+            Content = new TextBlock
+            {
+                Text = isAutomaticDownload && ViewModel.LatestUpdateManifest is { } manifest
+                    ? _localizationService.Format("Settings.Update.DownloadedPromptBody", manifest.Version)
+                    : _localizationService.T("Settings.Update.InstallConfirmBody"),
+                TextWrapping = TextWrapping.Wrap
+            },
+            PrimaryButtonText = _localizationService.T("Settings.Update.OneClick.Install"),
+            CloseButtonText = _localizationService.T("Common.Cancel"),
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        if (!await CreatePreUpdateRecoverySnapshotAsync())
+        {
+            return;
+        }
+
+        var result = ViewModel.StartDownloadedUpdateInstall();
+        if (!result.Success)
+        {
+            await ShowInfoDialogAsync(
+                _localizationService.T("Settings.Update.InstallStartFailedTitle"),
+                result.ErrorMessage ?? _localizationService.T("Settings.Update.InstallStartFailedBody"));
+            return;
+        }
+
+        await App.Current.ShutdownForUpdateAsync();
     }
 
     private async Task ShowDownloadFailureDialogAsync(AppUpdateDownloadResult initialResult)

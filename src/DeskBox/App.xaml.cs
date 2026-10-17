@@ -148,6 +148,7 @@ public partial class App : Application
     private bool _widgetsRaisedFromTray;
     private bool _hasUpdateAvailable;
     private bool _updateNotificationShown;
+    private int _automaticUpdateDownloadRunning;
     private DateTimeOffset _lastSettingsPersistenceNotificationAt = DateTimeOffset.MinValue;
     private string _availableUpdateVersion = string.Empty;
     private int _externalStateRecoveryScheduled;
@@ -2283,7 +2284,19 @@ public partial class App : Application
 
         if (result.IsUpdateAvailable && result.Manifest is not null)
         {
-            SetUpdateAvailableReminder(result.Manifest);
+            if (UpdatePreferenceService.Current.IsSkipped(result.Manifest.Version))
+            {
+                Log($"[Update] Version {result.Manifest.Version} is skipped by the user.");
+                ClearUpdateAvailableReminder();
+            }
+            else if (AppUpdateService.DeliveryKind == AppUpdateDeliveryKind.DirectInstaller)
+            {
+                _ = DownloadAvailableUpdateAndPromptAsync(result.Manifest);
+            }
+            else
+            {
+                SetUpdateAvailableReminder(result.Manifest);
+            }
         }
         else if (result.Status is AppUpdateCheckStatus.UpToDate or AppUpdateCheckStatus.ArchitectureUnavailable)
         {
@@ -2291,6 +2304,82 @@ public partial class App : Application
         }
 
         _settingsWindow?.RefreshUpdateStateFromService();
+    }
+
+    private async Task DownloadAvailableUpdateAndPromptAsync(AppUpdateManifest manifest)
+    {
+        if (Interlocked.CompareExchange(ref _automaticUpdateDownloadRunning, 1, 0) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (IsShuttingDown || UpdatePreferenceService.Current.IsSkipped(manifest.Version))
+            {
+                return;
+            }
+
+            Log($"[Update] Automatically downloading version {manifest.Version}.");
+            AppUpdateDownloadResult result =
+                string.Equals(
+                    AppUpdateService.DownloadedInstallerVersion,
+                    manifest.Version,
+                    StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(AppUpdateService.DownloadedInstallerPath) &&
+                File.Exists(AppUpdateService.DownloadedInstallerPath)
+                    ? AppUpdateDownloadResult.Completed(AppUpdateService.DownloadedInstallerPath)
+                    : await AppUpdateService.DownloadUpdateAsync(manifest);
+            if (IsShuttingDown)
+            {
+                return;
+            }
+
+            if (!result.Success || string.IsNullOrWhiteSpace(result.FilePath))
+            {
+                Log($"[Update] Automatic download failed: {result.FailureKind} {result.ErrorMessage}");
+                SetUpdateAvailableReminder(manifest);
+                _settingsWindow?.RefreshUpdateStateFromService();
+                return;
+            }
+
+            if (UpdatePreferenceService.Current.IsSkipped(manifest.Version))
+            {
+                Log($"[Update] Download finished after version {manifest.Version} was skipped; suppressing prompt.");
+                ClearUpdateAvailableReminder();
+                return;
+            }
+
+            _hasUpdateAvailable = true;
+            _availableUpdateVersion = manifest.Version;
+            RefreshTrayMenuText();
+            RefreshTrayToolTipText();
+            ShowSettings("About");
+            _settingsWindow?.QueueDownloadedUpdatePrompt(manifest, result.FilePath);
+        }
+        catch (Exception ex)
+        {
+            Log($"[Update] Automatic download crashed: {ex}");
+            SetUpdateAvailableReminder(manifest);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _automaticUpdateDownloadRunning, 0);
+        }
+    }
+
+    internal void OnUpdateVersionSkipped(string version)
+    {
+        string? checkedVersion = AppUpdateService.LastCheckResult?.Manifest?.Version;
+        if (!string.Equals(_availableUpdateVersion, version, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(checkedVersion, version, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _updateNotificationShown = false;
+        ClearUpdateAvailableReminder();
+        Log($"[Update] User skipped version {version}.");
     }
 
     private void SetUpdateAvailableReminder(AppUpdateManifest manifest)
