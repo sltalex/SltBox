@@ -76,6 +76,7 @@ public sealed class WidgetLayoutStoreTests : IDisposable
         string[] expected =
         [
             "featureWidgetEnabledStates",
+            "aquariumAnimationsEnabled",
             "widgets",
             "systemMonitorChartStyle",
             "systemMonitorCpuChartStyle",
@@ -119,7 +120,7 @@ public sealed class WidgetLayoutStoreTests : IDisposable
         // it lands in the file AND the settings strip set automatically, so
         // this pins the count.
         Assert.Equal(
-            19,
+            20,
             typeof(WidgetLayoutSettingsSlice).GetProperties(
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.Public).Length);

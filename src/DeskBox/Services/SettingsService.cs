@@ -531,6 +531,7 @@ public const int DefaultSearchMaxResults = 100;
         settings.WidgetGroupWheelSwitchEnabled = true;
         settings.WidgetGroupHoverSwitchEnabled = false;
         settings.WidgetGroupsEnabled = true;
+        settings.AquariumAnimationsEnabled = true;
         settings.SystemMonitorChartStyle = "Bars";
         settings.SystemMonitorCpuChartStyle = "Bars";
         settings.SystemMonitorMemoryChartStyle = "Bars";

@@ -25,6 +25,7 @@ public sealed class AquariumSceneView : UserControl, IDisposable
     private IReadOnlyDictionary<string, AquariumFishMotionPlan> _fishPlans = new Dictionary<string, AquariumFishMotionPlan>();
     private readonly List<Image> _images = [];
     private readonly DispatcherTimer _policyTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    private int _motionSeed = Random.Shared.Next();
     private bool _visible = true;
     private bool _animationEnabled = true;
     private bool _motionRunning;
@@ -63,12 +64,13 @@ public sealed class AquariumSceneView : UserControl, IDisposable
         var owned = inventory.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var visible = placements.Where(item => owned.ContainsKey(item.InstanceId))
             .Where(item => products.ContainsKey(owned[item.InstanceId].ItemId))
-            .OrderBy(item => products[owned[item.InstanceId].ItemId].Category == "fish" ? 1 : 0)
+            .OrderBy(item => item.Layer)
+            .ThenBy(item => products[owned[item.InstanceId].ItemId].Category == "fish" ? 1 : 0)
             .ThenBy(item => item.Y).ToList();
         _fishPlans = AquariumFishMotionPlanner.Build(
             visible.Where(item => products[owned[item.InstanceId].ItemId].Category == "fish")
                 .Select(item => new AquariumFishMotionInput(item.InstanceId, owned[item.InstanceId].ItemId,
-                    item.X, item.Y)).ToList(), SceneWidth, SceneHeight, 17);
+                    item.X, item.Y)).ToList(), SceneWidth, SceneHeight, NextMotionSeed());
         foreach (AquariumPlacement placement in visible)
         {
             AquariumCatalogItem product = products[owned[placement.InstanceId].ItemId];
@@ -150,18 +152,23 @@ public sealed class AquariumSceneView : UserControl, IDisposable
     {
         bool fish = product.Category == "fish";
         bool animatedCreature = IsAnimatedCreature(product.Category);
-        (double width, double height) = product.Id switch
+        (double width, double height) = AquariumArtworkCatalog.TryGetProfile(product.AssetKey, out var artwork)
+            ? (artwork.Width, artwork.Height) : product.Id switch
         {
             // Keep the fish subordinate to the scene so the aquarium reads
             // as a wide slice of seabed rather than a close-up tank.
             "clownfish" => (88, 59), "blue-tang" => (106, 71), "butterflyfish" => (94, 78),
             "angelfish" => (96, 112), "lionfish" => (112, 86), "pufferfish" => (92, 92),
             "seahorse" => (82, 142),
+            "yellow-tang" => (112, 82), "royal-gramma" => (112, 68),
+            "mandarinfish" => (104, 76), "moorish-idol" => (112, 92),
+            "cardinalfish" => (104, 76),
             "seagrass" => (150, 220), "fan-algae" => (186, 210),
             "anubias" => (180, 170), "java-fern" => (170, 190), "hornwort" => (180, 190),
-            "amazon-sword" => (170, 220),
+            "amazon-sword" => (170, 220), "vallisneria" => (170, 220),
             "cherry-shrimp" => (108, 74), "amano-shrimp" => (108, 74),
             "hermit-crab" => (126, 105), "fiddler-crab" => (142, 105),
+            "porcelain-crab" => (150, 110), "emerald-crab" => (150, 110),
             "scallop" => (170, 136), "oyster" => (170, 136),
             "rock-arch" => (238, 170), _ => (220, 154)
         };
@@ -188,7 +195,8 @@ public sealed class AquariumSceneView : UserControl, IDisposable
         }
         Visual visual = ElementCompositionPreview.GetElementVisual(host);
         ElementCompositionPreview.SetIsTranslationEnabled(host, true);
-        visual.CenterPoint = new Vector3((float)(width * placement.Scale / 2), (float)(height * placement.Scale * (animatedCreature ? .5 : 1)), 0);
+        visual.CenterPoint = new Vector3((float)(width * placement.Scale / 2),
+            (float)(height * placement.Scale * AquariumArtworkCatalog.VerticalAnchor(product.AssetKey, animatedCreature)), 0);
         if (animatedCreature)
         {
             AddRandomFishMotion(visual, placement, width, height);
@@ -209,9 +217,8 @@ public sealed class AquariumSceneView : UserControl, IDisposable
 
     private void AddPlantSway(Visual visual, AquariumPlacement placement)
     {
-        // Rotate around the planted base (the non-creature center point is
-        // already at the bottom of the image) so every water plant leans from
-        // its roots instead of orbiting around its transparent canvas.
+        // Rooted plants sway from the base; floating plants use their leaf
+        // plane as the pivot so dangling roots remain below the water surface.
         int seed = StableSeed(placement.InstanceId);
         float amplitude = 3.5f + seed % 25 / 10f;
         double seconds = 5.5 + seed % 35 / 10d;
@@ -228,14 +235,15 @@ public sealed class AquariumSceneView : UserControl, IDisposable
             AddScalar(visual, "Scale.X", plan.DurationSeconds, plan.Facing.ToArray());
             return;
         }
-        var random = new Random(StableSeed(placement.InstanceId));
+        var random = new Random(StableSeed(placement.InstanceId) ^ _motionSeed);
         double startX = placement.X * SceneWidth;
         double startY = placement.Y * SceneHeight;
         int segments = 5;
         double[] durations = Enumerable.Range(0, segments)
             .Select(_ => .75 + random.NextDouble() * 1.35)
             .ToArray();
-        double total = durations.Sum();
+        double restoreTurn = .72;
+        double total = durations.Sum() + restoreTurn;
         double elapsed = 0;
         var path = new List<(float Progress, Vector3 Value)> { (0, Vector3.Zero) };
         int initialFacing = random.Next(2) == 0 ? -1 : 1;
@@ -284,15 +292,18 @@ public sealed class AquariumSceneView : UserControl, IDisposable
                 ? (targetX >= currentX ? 1 : -1)
                 : currentFacing;
             // Hold the old facing until the waypoint, then flip at the
-            // waypoint rather than interpolating through a flattened fish.
-            // The final waypoint returns to the loop origin and restores the
-            // initial orientation without appending out-of-order keyframes.
-            facing.Add((Math.Max(0, progress - .015f), segment == segments ? segmentFacing : currentFacing));
-            facing.Add((progress, segment == segments ? initialFacing : segmentFacing));
+            // waypoint. The final waypoint keeps the direction of travel;
+            // the initial orientation is restored during a stationary turn.
+            facing.Add((Math.Max(0, progress - .015f), currentFacing));
+            facing.Add((progress, segmentFacing));
             currentFacing = segmentFacing;
             currentX = targetX;
             currentY = targetY;
         }
+
+        float restoreStart = (float)(durations.Sum() / total);
+        facing.Add((restoreStart, currentFacing));
+        facing.Add((1, initialFacing));
 
         double seconds = 18 + random.NextDouble() * 18;
         AddVector(visual, "Translation", seconds, path.ToArray(), linear: true);
@@ -302,6 +313,8 @@ public sealed class AquariumSceneView : UserControl, IDisposable
     private static double NextRange(Random random, double minimum, double maximum) =>
         minimum + random.NextDouble() * Math.Max(0, maximum - minimum);
 
+    private int NextMotionSeed() => unchecked(_motionSeed++);
+
     private static void Arrange(SceneObject item)
     {
         double width = item.Width * item.Placement.Scale;
@@ -309,7 +322,8 @@ public sealed class AquariumSceneView : UserControl, IDisposable
         item.Host.Width = width;
         item.Host.Height = height;
         Canvas.SetLeft(item.Host, item.Placement.X * SceneWidth - width / 2);
-        Canvas.SetTop(item.Host, item.Placement.Y * SceneHeight - height * (IsAnimatedCreature(item.Product.Category) ? .5 : 1));
+        Canvas.SetTop(item.Host, item.Placement.Y * SceneHeight - height *
+            AquariumArtworkCatalog.VerticalAnchor(item.Product.AssetKey, IsAnimatedCreature(item.Product.Category)));
     }
 
     private void BeginDrag(SceneObject item, PointerRoutedEventArgs args)
@@ -331,7 +345,8 @@ public sealed class AquariumSceneView : UserControl, IDisposable
         var placement = _dragPlacement with
         {
             X = Math.Clamp(_dragPlacement.X + (position.X - _dragOrigin.X) / SceneWidth, horizontalMargin, 1 - horizontalMargin),
-            Y = Math.Clamp(_dragPlacement.Y + (position.Y - _dragOrigin.Y) / SceneHeight, Math.Min(.95, item.Host.Height / SceneHeight), .98)
+            Y = AquariumArtworkCatalog.ClampPlacementY(item.Product.AssetKey, IsAnimatedCreature(item.Product.Category),
+                _dragPlacement.Y + (position.Y - _dragOrigin.Y) / SceneHeight, item.Host.Height / SceneHeight)
         };
         UpdatePlacement(placement);
         PlacementChanged?.Invoke(placement);
@@ -437,7 +452,7 @@ public sealed class AquariumSceneView : UserControl, IDisposable
     internal static BitmapImage Asset(string key)
     {
         string file = System.IO.Path.GetFileNameWithoutExtension(key);
-        return new BitmapImage(new Uri($"ms-appx:///Assets/Aquarium/{file}.png"));
+        return new BitmapImage(new Uri($"ms-appx:///{AquariumArtworkCatalog.AssetRelativePath(file)}"));
     }
 
     public void Dispose()

@@ -13,6 +13,12 @@ public sealed class AdminSettingsPresentationTests
         XElement admin = Assert.Single(document.Descendants(ui + "NavigationViewItem")
             .Where(item => (string?)item.Attribute("Tag") == "Admin"));
         Assert.Equal("Collapsed", (string?)admin.Attribute("Visibility"));
+        XElement general = Assert.Single(document.Descendants(ui + "NavigationViewItem")
+            .Where(item => (string?)item.Attribute("Tag") == "General"));
+        XElement backpack = Assert.Single(document.Descendants(ui + "NavigationViewItem")
+            .Where(item => (string?)item.Attribute("Tag") == "Backpack"));
+        Assert.Equal("Collapsed", (string?)backpack.Attribute("Visibility"));
+        Assert.Same(backpack, general.ElementsAfterSelf(ui + "NavigationViewItem").First());
         XElement about = Assert.Single(document.Descendants(ui + "NavigationViewItem")
             .Where(item => (string?)item.Attribute("Tag") == "About"));
         Assert.Same(about, admin.ElementsAfterSelf(ui + "NavigationViewItem").First());
@@ -20,6 +26,10 @@ public sealed class AdminSettingsPresentationTests
         string navigation = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.Navigation.cs"));
         Assert.Contains("route.Tag == \"Admin\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
         Assert.Contains("sectionTag == \"Admin\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
+        Assert.Contains("route.Tag == \"Backpack\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
+        Assert.Contains("sectionTag == \"Backpack\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
+        string adminCode = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.Admin.cs"));
+        Assert.Contains("_authSession.IsAuthenticated", adminCode, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

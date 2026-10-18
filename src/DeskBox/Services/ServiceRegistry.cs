@@ -49,6 +49,10 @@ public static class ServiceRegistry
             new TreeCloudSyncService(
                 sp.GetRequiredService<IAuthenticatedAccountApi>(),
                 sp.GetRequiredService<IAuthSession>()));
+        services.AddSingleton<AquariumService>(sp =>
+            new AquariumService(
+                sp.GetRequiredService<IAuthSession>(),
+                sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<CloudBackupService>(sp =>
             new CloudBackupService(
                 sp.GetRequiredService<DeskBoxDataBackupService>(),

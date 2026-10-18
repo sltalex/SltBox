@@ -704,6 +704,8 @@ public sealed partial class WidgetManager
             WidgetKind.Tags => "Tags.Title",
             WidgetKind.SystemMonitor => "SystemMonitor.Title",
             WidgetKind.Tree => "Tree.Title",
+            WidgetKind.Aquarium => "Aquarium.Title",
+            WidgetKind.FourWheelDrive => "FourWheelDrive.Title",
             WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
             _ => null
         };
@@ -1235,6 +1237,9 @@ public sealed partial class WidgetManager
         string targetWidgetId,
         WidgetGroupSwitchOrigin origin = WidgetGroupSwitchOrigin.Programmatic)
     {
+        if (FindConfig(targetWidgetId) is { } requestedConfig &&
+            !_widgetRegistry.IsAllowedForCurrentUser(requestedConfig.WidgetKind)) return false;
+
         if (!HasUiThreadAccess())
         {
             return await RunOnUiThreadAsync(

@@ -61,13 +61,18 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
         Assert.Equal("Settings.DingTalk.Title", (string?)row.Parent.Attribute(localized + "Localized.HeaderKey"));
         Assert.Equal("Settings.DingTalk.Description", (string?)row.Parent.Attribute(localized + "Localized.DescriptionKey"));
         Assert.Null(row.Element(ui + "Grid.RowDefinitions"));
-        Assert.Equal(4, row.Element(ui + "Grid.ColumnDefinitions")!.Elements().Count());
+        Assert.Equal(5, row.Element(ui + "Grid.ColumnDefinitions")!.Elements().Count());
+        XElement icon = Assert.Single(row.Elements(ui + "FontIcon"));
+        Assert.Equal("0", (string?)icon.Attribute("Grid.Column") ?? "0");
+        Assert.Equal("\uE71B", (string?)icon.Attribute("Glyph"));
+        Assert.Equal("False", (string?)icon.Attribute("IsHitTestVisible"));
+        Assert.Equal("1", (string?)label.Attribute("Grid.Column"));
         XElement description = Assert.Single(row.Elements(ui + "TextBlock").Where(
             item => (string?)item.Attribute(localized + "Localized.Key") == "Settings.DingTalk.Description"));
-        Assert.Equal("1", (string?)description.Attribute("Grid.Column"));
+        Assert.Equal("2", (string?)description.Attribute("Grid.Column"));
         Assert.Equal("NoWrap", (string?)description.Attribute("TextWrapping"));
         XElement actions = Assert.Single(row.Elements(ui + "StackPanel"));
-        Assert.Equal("3", (string?)actions.Attribute("Grid.Column"));
+        Assert.Equal("4", (string?)actions.Attribute("Grid.Column"));
         Assert.Equal("Horizontal", (string?)actions.Attribute("Orientation"));
         Assert.Contains(actions.Elements(ui + "Button"), item => (string?)item.Attribute("Click") == "DingTalkLink_Click");
         Assert.Contains(actions.Elements(ui + "Button"), item => (string?)item.Attribute("Click") == "DingTalkRefresh_Click");

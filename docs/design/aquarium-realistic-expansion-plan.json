@@ -1,0 +1,1152 @@
+{
+  "schema_version": 1,
+  "status": "svg_generated_local_catalog_v4_not_deployed",
+  "created_at": "2026-10-18",
+  "purpose": "用户选择原创 SVG 制作。鱼、水草、假山各 50 款；透明 PNG 用于现有 WinUI 显示。清单用于离线生成，运行时目录仍由服务端提供；本轮未部署服务器。",
+  "runtime_baseline": {
+    "catalog_version": 3,
+    "total_items": 29,
+    "fish": 12,
+    "plant": 7,
+    "decoration": 2,
+    "crab": 4,
+    "shrimp": 2,
+    "shellfish": 2
+  },
+  "target_counts": {
+    "fish": 50,
+    "plant": 50,
+    "decoration": 50
+  },
+  "image_workflow": {
+    "status": "original_svg_and_transparent_png_generated",
+    "selected_workflow": "original_svg",
+    "renderer": "resvg-py 0.5.0",
+    "postprocessor": "Pillow 13.0.0",
+    "acceptance": [
+      "Each displayed ID must have a verified image matching its species or rock description.",
+      "Images must have clean transparency, realistic texture and anatomy, no large opaque background.",
+      "Fish images use a consistent facing direction; large species and small schooling species receive different size and motion profiles.",
+      "Preserve original PNGs and licenses until a verified replacement is ready.",
+      "New runtime catalog rows are added only when all their image, localization, size and motion data are verified."
+    ],
+    "generation_claim": "150 original naturalistic SVG illustrations with transparent PNG exports; not photographs or image-model output."
+  },
+  "corrections": [
+    {
+      "field": "fish",
+      "reason": "Include sharks, large pelagic species and small schooling fish; retain all 12 existing fish IDs."
+    },
+    {
+      "removed_candidate_ids": [
+        "chromis",
+        "green-chromis",
+        "pajama-cardinalfish"
+      ],
+      "reason": "Avoid generic or duplicate species: existing cardinalfish is planned as Sphaeramia nematoptera; each candidate has a scientific identity."
+    },
+    {
+      "id": "vallisneria",
+      "previous_name": "水蕴草",
+      "corrected_name": "苦草"
+    },
+    {
+      "id": "frogbit",
+      "previous_name": "大薸",
+      "corrected_name": "水鳖"
+    },
+    {
+      "id": "water-lettuce",
+      "previous_name": "水萍",
+      "corrected_name": "大薸"
+    },
+    {
+      "id": "dwarf-hairgrass",
+      "previous_name": "矮珍珠",
+      "corrected_name": "牛毛毡"
+    },
+    {
+      "id": "hydrocotyle-tripartita",
+      "previous_name": "三角莫丝",
+      "corrected_name": "三裂天胡荽"
+    },
+    {
+      "id": "staurogyne-repens",
+      "previous_name": "爬地珍珠",
+      "corrected_name": "匍匐叉柱花"
+    },
+    {
+      "id": "rotala-wallichii",
+      "previous_name": "针叶皇冠",
+      "corrected_name": "红松尾"
+    },
+    {
+      "removed_candidate_ids": [
+        "ohko-stone"
+      ],
+      "replacement_id": "calcite-rock",
+      "reason": "Ohko and dragon stone are common names for the same aquascaping material; keep one and add calcite."
+    }
+  ],
+  "taxonomy_notes": [
+    "Scientific names in this plan specify the intended asset subjects and must be checked against each licensed image before integration.",
+    "Existing generic asset IDs are preserved for account/inventory compatibility; names or taxonomic labels must not silently relabel an unrelated image.",
+    "The scene is decorative; freshwater, marine and pelagic species are visual options and do not model biological cohabitation."
+  ],
+  "fish": [
+    {
+      "id": "clownfish",
+      "name": "小丑鱼",
+      "scientific_name": "Amphiprion ocellaris",
+      "display_group": "small-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "blue-tang",
+      "name": "蓝吊鱼",
+      "scientific_name": "Paracanthurus hepatus",
+      "display_group": "medium-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "butterflyfish",
+      "name": "蝴蝶鱼",
+      "scientific_name": "Chaetodon melapterus",
+      "display_group": "medium-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "angelfish",
+      "name": "神仙鱼",
+      "scientific_name": "Pterophyllum scalare",
+      "display_group": "medium-freshwater",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "lionfish",
+      "name": "狮子鱼",
+      "scientific_name": "Pterois volitans",
+      "display_group": "medium-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "pufferfish",
+      "name": "河豚",
+      "scientific_name": "Arothron meleagris",
+      "display_group": "medium-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "seahorse",
+      "name": "海马",
+      "scientific_name": "Hippocampus kuda",
+      "display_group": "small-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "yellow-tang",
+      "name": "黄吊鱼",
+      "scientific_name": "Zebrasoma flavescens",
+      "display_group": "medium-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "royal-gramma",
+      "name": "皇家伽玛",
+      "scientific_name": "Gramma loreto",
+      "display_group": "small-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "mandarinfish",
+      "name": "曼达林鱼",
+      "scientific_name": "Synchiropus splendidus",
+      "display_group": "small-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "moorish-idol",
+      "name": "镰鱼",
+      "scientific_name": "Zanclus cornutus",
+      "display_group": "medium-reef",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cardinalfish",
+      "name": "天竺鲷",
+      "scientific_name": "Sphaeramia nematoptera",
+      "display_group": "small-schooling",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "great-white-shark",
+      "name": "大白鲨",
+      "scientific_name": "Carcharodon carcharias",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "whale-shark",
+      "name": "鲸鲨",
+      "scientific_name": "Rhincodon typus",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "scalloped-hammerhead",
+      "name": "路氏双髻鲨",
+      "scientific_name": "Sphyrna lewini",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "blacktip-reef-shark",
+      "name": "黑鳍礁鲨",
+      "scientific_name": "Carcharhinus melanopterus",
+      "display_group": "large-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "zebra-shark",
+      "name": "斑马鲨",
+      "scientific_name": "Stegostoma tigrinum",
+      "display_group": "large-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "sardine",
+      "name": "沙丁鱼",
+      "scientific_name": "Sardina pilchardus",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "anchovy",
+      "name": "鳀鱼",
+      "scientific_name": "Engraulis encrasicolus",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "herring",
+      "name": "大西洋鲱鱼",
+      "scientific_name": "Clupea harengus",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "atlantic-mackerel",
+      "name": "大西洋鲭鱼",
+      "scientific_name": "Scomber scombrus",
+      "display_group": "medium-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "yellowfin-tuna",
+      "name": "黄鳍金枪鱼",
+      "scientific_name": "Thunnus albacares",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "silver-pomfret",
+      "name": "银鲳",
+      "scientific_name": "Pampus argenteus",
+      "display_group": "medium-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "milkfish",
+      "name": "虱目鱼",
+      "scientific_name": "Chanos chanos",
+      "display_group": "large-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "giant-trevally",
+      "name": "浪人鲹",
+      "scientific_name": "Caranx ignobilis",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "barracuda",
+      "name": "大魣",
+      "scientific_name": "Sphyraena barracuda",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "ocean-sunfish",
+      "name": "翻车鱼",
+      "scientific_name": "Mola mola",
+      "display_group": "large-pelagic",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "manta-ray",
+      "name": "双吻前口蝠鲼",
+      "scientific_name": "Mobula birostris",
+      "display_group": "large-ray",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "eagle-ray",
+      "name": "斑点鹰魟",
+      "scientific_name": "Aetobatus narinari",
+      "display_group": "large-ray",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "blue-spotted-stingray",
+      "name": "蓝斑条尾魟",
+      "scientific_name": "Taeniura lymma",
+      "display_group": "medium-ray",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "redtail-catfish",
+      "name": "红尾鲶",
+      "scientific_name": "Phractocephalus hemioliopterus",
+      "display_group": "large-freshwater",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "arowana",
+      "name": "银龙鱼",
+      "scientific_name": "Osteoglossum bicirrhosum",
+      "display_group": "large-freshwater",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "discus",
+      "name": "七彩神仙鱼",
+      "scientific_name": "Symphysodon aequifasciatus",
+      "display_group": "medium-freshwater",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "goldfish",
+      "name": "金鱼",
+      "scientific_name": "Carassius auratus",
+      "display_group": "small-freshwater",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "koi",
+      "name": "锦鲤",
+      "scientific_name": "Cyprinus rubrofuscus",
+      "display_group": "large-freshwater",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "guppy",
+      "name": "孔雀鱼",
+      "scientific_name": "Poecilia reticulata",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "neon-tetra",
+      "name": "霓虹灯鱼",
+      "scientific_name": "Paracheirodon innesi",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "zebra-danio",
+      "name": "斑马鱼",
+      "scientific_name": "Danio rerio",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "siamese-fighting-fish",
+      "name": "暹罗斗鱼",
+      "scientific_name": "Betta splendens",
+      "display_group": "small-freshwater",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "banggai-cardinalfish",
+      "name": "邦盖天竺鲷",
+      "scientific_name": "Pterapogon kauderni",
+      "display_group": "small-schooling",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "firefish",
+      "name": "火焰虾虎鱼",
+      "scientific_name": "Nemateleotris magnifica",
+      "display_group": "small-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "sixline-wrasse",
+      "name": "六线龙",
+      "scientific_name": "Pseudocheilinus hexataenia",
+      "display_group": "small-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "fairy-wrasse",
+      "name": "太阳仙女隆头鱼",
+      "scientific_name": "Cirrhilabrus solorensis",
+      "display_group": "small-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "flame-angelfish",
+      "name": "火焰神仙鱼",
+      "scientific_name": "Centropyge loricula",
+      "display_group": "small-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "coral-beauty",
+      "name": "珊瑚美人神仙鱼",
+      "scientific_name": "Centropyge bispinosa",
+      "display_group": "small-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "emperor-angelfish",
+      "name": "皇帝神仙鱼",
+      "scientific_name": "Pomacanthus imperator",
+      "display_group": "medium-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "foxface-rabbitfish",
+      "name": "狐狸鱼",
+      "scientific_name": "Siganus vulpinus",
+      "display_group": "medium-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "sailfin-tang",
+      "name": "帆鳍吊鱼",
+      "scientific_name": "Zebrasoma veliferum",
+      "display_group": "medium-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "naso-tang",
+      "name": "橙棘吊鱼",
+      "scientific_name": "Naso lituratus",
+      "display_group": "medium-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "purple-tang",
+      "name": "紫吊鱼",
+      "scientific_name": "Zebrasoma xanthurum",
+      "display_group": "medium-reef",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    }
+  ],
+  "plants": [
+    {
+      "id": "seagrass",
+      "name": "海草簇",
+      "scientific_name": "Posidonia oceanica",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "fan-algae",
+      "name": "扇形海藻",
+      "scientific_name": "Udotea flabellum",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "anubias",
+      "name": "水榕",
+      "scientific_name": "Anubias barteri",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "java-fern",
+      "name": "爪哇蕨",
+      "scientific_name": "Microsorum pteropus",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "hornwort",
+      "name": "金鱼藻",
+      "scientific_name": "Ceratophyllum demersum",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "amazon-sword",
+      "name": "亚马逊剑",
+      "scientific_name": "Echinodorus grisebachii",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "vallisneria",
+      "name": "苦草",
+      "scientific_name": "Vallisneria spiralis",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "java-moss",
+      "name": "爪哇莫丝",
+      "scientific_name": "Taxiphyllum barbieri",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "christmas-moss",
+      "name": "圣诞莫丝",
+      "scientific_name": "Vesicularia montagnei",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "fissidens-fontanus",
+      "name": "凤凰莫丝",
+      "scientific_name": "Fissidens fontanus",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "riccia",
+      "name": "鹿角苔",
+      "scientific_name": "Riccia fluitans",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "duckweed",
+      "name": "浮萍",
+      "scientific_name": "Lemna minor",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "salvinia",
+      "name": "槐叶萍",
+      "scientific_name": "Salvinia natans",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "frogbit",
+      "name": "水鳖",
+      "scientific_name": "Hydrocharis morsus-ranae",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "water-lettuce",
+      "name": "大薸",
+      "scientific_name": "Pistia stratiotes",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "amazon-frogbit",
+      "name": "南美水鳖",
+      "scientific_name": "Limnobium laevigatum",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cabomba",
+      "name": "绿菊",
+      "scientific_name": "Cabomba caroliniana",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "egeria-densa",
+      "name": "水蕴草",
+      "scientific_name": "Egeria densa",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "elodea-canadensis",
+      "name": "加拿大水蕴草",
+      "scientific_name": "Elodea canadensis",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cryptocoryne-balansae",
+      "name": "皱叶椒草",
+      "scientific_name": "Cryptocoryne crispatula var. balansae",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cryptocoryne-wendtii",
+      "name": "温蒂椒草",
+      "scientific_name": "Cryptocoryne wendtii",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cryptocoryne-parva",
+      "name": "迷你椒草",
+      "scientific_name": "Cryptocoryne parva",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rotala-rotundifolia",
+      "name": "圆叶节节菜",
+      "scientific_name": "Rotala rotundifolia",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rotala-macrandra",
+      "name": "大红叶",
+      "scientific_name": "Rotala macrandra",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "ludwigia-repens",
+      "name": "匍匐柳叶菜",
+      "scientific_name": "Ludwigia repens",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "ludwigia-arcuata",
+      "name": "针叶柳",
+      "scientific_name": "Ludwigia arcuata",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "hygrophila-polysperma",
+      "name": "小水蓑衣",
+      "scientific_name": "Hygrophila polysperma",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "hygrophila-corymbosa",
+      "name": "大水蓑衣",
+      "scientific_name": "Hygrophila corymbosa",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "bacopa-caroliniana",
+      "name": "卡罗莱纳假马齿苋",
+      "scientific_name": "Bacopa caroliniana",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "pearl-weed",
+      "name": "珍珠草",
+      "scientific_name": "Micranthemum glomeratum",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "dwarf-hairgrass",
+      "name": "牛毛毡",
+      "scientific_name": "Eleocharis parvula",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "dwarf-sagittaria",
+      "name": "矮慈姑",
+      "scientific_name": "Sagittaria subulata",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "micro-sword",
+      "name": "巴西微剑",
+      "scientific_name": "Lilaeopsis brasiliensis",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "staurogyne-repens",
+      "name": "匍匐叉柱花",
+      "scientific_name": "Staurogyne repens",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "monte-carlo",
+      "name": "蒙特卡罗珍珠草",
+      "scientific_name": "Micranthemum tweediei",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "tiger-lotus",
+      "name": "红虎睡莲",
+      "scientific_name": "Nymphaea lotus",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "water-lily",
+      "name": "子午莲",
+      "scientific_name": "Nymphaea tetragona",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "aponogeton-madagascariensis",
+      "name": "网格草",
+      "scientific_name": "Aponogeton madagascariensis",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "banana-plant",
+      "name": "香蕉草",
+      "scientific_name": "Nymphoides aquatica",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "bolbitis",
+      "name": "非洲水蕨",
+      "scientific_name": "Bolbitis heudelotii",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "water-sprite",
+      "name": "水蕨",
+      "scientific_name": "Ceratopteris thalictroides",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "pennywort",
+      "name": "巴西天胡荽",
+      "scientific_name": "Hydrocotyle leucocephala",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "hydrocotyle-tripartita",
+      "name": "三裂天胡荽",
+      "scientific_name": "Hydrocotyle tripartita",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "myriophyllum-mattogrossense",
+      "name": "马托格罗索狐尾藻",
+      "scientific_name": "Myriophyllum mattogrossense",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "limnophila-sessiliflora",
+      "name": "无柄花石龙尾",
+      "scientific_name": "Limnophila sessiliflora",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rotala-wallichii",
+      "name": "红松尾",
+      "scientific_name": "Rotala wallichii",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "alternanthera-reineckii",
+      "name": "红丁香",
+      "scientific_name": "Alternanthera reineckii",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "eriocaulon-cinereum",
+      "name": "灰谷精草",
+      "scientific_name": "Eriocaulon cinereum",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "bucephalandra-motleyana",
+      "name": "摩氏辣椒榕",
+      "scientific_name": "Bucephalandra motleyana",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "anubias-heterophylla",
+      "name": "异叶水榕",
+      "scientific_name": "Anubias heterophylla",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    }
+  ],
+  "rocks": [
+    {
+      "id": "reef-rock",
+      "name": "礁石假山",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rock-arch",
+      "name": "拱洞岩石",
+      "existing_runtime_id": true,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "granite-rock",
+      "name": "花岗岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "slate-rock",
+      "name": "板岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "lava-rock",
+      "name": "火山岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "basalt-rock",
+      "name": "玄武岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "sandstone-rock",
+      "name": "砂岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "limestone-rock",
+      "name": "石灰岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "dragon-stone",
+      "name": "龙纹石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "seiryu-stone",
+      "name": "青龙石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "calcite-rock",
+      "name": "方解石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "pagoda-stone",
+      "name": "宝塔石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "river-pebble",
+      "name": "河卵石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "black-pebble",
+      "name": "黑卵石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "white-pebble",
+      "name": "白卵石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "red-lava-rock",
+      "name": "红火山岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "coral-rock",
+      "name": "珊瑚石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "reef-rubble",
+      "name": "礁石碎块",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "coral-arch",
+      "name": "珊瑚拱门",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cave-rock",
+      "name": "洞穴岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "tunnel-rock",
+      "name": "隧道岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "stacked-rock",
+      "name": "堆叠岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "mossy-rock",
+      "name": "苔藓岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cliff-rock",
+      "name": "断崖岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "overhang-rock",
+      "name": "悬挑岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "spire-rock",
+      "name": "石柱岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "boulder-cluster",
+      "name": "巨石群",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rock-plate",
+      "name": "岩板",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rock-shelf",
+      "name": "岩棚",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "rubble-pile",
+      "name": "碎石堆",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "canyon-rock",
+      "name": "峡谷岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "mesa-rock",
+      "name": "台地岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "cobblestone-rock",
+      "name": "鹅卵石岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "pumice-rock",
+      "name": "浮石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "petrified-wood",
+      "name": "木化石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "quartz-rock",
+      "name": "石英岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "gneiss-rock",
+      "name": "片麻岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "marble-rock",
+      "name": "大理岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "tuff-rock",
+      "name": "凝灰岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "shale-rock",
+      "name": "页岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "conglomerate-rock",
+      "name": "砾岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "chert-rock",
+      "name": "燧石岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "obsidian-rock",
+      "name": "黑曜岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "blue-schist",
+      "name": "蓝片岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "greenstone-rock",
+      "name": "绿岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "serpentine-rock",
+      "name": "蛇纹岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "columnar-basalt",
+      "name": "柱状玄武岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "terraced-rock",
+      "name": "梯田岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "pagoda-cave",
+      "name": "宝塔洞岩",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    },
+    {
+      "id": "reef-boulder",
+      "name": "礁石巨石",
+      "existing_runtime_id": false,
+      "asset_status": "svg_and_png_validated"
+    }
+  ]
+}

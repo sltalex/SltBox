@@ -194,6 +194,15 @@ public sealed class DeskBoxDataBackupServiceTests : IDisposable
         await File.WriteAllTextAsync(
             Path.Combine(syncOutbox, "op-1.json"),
             "{\"domain\":\"todo-data\"}");
+        string legacyFavoritesDirectory = Directory.CreateDirectory(
+            Path.Combine(dataDirectory, "sync", "dingtalk")).FullName;
+        string legacyFavoritesName = "group-document-favorites-" + new string('a', 64) + ".json";
+        await File.WriteAllTextAsync(Path.Combine(legacyFavoritesDirectory, legacyFavoritesName),
+            "{\"DocumentUrls\":[\"https://alidocs.dingtalk.com/i/nodes/old\"]}");
+        string favoritesDirectory = Directory.CreateDirectory(Path.Combine(dataDirectory, "dingtalk")).FullName;
+        await File.WriteAllTextAsync(
+            Path.Combine(favoritesDirectory, "group-document-favorites-account.json"),
+            "{\"documentUrls\":[\"https://alidocs.dingtalk.com/i/nodes/document\"]}");
         var service = new DeskBoxDataBackupService(_appDataRoot);
 
         string backupPath = await service.ExportBackupAsync(_exportRoot);
@@ -201,6 +210,8 @@ public sealed class DeskBoxDataBackupServiceTests : IDisposable
         Assert.True(File.Exists(backupPath));
         using ZipArchive archive = ZipFile.OpenRead(backupPath);
         Assert.NotNull(archive.GetEntry("data/settings.json"));
+        Assert.NotNull(archive.GetEntry("data/dingtalk/group-document-favorites-account.json"));
+        Assert.NotNull(archive.GetEntry("data/dingtalk/" + legacyFavoritesName));
         Assert.NotNull(archive.GetEntry("data/widgets/todo/attachments/spec.pdf"));
         Assert.NotNull(archive.GetEntry("data/widgets/todo/attachments/database.bak"));
         Assert.NotNull(archive.GetEntry("data/widgets/todo/attachments/config.json.bak"));
@@ -219,6 +230,7 @@ public sealed class DeskBoxDataBackupServiceTests : IDisposable
         Assert.Null(archive.GetEntry("data/cache/glance/images/wallpaper.jpg"));
         Assert.Null(archive.GetEntry("data/weather-cache.json"));
         Assert.Null(archive.GetEntry("data/sync/state.json"));
+        Assert.Null(archive.GetEntry("data/sync/dingtalk/" + legacyFavoritesName));
         Assert.Null(archive.GetEntry("data/sync/outbox/todo-data/op-1.json"));
         ZipArchiveEntry manifestEntry = Assert.IsType<ZipArchiveEntry>(archive.GetEntry("manifest.json"));
         string manifestJson;
@@ -233,7 +245,7 @@ public sealed class DeskBoxDataBackupServiceTests : IDisposable
         Assert.Equal(2, manifest.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("manual", manifest.RootElement.GetProperty("kind").GetString());
         JsonElement[] files = manifest.RootElement.GetProperty("files").EnumerateArray().ToArray();
-        Assert.Equal(7, files.Length);
+        Assert.Equal(9, files.Length);
         Assert.All(files, file =>
         {
             Assert.Equal(JsonValueKind.String, file.GetProperty("path").ValueKind);
@@ -278,6 +290,25 @@ public sealed class DeskBoxDataBackupServiceTests : IDisposable
         DeskBoxRestorePreparation preparation = await restoreService.PrepareRestoreAsync(backupPath);
         Assert.True(preparation.HasIntegrityManifest);
         Assert.False(Directory.Exists(service.BackupSnapshotStagingDirectory));
+    }
+
+    [Fact]
+    public async Task LocalBackup_RestoresFavoriteDocumentDetails()
+    {
+        string data = Directory.CreateDirectory(Path.Combine(_appDataRoot, "data", "dingtalk")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(_appDataRoot, "data", "settings.json"), "{}");
+        const string fileName = "group-document-favorites-account.json";
+        const string content = "{\"documentUrls\":[\"https://alidocs.dingtalk.com/i/nodes/doc\"],\"documents\":[{\"groupName\":\"Team\",\"title\":\"Guide\",\"url\":\"https://alidocs.dingtalk.com/i/nodes/doc\",\"lastSeenAt\":\"2026-10-18T00:00:00+00:00\"}]}";
+        await File.WriteAllTextAsync(Path.Combine(data, fileName), content);
+        string archive = await new DeskBoxDataBackupService(_appDataRoot).ExportBackupAsync(_exportRoot);
+        string targetRoot = Directory.CreateDirectory(Path.Combine(_tempRoot, "favorites-restore")).FullName;
+        var restore = new DeskBoxDataBackupService(targetRoot);
+
+        await restore.PrepareRestoreAsync(archive);
+        DeskBoxRestoreApplyResult result = await restore.ApplyPendingRestoreAsync();
+
+        Assert.True(result.Succeeded, result.ErrorMessage);
+        Assert.Equal(content, File.ReadAllText(Path.Combine(targetRoot, "data", "dingtalk", fileName)));
     }
 
     [Fact]

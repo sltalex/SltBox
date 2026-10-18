@@ -374,6 +374,8 @@ public sealed partial class WidgetManager
             WidgetKind.Search => "Search.Title",
             WidgetKind.Glance => "Glance.Title",
             WidgetKind.Tree => "Tree.Title",
+            WidgetKind.Aquarium => "Aquarium.Title",
+            WidgetKind.FourWheelDrive => "FourWheelDrive.Title",
             WidgetKind.Tags => "Tags.Title",
             WidgetKind.SystemMonitor => "SystemMonitor.Title",
             WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
@@ -394,6 +396,11 @@ public sealed partial class WidgetManager
 
     private async Task<ContentWidgetWindow> CreateSingletonContentFeatureWidgetAsync(WidgetKind kind)
     {
+        if (!_widgetRegistry.IsAllowedForCurrentUser(kind))
+        {
+            throw new InvalidOperationException("This widget requires a verified administrator.");
+        }
+
         if (!IsContentFeatureWidgetKind(kind))
         {
             throw new NotSupportedException($"Widget kind '{kind}' is not a content feature widget.");
@@ -425,6 +432,8 @@ public sealed partial class WidgetManager
                 WidgetKind.Search => 280,
                 WidgetKind.Glance => 360,
                 WidgetKind.Tree => 300,
+                WidgetKind.Aquarium => 420,
+                WidgetKind.FourWheelDrive => 420,
                 WidgetKind.SystemMonitor => 380,
                 WidgetKind.DingTalkGroupDocs => 420,
                 _ => Math.Max(_settingsService.Settings.DefaultWidgetWidth, 320)
@@ -436,6 +445,8 @@ public sealed partial class WidgetManager
                 WidgetKind.Search => 90,
                 WidgetKind.Glance => 260,
                 WidgetKind.Tree => 340,
+                WidgetKind.Aquarium => 300,
+                WidgetKind.FourWheelDrive => 360,
                 WidgetKind.SystemMonitor => 320,
                 WidgetKind.DingTalkGroupDocs => 460,
                 _ => Math.Max(_settingsService.Settings.DefaultWidgetHeight, 360)
@@ -986,6 +997,8 @@ public sealed partial class WidgetManager
 
     internal async Task<IDesktopWidgetWindow?> CreateOrShowFeatureWidgetAsync(WidgetKind kind)
     {
+        if (!_widgetRegistry.IsAllowedForCurrentUser(kind)) return null;
+
         if (!HasUiThreadAccess())
         {
             return await RunOnUiThreadAsync(() => CreateOrShowFeatureWidgetAsync(kind));
@@ -1002,6 +1015,8 @@ public sealed partial class WidgetManager
 
     public async Task SetFeatureWidgetEnabledAsync(WidgetKind kind, bool enabled, bool reveal = true)
     {
+        if (enabled && !_widgetRegistry.IsAllowedForCurrentUser(kind)) return;
+
         if (!HasUiThreadAccess())
         {
             await RunOnUiThreadAsync(() => SetFeatureWidgetEnabledAsync(kind, enabled, reveal));

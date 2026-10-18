@@ -201,6 +201,15 @@ Text="SltBox" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="BackpackNavItem"
+                    Tag="Backpack"
+                    Visibility="Collapsed"
+                    svc:Localized.Key="Settings.Nav.Backpack">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8F2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
                     Tag="Appearance"
                     svc:Localized.Key="Settings.Nav.Appearance">
                     <NavigationViewItem.Icon>
@@ -279,6 +288,7 @@ Text="SltBox" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="AboutNavItem"
                     Tag="About"
                     svc:Localized.Key="Settings.Nav.About">
                     <NavigationViewItem.InfoBadge>
@@ -2401,6 +2411,12 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                     <DataTemplate x:Key="TreeSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:TreeSettingsSection x:Name="TreeSettingsSection" Visibility="Collapsed" NavigationRequested="SettingsSection_NavigationRequested" />
                     </DataTemplate>
+                    <DataTemplate x:Key="AquariumSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <sections:AquariumSettingsSection x:Name="AquariumSettingsSection" Visibility="Collapsed" />
+                    </DataTemplate>
+                    <DataTemplate x:Key="BackpackSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <sections:AquariumBackpackSection x:Name="BackpackSection" Visibility="Collapsed" />
+                    </DataTemplate>
                     <DataTemplate x:Key="DingTalkGroupDocsSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:DingTalkGroupDocsSettingsSection x:Name="DingTalkGroupDocsSettingsSection" Visibility="Collapsed" />
                     </DataTemplate>
@@ -3454,29 +3470,36 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="20"
+                                    Glyph="&#xE71B;"
+                                    IsHitTestVisible="False" />
                                 <TextBlock
+                                    Grid.Column="1"
                                     VerticalAlignment="Center"
                                     Style="{StaticResource SettingTitleTextStyle}"
                                     svc:Localized.Key="Settings.DingTalk.Title" />
                                 <TextBlock
-                                    Grid.Column="1"
+                                    Grid.Column="2"
                                     VerticalAlignment="Center"
                                     Style="{StaticResource SettingDescriptionTextStyle}"
                                     TextWrapping="NoWrap"
                                     TextTrimming="CharacterEllipsis"
                                     svc:Localized.Key="Settings.DingTalk.Description" />
                                 <TextBlock
-                                    Grid.Column="2"
+                                    Grid.Column="3"
                                     MaxWidth="160"
                                     VerticalAlignment="Center"
                                     Text="{Binding DingTalkStatusText}"
                                     TextWrapping="NoWrap"
                                     TextTrimming="CharacterEllipsis" />
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6">
                                     <Button Click="DingTalkLink_Click" IsEnabled="{Binding DingTalkActionsEnabled}" Visibility="{Binding DingTalkLinkVisibility}" svc:Localized.Key="Settings.DingTalk.Link" />
                                     <Button Click="DingTalkRefresh_Click" IsEnabled="{Binding DingTalkActionsEnabled}" Visibility="{Binding DingTalkLinkedVisibility}" svc:Localized.Key="Settings.DingTalk.Refresh" />
                                     <Button Click="DingTalkUnlink_Click" IsEnabled="{Binding DingTalkActionsEnabled}" Visibility="{Binding DingTalkLinkedVisibility}" svc:Localized.Key="Settings.DingTalk.Unlink" />

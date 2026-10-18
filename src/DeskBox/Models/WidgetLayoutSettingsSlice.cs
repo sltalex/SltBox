@@ -5,6 +5,9 @@ namespace DeskBox.Models;
 /// </summary>
 public sealed class WidgetLayoutSettingsSlice
 {
+    /// <summary>Device-local aquarium animation preference.</summary>
+    public bool AquariumAnimationsEnabled { get; set; } = true;
+
     /// <summary>System monitor chart presentation preferences.</summary>
     public string SystemMonitorChartStyle { get; set; } = "Bars";
     // Empty until explicitly chosen so older single-style settings keep their appearance.
@@ -85,6 +88,7 @@ public sealed class WidgetLayoutSettingsSlice
         ArgumentNullException.ThrowIfNull(other);
 
         FeatureWidgetEnabledStates = other.FeatureWidgetEnabledStates;
+        AquariumAnimationsEnabled = other.AquariumAnimationsEnabled;
         SystemMonitorChartStyle = other.SystemMonitorChartStyle;
         SystemMonitorCpuChartStyle = other.SystemMonitorCpuChartStyle;
         SystemMonitorMemoryChartStyle = other.SystemMonitorMemoryChartStyle;

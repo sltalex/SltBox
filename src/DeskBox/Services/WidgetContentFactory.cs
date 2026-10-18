@@ -149,8 +149,32 @@ public sealed class WidgetContentFactory
             "WidgetContent.Tree.StatusDescription",
             HasSettingsPage: true,
             IsFeatureWidget: true,
-            SettingsSectionTag: "TreeSettings")
-        ,new(
+            SettingsSectionTag: "TreeSettings"),
+        new(
+            WidgetKind.Aquarium,
+            "Aquarium",
+            "\uE81E",
+            WidgetContentStage.Implemented,
+            CanShowInCreateEntry: false,
+            WidgetContentAvailability.Available,
+            "WidgetContent.Aquarium.StatusLabel",
+            "WidgetContent.Aquarium.StatusDescription",
+            HasSettingsPage: true,
+            IsFeatureWidget: true,
+            SettingsSectionTag: "AquariumSettings",
+            ChromeCategory: WidgetChromeCategory.Display,
+            DefaultChromeMode: WidgetChromeMode.Overlay),
+        new(
+            WidgetKind.FourWheelDrive,
+            "Four-wheel drive",
+            "\uE7C5",
+            WidgetContentStage.Implemented,
+            CanShowInCreateEntry: false,
+            WidgetContentAvailability.Available,
+            "WidgetContent.FourWheelDrive.StatusLabel",
+            "WidgetContent.FourWheelDrive.StatusDescription",
+            IsFeatureWidget: true),
+        new(
             WidgetKind.DingTalkGroupDocs,
             "DingTalk group documents",
             "\uE8A5",
@@ -305,6 +329,10 @@ public sealed class WidgetContentFactory
             new GlanceWidgetContentProvider(),
             new SearchWidgetContentProvider(),
             new TreeWidgetContentProvider(),
+            new AquariumWidgetContentProvider(
+                () => App.Current.AquariumService,
+                () => App.Current.SettingsService.Settings.WidgetLayout.AquariumAnimationsEnabled),
+            new FourWheelDriveWidgetContentProvider(),
             new DingTalkGroupDocsWidgetContentProvider(),
             new PlaceholderWidgetContentProvider(WidgetKind.Tags),
             new SystemMonitorWidgetContentProvider()

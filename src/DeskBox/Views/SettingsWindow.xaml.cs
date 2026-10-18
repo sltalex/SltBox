@@ -97,6 +97,7 @@ public sealed partial class SettingsWindow : Window
         new Dictionary<string, SettingsSectionRoute>(StringComparer.Ordinal)
         {
             ["General"] = new("General", "Settings.Section.General", null, "General"),
+            ["Backpack"] = new("Backpack", "Settings.Nav.Backpack", null, "Backpack"),
             ["PerformanceSettings"] = new("PerformanceSettings", "Settings.Performance.Title", "General", "General"),
             ["Appearance"] = new("Appearance", "Settings.Section.Appearance", null, "Appearance"),
             ["CapsuleMode"] = new("CapsuleMode", "Settings.Section.CapsuleMode", null, "CapsuleMode"),
@@ -119,6 +120,7 @@ public sealed partial class SettingsWindow : Window
             ["GlanceSettings"] = new("GlanceSettings", "Glance.Settings.Title", "FeatureWidgets", "FeatureWidgets"),
             ["SearchSettings"] = new("SearchSettings", "Settings.Search.Title", "FeatureWidgets", "FeatureWidgets"),
             ["TreeSettings"] = new("TreeSettings", "Tree.Title", "FeatureWidgets", "FeatureWidgets"),
+            ["AquariumSettings"] = new("AquariumSettings", "Aquarium.Title", "FeatureWidgets", "FeatureWidgets"),
             ["DingTalkGroupDocsSettings"] = new("DingTalkGroupDocsSettings", "DingTalkGroupDocs.Settings.Title", "FeatureWidgets", "FeatureWidgets"),
             ["SystemMonitorSettings"] = new("SystemMonitorSettings", "SystemMonitor.Title", "FeatureWidgets", "FeatureWidgets"),
             ["AppearanceMaterialSettings"] = new("AppearanceMaterialSettings", "Settings.Material.Title", "Appearance", "Appearance"),
@@ -142,6 +144,7 @@ public sealed partial class SettingsWindow : Window
     private readonly IBackupCommands _backupCommands;
     private readonly AccountCloudBackupService _accountCloudBackupService;
     private readonly TreeCloudSyncService _treeCloudSyncService;
+    private readonly AquariumService _aquariumService;
     private readonly DingTalkGroupDocumentSyncService _dingTalkGroupDocumentSyncService;
     private readonly IAuthSession _authSession;
     private readonly DeskBox.Features.Music.MusicSettingsViewModel _musicSettingsViewModel;
@@ -208,7 +211,8 @@ public sealed partial class SettingsWindow : Window
         DingTalkAccountService dingTalkAccountService,
         AccountCloudBackupService accountCloudBackupService,
         TreeCloudSyncService treeCloudSyncService,
-        DingTalkGroupDocumentSyncService dingTalkGroupDocumentSyncService)
+        DingTalkGroupDocumentSyncService dingTalkGroupDocumentSyncService,
+        AquariumService aquariumService)
     {
         var constructionStopwatch = Stopwatch.StartNew();
         long previousCheckpointMilliseconds = 0;
@@ -229,6 +233,7 @@ public sealed partial class SettingsWindow : Window
         _backupRestoreActions = backupRestoreActions;
         _accountCloudBackupService = accountCloudBackupService;
         _treeCloudSyncService = treeCloudSyncService;
+        _aquariumService = aquariumService;
         _dingTalkGroupDocumentSyncService = dingTalkGroupDocumentSyncService;
         _authSession = authSession;
         _musicSettingsViewModel = musicSettings;
@@ -486,6 +491,7 @@ public sealed partial class SettingsWindow : Window
         ClearFeatureSettingsExpanderCallbacks();
         foreach (FrameworkElement section in _settingsSectionElements.Values)
         {
+            if (section is DeskBox.Views.SettingsSections.AquariumSettingsSection aquarium) aquarium.Dispose();
             section.Loaded -= DeferredSettingsSection_Loaded;
             Microsoft.UI.Xaml.Markup.XamlBindingHelper.GetDataTemplateComponent(section)?.Recycle();
             section.DataContext = null;

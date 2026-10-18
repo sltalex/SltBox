@@ -45,6 +45,12 @@ public sealed partial class SettingsWindow
         {
             section.SetActive(!_isClosed && IsVisibleToUser && _currentSettingsSection == "SearchSettings");
         }
+        if (_settingsSectionElements.TryGetValue("AquariumSettings", out FrameworkElement? aquariumElement) &&
+            aquariumElement is AquariumSettingsSection aquarium)
+        {
+            aquarium.SetActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "AquariumSettings");
+            aquarium.SetBackpackActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "Backpack");
+        }
     }
 
     private void UpdateBackupSettingsActivity()
@@ -57,6 +63,9 @@ public sealed partial class SettingsWindow
 
     private FrameworkElement EnsureSettingsSectionCreated(string sectionTag)
     {
+        if (sectionTag is "AquariumSettings" or "Backpack" && !IsVerifiedAdmin)
+            return EnsureSettingsSectionCreated("General");
+        if (sectionTag == "Backpack") EnsureSettingsSectionCreated("AquariumSettings");
         if (_settingsSectionElements.TryGetValue(sectionTag, out FrameworkElement? existing))
         {
             return existing;
@@ -95,6 +104,20 @@ public sealed partial class SettingsWindow
                     _localizationService,
                     _authSession,
                     _treeCloudSyncService);
+                break;
+            case AquariumSettingsSection aquarium:
+                aquarium.Initialize(_aquariumService, _localizationService,
+                    () => _settingsService.Settings.WidgetLayout.AquariumAnimationsEnabled,
+                    enabled =>
+                    {
+                        _settingsService.Settings.WidgetLayout.AquariumAnimationsEnabled = enabled;
+                        _settingsService.SaveDebounced();
+                    });
+                break;
+            case AquariumBackpackSection backpack:
+                backpack.AquariumRequested += () => NavigateToSettingsSection("AquariumSettings");
+                ((AquariumSettingsSection)_settingsSectionElements["AquariumSettings"])
+                    .AttachExternalBackpack(backpack);
                 break;
             case DingTalkGroupDocsSettingsSection groupDocsSettings:
                 groupDocsSettings.Configure(

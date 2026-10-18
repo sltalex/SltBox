@@ -7,7 +7,7 @@ namespace DeskBox.Services;
 
 internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountApi
 {
-    internal const string DefaultApiBaseUrl = "https://sltbox.2leaves.cn/api/v1/auth/";
+    internal const string DefaultApiBaseUrl = "http://sltbox.2leaves.cn/api/v1/auth/";
     internal const string SessionCredentialKey = "deskbox-cloud:auth:session";
 
     private readonly ICredentialStore _credentialStore;

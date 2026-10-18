@@ -273,10 +273,10 @@ $installerVersionMatch = [regex]::Match(
 if (-not $installerBaseNameMatch.Success -or -not $installerVersionMatch.Success) {
     throw "The Inno script does not expose MyAppOutputBaseName and MyAppVersion definitions."
 }
-# Keep the DeskBox_Setup_<version>_<arch>.exe shape: every released updater
-# (1.4.3 and later) only accepts assets and manifest URLs ending in
-# "_x64.exe"/"_arm64.exe", and the distribution workflow publishes this exact
-# name to GitHub Releases and stable.json. Flavor suffixes break that contract.
+# Keep the SltBox_Setup_<version>_<arch>.exe shape for new releases. The updater
+# still accepts legacy DeskBox_Setup assets, while all published assets and
+# stable.json entries for this build use the SltBox brand. Flavor suffixes break
+# the architecture contract.
 $installerOutputBaseName = "{0}_{1}_{2}" -f `
     $installerBaseNameMatch.Groups[1].Value,
     $installerVersionMatch.Groups[1].Value,

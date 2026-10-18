@@ -28,6 +28,7 @@ internal static class WidgetSettingsMenuHelper
         WidgetKind.Glance => "GlanceSettings",
         WidgetKind.Search => "SearchSettings",
         WidgetKind.Tree => "TreeSettings",
+        WidgetKind.Aquarium => "AquariumSettings",
         WidgetKind.SystemMonitor => "FeatureWidgets",
         WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocsSettings",
         _ => null
@@ -47,6 +48,7 @@ internal static class WidgetSettingsMenuHelper
         WidgetKind.Glance => "Widget.Settings.Glance",
         WidgetKind.Search => "Widget.Settings.Search",
         WidgetKind.Tree => "Tree.Title",
+        WidgetKind.Aquarium => "Widget.Settings.Aquarium",
         WidgetKind.SystemMonitor => "SystemMonitor.Title",
         WidgetKind.DingTalkGroupDocs => "Widget.Settings.DingTalkGroupDocs",
         _ => "Common.Configure"

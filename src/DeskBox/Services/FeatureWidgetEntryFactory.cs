@@ -25,6 +25,7 @@ public sealed class FeatureWidgetEntryFactory
     {
         return _contentFactory
             .GetFeatureWidgetEntryDescriptors()
+            .Where(descriptor => _widgetRegistry.IsAllowedForCurrentUser(descriptor.WidgetKind))
             .Select(CreateEntry)
             .ToArray();
     }

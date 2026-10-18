@@ -26,6 +26,8 @@ public sealed class FeatureWidgetKindContractTests
                 WidgetKind.Search,
                 WidgetKind.Glance,
                 WidgetKind.Tree,
+                WidgetKind.Aquarium,
+                WidgetKind.FourWheelDrive,
                 WidgetKind.DingTalkGroupDocs
             },
             FeatureWidgetSettings.FeatureKinds);

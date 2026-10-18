@@ -430,6 +430,7 @@ public sealed class SettingsSliceContractBaselineTests
         "showFileExtensions",
         "hideShortcutExtensionWhenShowingFileExtensions",
         "widgets",
+        "aquariumAnimationsEnabled",
         "systemMonitorChartStyle",
         "systemMonitorCpuChartStyle",
         "systemMonitorMemoryChartStyle",

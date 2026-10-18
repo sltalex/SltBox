@@ -14,13 +14,21 @@ public sealed record WidgetKindRegistration(
 public sealed class WidgetRegistry
 {
     private readonly IReadOnlyDictionary<WidgetKind, WidgetKindRegistration> _registrations;
+    private readonly Func<bool> _isAquariumAvailable;
+
+    // Set by the composition root only after an online-verified session service exists.
+    internal static Func<bool> AquariumAccessResolver { get; set; } = () => false;
 
     public static WidgetRegistry Default { get; } = CreateDefault();
 
-    public WidgetRegistry(IEnumerable<WidgetKindRegistration> registrations)
+    public WidgetRegistry(IEnumerable<WidgetKindRegistration> registrations, Func<bool>? isAquariumAvailable = null)
     {
         _registrations = registrations.ToDictionary(registration => registration.WidgetKind);
+        _isAquariumAvailable = isAquariumAvailable ?? (() => AquariumAccessResolver());
     }
+
+    public bool IsAllowedForCurrentUser(WidgetKind kind) =>
+        kind is not (WidgetKind.Aquarium or WidgetKind.FourWheelDrive) || _isAquariumAvailable();
 
     public bool IsKnown(WidgetKind widgetKind)
     {
@@ -41,7 +49,7 @@ public sealed class WidgetRegistry
 
     public bool IsAvailableForSession(WidgetConfig widget, AppSettings settings)
     {
-        if (!CanCreateWindow(widget.WidgetKind))
+        if (!CanCreateWindow(widget.WidgetKind) || !IsAllowedForCurrentUser(widget.WidgetKind))
         {
             return false;
         }
@@ -68,7 +76,9 @@ public sealed class WidgetRegistry
             new(WidgetKind.Glance, CanCreateWindow: true, IsImplemented: true),
             new(WidgetKind.SystemMonitor, CanCreateWindow: true, IsImplemented: true),
             new(WidgetKind.Tree, CanCreateWindow: true, IsImplemented: true),
-            new(WidgetKind.DingTalkGroupDocs, CanCreateWindow: true, IsImplemented: true)
+            new(WidgetKind.DingTalkGroupDocs, CanCreateWindow: true, IsImplemented: true),
+            new(WidgetKind.Aquarium, CanCreateWindow: true, IsImplemented: true),
+            new(WidgetKind.FourWheelDrive, CanCreateWindow: true, IsImplemented: true)
         ]);
     }
 }

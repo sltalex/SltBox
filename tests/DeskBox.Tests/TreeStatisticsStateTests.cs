@@ -90,13 +90,15 @@ public sealed class TreeStatisticsStateTests
     }
 
     [Fact]
-    public void TreeSettings_ShowSeparateNextStageAndTotalGrowthBars()
+    public void TreeSettings_DoesNotRenderSeparateGrowthProgressCard()
     {
         string source = File.ReadAllText(TestPaths.FromRepository(
             "src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
-        Assert.Contains("_nextStageBar.Value = snapshot.NextStagePercentage", source, StringComparison.Ordinal);
-        Assert.Contains("_totalGrowthBar.Value = snapshot.MaturityPercentage", source, StringComparison.Ordinal);
-        Assert.Contains("Tree.Settings.NextStageProgress", source, StringComparison.Ordinal);
-        Assert.Contains("Tree.Settings.TotalGrowthProgress", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_progressCard", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_nextStageBar", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_totalGrowthBar", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tree.Settings.NextStageProgress", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tree.Settings.TotalGrowthProgress", source, StringComparison.Ordinal);
+        Assert.Contains("_growthSummary", source, StringComparison.Ordinal);
     }
 }

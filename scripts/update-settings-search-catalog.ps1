@@ -27,9 +27,11 @@ function Get-SearchEntries([System.Xml.Linq.XElement]$Element, [string]$SectionT
     }
 
     if ($Element.Name.NamespaceName -eq $sectionNamespace) {
-        $sectionDocument = [System.Xml.Linq.XDocument]::Load(
-            (Join-Path $viewsRoot "SettingsSections/$typeName.xaml"))
-        Get-SearchEntries $sectionDocument.Root $SectionTag
+        $sectionPath = Join-Path $viewsRoot "SettingsSections/$typeName.xaml"
+        if (Test-Path -LiteralPath $sectionPath) {
+            $sectionDocument = [System.Xml.Linq.XDocument]::Load($sectionPath)
+            Get-SearchEntries $sectionDocument.Root $SectionTag
+        }
     }
     foreach ($child in $Element.Elements()) {
         Get-SearchEntries $child $SectionTag

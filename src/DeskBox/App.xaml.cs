@@ -172,6 +172,8 @@ public partial class App : Application
     internal CloudBackupService CloudBackupService { get; private set; } = null!;
     internal AccountCloudBackupService AccountCloudBackupService { get; private set; } = null!;
     internal TreeCloudSyncService TreeCloudSyncService { get; private set; } = null!;
+    internal AquariumService AquariumService { get; private set; } = null!;
+    private string? _aquariumVisibleIdentity;
     internal DingTalkGroupDocumentSyncService DingTalkGroupDocumentSyncService { get; private set; } = null!;
     public DeskBoxAttachmentHealthService AttachmentHealthService { get; private set; } = null!;
     public FileService FileService { get; private set; } = null!;
@@ -317,6 +319,8 @@ public partial class App : Application
         CloudBackupService.BackupRunCompleted += OnCloudBackupRunCompleted;
         AccountCloudBackupService = Services.GetRequiredService<AccountCloudBackupService>();
         TreeCloudSyncService = Services.GetRequiredService<TreeCloudSyncService>();
+        AquariumService = Services.GetRequiredService<AquariumService>();
+        WidgetRegistry.AquariumAccessResolver = () => AquariumService.IsAvailable;
         DingTalkGroupDocumentSyncService = Services.GetRequiredService<DingTalkGroupDocumentSyncService>();
         _ = LegacySearchIndexCleanupService.TryCleanup();
         AttachmentHealthService = Services.GetRequiredService<DeskBoxAttachmentHealthService>();
@@ -1084,6 +1088,7 @@ public partial class App : Application
             await authSessionRestoreTask;
             RunOptionalStartupStep("account-cloud-backup", AccountCloudBackupService.Start);
             RunOptionalStartupStep("tree-cloud-sync", TreeCloudSyncService.Start);
+            RunOptionalStartupStep("aquarium-sync", AquariumService.Start);
             RunOptionalStartupStep("dingtalk-group-documents", DingTalkGroupDocumentSyncService.Start);
 
             if (FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Search))
@@ -1108,6 +1113,8 @@ public partial class App : Application
                 // widget group; the reverse order is handled per-window at show.
                 WidgetManager.AuxiliaryWindowProvider = GetRaisedBandAuxiliaryWindowHandles;
             });
+            AquariumService.Changed += OnAquariumChanged;
+            OnAquariumChanged();
             RunOptionalStartupStep("tree-counter", () =>
             {
                 SettingsService.SettingsChanged += OnTreeFeatureSettingsChanged;
@@ -3104,7 +3111,8 @@ public partial class App : Application
             Services.GetRequiredService<DingTalkAccountService>(),
             AccountCloudBackupService,
             TreeCloudSyncService,
-            DingTalkGroupDocumentSyncService);
+            DingTalkGroupDocumentSyncService,
+            AquariumService);
         _settingsWindow.Closed += SettingsWindow_ClosedForApp;
         return _settingsWindow;
     }
@@ -4687,6 +4695,55 @@ public partial class App : Application
             FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Tree));
     }
 
+    private void OnAquariumChanged()
+    {
+        if (UiDispatcherQueue is { HasThreadAccess: false } dispatcher)
+        {
+            dispatcher.TryEnqueue(OnAquariumChanged);
+            return;
+        }
+
+        string? identity = AquariumService.IsAvailable ? AquariumService.CurrentUserId : null;
+        if (identity == _aquariumVisibleIdentity) return;
+
+        string? previousIdentity = _aquariumVisibleIdentity;
+        _aquariumVisibleIdentity = identity;
+        if (WidgetManager is null) return;
+
+        // Close any window that belongs to the previous account before a new
+        // administrator can see the aquarium.  This prevents a brief cross-
+        // account flash when the service clears its account-scoped cache.
+        if (identity is null || previousIdentity is not null)
+        {
+            WidgetManager.HideAndCloseFeatureWidgetAsync(WidgetKind.Aquarium);
+            WidgetManager.HideAndCloseFeatureWidgetAsync(WidgetKind.FourWheelDrive);
+        }
+
+        // A verified administrator who logs back in should regain an enabled
+        // aquarium without needing to toggle the setting again.
+        if (identity is not null && FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Aquarium))
+        {
+            WidgetManager.CreateOrShowFeatureWidgetAsync(WidgetKind.Aquarium).ContinueWith(
+                task =>
+                {
+                    if (task.Exception is not null)
+                        Log($"[Aquarium] Failed to restore the feature widget: {task.Exception}");
+                },
+                TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        if (identity is not null && FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.FourWheelDrive))
+        {
+            WidgetManager.CreateOrShowFeatureWidgetAsync(WidgetKind.FourWheelDrive).ContinueWith(
+                task =>
+                {
+                    if (task.Exception is not null)
+                        Log($"[FourWheelDrive] Failed to restore the feature widget: {task.Exception}");
+                },
+                TaskContinuationOptions.OnlyOnFaulted);
+        }
+    }
+
     private async Task<bool> ShutdownCoreAsync()
     {
         Interlocked.Exchange(ref s_shutdownRequested, 1);
@@ -4727,6 +4784,9 @@ public partial class App : Application
             {
                 await DingTalkGroupDocumentSyncService.DisposeAsync();
                 await TreeCloudSyncService.DisposeAsync();
+                AquariumService.Changed -= OnAquariumChanged;
+                await AquariumService.DisposeAsync();
+                WidgetRegistry.AquariumAccessResolver = () => false;
                 await AccountCloudBackupService.DisposeAsync();
             }, shutdownGrace),
             ShutdownStep.Bounded("todo-settings", () =>

@@ -570,6 +570,6 @@ public sealed class FileStackSettingsEditorTests : IDisposable
         Assert.Contains("nameof(StacksEnabled)", bridge, StringComparison.Ordinal);
         Assert.DoesNotContain("nameof(AvailableOpenModeOptions)", bridge, StringComparison.Ordinal);
         Assert.DoesNotContain("nameof(CustomRules)", bridge, StringComparison.Ordinal);
-        Assert.Equal(43, Regex.Matches(bindableShell, @"nameof\(").Count);
+        Assert.Equal(45, Regex.Matches(bindableShell, @"nameof\(").Count);
     }
 }

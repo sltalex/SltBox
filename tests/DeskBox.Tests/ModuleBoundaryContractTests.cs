@@ -166,6 +166,9 @@ public sealed class ModuleBoundaryContractTests
         ["src/DeskBox/Services/WidgetManager.cs"] = 12,
         ["src/DeskBox/Services/WidgetManager.CapsuleArrangement.cs"] = 1,
         ["src/DeskBox/Services/WidgetLayerService.cs"] = 8,
+        // Aquarium content is created lazily from the composition root because
+        // the provider inventory is constructed before the authenticated session.
+        ["src/DeskBox/Services/WidgetContentFactory.cs"] = 2,
     };
 
     [Fact]
@@ -490,6 +493,9 @@ public sealed class ModuleBoundaryContractTests
         // folder after moving its contents back to the desktop (#112
         // migration rollback work in progress).
         ["src/DeskBox/Services/WidgetManager.Storage.cs"] = 5,
+        // Aquarium cache snapshots are account-scoped and use the persistence
+        // directory owned by the service; the mutation remains bounded there.
+        ["src/DeskBox/Services/AquariumService.cs"] = 1,
         // 4: the title-icon asset store manages its own app-data surface
         // only (data/widget-assets): stale-replace delete, icon delete,
         // widget-asset directory cleanup, and the recent-emoji tmp+move

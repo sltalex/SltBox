@@ -65,6 +65,8 @@ public sealed partial class SettingsWindow
         foreach (SettingsSectionRoute route in SectionRoutes.Values.Where(route => route.Tag != "Advanced"))
         {
             if (route.Tag == "Admin" && !IsVerifiedAdmin) continue;
+            if (route.Tag == "AquariumSettings" && !IsVerifiedAdmin) continue;
+            if (route.Tag == "Backpack" && !IsVerifiedAdmin) continue;
             string title = _localizationService.T(route.TitleKey);
             results.Add(new SettingsSearchResult(
                 route.Tag,
@@ -117,6 +119,8 @@ public sealed partial class SettingsWindow
         foreach (SettingsSearchCatalogEntry entry in SettingsSearchCatalog.Entries)
         {
             string destinationTag = NormalizeSettingsSectionTag(entry.SectionTag);
+            if (destinationTag is "Admin" or "AquariumSettings" && !IsVerifiedAdmin) continue;
+            if (destinationTag == "Backpack" && !IsVerifiedAdmin) continue;
             if (!TryGetSectionRoute(
                     destinationTag,
                     out SettingsSectionRoute route) ||
@@ -446,6 +450,8 @@ public sealed partial class SettingsWindow
         sectionTag = NormalizeSettingsSectionTag(sectionTag);
 
         if (sectionTag == "Admin" && !IsVerifiedAdmin) sectionTag = "General";
+        if (sectionTag == "AquariumSettings" && !IsVerifiedAdmin) sectionTag = "General";
+        if (sectionTag == "Backpack" && !IsVerifiedAdmin) sectionTag = "General";
 
         ShowSettingsSection(sectionTag);
         var navItem = GetNavItemForSection(sectionTag);
@@ -474,6 +480,8 @@ public sealed partial class SettingsWindow
     {
         sectionTag = NormalizeSettingsSectionTag(sectionTag);
         if (sectionTag == "Admin" && !IsVerifiedAdmin) sectionTag = "General";
+        if (sectionTag == "AquariumSettings" && !IsVerifiedAdmin) sectionTag = "General";
+        if (sectionTag == "Backpack" && !IsVerifiedAdmin) sectionTag = "General";
 
         if (!TryGetSectionRoute(sectionTag, out var route))
         {

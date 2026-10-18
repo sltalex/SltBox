@@ -134,11 +134,13 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
                 ? _service.Documents
                 : await _service.LoadAsync();
             await _favorites.LoadAsync();
+            await _favorites.UpdateDocumentMetadataAsync(documents);
             bool syncUnavailable = false;
             if (!loadOnly)
             {
                 syncUnavailable = _sync is null || !await _sync.SyncNowAsync();
                 documents = _service.Documents;
+                await _favorites.UpdateDocumentMetadataAsync(documents);
             }
             Render(documents);
             SetStatus(syncUnavailable
@@ -237,7 +239,11 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
     {
         if (_disposed) return;
         string filter = _search.Text?.Trim() ?? string.Empty;
-        var groups = documents
+        IEnumerable<DingTalkGroupDocument> visibleDocuments = _showFavorites
+            ? _favorites.FavoriteDocuments.Concat(documents)
+                .DistinctBy(document => DingTalkGroupDocumentFavorites.CanonicalKey(document.Url))
+            : documents;
+        var groups = visibleDocuments
             .Where(document => !_showFavorites || _favorites.IsFavorite(document.Url))
             .Where(document => string.IsNullOrWhiteSpace(filter) ||
                 document.GroupName.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
@@ -297,7 +303,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
                     ? "DingTalkGroupDocs.Favorite.Remove" : "DingTalkGroupDocs.Favorite.Add");
                 ToolTipService.SetToolTip(star, action);
                 AutomationProperties.SetName(star, action);
-                star.Click += async (_, _) => await ToggleFavoriteAsync(star, document.Url);
+                star.Click += async (_, _) => await ToggleFavoriteAsync(star, document);
                 Grid.SetColumn(star, 1);
                 row.Children.Add(star);
                 documentRows.Children.Add(row);
@@ -348,12 +354,12 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             : (double)Application.Current.Resources["WidgetCompactRowSpacing"];
     }
 
-    private async Task ToggleFavoriteAsync(Button button, string url)
+    private async Task ToggleFavoriteAsync(Button button, DingTalkGroupDocument document)
     {
         button.IsEnabled = false;
         try
         {
-            await _favorites.SetFavoriteAsync(url, !_favorites.IsFavorite(url));
+            await _favorites.SetFavoriteAsync(document, !_favorites.IsFavorite(document.Url));
             SetStatus(string.Empty);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or

@@ -136,3 +136,41 @@ CREATE TABLE account_backup_upload_parts (
     PRIMARY KEY (upload_id, part_start),
     FOREIGN KEY (upload_id) REFERENCES account_backup_uploads(id) ON DELETE CASCADE
 );
+
+CREATE TABLE aquarium_profiles (
+    user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+    initialized INTEGER NOT NULL DEFAULT 0,
+    coins INTEGER NOT NULL DEFAULT 0 CHECK (coins >= 0),
+    scene_version INTEGER NOT NULL DEFAULT 0,
+    scene_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE aquarium_inventory (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES aquarium_profiles(user_id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE aquarium_wallet_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES aquarium_profiles(user_id) ON DELETE CASCADE,
+    operation_id TEXT NOT NULL,
+    delta INTEGER NOT NULL,
+    balance INTEGER NOT NULL CHECK (balance >= 0),
+    reason TEXT NOT NULL,
+    item_id TEXT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(user_id, operation_id)
+);
+
+CREATE TABLE aquarium_operations (
+    user_id TEXT NOT NULL REFERENCES aquarium_profiles(user_id) ON DELETE CASCADE,
+    operation_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(user_id, operation_id)
+);

@@ -79,6 +79,11 @@ public sealed partial class SettingsWindow
         {
             adminSection.RefreshLocalizedContent();
         }
+        if (_settingsSectionElements.TryGetValue("AquariumSettings", out FrameworkElement? aquariumElement) &&
+            aquariumElement is DeskBox.Views.SettingsSections.AquariumSettingsSection aquariumSection)
+        {
+            aquariumSection.RefreshLocalizedContent();
+        }
         RefreshSettingsSearchResults();
         ApplyToggleSwitchContentVisibility();
         RefreshFeatureWidgetList();
@@ -129,7 +134,9 @@ public sealed partial class SettingsWindow
         _isRefreshingFeatureWidgetList = true;
         try
         {
-            var entries = ViewModel.FeatureWidgetEntries.ToArray();
+            var entries = ViewModel.FeatureWidgetEntries
+                .Where(entry => entry.Kind is not (WidgetKind.Aquarium or WidgetKind.FourWheelDrive) || IsVerifiedAdmin)
+                .ToArray();
             bool requiresRebuild = entries.Length != _featureWidgetRows.Count ||
                 entries.Any(entry =>
                     !_featureWidgetRows.TryGetValue(entry.Kind, out var row) ||
@@ -448,6 +455,11 @@ public sealed partial class SettingsWindow
 
         if (sender is ToggleSwitch { Tag: WidgetKind kind } toggle)
         {
+            if (kind is WidgetKind.Aquarium or WidgetKind.FourWheelDrive && !IsVerifiedAdmin)
+            {
+                DispatcherQueue.TryEnqueue(RefreshFeatureWidgetList);
+                return;
+            }
             ViewModel.SetWidgetEnabled(kind, toggle.IsOn);
             DispatcherQueue.TryEnqueue(RefreshFeatureWidgetList);
         }

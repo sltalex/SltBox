@@ -28,6 +28,13 @@ public interface IWidgetContent
     void OnWindowVisibilityChanged(bool visible) { }
 
     /// <summary>
+    /// Called when the host window is completely covered by another window or
+    /// becomes visible again. This is separate from activation because a
+    /// desktop widget should not pause merely because another app has focus.
+    /// </summary>
+    void OnWindowOcclusionChanged(bool occluded) { }
+
+    /// <summary>
     /// Called once the host's reveal animation has completed. Expensive refresh,
     /// watcher, and device work should resume here so it cannot contend with the
     /// first visible frame.

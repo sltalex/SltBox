@@ -245,7 +245,13 @@ public enum WidgetKind
     Tree,
 
     /// <summary>Read-only DingTalk group document link catalog.</summary>
-    DingTalkGroupDocs
+    DingTalkGroupDocs,
+
+    /// <summary>Administrator-only account aquarium.</summary>
+    Aquarium,
+
+    /// <summary>Administrator-only four-wheel-drive car progression widget.</summary>
+    FourWheelDrive
 }
 
 public sealed class WidgetKindJsonConverter : JsonConverter<WidgetKind>

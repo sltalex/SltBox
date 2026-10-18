@@ -1,0 +1,18 @@
+<UserControl
+    x:Class="DeskBox.Views.SettingsSections.AquariumBackpackSection"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:svc="using:DeskBox.Services">
+    <StackPanel Spacing="12">
+        <TextBlock FontSize="24" FontWeight="SemiBold" svc:Localized.Key="Settings.Nav.Backpack" />
+        <toolkit:SettingsCard svc:Localized.HeaderKey="Aquarium.Backpack.Aquarium">
+            <StackPanel Spacing="8">
+                <StackPanel x:Name="BackpackPrimaryCategories" Orientation="Horizontal" Spacing="6" />
+                <StackPanel x:Name="BackpackCategories" Orientation="Horizontal" Spacing="6" />
+                <StackPanel x:Name="BackpackItems" Spacing="10" />
+            </StackPanel>
+        </toolkit:SettingsCard>
+        <TextBlock x:Name="DraftStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+    </StackPanel>
+</UserControl>

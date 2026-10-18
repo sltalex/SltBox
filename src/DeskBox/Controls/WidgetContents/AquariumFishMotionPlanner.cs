@@ -18,16 +18,12 @@ internal sealed record AquariumFishMotionPlan(
 /// </summary>
 internal static class AquariumFishMotionPlanner
 {
-    private const int SegmentCount = 4;
+    // Several independent legs make one animation loop long enough that the
+    // fish do not repeat the same short route every few seconds.
+    private const int SegmentCount = 8;
     private const double TurnSecondsMin = .72;
     private const double TurnSecondsRange = .22;
     private const double AccelerationFraction = .24;
-    private static readonly IReadOnlyDictionary<string, double> SpeciesSpeed = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["clownfish"] = .82, ["blue-tang"] = 1.02, ["butterflyfish"] = .92,
-        ["angelfish"] = .72, ["lionfish"] = .64, ["pufferfish"] = .55,
-        ["seahorse"] = .42
-    };
 
     internal static IReadOnlyDictionary<string, AquariumFishMotionPlan> Build(
         IReadOnlyList<AquariumFishMotionInput> inputs, double sceneWidth, double sceneHeight, int seed)
@@ -60,12 +56,15 @@ internal static class AquariumFishMotionPlanner
         double centerX = school.Average(item => item.X * sceneWidth);
         double centerY = school.Average(item => item.Y * sceneHeight);
         string species = school[0].SpeciesId;
-        double speed = SpeciesSpeed.TryGetValue(species, out double speciesMultiplier) ? speciesMultiplier : .75;
+        double speed = AquariumArtworkCatalog.TryGetProfile(species, out var artwork) && artwork.SpeedMultiplier > 0
+            ? artwork.SpeedMultiplier : .75;
         var random = new Random(StableHash($"{schoolId}:{seed}"));
         var paths = school.ToDictionary(item => item.InstanceId, _ => new List<(float, Vector3)> { (0, Vector3.Zero) }, StringComparer.Ordinal);
         var facings = school.ToDictionary(item => item.InstanceId, _ => new List<(float, float)> { (0, random.Next(2) == 0 ? -1 : 1) }, StringComparer.Ordinal);
         var current = school.ToDictionary(item => item.InstanceId, item => (X: item.X * sceneWidth, Y: item.Y * sceneHeight), StringComparer.Ordinal);
         var facing = school.ToDictionary(item => item.InstanceId, item => facings[item.InstanceId][0].Item2, StringComparer.Ordinal);
+        var initialFacing = school.ToDictionary(item => item.InstanceId,
+            item => facings[item.InstanceId][0].Item2, StringComparer.Ordinal);
         double elapsed = 0;
         double total = 0;
         var segments = new List<(double Turn, double Swim, Dictionary<string, (double X, double Y)> Targets, Dictionary<string, float> Headings)>();
@@ -82,8 +81,6 @@ internal static class AquariumFishMotionPlanner
                 centerX += direction * travel;
                 centerY = Math.Clamp(centerY + (random.NextDouble() - .5) * 80, sceneHeight * .18, sceneHeight * .78);
             }
-            var initialFacing = school.ToDictionary(item => item.InstanceId,
-                item => facings[item.InstanceId][0].Item2, StringComparer.Ordinal);
             foreach (AquariumFishMotionInput member in school)
             {
                 bool returningToLoop = segment == SegmentCount - 1;
@@ -96,15 +93,17 @@ internal static class AquariumFishMotionPlanner
                     ? member.Y * sceneHeight
                     : centerY + (random.NextDouble() - .5) * (straggler ? 48 : 24);
                 targets[member.InstanceId] = (x, Math.Clamp(y, sceneHeight * .14, sceneHeight * .82));
-                headings[member.InstanceId] = returningToLoop
-                    ? initialFacing[member.InstanceId]
-                    : (float)(x >= current[member.InstanceId].X ? 1 : -1);
+                double deltaX = x - current[member.InstanceId].X;
+                headings[member.InstanceId] = Math.Abs(deltaX) > 4
+                    ? (float)(deltaX >= 0 ? 1 : -1)
+                    : facing[member.InstanceId];
             }
             segments.Add((turn, swim, targets, headings));
             foreach (AquariumFishMotionInput member in school)
                 current[member.InstanceId] = targets[member.InstanceId];
             total += turn + swim;
         }
+        total += TurnSecondsMin;
 
         foreach (AquariumFishMotionInput member in school)
         {
@@ -136,6 +135,17 @@ internal static class AquariumFishMotionPlanner
                 paths[member.InstanceId].Add((swimEnd, translation));
                 facing[member.InstanceId] = segment.Headings[member.InstanceId];
             }
+            // The last leg reaches the original position while facing the
+            // direction of travel. Turn back only after the fish is stationary
+            // at the loop origin, so the next loop cannot begin by swimming
+            // backwards.
+            double restoreTurn = TurnSecondsMin;
+            elapsed += restoreTurn;
+            float restoreEnd = (float)(elapsed / total);
+            paths[member.InstanceId].Add((Math.Max(0, restoreEnd - .006f), paths[member.InstanceId][^1].Item2));
+            paths[member.InstanceId].Add((restoreEnd, paths[member.InstanceId][^1].Item2));
+            facings[member.InstanceId].Add((Math.Max(0, restoreEnd - .006f), facing[member.InstanceId]));
+            facings[member.InstanceId].Add((restoreEnd, initialFacing[member.InstanceId]));
             bool isStraggler = false;
             for (int segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {

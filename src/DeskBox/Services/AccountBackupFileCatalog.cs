@@ -39,6 +39,7 @@ internal sealed class AccountBackupFileCatalog
     internal async Task<AccountBackupFileDto[]> CaptureAsync(CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(_dataDirectory)) return [];
+        DingTalkGroupDocumentFavorites.MigrateLegacyFiles(_dataDirectory);
         var files = new List<AccountBackupFileDto>();
         long totalBytes = 0;
         foreach (string path in Directory.EnumerateFiles(_dataDirectory, "*.json", SearchOption.AllDirectories))

@@ -16,6 +16,7 @@ public sealed class AccountBackupFileCatalogTests : IDisposable
         Write("widget-layout.json", "[]");
         Write("tree/progress.json", "{\"energy\":1}");
         Write("glance/state.json", "{}");
+        Write("dingtalk/group-document-favorites-account.json", "{\"documentUrls\":[]}");
         Write("cache/result.json", "{}");
         Write("sync/tree/state.json", "{}");
         Write("todo/attachments/file.json", "{}");
@@ -29,11 +30,28 @@ public sealed class AccountBackupFileCatalogTests : IDisposable
         AccountBackupFileDto[] files = await catalog.CaptureAsync();
 
         Assert.Equal(
-            ["glance/state.json", "settings.json", "tree/progress.json", "widget-layout.json"],
+            ["dingtalk/group-document-favorites-account.json", "glance/state.json", "settings.json", "tree/progress.json", "widget-layout.json"],
             files.Select(file => file.Path).ToArray());
         Assert.All(files, file => Assert.Equal(
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(file.Content))).ToLowerInvariant(),
             file.Sha256));
+    }
+
+    [Fact]
+    public async Task Capture_MigratesLegacyFavoritesEvenBeforeTheDingTalkWidgetOpens()
+    {
+        string name = "group-document-favorites-" + new string('a', 64) + ".json";
+        Write("settings.json", "{}");
+        Write("sync/dingtalk/" + name, "{\"DocumentUrls\":[\"https://alidocs.dingtalk.com/i/nodes/doc\"]}");
+        Write("sync/dingtalk/group-documents-" + new string('a', 64) + ".json",
+            "{\"Documents\":[{\"GroupName\":\"Team\",\"Title\":\"Guide\",\"Url\":\"https://alidocs.dingtalk.com/i/nodes/doc\",\"LastSeenAt\":\"2026-10-18T00:00:00+00:00\"}]}");
+        var catalog = new AccountBackupFileCatalog(Path.Combine(_root, "data"));
+
+        AccountBackupFileDto[] files = await catalog.CaptureAsync();
+
+        Assert.Contains(files, file => file.Path == "dingtalk/" + name &&
+            file.Content.Contains("Guide", StringComparison.Ordinal));
+        Assert.DoesNotContain(files, file => file.Path.StartsWith("sync/", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -70,6 +88,42 @@ public sealed class AccountBackupFileCatalogTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_root, "data", "todo", "attachments", "keep.json")));
         Assert.True(File.Exists(Path.Combine(_root, "data", "cache", "keep.json")));
         Assert.True(File.Exists(Path.Combine(_root, "data", "sync", "tree", "keep.json")));
+    }
+
+    [Fact]
+    public async Task Restore_RecoversFavoriteDocumentDetailsWithoutReplacingDwsSyncState()
+    {
+        Write("settings.json", "{}");
+        Write("sync/dingtalk/group-documents.json", "{\"cursor\":\"keep\"}");
+        const string favoritePath = "dingtalk/group-document-favorites-account.json";
+        const string favoriteJson = "{\"documentUrls\":[\"https://alidocs.dingtalk.com/i/nodes/doc\"],\"documents\":[{\"groupName\":\"Team\",\"title\":\"Guide\",\"url\":\"https://alidocs.dingtalk.com/i/nodes/doc\",\"lastSeenAt\":\"2026-10-18T00:00:00+00:00\"}]}";
+        var catalog = new AccountBackupFileCatalog(Path.Combine(_root, "data"));
+        AccountBackupSnapshotDownloadDto snapshot = Snapshot(
+            ("settings.json", "{}"), (favoritePath, favoriteJson));
+
+        await catalog.PrepareRestoreAsync(snapshot, "user-1", _ => Task.CompletedTask);
+        AccountBackupRestoreResult applied = await catalog.ApplyPendingRestoreAsync();
+
+        Assert.True(applied.Applied);
+        Assert.Equal(favoriteJson, File.ReadAllText(Path.Combine(_root, "data", favoritePath.Replace('/', Path.DirectorySeparatorChar))));
+        Assert.True(File.Exists(Path.Combine(_root, "data", "sync", "dingtalk", "group-documents.json")));
+    }
+
+    [Fact]
+    public async Task Restore_WithoutFavoritesDoesNotResurrectMigratedLegacyStars()
+    {
+        string name = "group-document-favorites-" + new string('a', 64) + ".json";
+        Write("settings.json", "{}");
+        Write("sync/dingtalk/" + name,
+            "{\"DocumentUrls\":[\"https://alidocs.dingtalk.com/i/nodes/old\"]}");
+        var catalog = new AccountBackupFileCatalog(Path.Combine(_root, "data"));
+        Assert.Contains(await catalog.CaptureAsync(), file => file.Path == "dingtalk/" + name);
+
+        await catalog.PrepareRestoreAsync(Snapshot(("settings.json", "{}")), "user-1", _ => Task.CompletedTask);
+        Assert.True((await catalog.ApplyPendingRestoreAsync()).Applied);
+        Assert.DoesNotContain(await catalog.CaptureAsync(), file => file.Path == "dingtalk/" + name);
+        Assert.Single(Directory.GetFiles(Path.Combine(_root, "data", "sync", "dingtalk"),
+            name + ".migrated-*"));
     }
 
     [Fact]

@@ -1,6 +1,8 @@
 .vs/
 bin/
 obj/
+__pycache__/
+*.pyc
 artifacts/
 .artifacts/
 Output/

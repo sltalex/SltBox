@@ -49,6 +49,9 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
     private IWidgetFeedbackSource? _feedbackSource;
     private IWidgetHostContextMenuSource? _hostContextMenuSource;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _autoRestoreTimer;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _occlusionTimer;
+    private bool _occlusionTimerRunning;
+    private bool _windowOccluded;
 
     private bool _isVisibleOnDesktop;
     private int _contentVisibilityGeneration;
@@ -1106,6 +1109,8 @@ IsHideAnimationRunning = true;
             fileSurface.SetHostWindowHandle(HWnd);
         }
 
+        UpdateOcclusionMonitoringTimer(content);
+
         if (_hostContextMenuSource is not null)
         {
             _hostContextMenuSource.HostContextMenuOpening -=
@@ -1314,6 +1319,9 @@ IsHideAnimationRunning = true;
         {
             IsClosing = true;
             Visible = false;
+            _occlusionTimer?.Stop();
+            _occlusionTimerRunning = false;
+            _occlusionTimer = null;
             ReleaseAutoRestoreTimer();
             try { RemoveGroupFileDropFallbackHandlers(); } catch (Exception ex) { App.Log($"[ContentWidget] Remove group drop fallback failed during close: {ex.Message}"); }
             try { RemoveNativeFileDropBridge(); } catch (Exception ex) { App.Log($"[ContentWidget] Remove native file drop bridge failed during close: {ex.Message}"); }
@@ -1349,6 +1357,57 @@ IsHideAnimationRunning = true;
             }
         };
     }
+
+    private void UpdateWindowOcclusion()
+    {
+        if (IsClosing || CurrentContent?.WidgetKind != WidgetKind.Aquarium)
+        {
+            if (_windowOccluded)
+            {
+                _windowOccluded = false;
+                _contentHost.OnWindowOcclusionChanged(false);
+            }
+
+            return;
+        }
+
+        bool occluded = Visible && Win32Helper.IsWindowFullyOccluded(HWnd);
+        if (_windowOccluded == occluded)
+        {
+            return;
+        }
+
+        _windowOccluded = occluded;
+        App.Log($"[Aquarium] Window occlusion changed occluded={occluded} hwnd=0x{HWnd.ToInt64():X}");
+        _contentHost.OnWindowOcclusionChanged(occluded);
+    }
+
+    private void UpdateOcclusionMonitoringTimer(IWidgetContent content)
+    {
+        if (content.WidgetKind != WidgetKind.Aquarium || IsClosing)
+        {
+            _occlusionTimer?.Stop();
+            _occlusionTimerRunning = false;
+            _windowOccluded = false;
+            _contentHost.OnWindowOcclusionChanged(false);
+            return;
+        }
+
+        _occlusionTimer ??= DispatcherQueue.CreateTimer();
+        _occlusionTimer.Interval = TimeSpan.FromMilliseconds(500);
+        _occlusionTimer.IsRepeating = true;
+        if (!_occlusionTimerRunning)
+        {
+            _occlusionTimer.Tick -= OcclusionTimer_Tick;
+            _occlusionTimer.Tick += OcclusionTimer_Tick;
+            _occlusionTimer.Start();
+            _occlusionTimerRunning = true;
+        }
+    }
+
+    private void OcclusionTimer_Tick(
+        Microsoft.UI.Dispatching.DispatcherQueueTimer sender,
+        object args) => UpdateWindowOcclusion();
 
     private void OnSettingsChanged()
     {
@@ -1430,6 +1489,7 @@ IsHideAnimationRunning = true;
                         WidgetKind.Glance => "Glance.Title",
                         WidgetKind.Search => "Search.Title",
                         WidgetKind.SystemMonitor => "SystemMonitor.Title",
+                        WidgetKind.FourWheelDrive => "FourWheelDrive.Title",
                         WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
                         _ => ""
                     };

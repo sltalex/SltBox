@@ -16,6 +16,8 @@ public sealed class WidgetContentFactoryTests
     [InlineData(WidgetKind.Search, "Search", WidgetContentStage.Implemented, false, WidgetContentAvailability.Available)]
     [InlineData(WidgetKind.Glance, "Glance", WidgetContentStage.Implemented, false, WidgetContentAvailability.Available)]
     [InlineData(WidgetKind.Tree, "Tree", WidgetContentStage.Implemented, false, WidgetContentAvailability.Available)]
+    [InlineData(WidgetKind.Aquarium, "Aquarium", WidgetContentStage.Implemented, false, WidgetContentAvailability.Available)]
+    [InlineData(WidgetKind.FourWheelDrive, "Four-wheel drive", WidgetContentStage.Implemented, false, WidgetContentAvailability.Available)]
     [InlineData(WidgetKind.DingTalkGroupDocs, "DingTalk group documents", WidgetContentStage.Implemented, false, WidgetContentAvailability.Available)]
     public void GetDescriptor_ReturnsContentMetadata(
         WidgetKind widgetKind,
@@ -57,6 +59,8 @@ public sealed class WidgetContentFactoryTests
             WidgetKind.Search,
             WidgetKind.Glance,
             WidgetKind.Tree,
+            WidgetKind.Aquarium,
+            WidgetKind.FourWheelDrive,
             WidgetKind.DingTalkGroupDocs
         ], descriptors.Select(descriptor => descriptor.WidgetKind));
     }
@@ -72,6 +76,8 @@ public sealed class WidgetContentFactoryTests
     [InlineData(WidgetKind.Search, WidgetChromeCategory.Interactive, WidgetChromeMode.Standard)]
     [InlineData(WidgetKind.Glance, WidgetChromeCategory.Display, WidgetChromeMode.Overlay)]
     [InlineData(WidgetKind.Tree, WidgetChromeCategory.Interactive, WidgetChromeMode.Standard)]
+    [InlineData(WidgetKind.Aquarium, WidgetChromeCategory.Display, WidgetChromeMode.Overlay)]
+    [InlineData(WidgetKind.FourWheelDrive, WidgetChromeCategory.Interactive, WidgetChromeMode.Standard)]
     [InlineData(WidgetKind.DingTalkGroupDocs, WidgetChromeCategory.Interactive, WidgetChromeMode.Standard)]
     public void GetDescriptor_ReturnsChromeDefaults(
         WidgetKind widgetKind,
@@ -131,6 +137,8 @@ public sealed class WidgetContentFactoryTests
             WidgetKind.Search,
             WidgetKind.Glance,
             WidgetKind.Tree,
+            WidgetKind.Aquarium,
+            WidgetKind.FourWheelDrive,
             WidgetKind.DingTalkGroupDocs
         ], descriptors.Select(descriptor => descriptor.WidgetKind));
         Assert.DoesNotContain(descriptors, descriptor => descriptor.WidgetKind == WidgetKind.File);
@@ -151,6 +159,7 @@ public sealed class WidgetContentFactoryTests
     [InlineData(WidgetKind.Search, true, false, false, true, false)]
     [InlineData(WidgetKind.Glance, true, false, false, true, false)]
     [InlineData(WidgetKind.Tree, true, false, false, true, false)]
+    [InlineData(WidgetKind.FourWheelDrive, true, false, false, true, false)]
     [InlineData(WidgetKind.DingTalkGroupDocs, true, false, false, true, false)]
     [InlineData(WidgetKind.Productivity, false, false, false, false, false)]
     public void ContentCapabilityQueries_ReturnExpectedReadOnlyState(

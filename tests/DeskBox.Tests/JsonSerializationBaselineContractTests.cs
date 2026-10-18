@@ -13,7 +13,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public void ProductionInventory_IsFrozenAtFortySixFilesAndOneHundredTwentyTwoCalls()
+    public void ProductionInventory_IsFrozenAtFortySevenFilesAndOneHundredTwentyFourCalls()
     {
         var expected = new Dictionary<string, int>(StringComparer.Ordinal)
         {

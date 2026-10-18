@@ -208,7 +208,7 @@ public sealed class AotStage5B4B1ContractTests
             "ItemsSource=\"{x:Bind CustomRules, Mode=OneWay}\"",
             xaml,
             StringComparison.Ordinal);
-        Assert.Equal(43, CountOccurrences(bindableViewModel, "nameof("));
+        Assert.Equal(45, CountOccurrences(bindableViewModel, "nameof("));
         Assert.Contains("nameof(AvailableAutoStartModeOptions)", bindableViewModel, StringComparison.Ordinal);
         // Batch 50: the performance section (and the General section's
         // inline preset combo + attachment-storage combo) bind through the
@@ -337,8 +337,8 @@ public sealed class AotStage5B4B1ContractTests
         string baseline = ReadRepositoryFile("tests/DeskBox.Tests/JsonSerializationBaselineContractTests.cs");
         string source = ReadRepositoryFile("src/DeskBox/App.AotManagedUiSmoke.cs");
 
-        Assert.Contains("Assert.Equal(46, actual.Count);", baseline, StringComparison.Ordinal);
-        Assert.Contains("Assert.Equal(122, actual.Values.Sum());", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(47, actual.Count);", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(124, actual.Values.Sum());", baseline, StringComparison.Ordinal);
         Assert.Contains("\"src/DeskBox/App.AotManagedUiSmoke.cs\"", baseline, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(source, "JsonSerializer.Serialize("));
     }

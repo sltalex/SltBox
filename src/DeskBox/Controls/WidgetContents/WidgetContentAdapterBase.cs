@@ -116,6 +116,10 @@ public abstract class WidgetContentAdapterBase : IWidgetContent, IDisposable
     {
     }
 
+    public virtual void OnWindowOcclusionChanged(bool occluded)
+    {
+    }
+
     public virtual void OnWindowRevealCompleted()
     {
     }

@@ -2591,6 +2591,8 @@ public sealed partial class DeskBoxDataBackupService
             throw new InvalidOperationException("SltBox settings are not available for backup.");
         }
 
+        DingTalkGroupDocumentFavorites.MigrateLegacyFiles(DataDirectory);
+
         (string SourcePath, string RelativePath)[] sourceFiles = Directory
             .EnumerateFiles(DataDirectory, "*", SearchOption.AllDirectories)
             .Select(path => (

@@ -246,7 +246,83 @@ public static partial class Win32Helper
     public static partial bool IsWindowVisible(IntPtr hWnd);
 
     [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsIconic(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
     public static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    /// <summary>
+    /// Returns true when another visible top-level window completely covers
+    /// the target window's current bounds. This deliberately does not use
+    /// foreground/activation state: desktop widgets continue animating when
+    /// another application merely has focus, and pause only when no pixels of
+    /// the widget can be seen.
+    /// </summary>
+    public static bool IsWindowFullyOccluded(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !IsWindow(hWnd))
+        {
+            return true;
+        }
+
+        if (!IsWindowVisible(hWnd) || IsIconic(hWnd) || IsWindowCloaked(hWnd) ||
+            !GetWindowRect(hWnd, out RECT target) || target.Right <= target.Left || target.Bottom <= target.Top)
+        {
+            return true;
+        }
+
+        var uncovered = new List<RECT> { target };
+        IntPtr above = GetWindow(hWnd, GW_HWNDPREV);
+        while (above != IntPtr.Zero && uncovered.Count > 0)
+        {
+            if (IsWindow(above) && IsWindowVisible(above) && !IsIconic(above) && !IsWindowCloaked(above) &&
+                GetWindowRect(above, out RECT occluder) &&
+                occluder.Right > occluder.Left && occluder.Bottom > occluder.Top)
+            {
+                uncovered = SubtractOccluder(uncovered, occluder);
+            }
+
+            above = GetWindow(above, GW_HWNDPREV);
+        }
+
+        return uncovered.Count == 0;
+    }
+
+    private static List<RECT> SubtractOccluder(IReadOnlyList<RECT> source, RECT occluder)
+    {
+        var result = new List<RECT>(source.Count * 2);
+        foreach (RECT current in source)
+        {
+            int left = Math.Max(current.Left, occluder.Left);
+            int top = Math.Max(current.Top, occluder.Top);
+            int right = Math.Min(current.Right, occluder.Right);
+            int bottom = Math.Min(current.Bottom, occluder.Bottom);
+            if (right <= left || bottom <= top)
+            {
+                result.Add(current);
+                continue;
+            }
+
+            // Keep the non-overlapping strips. They are disjoint, so repeated
+            // subtraction remains bounded and exact for arbitrary window
+            // shapes formed by overlapping rectangles.
+            AddRectIfValid(result, current.Left, current.Top, current.Right, top);
+            AddRectIfValid(result, current.Left, bottom, current.Right, current.Bottom);
+            AddRectIfValid(result, current.Left, top, left, bottom);
+            AddRectIfValid(result, right, top, current.Right, bottom);
+        }
+
+        return result;
+    }
+
+    private static void AddRectIfValid(List<RECT> rectangles, int left, int top, int right, int bottom)
+    {
+        if (right > left && bottom > top)
+        {
+            rectangles.Add(new RECT { Left = left, Top = top, Right = right, Bottom = bottom });
+        }
+    }
 
     public const uint GW_HWNDFIRST = 0;
     public const uint GW_HWNDLAST = 1;

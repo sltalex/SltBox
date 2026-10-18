@@ -40,7 +40,8 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     {
         string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
 
-        Assert.True(source.Split("new() { HorizontalContentAlignment", StringSplitOptions.None).Length - 1 >= 4);
+        Assert.True(source.Split("new() { HorizontalContentAlignment", StringSplitOptions.None).Length - 1 >= 2);
+        Assert.Contains("private readonly Border _leaderboardCard", source, StringComparison.Ordinal);
         Assert.Contains("ListView _leaderboard", source, StringComparison.Ordinal);
         Assert.Contains("new Grid", source, StringComparison.Ordinal);
         Assert.Contains("🥇", source, StringComparison.Ordinal);

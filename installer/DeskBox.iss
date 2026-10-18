@@ -5,12 +5,12 @@
 ; 手动编译安装器示例：
 ; ISCC /DDeskBoxNativeAot=1 /DDeskBoxBundledRuntime=1 /DMyAppReleaseDir=<publish 目录> DeskBox.iss
 
-#define MyAppName "DeskBox"
-#define MyAppVersion "2026101602"
-#define MyAppVersionInfo "2026.10.16.2"
-#define MyAppPublisher "朱天雨"
+#define MyAppName "SltBox"
+#define MyAppVersion "2026101801"
+#define MyAppVersionInfo "2026.10.18.1"
+#define MyAppPublisher "sltalex"
 #define MyAppExeName "DeskBox.exe"
-#define MyAppOutputBaseName "DeskBox_Setup"
+#define MyAppOutputBaseName "SltBox_Setup"
 #define MyAppRuntimeArchitecture "x64"
 #ifndef MyAppPackageSuffix
 #define MyAppPackageSuffix ""
@@ -77,6 +77,9 @@ SetupIconFile=..\src\DeskBox\Assets\deskbox.ico
 VersionInfoVersion={#MyAppVersionInfo}
 VersionInfoProductVersion={#MyAppVersionInfo}
 VersionInfoTextVersion={#MyAppVersion}
+VersionInfoProductName={#MyAppName}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoCopyright={#MyAppPublisher}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

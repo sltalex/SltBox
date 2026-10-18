@@ -195,9 +195,9 @@ https://deskbox.fun/update/stable.json
 
 如果该清单不可用，客户端会兜底读取 GitHub 最新 Release API。官网清单仍然是主通道，因为它可以控制稳定版本、国内网盘入口、SHA-256、灰度和回滚；GitHub 兜底只用于防止清单漏发时完全无法检查更新。
 
-产物命名契约：所有已发布版本的更新器（1.4.3 起）只接受以 `_x64.exe`/`_arm64.exe` 结尾的资产名与清单 URL，因此 `build-stage-7c1-distribution.ps1` 产出的安装包名保持 `DeskBox_Setup_<版本>_<架构>.exe`，发布时**不得追加** `_NativeAot` 等风味后缀。若清单 `downloadUrl` 使用不以 `DeskBox_Setup_` 开头的重定向地址，客户端会放行（用于网盘/CDN 中转）。
+产物命名契约：新版本使用 `SltBox_Setup_<版本>_<架构>.exe`，并只接受以 `_x64.exe`/`_arm64.exe` 结尾的资产名与清单 URL；更新器继续兼容历史 `DeskBox_Setup_` 资产。发布时**不得追加** `_NativeAot` 等风味后缀。若清单 `downloadUrl` 使用不以 `SltBox_Setup_` 或历史 `DeskBox_Setup_` 开头的重定向地址，客户端会放行（用于网盘/CDN 中转）。
 
-离线安装说明：从 1.4.8 起，直发安装包统一为 Full Native AOT，内置匹配架构的 Windows App Runtime 组件，不再下载 .NET 10 或 Windows App Runtime。文件名仍保持 `DeskBox_Setup_<version>_x64.exe` 与 `DeskBox_Setup_<version>_arm64.exe`，不再维护 `_Full` 变体。发布载荷包含 `DeskBox.InstallManifest.txt`；覆盖升级时安装器只删除“上一版清单存在、当前清单不存在”的旧程序文件。对没有清单的历史 Direct/Full 安装，只使用仓库中的精确兼容清单清理已知旧载荷文件，不扫描或删除未知文件。
+离线安装说明：从 1.4.8 起，直发安装包统一为 Full Native AOT，内置匹配架构的 Windows App Runtime 组件，不再下载 .NET 10 或 Windows App Runtime。新文件名保持 `SltBox_Setup_<version>_x64.exe` 与 `SltBox_Setup_<version>_arm64.exe`，不再维护 `_Full` 变体；历史 `DeskBox_Setup_` 文件名继续可安装和更新。发布载荷包含 `DeskBox.InstallManifest.txt`；覆盖升级时安装器只删除“上一版清单存在、当前清单不存在”的旧程序文件。对没有清单的历史 Direct/Full 安装，只使用仓库中的精确兼容清单清理已知旧载荷文件，不扫描或删除未知文件。
 
 每次发布 Direct 版本时必须执行：
 

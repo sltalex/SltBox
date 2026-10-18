@@ -22,20 +22,14 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _status = new() { FontSize = 17, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _growthSummary = new() { FontSize = 13, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
-    // The progress bars remain visible, but the numeric percentage labels are
-    // intentionally hidden to keep the tree card compact and uncluttered.
-    private readonly TextBlock _nextStageProgress = new() { Visibility = Visibility.Collapsed };
-    private readonly ProgressBar _nextStageBar = new() { Minimum = 0, Maximum = 100, Height = 8 };
-    private readonly TextBlock _totalGrowthProgress = new() { Visibility = Visibility.Collapsed };
-    private readonly ProgressBar _totalGrowthBar = new() { Minimum = 0, Maximum = 100, Height = 8 };
+    private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
     private readonly SettingsCard _currentCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly SettingsCard _progressCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly SettingsCard _leaderboardCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Grid _participationRow;
     private SettingsViewModel? _viewModel;
     private LocalizationService? _localization;
@@ -64,27 +58,23 @@ public sealed partial class TreeSettingsSection : UserControl
         switches.Children.Add(statisticsColumn);
         _switchesCard.Content = switches;
 
-        var progress = new StackPanel { Spacing = 8 };
-        progress.Children.Add(_nextStageProgress);
-        progress.Children.Add(_nextStageBar);
-        progress.Children.Add(_totalGrowthProgress);
-        progress.Children.Add(_totalGrowthBar);
-        _progressCard.Content = progress;
-
         _loginButton.Click += (_, _) => NavigationRequested?.Invoke(this, new("General"));
         var leaderboardPanel = new StackPanel { Spacing = 10 };
+        leaderboardPanel.Children.Add(_leaderboardTitle);
         _participationRow = CreateToggleRow(_participationLabel, _participation);
         leaderboardPanel.Children.Add(_participationRow);
         leaderboardPanel.Children.Add(_leaderboardHint);
         leaderboardPanel.Children.Add(_currentRankHint);
         leaderboardPanel.Children.Add(_loginButton);
         leaderboardPanel.Children.Add(_leaderboard);
-        _leaderboardCard.Content = leaderboardPanel;
+        _leaderboardCard.Padding = new Thickness(16);
+        _leaderboardCard.CornerRadius = new CornerRadius(8);
+        _leaderboardCard.Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush;
+        _leaderboardCard.Child = leaderboardPanel;
 
         var panel = new StackPanel { Spacing = 10, Margin = new Thickness(24) };
         panel.Children.Add(_currentCard);
         panel.Children.Add(_switchesCard);
-        panel.Children.Add(_progressCard);
         panel.Children.Add(_leaderboardCard);
         Content = panel;
 
@@ -148,7 +138,7 @@ public sealed partial class TreeSettingsSection : UserControl
         _currentCard.Header = _localization.T("Tree.Settings.Card.Current");
         _currentCard.Description = _localization.T("Tree.Settings.Card.Current.Description");
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
-        _progressCard.Header = _localization.T("Tree.Settings.Card.Progress");
+        _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _enableLabel.Text = _localization.T("Tree.Settings.Enable");
         _statisticsLabel.Text = _localization.T("Tree.Settings.EnableStatistics");
         _statistics.OnContent = _localization.T("Tree.Settings.StatisticsRunning");
@@ -218,13 +208,6 @@ public sealed partial class TreeSettingsSection : UserControl
             _statistics.OffContent = _localization.T(statistics.OffContentKey);
             _status.Text = _localization.T($"Tree.Stage.{snapshot.Stage}");
             _growthSummary.Text = _localization.Format("Tree.Settings.Current.Summary", snapshot.TodayKeys, snapshot.TotalEnergy, snapshot.FruitInventory);
-            _nextStageBar.Value = snapshot.NextStagePercentage;
-            _totalGrowthBar.Value = snapshot.MaturityPercentage;
-            _nextStageProgress.Text = snapshot.Stage >= 5
-                ? _localization.T("Tree.Settings.NextStageComplete")
-                : _localization.Format("Tree.Settings.NextStageProgress", snapshot.NextStagePercentage, snapshot.NextStageRemainingEnergy);
-            _totalGrowthProgress.Text = _localization.Format("Tree.Settings.TotalGrowthProgress", snapshot.TotalEnergy, snapshot.MaturityPercentage);
-
         }
         finally { _updating = false; }
     }

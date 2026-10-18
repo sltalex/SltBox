@@ -35,6 +35,7 @@ public sealed class WidgetShellContentHost
     private int _contentVersion;
     private bool _isDisposed;
     private bool _isWindowVisible;
+    private bool _isWindowOccluded;
     private bool _isWindowRevealCompleted;
     private int _windowRevealGeneration;
     private bool _isActivated;
@@ -214,6 +215,7 @@ public sealed class WidgetShellContentHost
 
             ApplyContentAppearance(content);
             content.OnWindowVisibilityChanged(_isWindowVisible);
+            content.OnWindowOcclusionChanged(_isWindowOccluded);
             if (_isWindowVisible && _isWindowRevealCompleted)
             {
                 content.OnWindowRevealCompleted();
@@ -231,6 +233,7 @@ public sealed class WidgetShellContentHost
             {
                 _rollbackTransition(outgoingContent);
                 outgoingContent.OnWindowVisibilityChanged(_isWindowVisible);
+                outgoingContent.OnWindowOcclusionChanged(_isWindowOccluded);
                 if (_isWindowVisible && _isWindowRevealCompleted)
                 {
                     outgoingContent.OnWindowRevealCompleted();
@@ -318,6 +321,12 @@ public sealed class WidgetShellContentHost
 
         _isWindowVisible = visible;
         CurrentContent?.OnWindowVisibilityChanged(visible);
+    }
+
+    public void OnWindowOcclusionChanged(bool occluded)
+    {
+        _isWindowOccluded = occluded;
+        CurrentContent?.OnWindowOcclusionChanged(occluded);
     }
 
     public void OnWindowRevealCompleted()
@@ -442,6 +451,7 @@ public sealed class WidgetShellContentHost
             CurrentContent = outgoingContent;
             ApplyContentAppearance(outgoingContent);
             outgoingContent.OnWindowVisibilityChanged(_isWindowVisible);
+            outgoingContent.OnWindowOcclusionChanged(_isWindowOccluded);
             if (_isWindowVisible && _isWindowRevealCompleted)
             {
                 outgoingContent.OnWindowRevealCompleted();
