@@ -8,7 +8,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace DeskBox.Views.SettingsSections;
 
-public sealed class AquariumSettingsSection : UserControl, IDisposable
+public sealed partial class AquariumSettingsSection : UserControl, IDisposable
 {
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
     private readonly AquariumSceneView _preview = new() { IsEditing = true, Width = 420, Height = 300, HorizontalAlignment = HorizontalAlignment.Center };

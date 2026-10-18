@@ -10,7 +10,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace DeskBox.Views.SettingsSections;
 
-public sealed class AdminSettingsSection : UserControl
+public sealed partial class AdminSettingsSection : UserControl
 {
     private readonly StackPanel _root = new() { Spacing = 12, Margin = new Thickness(24) };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };

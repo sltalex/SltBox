@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace DeskBox.Controls.WidgetContents;
 
-public sealed class AquariumWidgetContent : UserControl, IDisposable
+public sealed partial class AquariumWidgetContent : UserControl, IDisposable
 {
     private readonly AquariumService _service;
     private readonly Func<bool> _animationEnabled;

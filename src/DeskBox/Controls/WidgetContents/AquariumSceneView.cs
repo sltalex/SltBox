@@ -14,7 +14,7 @@ using Windows.Foundation;
 namespace DeskBox.Controls.WidgetContents;
 
 /// <summary>A bounded bitmap scene shared by the desktop and the layout editor.</summary>
-public sealed class AquariumSceneView : UserControl, IDisposable
+public sealed partial class AquariumSceneView : UserControl, IDisposable
 {
     private const double SceneWidth = 840;
     private const double SceneHeight = 600;

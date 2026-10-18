@@ -11,7 +11,7 @@ namespace DeskBox.Controls.WidgetContents;
 /// The first local-only four-wheel-drive progression surface. State is kept
 /// in the widget metadata so the prototype does not require a server schema.
 /// </summary>
-public sealed class FourWheelDriveWidgetContent : UserControl
+public sealed partial class FourWheelDriveWidgetContent : UserControl
 {
     private const string LevelKey = "FourWheelDrive.Level";
     private const string ExperienceKey = "FourWheelDrive.Experience";
