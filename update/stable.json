@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026101602",
-  "releaseDate": "2026-10-16",
+  "version": "2026101801",
+  "releaseDate": "2026-10-18",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026101602/DeskBox_Setup_2026101602_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/DeskBox_Setup_2026101602_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026101801/SltBox_Setup_2026101801_x64.exe",
+  "mirrorUrl": "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026101801_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "fd5e5be43ef39272c7152d97136cc0eb8f711e54bf0de981b825880e7df12c57",
-  "size": 78715689,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026101602",
+  "sha256": "edb6716ed2ccba5a9d32af87a6c272aaec41d80bcda057b3b1de72ae73f7575d",
+  "size": 94455617,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026101801",
   "summary": {
-    "zh-CN": "SltBox 2026101602 x64 直发版：新增会议任务并优化钉钉群文档展示，按清单 SHA-256 校验。",
-    "en-US": "SltBox 2026101602 x64 adds meeting tasks and improves DingTalk group-document display with SHA-256 verification."
+    "zh-CN": "SltBox 2026101801：水族馆扩充到 158 种物品，新增布置图层与分类背包，并优化管理员入口、钉钉收藏备份和种树设置。",
+    "en-US": "SltBox 2026101801 expands the aquarium to 158 items with scene layers and a categorized backpack, plus admin, DingTalk backup, and tree-setting improvements."
   }
 }
