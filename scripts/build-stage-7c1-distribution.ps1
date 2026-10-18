@@ -121,8 +121,9 @@ if (-not (Test-Path -LiteralPath $directAuditSummaryPath -PathType Leaf)) {
     throw "The retained Direct AOT smoke audit did not produce its expected summary."
 }
 $directAuditSummary = Get-Content -LiteralPath $directAuditSummaryPath -Raw | ConvertFrom-Json
-if (@($directAuditSummary.auditFindings).Count -gt 0) {
-    throw "The retained Direct AOT smoke audit reported $(@($directAuditSummary.auditFindings).Count) finding(s). See '$directAuditSummaryPath'."
+$directAuditFindingsProperty = $directAuditSummary.PSObject.Properties['auditFindings']
+if ($null -ne $directAuditFindingsProperty -and @($directAuditFindingsProperty.Value).Count -gt 0) {
+    throw "The retained Direct AOT smoke audit reported $(@($directAuditFindingsProperty.Value).Count) finding(s). See '$directAuditSummaryPath'."
 }
 Copy-Item -LiteralPath $directAuditSummaryPath `
     -Destination (Join-Path $OutputDirectory "direct-aot-audit-summary.json") -Force
