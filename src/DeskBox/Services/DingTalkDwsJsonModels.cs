@@ -86,6 +86,54 @@ internal sealed class DwsCalendarResponseDto
     [JsonPropertyName("events")] public DwsCalendarEventDto[] Events { get; set; } = [];
 }
 
+internal sealed class DwsCalendarEventListResponseDto
+{
+    [JsonPropertyName("success")] public bool Success { get; set; }
+    [JsonPropertyName("result")] public DwsCalendarEventListResultDto Result { get; set; } = new();
+}
+
+internal sealed class DwsCalendarEventListResultDto
+{
+    [JsonPropertyName("events")] public DwsCalendarEventDetailsDto[] Events { get; set; } = [];
+}
+
+internal sealed class DwsCalendarEventDetailsDto
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("eventId")] public string EventId { get; set; } = string.Empty;
+    [JsonPropertyName("summary")] public string Summary { get; set; } = string.Empty;
+    [JsonPropertyName("title")] public string Title { get; set; } = string.Empty;
+    [JsonPropertyName("start")] public DwsCalendarDateTimeDto Start { get; set; } = new();
+    [JsonPropertyName("end")] public DwsCalendarDateTimeDto End { get; set; } = new();
+    [JsonPropertyName("location")] public JsonElement Location { get; set; }
+    [JsonPropertyName("meetingRooms")] public DwsCalendarMeetingRoomDto[] MeetingRooms { get; set; } = [];
+    [JsonPropertyName("status")] public JsonElement Status { get; set; }
+    [JsonPropertyName("eventStatus")] public JsonElement EventStatus { get; set; }
+    [JsonPropertyName("state")] public JsonElement State { get; set; }
+    [JsonPropertyName("isCancelled")] public JsonElement IsCancelled { get; set; }
+    [JsonPropertyName("isCanceled")] public JsonElement IsCanceled { get; set; }
+    [JsonPropertyName("isDeleted")] public JsonElement IsDeleted { get; set; }
+    [JsonPropertyName("deleted")] public JsonElement Deleted { get; set; }
+    [JsonPropertyName("cancelled")] public JsonElement Cancelled { get; set; }
+    [JsonPropertyName("canceled")] public JsonElement Canceled { get; set; }
+    [JsonPropertyName("is_cancelled")] public JsonElement IsCancelledSnakeCase { get; set; }
+    [JsonPropertyName("is_canceled")] public JsonElement IsCanceledSnakeCase { get; set; }
+    [JsonPropertyName("is_deleted")] public JsonElement IsDeletedSnakeCase { get; set; }
+    [JsonPropertyName("event_status")] public JsonElement EventStatusSnakeCase { get; set; }
+}
+
+internal sealed class DwsCalendarDateTimeDto
+{
+    [JsonPropertyName("dateTime")] public string? DateTime { get; set; }
+    [JsonPropertyName("date")] public string? Date { get; set; }
+}
+
+internal sealed class DwsCalendarMeetingRoomDto
+{
+    [JsonPropertyName("roomName")] public string? RoomName { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
+}
+
 internal sealed class DwsCalendarEventDto
 {
     [JsonPropertyName("eventId")] public string EventId { get; set; } = string.Empty;
@@ -117,6 +165,7 @@ internal sealed class DwsCalendarEventDto
 [JsonSerializable(typeof(DwsGroupMessagesResponseDto))]
 [JsonSerializable(typeof(DwsDriveInfoResponseDto))]
 [JsonSerializable(typeof(DwsCalendarResponseDto))]
+[JsonSerializable(typeof(DwsCalendarEventListResponseDto))]
 internal sealed partial class DingTalkDwsJsonContext : JsonSerializerContext
 {
 }

@@ -127,22 +127,34 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
     public async Task<IReadOnlyList<DingTalkCalendarEvent>> ListCurrentWeekCalendarAsync(
         CancellationToken cancellationToken = default)
     {
-        DwsCalendarResponseDto response = await RunJsonAsync(
-            ["calendar", "+week", "--format", "json"],
-            DingTalkDwsJsonContext.Default.DwsCalendarResponseDto,
+        DateTimeOffset now = DateTimeOffset.Now;
+        DateTimeOffset weekStart = now.Date.AddDays(-(int)now.DayOfWeek + 1);
+        if (now.DayOfWeek == DayOfWeek.Sunday)
+            weekStart = now.Date.AddDays(-6);
+        DateTimeOffset weekEnd = weekStart.AddDays(7);
+        DwsCalendarEventListResponseDto response = await RunJsonAsync(
+            ["calendar", "event", "list",
+                "--start", weekStart.ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture),
+                "--end", weekEnd.ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture),
+                "--limit", "100", "--format", "json"],
+            DingTalkDwsJsonContext.Default.DwsCalendarEventListResponseDto,
             cancellationToken,
             TimeSpan.FromSeconds(20));
+        if (!response.Success)
+            throw new InvalidDataException("DWS returned an unsuccessful calendar response.");
 
-        var events = new List<DingTalkCalendarEvent>(response.Events.Length);
-        foreach (DwsCalendarEventDto item in response.Events)
+        var events = new List<DingTalkCalendarEvent>(response.Result.Events.Length);
+        foreach (DwsCalendarEventDetailsDto item in response.Result.Events)
         {
+            string startText = item.Start.DateTime ?? item.Start.Date ?? string.Empty;
+            string endText = item.End.DateTime ?? item.End.Date ?? string.Empty;
             if (!DateTimeOffset.TryParse(
-                    item.Start,
+                    startText,
                     CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeLocal,
                     out DateTimeOffset start) ||
                 !DateTimeOffset.TryParse(
-                    item.End,
+                    endText,
                     CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeLocal,
                     out DateTimeOffset end) ||
@@ -160,16 +172,32 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
                     "deleted", "removed", "deleted_event", "deletedEvent");
 
             events.Add(new DingTalkCalendarEvent(
-                item.EventId.Trim(),
-                string.IsNullOrWhiteSpace(item.Title) ? "(无标题会议)" : item.Title.Trim(),
+                (string.IsNullOrWhiteSpace(item.Id) ? item.EventId : item.Id).Trim(),
+                string.IsNullOrWhiteSpace(item.Summary) ?
+                    (string.IsNullOrWhiteSpace(item.Title) ? "(无标题会议)" : item.Title.Trim()) : item.Summary.Trim(),
                 start,
                 end,
-                item.Location?.Trim() ?? string.Empty,
+                CalendarLocation(item),
                 isCancelled,
                 isDeleted));
         }
 
         return events;
+    }
+
+    private static string CalendarLocation(DwsCalendarEventDetailsDto item)
+    {
+        if (item.Location.ValueKind == JsonValueKind.String)
+            return item.Location.GetString()?.Trim() ?? string.Empty;
+        if (item.Location.ValueKind == JsonValueKind.Object)
+        {
+            foreach (string key in new[] { "displayName", "name", "address" })
+                if (item.Location.TryGetProperty(key, out JsonElement value) && value.ValueKind == JsonValueKind.String)
+                    return value.GetString()?.Trim() ?? string.Empty;
+        }
+        return item.MeetingRooms
+            .Select(room => string.IsNullOrWhiteSpace(room.RoomName) ? room.Name : room.RoomName)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
     }
 
     private static bool IsTruthyFlag(params JsonElement[] values) => values.Any(IsTruthy);
@@ -222,7 +250,9 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
-            RedirectStandardError = true
+            RedirectStandardError = true,
+            StandardOutputEncoding = new System.Text.UTF8Encoding(false, true),
+            StandardErrorEncoding = System.Text.Encoding.UTF8
         };
         foreach (string argument in arguments)
             startInfo.ArgumentList.Add(argument);
@@ -251,6 +281,10 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
             {
                 throw new InvalidDataException("DWS returned an invalid response.", ex);
             }
+        }
+        catch (System.Text.DecoderFallbackException ex)
+        {
+            throw new InvalidDataException("DWS returned invalid UTF-8 text.", ex);
         }
         finally
         {

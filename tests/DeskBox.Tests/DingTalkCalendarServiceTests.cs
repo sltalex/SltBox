@@ -47,6 +47,24 @@ public sealed class DingTalkCalendarServiceTests
         Assert.Equal("deleted", response.Events[1].Status.GetString());
     }
 
+    [Fact]
+    public void FullCalendarEventListKeepsCancelledStatusFromDingTalkResponse()
+    {
+        const string json = """
+            {"success":true,"result":{"events":[
+              {"id":"cancelled","summary":"已取消","start":{"dateTime":"2026-10-19T10:00:00+08:00"},"end":{"dateTime":"2026-10-19T11:00:00+08:00"},"status":"cancelled"},
+              {"id":"active","summary":"有效","start":{"dateTime":"2026-10-19T12:00:00+08:00"},"end":{"dateTime":"2026-10-19T13:00:00+08:00"},"status":"confirmed"}
+            ]}}
+            """;
+
+        DwsCalendarEventListResponseDto response =
+            System.Text.Json.JsonSerializer.Deserialize(
+                json, DingTalkDwsJsonContext.Default.DwsCalendarEventListResponseDto)!;
+
+        Assert.Equal("cancelled", response.Result.Events[0].Status.GetString());
+        Assert.Equal("confirmed", response.Result.Events[1].Status.GetString());
+    }
+
     private sealed class FakeAccountApi : IAuthenticatedAccountApi
     {
         public Task<HttpResponseMessage> SendAsync(
