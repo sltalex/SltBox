@@ -27,7 +27,8 @@ public sealed class FeatureWidgetEntryFactoryTests
             WidgetKind.Search,
             WidgetKind.Glance,
             WidgetKind.Tree,
-            WidgetKind.DingTalkGroupDocs
+            WidgetKind.DingTalkGroupDocs,
+            WidgetKind.Calendar
         ], entries.Select(entry => entry.Kind));
         Assert.All(entries, entry =>
         {

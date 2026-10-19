@@ -57,6 +57,28 @@ public sealed class FeatureWidgetsSettingsCoordinatorTests : IDisposable
         Assert.Equal("Bars", coordinator.ReadSystemMonitorPresentation().MemoryChartStyle);
     }
 
+    [Fact]
+    public async Task CalendarMarkerColors_PersistAndNormalize()
+    {
+        var settings = new SettingsService(_root);
+        await settings.LoadAsync();
+        var coordinator = new FeatureWidgetsSettingsCoordinator(settings);
+
+        CalendarMarkerColors defaults = coordinator.ReadCalendarMarkerColors();
+        Assert.Equal("#3791DC", defaults.TaskColor);
+        Assert.Equal("#E04C4C", defaults.HolidayColor);
+        Assert.True(coordinator.SetCalendarMarkerColor("Task", "#000000"));
+        Assert.True(coordinator.SetCalendarMarkerColor("Holiday", "#ffffff"));
+        Assert.False(coordinator.SetCalendarMarkerColor("Holiday", "#FFFFFF"));
+
+        await settings.SaveAsync();
+        var reloaded = new SettingsService(_root);
+        await reloaded.LoadAsync();
+        CalendarMarkerColors colors = new FeatureWidgetsSettingsCoordinator(reloaded).ReadCalendarMarkerColors();
+        Assert.Equal("#000000", colors.TaskColor);
+        Assert.Equal("#FFFFFF", colors.HolidayColor);
+    }
+
     private readonly string _root = Path.Combine(
         Path.GetTempPath(), "DeskBox.Tests", Guid.NewGuid().ToString("N"));
 

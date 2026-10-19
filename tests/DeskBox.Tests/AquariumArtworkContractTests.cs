@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using System.Text.Json;
 using DeskBox.Controls.WidgetContents;
 
 namespace DeskBox.Tests;
@@ -10,7 +11,7 @@ public sealed class AquariumArtworkContractTests
     {
         string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Aquarium");
         string[] originals = Directory.GetFiles(Path.Combine(assets, "Svg"), "*.svg");
-        Assert.Equal(150, originals.Length);
+        Assert.Equal(340, originals.Length);
         foreach (string original in originals)
         {
             string key = Path.GetFileNameWithoutExtension(original);
@@ -45,11 +46,38 @@ public sealed class AquariumArtworkContractTests
 
     [Theory]
     [InlineData("background")]
-    [InlineData("hermit-crab")]
     [InlineData("unknown-future-item")]
     public void LegacyAndUnknownAssetsRetainTheirOriginalResourcePath(string key)
     {
         Assert.Equal($"Assets/Aquarium/{key}.png", AquariumArtworkCatalog.AssetRelativePath(key));
+    }
+
+    [Theory]
+    [InlineData("shrimp", 10)]
+    [InlineData("crabs", 10)]
+    [InlineData("shellfish", 10)]
+    public void CartoonCategoriesHaveTenDistinctLocalisedVectorChoices(string group, int count)
+    {
+        DirectoryInfo? root = new(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "DeskBox.sln"))) root = root.Parent;
+        Assert.NotNull(root);
+        using JsonDocument plan = JsonDocument.Parse(File.ReadAllText(Path.Combine(root.FullName,
+            "docs", "design", "aquarium-cartoon-expansion-plan.json")));
+        JsonElement[] entries = plan.RootElement.GetProperty(group).EnumerateArray().ToArray();
+        Assert.Equal(count, entries.Length);
+        Assert.Equal(count, entries.Select(item => item.GetProperty("id").GetString()).Distinct().Count());
+        foreach (string locale in Directory.GetFiles(Path.Combine(root.FullName, "src", "DeskBox", "Strings"), "*.json"))
+        {
+            using JsonDocument strings = JsonDocument.Parse(File.ReadAllText(locale));
+            foreach (JsonElement entry in entries)
+            {
+                string key = entry.GetProperty("id").GetString()!;
+                Assert.True(AquariumArtworkCatalog.TryGetProfile(key, out _), key);
+                Assert.Equal($"Assets/Aquarium/Vector/{key}.png", AquariumArtworkCatalog.AssetRelativePath(key));
+                Assert.True(strings.RootElement.TryGetProperty("Aquarium.Item." + key, out var name), $"{locale}: {key}");
+                Assert.False(string.IsNullOrWhiteSpace(name.GetString()));
+            }
+        }
     }
 
     [Fact]

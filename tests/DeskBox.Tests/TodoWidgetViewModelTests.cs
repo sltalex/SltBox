@@ -524,6 +524,27 @@ public sealed class TodoWidgetViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task DueDatePresets_UseConfiguredTimeAndThisWeekDay()
+    {
+        var settings = new SettingsService();
+        settings.Settings.TodoDefaultDueTimeMinutes = 9 * 60 + 30;
+        settings.Settings.TodoThisWeekDueDay = (int)DayOfWeek.Friday;
+        var viewModel = CreateViewModel("todo-widget", settings);
+        await viewModel.InitializeAsync();
+        var today = (await viewModel.AddItemAsync("today"))!;
+        var thisWeek = (await viewModel.AddItemAsync("this week"))!;
+
+        await viewModel.SetDueDatePresetAsync(today.Id, TodoDuePreset.Today);
+        await viewModel.SetDueDatePresetAsync(thisWeek.Id, TodoDuePreset.ThisWeek);
+
+        Assert.Equal(TimeSpan.FromMinutes(9 * 60 + 30), today.DueDate!.Value.TimeOfDay);
+        DateTime localToday = DateTime.Now.Date;
+        int daysUntilFriday = ((int)DayOfWeek.Friday - (int)localToday.DayOfWeek + 7) % 7;
+        Assert.Equal(localToday.AddDays(daysUntilFriday), thisWeek.DueDate!.Value.LocalDateTime.Date);
+        Assert.Equal(TimeSpan.FromMinutes(9 * 60 + 30), thisWeek.DueDate.Value.LocalDateTime.TimeOfDay);
+    }
+
+    [Fact]
     public async Task ClearCompletedAsync_RemovesOnlyCompletedItems()
     {
         var viewModel = CreateViewModel("todo-widget");

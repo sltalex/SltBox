@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+<title>鲍鱼</title>
+<desc>Original cartoon shellfish illustration: abalone. Rounded dark teal outlines, flat cel shading, transparent background.</desc>
+<path d="M54 161 C36 129 58 85 97 58 C133 32 190 25 231 53 C273 81 286 132 255 167 C220 205 158 218 105 196 Q73 185 54 161 Z" fill="#70beac" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M60 147 Q89 188 145 192 Q212 199 262 144 Q251 177 211 195 Q149 220 102 195 Q74 186 60 147 Z" fill="#439484" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M76 151 C61 126 80 91 114 70 C146 50 189 48 219 69 C253 94 261 126 237 152 C210 182 161 192 120 177 Q91 168 76 151 Z" fill="#d0e6ce" stroke="#194957" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M85 142 C78 120 98 94 127 79 Q166 58 201 78 Q234 100 230 125 Q225 159 182 169 Q117 184 85 142 Z" fill="#9edaca" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M105 142 Q100 114 128 96 Q158 76 189 89 Q216 102 210 127 Q202 149 173 151 Q148 153 137 137 Q126 120 146 109 Q162 99 177 110 Q189 122 173 131" fill="none" stroke="#9a9ace" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M106 159 Q140 177 180 167 Q215 161 230 140" fill="none" stroke="#f3d4df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M111 71 Q153 47 191 59" fill="none" stroke="#e8f8d8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="75" cy="117" rx="9.5" ry="11.5" fill="#b6ead1" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="75" cy="117" rx="7" ry="9" fill="#285a68" stroke="#194957" stroke-width="2" opacity="1"/>
+<ellipse cx="86" cy="94" rx="9.5" ry="10.5" fill="#b6ead1" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="86" cy="94" rx="7" ry="8" fill="#285a68" stroke="#194957" stroke-width="2" opacity="1"/>
+<ellipse cx="104" cy="76" rx="9.5" ry="9.5" fill="#b6ead1" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="104" cy="76" rx="7" ry="7" fill="#285a68" stroke="#194957" stroke-width="2" opacity="1"/>
+<ellipse cx="127" cy="63" rx="8.5" ry="8.5" fill="#b6ead1" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="127" cy="63" rx="6" ry="6" fill="#285a68" stroke="#194957" stroke-width="2" opacity="1"/>
+<ellipse cx="151" cy="56" rx="7.5" ry="7.5" fill="#b6ead1" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="151" cy="56" rx="5" ry="5" fill="#285a68" stroke="#194957" stroke-width="2" opacity="1"/>
+<ellipse cx="167" cy="145" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="165.7" cy="142.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="159" cy="156" rx="8" ry="4" fill="#e5a1b1" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<ellipse cx="199" cy="145" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="197.7" cy="142.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="207" cy="156" rx="8" ry="4" fill="#e5a1b1" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<path d="M177 156 Q183 164 189 156" fill="none" stroke="#194957" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</svg>

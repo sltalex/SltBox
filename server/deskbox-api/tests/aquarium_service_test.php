@@ -15,7 +15,7 @@ if (($argv[1] ?? '') === '--http') {
 define('DESKBOX_API_ENTRY', true);
 require dirname(__DIR__) . '/api/_app/bootstrap.php';
 require dirname(__DIR__) . '/api/_app/admin.php';
-require dirname(__DIR__) . '/api/_app/aquarium.php';
+require_once dirname(__DIR__) . '/api/_app/aquarium.php';
 
 function aquarium_test_database(string $dsn = 'sqlite::memory:'): PDO
 {
@@ -120,11 +120,13 @@ foreach (['catalog', 'state', 'actions'] as $endpoint) {
 }
 
 $catalog = aquarium_catalog();
-aquarium_expect($catalog['catalog_version'] === 4 && $catalog['catalog_version'] === AQUARIUM_CATALOG_VERSION,
+aquarium_expect($catalog['catalog_version'] === 7 && $catalog['catalog_version'] === AQUARIUM_CATALOG_VERSION,
     'The catalog advertises the version checked by mutations.');
-aquarium_expect(count($catalog['items']) === 158,
+$catalogItemsBeforePack = count($catalog['items']);
+aquarium_expect($catalogItemsBeforePack === 341,
     'The catalog contains only the prepared aquarium choices.');
-foreach (['fish' => 50, 'plant' => 50, 'shrimp' => 2, 'crab' => 4, 'shellfish' => 2, 'decoration' => 50] as $category => $expected) {
+foreach (['fish' => 150, 'plant' => 50, 'shrimp' => 10, 'crab' => 10, 'shellfish' => 10,
+    'coral' => 20, 'algae' => 20, 'snail' => 20, 'decoration' => 50, 'pack' => 1] as $category => $expected) {
     aquarium_expect(count(array_filter($catalog['items'],
         static fn(array $item): bool => $item['category'] === $category)) === $expected,
         "The catalog preserves the prepared {$category} choices.");
@@ -133,11 +135,52 @@ foreach (['id', 'asset_key'] as $field) {
     aquarium_expect(count(array_unique(array_column($catalog['items'], $field))) === count($catalog['items']),
         "Every catalog {$field} must be unique.");
 }
+$cartoonPlan = json_decode(file_get_contents(__DIR__ . '/../../../docs/design/aquarium-cartoon-expansion-plan.json'), true, 16, JSON_THROW_ON_ERROR);
+foreach (['shrimp' => 'shrimp', 'crabs' => 'crab', 'shellfish' => 'shellfish'] as $group => $category) {
+    aquarium_expect(count($cartoonPlan[$group]) === 10, 'Each cartoon artwork group has ten choices.');
+    foreach ($cartoonPlan[$group] as $entry) {
+        $item = aquarium_item($entry['id']);
+        aquarium_expect($item['category'] === $category && $item['name'] === $entry['name']
+            && $item['price'] === $entry['price'] && $item['asset_key'] === $entry['id'],
+            'The cartoon artwork manifest and server catalog stay aligned.');
+        aquarium_expect(is_file(__DIR__ . '/../../../src/DeskBox/Assets/Aquarium/Svg/' . $item['asset_key'] . '.svg')
+            && is_file(__DIR__ . '/../../../src/DeskBox/Assets/Aquarium/Vector/' . $item['asset_key'] . '.png'),
+            'Every cartoon choice has both its original SVG and runtime transparent export.');
+    }
+}
 foreach ($catalog['items'] as $item) {
     aquarium_expect((bool)preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/D', $item['id'])
         && $item['asset_key'] === $item['id'] && $item['price'] > 0,
         'Every catalog item has a safe stable resource key and positive server price.');
 }
+$fishHabitats = [];
+foreach (['aquarium-fish-expansion-plan.json' => ['fish' => 'fish'],
+    'aquarium-reef-expansion-plan.json' => ['corals' => 'coral', 'algae' => 'algae'],
+    'aquarium-snail-expansion-plan.json' => ['snails' => 'snail']] as $manifest => $groups) {
+    $plan = json_decode(file_get_contents(__DIR__ . '/../../../docs/design/' . $manifest), true, 32, JSON_THROW_ON_ERROR);
+    foreach ($groups as $group => $category) {
+        foreach ($plan[$group] as $entry) {
+            $item = aquarium_item($entry['id']);
+            aquarium_expect($item['category'] === $category && $item['price'] === $entry['price']
+                && $item['name'] === $entry['name'] && $item['asset_key'] === $entry['id'],
+                'Expanded catalog metadata matches the reviewed artwork manifest.');
+            aquarium_expect(is_file(__DIR__ . '/../../../src/DeskBox/Assets/Aquarium/Svg/' . $item['id'] . '.svg')
+                && is_file(__DIR__ . '/../../../src/DeskBox/Assets/Aquarium/Vector/' . $item['id'] . '.png'),
+                'Every expanded item ships its SVG source and transparent runtime export.');
+            if ($category === 'fish') {
+                aquarium_expect($item['habitat'] === $entry['habitat']
+                    && in_array($item['habitat'], ['freshwater', 'tropical', 'marine'], true),
+                    'Every fish has exactly one supported browsing habitat.');
+                $fishHabitats[$item['habitat']] = true;
+            }
+        }
+    }
+}
+aquarium_expect(count($fishHabitats) === 3, 'Freshwater, tropical and marine fish are all represented.');
+$packCatalogItem = aquarium_item(AQUARIUM_CARD_PACK_ID);
+aquarium_expect($packCatalogItem['category'] === 'pack' && $packCatalogItem['price'] === 200
+    && $packCatalogItem['asset_key'] === AQUARIUM_CARD_PACK_ID,
+    'The water-aquarium card pack is a priced, non-placeable catalogue item.');
 $state = aquarium_read_state($pdo, $userId);
 aquarium_expect(!$state['initialized'] && $state['coins'] === 0 && $state['scene'] === [],
     'An uninitialized aquarium is empty.');
@@ -202,7 +245,7 @@ aquarium_error('invalid_scene', 400, static fn() => aquarium_mutate($pdo, $userI
         'scene' => [array_replace($placement, ['scale' => '1'])]]), $clock));
 aquarium_error('invalid_scene', 400, static fn() => aquarium_mutate($pdo, $userId,
     aquarium_request('save_scene', ['base_scene_version' => 1,
-        'scene' => [array_replace($placement, ['layer' => 2])]]), $clock));
+        'scene' => [array_replace($placement, ['layer' => 9])]]), $clock));
 aquarium_error('invalid_scene', 400, static fn() => aquarium_mutate($pdo, $userId,
     aquarium_request('save_scene', ['base_scene_version' => 1,
         'scene' => [array_replace($placement, ['layer' => -2])]]), $clock));
@@ -288,6 +331,129 @@ aquarium_expect(count($expandedState['inventory']) === 3 && $expandedState['coin
 aquarium_expect($expandedState['scene'] === [] && $expandedState['scene_version'] === 0,
     'The expanded catalog never places purchases or overwrites the saved layout automatically.');
 
+// Version 7 life categories share authoritative prices, idempotent purchases
+// and the same versioned placement/recall contract as existing inventory.
+$lifeUser = auth_register($pdo, 'aquarium_life_user', 'secret6', 'device-life', '127.0.0.7', $clock);
+$lifeUserId = $lifeUser['user']['id'];
+$lifeState = aquarium_mutate($pdo, $lifeUserId, aquarium_request('initialize'), $clock);
+$lifeBalance = 1000;
+$lifePurchases = ['rainbow-trout' => 280, 'staghorn-coral' => 180,
+    'sea-lettuce-algae' => 80, 'mystery-snail' => 90];
+$lifePurchaseCount = 0;
+foreach ($lifePurchases as $itemId => $serverPrice) {
+    $lifeBuy = aquarium_request('buy', ['catalog_version' => 7, 'item_id' => $itemId, 'price' => 0]);
+    $lifeState = aquarium_mutate($pdo, $lifeUserId, $lifeBuy, $clock);
+    $lifeBalance -= $serverPrice;
+    $lifePurchaseCount++;
+    aquarium_expect($lifeState['coins'] === $lifeBalance
+        && count($lifeState['inventory']) === $lifePurchaseCount
+        && count($lifeState['wallet']) === $lifePurchaseCount + 1
+        && $lifeState['wallet'][0]['delta'] === -$serverPrice
+        && $lifeState['wallet'][0]['balance'] === $lifeBalance
+        && $lifeState['wallet'][0]['item_id'] === $itemId,
+        'Expanded life purchases ignore caller prices and reconcile server balance, inventory and ledger.');
+    aquarium_expect($lifeState['scene'] === [] && $lifeState['scene_version'] === 0,
+        'New fish, coral, algae and snails remain in the backpack until explicitly placed.');
+    aquarium_expect(aquarium_mutate($pdo, $lifeUserId, array_reverse($lifeBuy, true), $clock) === $lifeState,
+        'Retrying a version 7 purchase cannot duplicate its instance, debit or wallet entry.');
+}
+aquarium_expect($lifeState['coins'] === 370, 'Four version 7 representative purchases cost exactly 630 coins.');
+$queuedVersionSix = aquarium_request('buy', ['catalog_version' => 6, 'item_id' => 'clownfish']);
+$lifeState = aquarium_mutate($pdo, $lifeUserId, $queuedVersionSix, $clock);
+aquarium_expect($lifeState['coins'] === 270 && count($lifeState['inventory']) === 5
+    && count($lifeState['wallet']) === 6 && $lifeState['scene'] === [],
+    'Queued version 6 purchases remain accepted after the version 7 expansion.');
+aquarium_expect(aquarium_mutate($pdo, $lifeUserId, $queuedVersionSix, $clock) === $lifeState,
+    'A retried queued version 6 purchase still charges and delivers only once.');
+$lifeOwnedByItem = array_column($lifeState['inventory'], 'id', 'item_id');
+$lifeScene = [
+    ['instance_id' => $lifeOwnedByItem['rainbow-trout'], 'x' => 0.25, 'y' => 0.4, 'scale' => 1.0, 'layer' => 1],
+    ['instance_id' => $lifeOwnedByItem['staghorn-coral'], 'x' => 0.4, 'y' => 0.88, 'scale' => 1.0, 'layer' => 0],
+    ['instance_id' => $lifeOwnedByItem['sea-lettuce-algae'], 'x' => 0.6, 'y' => 0.88, 'scale' => 0.8, 'layer' => 0],
+    ['instance_id' => $lifeOwnedByItem['mystery-snail'], 'x' => 0.75, 'y' => 0.93, 'scale' => 1.2, 'layer' => 2],
+];
+$lifeSave = aquarium_request('save_scene', ['base_scene_version' => 0, 'scene' => $lifeScene]);
+$lifePlaced = aquarium_mutate($pdo, $lifeUserId, $lifeSave, $clock);
+aquarium_expect($lifePlaced['scene'] == $lifeScene && $lifePlaced['scene_version'] === 1
+    && $lifePlaced['inventory'] === $lifeState['inventory'] && $lifePlaced['wallet'] === $lifeState['wallet']
+    && $lifePlaced['coins'] === 270,
+    'New life instances can share a versioned layout without changing their ownership or wallet.');
+aquarium_expect(aquarium_mutate($pdo, $lifeUserId, $lifeSave, $clock) === $lifePlaced,
+    'Retrying a new-category scene save cannot advance the layout version twice.');
+$lifeRecall = aquarium_request('save_scene', ['base_scene_version' => 1, 'scene' => array_slice($lifeScene, 0, 3)]);
+$lifeRecalled = aquarium_mutate($pdo, $lifeUserId, $lifeRecall, $clock);
+aquarium_expect($lifeRecalled['scene_version'] === 2 && count($lifeRecalled['scene']) === 3
+    && !in_array($lifeOwnedByItem['mystery-snail'], array_column($lifeRecalled['scene'], 'instance_id'), true)
+    && $lifeRecalled['inventory'] === $lifePlaced['inventory']
+    && $lifeRecalled['wallet'] === $lifePlaced['wallet'] && $lifeRecalled['coins'] === 270,
+    'Recalling a snail removes only its placement while preserving all five owned instances.');
+aquarium_expect(aquarium_mutate($pdo, $lifeUserId, $lifeRecall, $clock) === $lifeRecalled,
+    'Retrying a recall does not remove another item or increment the scene version again.');
+aquarium_error('scene_conflict', 409, static fn() => aquarium_mutate($pdo, $lifeUserId,
+    aquarium_request('save_scene', ['base_scene_version' => 1, 'scene' => $lifeScene]), $clock));
+aquarium_expect(aquarium_read_state($pdo, $lifeUserId) === $lifeRecalled,
+    'A stale device cannot silently put a recalled new-category item back into the layout.');
+$lifeOperations = $pdo->prepare('SELECT COUNT(*) FROM aquarium_operations WHERE user_id = :user');
+$lifeOperations->execute([':user' => $lifeUserId]);
+aquarium_expect((int)$lifeOperations->fetchColumn() === 8
+    && array_sum(array_column($lifeRecalled['wallet'], 'delta')) === 270,
+    'Initialization, five purchases and two layout changes each journal once; retries and conflicts add nothing.');
+
+// Card packs are ordinary inventory instances until explicitly opened. The
+// server chooses the reward, consumes exactly one pack and returns the same
+// reward on an idempotent retry.
+$packUser = auth_register($pdo, 'aquarium_pack_user', 'secret4', 'device-pack', '127.0.0.5', $clock);
+$packUserId = $packUser['user']['id'];
+aquarium_mutate($pdo, $packUserId, aquarium_request('initialize'), $clock);
+$packPurchase = aquarium_mutate($pdo, $packUserId,
+    aquarium_request('buy', ['catalog_version' => 5, 'item_id' => AQUARIUM_CARD_PACK_ID]), $clock);
+aquarium_expect($packPurchase['coins'] === 800 && count($packPurchase['inventory']) === 1
+    && $packPurchase['inventory'][0]['item_id'] === AQUARIUM_CARD_PACK_ID,
+    'Buying a card pack debits its server price and stores one backpack instance.');
+$packInstanceId = $packPurchase['inventory'][0]['id'];
+$foreignStateBefore = aquarium_read_state($pdo, $expandedId);
+$operationsBefore = (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn();
+aquarium_error('pack_not_found', 409, static fn() => aquarium_mutate($pdo, $expandedId,
+    aquarium_request('open_pack', ['pack_instance_id' => $packInstanceId]), $clock));
+aquarium_expect(aquarium_read_state($pdo, $expandedId) === $foreignStateBefore
+    && aquarium_read_state($pdo, $packUserId) === $packPurchase
+    && (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn() === $operationsBefore,
+    'Opening another account\'s pack leaves both accounts and the operation journal unchanged.');
+aquarium_error('invalid_scene', 400, static fn() => aquarium_mutate($pdo, $packUserId,
+    aquarium_request('save_scene', ['base_scene_version' => 0, 'scene' => [
+        ['instance_id' => $packInstanceId, 'x' => 0.5, 'y' => 0.5, 'scale' => 1],
+    ]]), $clock));
+aquarium_expect(aquarium_read_state($pdo, $packUserId) === $packPurchase
+    && (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn() === $operationsBefore,
+    'A card pack cannot be placed in the scene or change its version, inventory, wallet or operation journal.');
+$nonPackInstanceId = $foreignStateBefore['inventory'][0]['id'];
+aquarium_error('pack_not_found', 409, static fn() => aquarium_mutate($pdo, $expandedId,
+    aquarium_request('open_pack', ['pack_instance_id' => $nonPackInstanceId]), $clock));
+aquarium_expect(aquarium_read_state($pdo, $expandedId) === $foreignStateBefore
+    && (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn() === $operationsBefore,
+    'Opening an owned non-pack instance cannot consume it, grant a reward or record an operation.');
+$openPack = aquarium_request('open_pack', ['pack_instance_id' => $packInstanceId]);
+$opened = aquarium_mutate($pdo, $packUserId, $openPack, $clock);
+aquarium_expect(isset($opened['opened_item']) && is_array($opened['opened_item'])
+    && $opened['opened_item']['category'] !== 'pack' && $opened['coins'] === 800
+    && $opened['opened_item_id'] === $opened['opened_item']['item_id']
+    && count($opened['inventory']) === 1 && $opened['inventory'][0]['item_id'] === $opened['opened_item']['item_id'],
+    'Opening a card pack keeps the balance, consumes the pack and grants one random aquarium item.');
+aquarium_expect($opened['wallet'][0]['reason'] === 'pack_open'
+    && $opened['wallet'][0]['item_id'] === $opened['opened_item']['item_id'],
+    'Pack opening records the granted item in the wallet ledger.');
+$openedAgain = aquarium_mutate($pdo, $packUserId, $openPack, $clock);
+aquarium_expect($openedAgain['opened_item']['item_id'] === $opened['opened_item']['item_id']
+    && count($openedAgain['inventory']) === 1 && count($openedAgain['wallet']) === 3,
+    'Retrying a successful pack opening is idempotent and reveals the same reward.');
+$afterOpen = aquarium_read_state($pdo, $packUserId);
+$operationsAfterOpen = (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn();
+aquarium_error('pack_not_found', 409, static fn() => aquarium_mutate($pdo, $packUserId,
+    aquarium_request('open_pack', ['pack_instance_id' => $packInstanceId]), $clock));
+aquarium_expect(aquarium_read_state($pdo, $packUserId) === $afterOpen
+    && (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn() === $operationsAfterOpen,
+    'A distinct operation cannot consume the same pack twice or change the committed reward.');
+
 $database = tempnam(sys_get_temp_dir(), 'aquarium-test-');
 if ($database === false) { throw new RuntimeException('Could not create concurrency-test database.'); }
 try {
@@ -326,8 +492,37 @@ try {
         'Concurrent layouts using one base version allow only one commit.');
     aquarium_expect(aquarium_read_state($parallelPdo, $parallelId)['scene_version'] === 1,
         'The losing layout cannot silently overwrite the committed layout.');
+
+    $parallelPackUser = auth_register($parallelPdo, 'concurrent_pack', 'secret5', 'device-pack', '127.0.0.6', $clock);
+    $parallelPackId = $parallelPackUser['user']['id'];
+    aquarium_mutate($parallelPdo, $parallelPackId, aquarium_request('initialize'), $clock);
+    $parallelPackState = aquarium_mutate($parallelPdo, $parallelPackId,
+        aquarium_request('buy', ['catalog_version' => 5, 'item_id' => AQUARIUM_CARD_PACK_ID]), $clock);
+    $parallelPackInstance = $parallelPackState['inventory'][0]['id'];
+    $requests = [
+        aquarium_request('open_pack', ['pack_instance_id' => $parallelPackInstance]),
+        aquarium_request('open_pack', ['pack_instance_id' => $parallelPackInstance]),
+    ];
+    $results = array_count_values(aquarium_parallel($database, $parallelPackId, $requests));
+    aquarium_expect(($results['ok'] ?? 0) === 1 && ($results['pack_not_found'] ?? 0) === 1,
+        'Concurrent distinct operations opening one pack allow exactly one reward transaction.');
+    $parallelOpened = aquarium_read_state($parallelPdo, $parallelPackId);
+    $operationQuery = $parallelPdo->prepare('SELECT COUNT(*) FROM aquarium_operations WHERE user_id = :user AND action = :action');
+    $operationQuery->execute([':user' => $parallelPackId, ':action' => 'open_pack']);
+    aquarium_expect($parallelOpened['coins'] === $parallelPackState['coins']
+        && count($parallelOpened['inventory']) === 1
+        && $parallelOpened['inventory'][0]['item_id'] !== AQUARIUM_CARD_PACK_ID
+        && $parallelOpened['inventory'][0]['id'] !== $parallelPackInstance
+        && $parallelOpened['scene'] === [] && $parallelOpened['scene_version'] === 0
+        && count($parallelOpened['wallet']) === 3
+        && $parallelOpened['wallet'][0]['reason'] === 'pack_open'
+        && $parallelOpened['wallet'][0]['item_id'] === $parallelOpened['inventory'][0]['item_id']
+        && (int)$operationQuery->fetchColumn() === 1,
+        'Concurrent pack opening consumes one pack, grants one item and writes one operation without changing balance or scene.');
+    $operationQuery = null;
     $parallelPdo = null;
 } finally {
+    $operationQuery = null;
     $parallelPdo = null;
     if (is_file($database)) { unlink($database); }
 }

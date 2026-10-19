@@ -72,6 +72,12 @@ public interface IFeatureWidgetsSettings
     bool SetSystemMonitorChartStyle(string metric, string? style);
     bool SetSystemMonitorChartColor(string metric, string? color);
     bool SetSystemMonitorRefreshInterval(int seconds);
+    bool ReadCalendarShowTaskMarkers();
+    bool SetCalendarShowTaskMarkers(bool enabled);
+    bool ReadCalendarShowHolidays();
+    bool SetCalendarShowHolidays(bool enabled);
+    CalendarMarkerColors ReadCalendarMarkerColors();
+    bool SetCalendarMarkerColor(string marker, string? color);
     /// <summary>Reads the current music presentation snapshot (raw stored values).</summary>
     MusicPresentationSettings ReadMusicPresentation();
 
@@ -173,3 +179,7 @@ public sealed record SystemMonitorPresentationSettings(
     string MemoryColor,
     string NetworkColor,
     int RefreshIntervalSeconds);
+
+public sealed record CalendarMarkerColors(
+    string TaskColor,
+    string HolidayColor);

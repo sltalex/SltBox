@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="280" viewBox="0 0 320 280">
+<title>货贝</title>
+<desc>Original cartoon aquatic snail, transparent background.</desc>
+<path d="M47 217 Q57 202 95 201 L180 199 Q198 186 218 194 Q232 204 256 211 Q269 217 264 225 Q216 240 167 232 Q109 243 58 232 Q43 227 47 217 Z" fill="#b4c8bb" stroke="#244a50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M51 225 Q109 231 166 222 Q223 232 260 217 Q274 230 239 235 Q201 240 168 232 Q110 243 58 232 Z" fill="#7f9c96" stroke="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M208 212 Q199 194 207 172 Q218 157 234 171 Q245 187 246 212 Z" fill="#b4c8bb" stroke="#244a50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M211 176 Q200 156 189 155" fill="none" stroke="#7f9c96" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M231 176 Q247 151 261 157" fill="none" stroke="#7f9c96" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="214" cy="181" rx="4" ry="5.5" fill="#244a50" stroke="none" stroke-width="4" opacity="1"/>
+<ellipse cx="232" cy="181" rx="4" ry="5.5" fill="#244a50" stroke="none" stroke-width="4" opacity="1"/>
+<ellipse cx="213" cy="179" rx="1.2" ry="1.8" fill="#fffef0" stroke="none" stroke-width="4" opacity="1"/>
+<ellipse cx="231" cy="179" rx="1.2" ry="1.8" fill="#fffef0" stroke="none" stroke-width="4" opacity="1"/>
+<ellipse cx="206" cy="192" rx="6" ry="3.3" fill="#ed929e" stroke="none" stroke-width="4" opacity="0.75"/>
+<ellipse cx="240" cy="192" rx="6" ry="3.3" fill="#ed929e" stroke="none" stroke-width="4" opacity="0.75"/>
+<path d="M218 194 Q223 201 229 194" fill="none" stroke="#244a50" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M75 218 Q107 215 126 217" fill="none" stroke="#e7f4db" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+<path d="M59 191 Q50 170 66 150 L83 131 Q99 114 117 122 Q140 110 162 120 Q183 114 197 133 L215 155 Q230 176 216 194 Q205 211 183 210 L90 212 Q69 212 59 191 Z" fill="#e8e6b7" stroke="#244a50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M60 190 Q120 215 215 189 L210 203 Q174 224 96 216 Q71 214 60 200 Z" fill="#b7b88e" stroke="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M74 194 Q140 212 205 193" fill="none" stroke="#faf4d9" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M83 150 Q143 129 195 153 M77 168 Q139 146 205 173" fill="none" stroke="#c9c99b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="141" cy="163" rx="19" ry="13" fill="#d6d5a6" stroke="#adb690" stroke-width="3" opacity="1"/>
+<path d="M92 133 Q109 121 126 124" fill="none" stroke="#fff8e7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</svg>

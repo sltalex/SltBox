@@ -27,16 +27,31 @@ ASSETS = ROOT / "src/DeskBox/Assets/Aquarium"
 SVG_DIR = ASSETS / "Svg"
 PNG_DIR = ASSETS / "Vector"
 PREVIEW = ROOT / ".artifacts/aquarium-svg-preview"
-GROUPS = {"fish": "fish", "plants": "plants", "rocks": "rocks"}
-TARGETS = {"fish": (320, 200), "plants": (200, 250), "rocks": (320, 240)}
+GROUPS = {"fish": "fish", "plants": "plants", "rocks": "rocks",
+          "shrimp": "shrimp", "crabs": "crabs", "shellfish": "shellfish",
+          "corals": "corals", "algae": "algae", "snails": "snails"}
+COUNTS = {"fish": 150, "plants": 50, "rocks": 50, "shrimp": 10, "crabs": 10, "shellfish": 10,
+          "corals": 20, "algae": 20, "snails": 20}
+TARGETS = {"fish": (320, 200), "plants": (200, 250), "rocks": (320, 240),
+           "shrimp": (240, 180), "crabs": (240, 180), "shellfish": (220, 200),
+           "corals": (240, 220), "algae": (200, 250), "snails": (220, 200)}
 
 
 def load_plan():
     plan = json.loads((ROOT / "docs/design/aquarium-realistic-expansion-plan.json").read_text(encoding="utf-8-sig"))
+    cartoons = json.loads((ROOT / "docs/design/aquarium-cartoon-expansion-plan.json").read_text(encoding="utf-8-sig"))
+    plan.update({group: cartoons[group] for group in ("shrimp", "crabs", "shellfish")})
+    for filename, groups in (
+        ("aquarium-fish-expansion-plan.json", ("fish",)),
+        ("aquarium-reef-expansion-plan.json", ("corals", "algae")),
+        ("aquarium-snail-expansion-plan.json", ("snails",)),
+    ):
+        expansion = json.loads((ROOT / "docs/design" / filename).read_text(encoding="utf-8-sig"))
+        plan.update({group: expansion[group] for group in groups})
     identities = set()
     for group in GROUPS:
-        if len(plan[group]) != 50:
-            raise ValueError(f"Expected 50 {group}")
+        if len(plan[group]) != COUNTS[group]:
+            raise ValueError(f"Expected {COUNTS[group]} {group}")
         for entry in plan[group]:
             key = entry["id"]
             if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", key) or key in identities:
@@ -82,7 +97,7 @@ def export_png(key, group):
     width, height = TARGETS[group]
     image.thumbnail((width - 12, height - 12), Image.Resampling.LANCZOS)
     result = Image.new("RGBA", (width, height))
-    top = (height - image.height) // 2 if group == "fish" else height - image.height - 6
+    top = (height - image.height) // 2 if group in ("fish", "shrimp", "crabs") else height - image.height - 6
     result.alpha_composite(image, ((width - image.width) // 2, top))
     target = PNG_DIR / f"{key}.png"
     result.save(target, optimize=True)
@@ -132,7 +147,12 @@ def main():
             hashes.add(digest)
         if not args.check:
             contact_sheet(plan[group], group)
-        print(f"{group}: 50 SVG / 50 transparent PNG validated", flush=True)
+            if group == "fish":
+                for habitat in ("freshwater", "tropical", "marine"):
+                    entries = [entry for entry in plan[group] if entry["habitat"] == habitat]
+                    for offset in range(0, len(entries), 40):
+                        contact_sheet(entries[offset:offset + 40], f"fish-{habitat}-{offset // 40 + 1}")
+        print(f"{group}: {len(plan[group])} SVG / {len(plan[group])} transparent PNG validated", flush=True)
 
 
 if __name__ == "__main__":

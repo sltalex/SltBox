@@ -147,6 +147,7 @@ public static class FeatureWidgetSettings
             // observes keyboard presses while the application is running.
             WidgetKind.Tree => false,
             WidgetKind.DingTalkGroupDocs => false,
+            WidgetKind.Calendar => false,
             _ => false
         };
     }

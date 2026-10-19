@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+<title>鸟蛤</title>
+<desc>Original cartoon shellfish illustration: cockle. Rounded dark teal outlines, flat cel shading, transparent background.</desc>
+<path d="M159 205 C137 199 75 169 60 126 C42 82 72 39 111 39 Q143 38 159 64 Q179 37 208 40 C253 43 279 86 257 130 Q231 182 159 205 Z" fill="#f7bd62" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M66 131 Q105 166 160 172 Q212 168 255 132 Q228 182 159 205 Q91 178 66 131 Z" fill="#e18b49" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M157 190 Q113 144 100 63 M147 187 Q88 140 79 81 M167 190 Q206 141 220 66 M179 185 Q237 132 241 90 M157 188 Q143 122 151 82 M164 187 Q179 122 169 82" fill="none" stroke="#ffdc88" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M159 195 Q119 136 121 55 M159 195 Q195 133 197 55 M134 185 Q92 156 66 113 M183 183 Q227 154 258 112" fill="none" stroke="#c77a42" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M83 68 Q93 54 109 55 M208 57 Q224 61 232 72" fill="none" stroke="#fff0be" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="140" cy="139" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="138.7" cy="136.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="132" cy="150" rx="8" ry="4" fill="#ed9473" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<ellipse cx="180" cy="139" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="178.7" cy="136.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="188" cy="150" rx="8" ry="4" fill="#ed9473" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<path d="M154 150 Q160 158 166 150" fill="none" stroke="#194957" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</svg>

@@ -332,6 +332,10 @@ public sealed class SettingsService
     public const int DefaultTodoReminderOffsetMinutes = TodoOptionKinds.DefaultReminderOffsetMinutes;
     public const int MinTodoReminderOffsetMinutes = TodoOptionKinds.MinReminderOffsetMinutes;
     public const int MaxTodoReminderOffsetMinutes = TodoOptionKinds.MaxReminderOffsetMinutes;
+    public const int DefaultTodoDueTimeMinutes = TodoOptionKinds.DefaultDueTimeMinutes;
+    public const int MinTodoDueTimeMinutes = TodoOptionKinds.MinDueTimeMinutes;
+    public const int MaxTodoDueTimeMinutes = TodoOptionKinds.MaxDueTimeMinutes;
+    public const int DefaultTodoThisWeekDueDay = TodoOptionKinds.DefaultThisWeekDueDay;
     public const string QuickCaptureDefaultViewRecords = QuickCaptureOptionKinds.DefaultViewRecords;
     public const string QuickCaptureDefaultViewPinned = QuickCaptureOptionKinds.DefaultViewPinned;
     public const string QuickCaptureDefaultViewRecent = QuickCaptureOptionKinds.DefaultViewRecent;
@@ -540,6 +544,10 @@ public const int DefaultSearchMaxResults = 100;
         settings.SystemMonitorMemoryChartColor = "#46AE85";
         settings.SystemMonitorNetworkChartColor = "#E6A23C";
         settings.SystemMonitorRefreshIntervalSeconds = 2;
+        settings.CalendarShowTaskMarkers = true;
+        settings.CalendarShowHolidays = false;
+        settings.CalendarTaskMarkerColor = "#3791DC";
+        settings.CalendarHolidayMarkerColor = "#E04C4C";
         settings.LegacyWidgetCapsuleModeEnabled = null;
         settings.WidgetCompactWidthMode = WidgetCompactWidthModeAligned;
         settings.WidgetCompactExpansionDirection = WidgetCompactExpansionDirectionDown;
@@ -611,6 +619,8 @@ public const int DefaultSearchMaxResults = 100;
         settings.TodoShowClearCompletedButton = true;
         settings.TodoReminderEnabled = true;
         settings.TodoDefaultReminderOffsetMinutes = DefaultTodoReminderOffsetMinutes;
+        settings.TodoDefaultDueTimeMinutes = DefaultTodoDueTimeMinutes;
+        settings.TodoThisWeekDueDay = DefaultTodoThisWeekDueDay;
         settings.TodoUseWideDetailPane = true;
         settings.TodoLayoutMode = TodoLayoutModeAuto;
         settings.TodoAutoSelectFirstInWideLayout = true;
@@ -2399,6 +2409,26 @@ settings.FocusClickedWidgetOnRaise = false;
             changed = true;
         }
 
+        // FourWheelDrive was removed. Drop any persisted instances from older
+        // profiles so they cannot be restored through the generic widget path.
+        var removedFourWheelDriveIds = settings.Widgets
+            .Where(widget => widget.WidgetKind == WidgetKind.FourWheelDrive)
+            .Select(widget => widget.Id)
+            .ToArray();
+        if (removedFourWheelDriveIds.Length > 0)
+        {
+            settings.Widgets.RemoveAll(widget => removedFourWheelDriveIds.Contains(widget.Id));
+            settings.DeletedWidgetIds ??= [];
+            foreach (string id in removedFourWheelDriveIds)
+            {
+                if (!settings.DeletedWidgetIds.Contains(id))
+                {
+                    settings.DeletedWidgetIds.Add(id);
+                }
+            }
+            changed = true;
+        }
+
         foreach (var widget in settings.Widgets)
         {
             if (widget.WidgetKind is WidgetKind.Productivity)
@@ -3155,6 +3185,20 @@ settings.FocusClickedWidgetOnRaise = false;
             changed = true;
         }
 
+        int normalizedDueTime = NormalizeTodoDueTimeMinutes(settings.TodoDefaultDueTimeMinutes);
+        if (settings.TodoDefaultDueTimeMinutes != normalizedDueTime)
+        {
+            settings.TodoDefaultDueTimeMinutes = normalizedDueTime;
+            changed = true;
+        }
+
+        int normalizedThisWeekDueDay = NormalizeTodoThisWeekDueDay(settings.TodoThisWeekDueDay);
+        if (settings.TodoThisWeekDueDay != normalizedThisWeekDueDay)
+        {
+            settings.TodoThisWeekDueDay = normalizedThisWeekDueDay;
+            changed = true;
+        }
+
         string normalizedTabStyle = NormalizeWidgetTabStyle(settings.TodoTabStyle);
         if (!string.Equals(settings.TodoTabStyle, normalizedTabStyle, StringComparison.Ordinal))
         {
@@ -3253,6 +3297,12 @@ settings.FocusClickedWidgetOnRaise = false;
 
     public static int NormalizeTodoReminderOffsetMinutes(int minutes) =>
         TodoOptionKinds.NormalizeReminderOffsetMinutes(minutes);
+
+    public static int NormalizeTodoDueTimeMinutes(int minutes) =>
+        TodoOptionKinds.NormalizeDueTimeMinutes(minutes);
+
+    public static int NormalizeTodoThisWeekDueDay(int day) =>
+        TodoOptionKinds.NormalizeThisWeekDueDay(day);
 
     internal static bool NormalizeWeatherSettings(AppSettings settings)
     {

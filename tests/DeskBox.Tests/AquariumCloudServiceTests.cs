@@ -117,19 +117,33 @@ public sealed class AquariumCloudServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SceneSaveRejectsLayersOutsideTheThreeVisibleChoices()
+    public async Task SceneSaveRejectsLayersOutsideTheTenVisibleChoices()
     {
         var api = new FakeApi();
         await using var service = new AquariumService(new FakeAuth(), api, _root);
         int requests = api.RequestCount;
 
-        foreach (int layer in new[] { -2, 2 })
+        foreach (int layer in new[] { AquariumLayer.Min - 1, AquariumLayer.Max + 1 })
         {
             AquariumPlacement[] scene = [new("fish-1", .4, .6, 1, layer)];
             await Assert.ThrowsAsync<ArgumentException>(() => service.SaveSceneAsync(scene, 0));
         }
 
         Assert.Equal(requests, api.RequestCount);
+    }
+
+    [Fact]
+    public async Task SceneSaveAcceptsTheNewTenthLayer()
+    {
+        var api = new FakeApi();
+        await using var service = new AquariumService(new FakeAuth(), api, _root);
+        Assert.True(await service.InitializeAsync());
+        Assert.True(await service.BuyAsync("clownfish"));
+
+        AquariumPlacement[] scene = [new("fish-1", .4, .6, 1, AquariumLayer.Max)];
+
+        Assert.True(await service.SaveSceneAsync(scene, 0));
+        Assert.Equal(AquariumLayer.Max, Assert.Single(service.State!.Scene).Layer);
     }
 
     [Fact]

@@ -9,6 +9,8 @@ namespace DeskBox.Services;
 /// <summary>Account-scoped aquarium cache and an idempotent, server-authoritative command queue.</summary>
 internal sealed class AquariumService : IAsyncDisposable
 {
+    internal const string AquariumCardPackItemId = "aquarium-card-pack";
+
     private readonly IAuthSession _auth;
     private readonly IAuthenticatedAccountApi _api;
     private readonly string _cacheDirectory;
@@ -38,7 +40,10 @@ internal sealed class AquariumService : IAsyncDisposable
     }
 
     internal event Action? Changed;
+    /// <summary>Raised after a card pack is opened and the authoritative state is accepted.</summary>
+    internal event Action<AquariumOpenedItem>? Opened;
     internal AquariumState? State { get; private set; }
+    internal AquariumOpenedItem? LastOpenedItem { get; private set; }
     internal IReadOnlyList<AquariumCatalogItem> Catalog { get; private set; } = Array.Empty<AquariumCatalogItem>();
     internal int CatalogVersion { get; private set; }
     internal string? CurrentUserId => VerifiedIdentity();
@@ -78,12 +83,24 @@ internal sealed class AquariumService : IAsyncDisposable
         }, cancellationToken);
 
     internal Task<bool> InitializeAsync(CancellationToken cancellationToken = default) =>
-        MutateAsync("initialize", null, null, 0, cancellationToken);
+        MutateAsync("initialize", null, null, null, 0, cancellationToken);
 
     internal Task<bool> BuyAsync(string itemId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
-        return MutateAsync("buy", itemId, null, 0, cancellationToken);
+        return MutateAsync("buy", itemId, null, null, 0, cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens one aquarium card pack from the account inventory. The server
+    /// chooses the reward atomically and returns the complete authoritative
+    /// state plus an optional <c>opened_item</c>/<c>opened_item_id</c> result.
+    /// </summary>
+    internal Task<bool> OpenPackAsync(string packInstanceId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packInstanceId);
+        return MutateAsync("open_pack", null, packInstanceId, null, 0, cancellationToken);
     }
 
     internal Task<bool> SaveSceneAsync(IReadOnlyList<AquariumPlacement> scene, long baseSceneVersion,
@@ -92,20 +109,21 @@ internal sealed class AquariumService : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(scene);
         if (baseSceneVersion < 0) throw new ArgumentOutOfRangeException(nameof(baseSceneVersion));
         if (scene.Any(item => !double.IsFinite(item.X) || !double.IsFinite(item.Y) || !double.IsFinite(item.Scale) ||
-            item.Layer is < -1 or > 1))
+            item.Layer is < AquariumLayer.Min or > AquariumLayer.Max))
             throw new ArgumentException("Scene coordinates and layer must be valid.", nameof(scene));
-        return MutateAsync("save_scene", null, Array.AsReadOnly(scene.ToArray()), baseSceneVersion, cancellationToken);
+        return MutateAsync("save_scene", null, null, Array.AsReadOnly(scene.ToArray()), baseSceneVersion, cancellationToken);
     }
 
-    private Task<bool> MutateAsync(string action, string? itemId, IReadOnlyList<AquariumPlacement>? scene,
-        long sceneVersion, CancellationToken cancellationToken) => RunAsync(async (identity, version, token) =>
+    private Task<bool> MutateAsync(string action, string? itemId, string? packInstanceId,
+        IReadOnlyList<AquariumPlacement>? scene, long sceneVersion, CancellationToken cancellationToken) => RunAsync(async (identity, version, token) =>
     {
+        if (action == "open_pack") Update(identity, version, token, () => LastOpenedItem = null);
         byte[]? existingPending = null;
         Update(identity, version, token, () => existingPending = _pending);
         if (existingPending is not null)
         {
             // A timed-out purchase may have committed. Recover that exact command before accepting another.
-            if (!MatchesPending(existingPending, action, itemId, scene, sceneVersion))
+            if (!MatchesPending(existingPending, action, itemId, packInstanceId, scene, sceneVersion))
             {
                 Update(identity, version, token, () => ErrorCode = "pending_operation");
                 return false;
@@ -113,7 +131,7 @@ internal sealed class AquariumService : IAsyncDisposable
         }
         else
         {
-            if (action == "buy" && CatalogVersion == 0) await ReadCloudAsync(identity, version, token);
+            if ((action == "buy" || action == "open_pack") && CatalogVersion == 0) await ReadCloudAsync(identity, version, token);
             byte[] pending = AquariumJson.Write(writer =>
             {
                 writer.WriteStartObject();
@@ -124,6 +142,8 @@ internal sealed class AquariumService : IAsyncDisposable
                     writer.WriteString("item_id", itemId);
                     writer.WriteNumber("catalog_version", CatalogVersion);
                 }
+                if (packInstanceId is not null)
+                    writer.WriteString("pack_instance_id", packInstanceId);
                 if (scene is not null)
                 {
                     writer.WriteNumber("base_scene_version", sceneVersion);
@@ -225,15 +245,6 @@ internal sealed class AquariumService : IAsyncDisposable
         }
         using JsonDocument body = await ReadDocumentAsync(response, token);
         AquariumState state = AquariumJson.ReadState(body.RootElement);
-        Update(identity, version, token, () =>
-        {
-            State = state;
-            using (JsonDocument pending = JsonDocument.Parse(command))
-                if (AquariumJson.Text(pending.RootElement, "action") == "save_scene") PendingScene = null;
-            _pending = null;
-            IsOffline = false;
-            ErrorCode = null;
-        });
         string actionName;
         int sceneCount;
         using (JsonDocument committed = JsonDocument.Parse(command))
@@ -242,9 +253,23 @@ internal sealed class AquariumService : IAsyncDisposable
             sceneCount = committed.RootElement.TryGetProperty("scene", out JsonElement scene)
                 && scene.ValueKind == JsonValueKind.Array ? scene.GetArrayLength() : state.Scene.Count;
         }
+        AquariumOpenedItem? openedItem = actionName == "open_pack"
+            ? AquariumJson.ReadOpenedItem(body.RootElement, Catalog) : null;
+        bool validResult = actionName != "open_pack" || openedItem is not null;
+        Update(identity, version, token, () =>
+        {
+            State = state;
+            if (actionName == "open_pack") LastOpenedItem = openedItem;
+            using (JsonDocument pending = JsonDocument.Parse(command))
+                if (AquariumJson.Text(pending.RootElement, "action") == "save_scene") PendingScene = null;
+            _pending = null;
+            IsOffline = false;
+            ErrorCode = validResult ? null : "invalid_response";
+        });
+        if (openedItem is not null) RaiseOpened(openedItem);
         App.Log($"[Aquarium] Command committed action={actionName} scene={sceneCount} authoritativeScene={state.Scene.Count} version={state.SceneVersion}");
         await SaveCacheAsync(identity, version, token);
-        return true;
+        return validResult;
     }
 
     private async Task ReadCloudAsync(string identity, long version, CancellationToken token)
@@ -275,12 +300,14 @@ internal sealed class AquariumService : IAsyncDisposable
         App.Log($"[Aquarium] Cloud state initialized={state.Initialized} inventory={state.Inventory.Count} scene={state.Scene.Count} version={state.SceneVersion}");
     }
 
-    private static bool MatchesPending(byte[] command, string action, string? itemId, IReadOnlyList<AquariumPlacement>? scene, long sceneVersion)
+    private static bool MatchesPending(byte[] command, string action, string? itemId, string? packInstanceId,
+        IReadOnlyList<AquariumPlacement>? scene, long sceneVersion)
     {
         using JsonDocument document = JsonDocument.Parse(command);
         JsonElement pending = document.RootElement;
         if (AquariumJson.Text(pending, "action") != action) return false;
         if (itemId is not null && AquariumJson.Text(pending, "item_id") != itemId) return false;
+        if (packInstanceId is not null && AquariumJson.Text(pending, "pack_instance_id") != packInstanceId) return false;
         return scene is null || (pending.GetProperty("base_scene_version").GetInt64() == sceneVersion
             && AquariumJson.ReadScene(pending.GetProperty("scene")).SequenceEqual(scene));
     }
@@ -388,6 +415,7 @@ internal sealed class AquariumService : IAsyncDisposable
                 State = null;
                 Catalog = Array.Empty<AquariumCatalogItem>();
                 CatalogVersion = 0;
+                LastOpenedItem = null;
                 _pending = null;
                 PendingScene = null;
                 ErrorCode = null;
@@ -441,6 +469,14 @@ internal sealed class AquariumService : IAsyncDisposable
         foreach (Action observer in Changed?.GetInvocationList() ?? [])
         {
             try { observer(); } catch (Exception ex) { App.Log($"[Aquarium] Observer failed: {ex.GetType().Name}"); }
+        }
+    }
+
+    private void RaiseOpened(AquariumOpenedItem openedItem)
+    {
+        foreach (Action<AquariumOpenedItem> observer in Opened?.GetInvocationList() ?? [])
+        {
+            try { observer(openedItem); } catch (Exception ex) { App.Log($"[Aquarium] Pack-open observer failed: {ex.GetType().Name}"); }
         }
     }
 

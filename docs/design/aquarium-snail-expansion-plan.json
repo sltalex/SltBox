@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "style": "original_cartoon_svg",
+  "purpose": "20 种原创卡通水生螺；独立物种轮廓、螺塔与壳纹，不替换已有贝类海螺和鹦鹉螺。",
+  "target_counts": { "snail": 20 },
+  "snails": [
+    { "id": "mystery-snail", "name": "神秘螺", "en_name": "Mystery snail", "price": 90, "width": 40, "height": 36 },
+    { "id": "rabbit-snail", "name": "兔螺", "en_name": "Rabbit snail", "price": 150, "width": 42, "height": 46 },
+    { "id": "zebra-nerite", "name": "斑马螺", "en_name": "Zebra nerite", "price": 110, "width": 40, "height": 30 },
+    { "id": "horned-nerite", "name": "角螺", "en_name": "Horned nerite", "price": 130, "width": 40, "height": 32 },
+    { "id": "ramshorn-snail", "name": "扁卷螺", "en_name": "Ramshorn snail", "price": 80, "width": 40, "height": 36 },
+    { "id": "malaysian-trumpet-snail", "name": "马来螺", "en_name": "Malaysian trumpet snail", "price": 90, "width": 40, "height": 44 },
+    { "id": "assassin-snail", "name": "杀手螺", "en_name": "Assassin snail", "price": 140, "width": 40, "height": 38 },
+    { "id": "japanese-trapdoor-snail", "name": "日本活板螺", "en_name": "Japanese trapdoor snail", "price": 120, "width": 40, "height": 36 },
+    { "id": "bladder-snail", "name": "膀胱螺", "en_name": "Bladder snail", "price": 70, "width": 40, "height": 32 },
+    { "id": "pond-snail", "name": "椎实螺", "en_name": "Pond snail", "price": 80, "width": 40, "height": 38 },
+    { "id": "turbo-snail", "name": "蝾螺", "en_name": "Turbo snail", "price": 160, "width": 44, "height": 38 },
+    { "id": "trochus-snail", "name": "马蹄螺", "en_name": "Trochus snail", "price": 150, "width": 42, "height": 40 },
+    { "id": "astrea-snail", "name": "星螺", "en_name": "Astrea snail", "price": 170, "width": 44, "height": 36 },
+    { "id": "nassarius-snail", "name": "织纹螺", "en_name": "Nassarius snail", "price": 120, "width": 40, "height": 34 },
+    { "id": "cerith-snail", "name": "蟹守螺", "en_name": "Cerith snail", "price": 130, "width": 40, "height": 46 },
+    { "id": "money-cowrie", "name": "货贝", "en_name": "Money cowrie", "price": 180, "width": 40, "height": 30 },
+    { "id": "tiger-cowrie", "name": "虎斑宝贝", "en_name": "Tiger cowrie", "price": 210, "width": 44, "height": 32 },
+    { "id": "sundial-snail", "name": "车轮螺", "en_name": "Sundial snail", "price": 190, "width": 44, "height": 30 },
+    { "id": "strawberry-top-snail", "name": "草莓钟螺", "en_name": "Strawberry top snail", "price": 180, "width": 40, "height": 34 },
+    { "id": "wentletrap-snail", "name": "梯螺", "en_name": "Wentletrap snail", "price": 200, "width": 40, "height": 46 }
+  ]
+}

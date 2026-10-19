@@ -227,6 +227,10 @@ public partial class SettingsViewModel
                     // are gone).
                     _weatherSettings.ResetPreferences(scheduleSave: false);
                     break;
+                case WidgetKind.Calendar:
+                    _featureWidgetsSettings.CalendarShowTaskMarkers = true;
+                    _featureWidgetsSettings.CalendarShowHolidays = false;
+                    break;
             }
         }
         finally
@@ -263,6 +267,9 @@ public partial class SettingsViewModel
                 // (the old per-property notifications are its own
                 // PropertyChanged broadcasts now).
                 _weatherSettings.Refresh();
+                break;
+            case WidgetKind.Calendar:
+                _featureWidgetsSettings.SyncPresentation();
                 break;
         }
     }

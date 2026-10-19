@@ -9,7 +9,7 @@ namespace DeskBox.Tests;
 
 /// <summary>
 /// Seventh copy batch of the settings-shell binding-facade retirement: the
-/// Todo section (29 unique binding properties) is re-bound to the batch-1
+/// Todo section (33 unique binding properties) is re-bound to the batch-1
 /// section editor grown into a full binding surface through a section-level
 /// DataContext switch. These tests pin the editor's behavior (read snapshot
 /// projection with the old shell normalization, write-through, no write-back
@@ -98,6 +98,8 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.Equal(12.5, editor.ContentTextSize);
         Assert.False(editor.RemindersEnabled);
         Assert.Equal(30, editor.DefaultOffsetMinutes);
+        Assert.Equal(TimeSpan.FromMinutes(TodoOptionKinds.DefaultDueTimeMinutes), editor.DefaultDueTime);
+        Assert.Equal(TodoOptionKinds.DefaultThisWeekDueDay, editor.ThisWeekDueDay);
     }
 
     [Fact]
@@ -405,6 +407,11 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.Equal(2, editor.AvailableEnterBehaviorOptions.Count);
         Assert.Equal(10, editor.AvailablePreviewLineOptions.Count);
         Assert.Equal(7, editor.AvailableReminderOffsetOptions.Count);
+        Assert.Equal(7, editor.AvailableThisWeekDueDayOptions.Count);
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 0 },
+            editor.AvailableThisWeekDueDayOptions.Select(option => (int)option.Value!).ToArray());
+        Assert.Contains(editor.AvailableThisWeekDueDayOptions,
+            option => (int)option.Value! == TodoOptionKinds.DefaultThisWeekDueDay);
         Assert.Equal(7, editor.AvailableDefaultFilters.Length);
         Assert.Equal(
             new[] { "Stats", "ClearCompleted" },
@@ -626,7 +633,7 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.Contains("[WinRT.GeneratedBindableCustomProperty([", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(Enabled)", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(DefaultFilter)", bridge, StringComparison.Ordinal);
-        Assert.Equal(29, Regex.Matches(bridge, @"nameof\(").Count);
+        Assert.Equal(33, Regex.Matches(bridge, @"nameof\(").Count);
         Assert.DoesNotContain("nameof(ShowAllTab)", bridge, StringComparison.Ordinal);
         Assert.Equal(45, Regex.Matches(bindableShell, @"nameof\(").Count);
     }

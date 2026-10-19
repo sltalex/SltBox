@@ -50,6 +50,7 @@ public sealed partial class SettingsWindow
         {
             aquarium.SetActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "AquariumSettings");
             aquarium.SetBackpackActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "Backpack");
+            aquarium.SetStoreActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "AquariumStore");
         }
     }
 
@@ -63,9 +64,9 @@ public sealed partial class SettingsWindow
 
     private FrameworkElement EnsureSettingsSectionCreated(string sectionTag)
     {
-        if (sectionTag is "AquariumSettings" or "Backpack" && !IsVerifiedAdmin)
+        if (!IsVerifiedAdmin && sectionTag is ("AquariumSettings" or "Backpack" or "AquariumStore"))
             return EnsureSettingsSectionCreated("General");
-        if (sectionTag == "Backpack") EnsureSettingsSectionCreated("AquariumSettings");
+        if (sectionTag is "Backpack" or "AquariumStore") EnsureSettingsSectionCreated("AquariumSettings");
         if (_settingsSectionElements.TryGetValue(sectionTag, out FrameworkElement? existing))
         {
             return existing;
@@ -118,6 +119,10 @@ public sealed partial class SettingsWindow
                 backpack.AquariumRequested += () => NavigateToSettingsSection("AquariumSettings");
                 ((AquariumSettingsSection)_settingsSectionElements["AquariumSettings"])
                     .AttachExternalBackpack(backpack);
+                break;
+            case AquariumStoreSection store:
+                ((AquariumSettingsSection)_settingsSectionElements["AquariumSettings"])
+                    .AttachExternalStore(store);
                 break;
             case DingTalkGroupDocsSettingsSection groupDocsSettings:
                 groupDocsSettings.Configure(
@@ -234,7 +239,7 @@ public sealed partial class SettingsWindow
             RefreshDragOutWin10State();
         }
 
-        if (sectionTag == "SystemMonitorSettings")
+        if (sectionTag is "SystemMonitorSettings" or "CalendarSettings")
         {
             section.DataContext = _featureWidgetsSettingsViewModel;
         }

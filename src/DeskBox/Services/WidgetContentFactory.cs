@@ -165,16 +165,6 @@ public sealed class WidgetContentFactory
             ChromeCategory: WidgetChromeCategory.Display,
             DefaultChromeMode: WidgetChromeMode.Overlay),
         new(
-            WidgetKind.FourWheelDrive,
-            "Four-wheel drive",
-            "\uE7C5",
-            WidgetContentStage.Implemented,
-            CanShowInCreateEntry: false,
-            WidgetContentAvailability.Available,
-            "WidgetContent.FourWheelDrive.StatusLabel",
-            "WidgetContent.FourWheelDrive.StatusDescription",
-            IsFeatureWidget: true),
-        new(
             WidgetKind.DingTalkGroupDocs,
             "DingTalk group documents",
             "\uE8A5",
@@ -185,7 +175,21 @@ public sealed class WidgetContentFactory
             "WidgetContent.DingTalkGroupDocs.StatusDescription",
             HasSettingsPage: true,
             IsFeatureWidget: true,
-            SettingsSectionTag: "DingTalkGroupDocsSettings")
+            SettingsSectionTag: "DingTalkGroupDocsSettings"),
+        new(
+            WidgetKind.Calendar,
+            "Calendar",
+            "\uE787",
+            WidgetContentStage.Implemented,
+            CanShowInCreateEntry: false,
+            WidgetContentAvailability.Available,
+            "WidgetContent.Calendar.StatusLabel",
+            "WidgetContent.Calendar.StatusDescription",
+            HasSettingsPage: true,
+            IsFeatureWidget: true,
+            SettingsSectionTag: "CalendarSettings",
+            ChromeCategory: WidgetChromeCategory.Display,
+            DefaultChromeMode: WidgetChromeMode.Overlay)
     ];
 
     private static readonly IReadOnlyDictionary<WidgetKind, WidgetContentDescriptor> Descriptors =
@@ -332,8 +336,8 @@ public sealed class WidgetContentFactory
             new AquariumWidgetContentProvider(
                 () => App.Current.AquariumService,
                 () => App.Current.SettingsService.Settings.WidgetLayout.AquariumAnimationsEnabled),
-            new FourWheelDriveWidgetContentProvider(),
             new DingTalkGroupDocsWidgetContentProvider(),
+            new CalendarWidgetContentProvider(),
             new PlaceholderWidgetContentProvider(WidgetKind.Tags),
             new SystemMonitorWidgetContentProvider()
         ];

@@ -250,8 +250,11 @@ public enum WidgetKind
     /// <summary>Administrator-only account aquarium.</summary>
     Aquarium,
 
-    /// <summary>Administrator-only four-wheel-drive car progression widget.</summary>
-    FourWheelDrive
+    /// <summary>Legacy value kept only for migrating old settings files.</summary>
+    FourWheelDrive,
+
+    /// <summary>Monthly calendar with optional todo due-date markers.</summary>
+    Calendar
 }
 
 public sealed class WidgetKindJsonConverter : JsonConverter<WidgetKind>

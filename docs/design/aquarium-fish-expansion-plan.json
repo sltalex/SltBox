@@ -1,0 +1,2307 @@
+{
+  "version": 1,
+  "style": "Original natural-history SVG illustrations with species-specific anatomy, fine fin rays and restrained lighting.",
+  "habitat_note": "Mutually exclusive store display groups: freshwater includes temperate freshwater fish and freshwater life stages of migratory salmonids; tropical is tropical/subtropical freshwater aquarium fish; marine includes all marine fish including tropical reef fish. These are display groups, not biological clades.",
+  "fish": [
+    {
+      "id": "clownfish",
+      "name": "小丑鱼",
+      "en_name": "Clownfish",
+      "scientific_name": "Amphiprion ocellaris",
+      "habitat": "marine",
+      "price": 100,
+      "width": 88,
+      "height": 59,
+      "speed": 0.82,
+      "existing_asset": true
+    },
+    {
+      "id": "blue-tang",
+      "name": "蓝吊鱼",
+      "en_name": "Blue tang",
+      "scientific_name": "Paracanthurus hepatus",
+      "habitat": "marine",
+      "price": 180,
+      "width": 106,
+      "height": 71,
+      "speed": 1.02,
+      "existing_asset": true
+    },
+    {
+      "id": "butterflyfish",
+      "name": "蝴蝶鱼",
+      "en_name": "Blackfin butterflyfish",
+      "scientific_name": "Chaetodon melapterus",
+      "habitat": "marine",
+      "price": 260,
+      "width": 94,
+      "height": 78,
+      "speed": 0.92,
+      "existing_asset": true
+    },
+    {
+      "id": "angelfish",
+      "name": "神仙鱼",
+      "en_name": "Freshwater angelfish",
+      "scientific_name": "Pterophyllum scalare",
+      "habitat": "tropical",
+      "price": 220,
+      "width": 96,
+      "height": 112,
+      "speed": 0.72,
+      "existing_asset": true
+    },
+    {
+      "id": "lionfish",
+      "name": "狮子鱼",
+      "en_name": "Red lionfish",
+      "scientific_name": "Pterois volitans",
+      "habitat": "marine",
+      "price": 300,
+      "width": 112,
+      "height": 86,
+      "speed": 0.64,
+      "existing_asset": true
+    },
+    {
+      "id": "pufferfish",
+      "name": "河豚",
+      "en_name": "Guineafowl puffer",
+      "scientific_name": "Arothron meleagris",
+      "habitat": "marine",
+      "price": 240,
+      "width": 92,
+      "height": 92,
+      "speed": 0.55,
+      "existing_asset": true
+    },
+    {
+      "id": "seahorse",
+      "name": "海马",
+      "en_name": "Spotted seahorse",
+      "scientific_name": "Hippocampus kuda",
+      "habitat": "marine",
+      "price": 280,
+      "width": 82,
+      "height": 142,
+      "speed": 0.42,
+      "existing_asset": true
+    },
+    {
+      "id": "yellow-tang",
+      "name": "黄吊鱼",
+      "en_name": "Yellow tang",
+      "scientific_name": "Zebrasoma flavescens",
+      "habitat": "marine",
+      "price": 240,
+      "width": 112,
+      "height": 82,
+      "speed": 0.98,
+      "existing_asset": true
+    },
+    {
+      "id": "royal-gramma",
+      "name": "皇家伽玛",
+      "en_name": "Royal gramma",
+      "scientific_name": "Gramma loreto",
+      "habitat": "marine",
+      "price": 260,
+      "width": 112,
+      "height": 68,
+      "speed": 0.7,
+      "existing_asset": true
+    },
+    {
+      "id": "mandarinfish",
+      "name": "曼达林鱼",
+      "en_name": "Mandarinfish",
+      "scientific_name": "Synchiropus splendidus",
+      "habitat": "marine",
+      "price": 320,
+      "width": 104,
+      "height": 76,
+      "speed": 0.62,
+      "existing_asset": true
+    },
+    {
+      "id": "moorish-idol",
+      "name": "镰鱼",
+      "en_name": "Moorish idol",
+      "scientific_name": "Zanclus cornutus",
+      "habitat": "marine",
+      "price": 340,
+      "width": 112,
+      "height": 92,
+      "speed": 0.9,
+      "existing_asset": true
+    },
+    {
+      "id": "cardinalfish",
+      "name": "天竺鲷",
+      "en_name": "Pajama cardinalfish",
+      "scientific_name": "Sphaeramia nematoptera",
+      "habitat": "marine",
+      "price": 190,
+      "width": 80,
+      "height": 56,
+      "speed": 0.78,
+      "existing_asset": true
+    },
+    {
+      "id": "great-white-shark",
+      "name": "大白鲨",
+      "en_name": "Great white shark",
+      "scientific_name": "Carcharodon carcharias",
+      "habitat": "marine",
+      "price": 600,
+      "width": 260,
+      "height": 140,
+      "speed": 0.95,
+      "existing_asset": true
+    },
+    {
+      "id": "whale-shark",
+      "name": "鲸鲨",
+      "en_name": "Whale shark",
+      "scientific_name": "Rhincodon typus",
+      "habitat": "marine",
+      "price": 600,
+      "width": 310,
+      "height": 165,
+      "speed": 0.58,
+      "existing_asset": true
+    },
+    {
+      "id": "scalloped-hammerhead",
+      "name": "路氏双髻鲨",
+      "en_name": "Scalloped hammerhead",
+      "scientific_name": "Sphyrna lewini",
+      "habitat": "marine",
+      "price": 600,
+      "width": 260,
+      "height": 145,
+      "speed": 0.88,
+      "existing_asset": true
+    },
+    {
+      "id": "blacktip-reef-shark",
+      "name": "黑鳍礁鲨",
+      "en_name": "Blacktip reef shark",
+      "scientific_name": "Carcharhinus melanopterus",
+      "habitat": "marine",
+      "price": 600,
+      "width": 225,
+      "height": 125,
+      "speed": 1,
+      "existing_asset": true
+    },
+    {
+      "id": "zebra-shark",
+      "name": "斑马鲨",
+      "en_name": "Zebra shark",
+      "scientific_name": "Stegostoma tigrinum",
+      "habitat": "marine",
+      "price": 600,
+      "width": 255,
+      "height": 125,
+      "speed": 0.65,
+      "existing_asset": true
+    },
+    {
+      "id": "sardine",
+      "name": "沙丁鱼",
+      "en_name": "European pilchard",
+      "scientific_name": "Sardina pilchardus",
+      "habitat": "marine",
+      "price": 140,
+      "width": 65,
+      "height": 41,
+      "speed": 1.12,
+      "existing_asset": true
+    },
+    {
+      "id": "anchovy",
+      "name": "鳀鱼",
+      "en_name": "European anchovy",
+      "scientific_name": "Engraulis encrasicolus",
+      "habitat": "marine",
+      "price": 140,
+      "width": 58,
+      "height": 36,
+      "speed": 1.18,
+      "existing_asset": true
+    },
+    {
+      "id": "herring",
+      "name": "大西洋鲱鱼",
+      "en_name": "Atlantic herring",
+      "scientific_name": "Clupea harengus",
+      "habitat": "marine",
+      "price": 140,
+      "width": 76,
+      "height": 48,
+      "speed": 1.06,
+      "existing_asset": true
+    },
+    {
+      "id": "atlantic-mackerel",
+      "name": "大西洋鲭鱼",
+      "en_name": "Atlantic mackerel",
+      "scientific_name": "Scomber scombrus",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "yellowfin-tuna",
+      "name": "黄鳍金枪鱼",
+      "en_name": "Yellowfin tuna",
+      "scientific_name": "Thunnus albacares",
+      "habitat": "marine",
+      "price": 600,
+      "width": 220,
+      "height": 125,
+      "speed": 1.22,
+      "existing_asset": true
+    },
+    {
+      "id": "silver-pomfret",
+      "name": "银鲳",
+      "en_name": "Silver pomfret",
+      "scientific_name": "Pampus argenteus",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "milkfish",
+      "name": "虱目鱼",
+      "en_name": "Milkfish",
+      "scientific_name": "Chanos chanos",
+      "habitat": "marine",
+      "price": 600,
+      "width": 195,
+      "height": 120,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "giant-trevally",
+      "name": "浪人鲹",
+      "en_name": "Giant trevally",
+      "scientific_name": "Caranx ignobilis",
+      "habitat": "marine",
+      "price": 600,
+      "width": 195,
+      "height": 120,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "barracuda",
+      "name": "大魣",
+      "en_name": "Great barracuda",
+      "scientific_name": "Sphyraena barracuda",
+      "habitat": "marine",
+      "price": 600,
+      "width": 240,
+      "height": 100,
+      "speed": 1.1,
+      "existing_asset": true
+    },
+    {
+      "id": "ocean-sunfish",
+      "name": "翻车鱼",
+      "en_name": "Ocean sunfish",
+      "scientific_name": "Mola mola",
+      "habitat": "marine",
+      "price": 600,
+      "width": 195,
+      "height": 170,
+      "speed": 0.55,
+      "existing_asset": true
+    },
+    {
+      "id": "manta-ray",
+      "name": "双吻前口蝠鲼",
+      "en_name": "Giant oceanic manta ray",
+      "scientific_name": "Mobula birostris",
+      "habitat": "marine",
+      "price": 600,
+      "width": 250,
+      "height": 170,
+      "speed": 0.64,
+      "existing_asset": true
+    },
+    {
+      "id": "eagle-ray",
+      "name": "斑点鹰魟",
+      "en_name": "Spotted eagle ray",
+      "scientific_name": "Aetobatus narinari",
+      "habitat": "marine",
+      "price": 600,
+      "width": 220,
+      "height": 160,
+      "speed": 0.72,
+      "existing_asset": true
+    },
+    {
+      "id": "blue-spotted-stingray",
+      "name": "蓝斑条尾魟",
+      "en_name": "Bluespotted ribbontail ray",
+      "scientific_name": "Taeniura lymma",
+      "habitat": "marine",
+      "price": 280,
+      "width": 165,
+      "height": 120,
+      "speed": 0.6,
+      "existing_asset": true
+    },
+    {
+      "id": "redtail-catfish",
+      "name": "红尾鲶",
+      "en_name": "Redtail catfish",
+      "scientific_name": "Phractocephalus hemioliopterus",
+      "habitat": "tropical",
+      "price": 600,
+      "width": 210,
+      "height": 126,
+      "speed": 0.65,
+      "existing_asset": true
+    },
+    {
+      "id": "arowana",
+      "name": "银龙鱼",
+      "en_name": "Silver arowana",
+      "scientific_name": "Osteoglossum bicirrhosum",
+      "habitat": "tropical",
+      "price": 600,
+      "width": 210,
+      "height": 110,
+      "speed": 0.8,
+      "existing_asset": true
+    },
+    {
+      "id": "discus",
+      "name": "七彩神仙鱼",
+      "en_name": "Blue discus",
+      "scientific_name": "Symphysodon aequifasciatus",
+      "habitat": "tropical",
+      "price": 280,
+      "width": 110,
+      "height": 110,
+      "speed": 0.62,
+      "existing_asset": true
+    },
+    {
+      "id": "goldfish",
+      "name": "金鱼",
+      "en_name": "Goldfish",
+      "scientific_name": "Carassius auratus",
+      "habitat": "freshwater",
+      "price": 140,
+      "width": 90,
+      "height": 70,
+      "speed": 0.7,
+      "existing_asset": true
+    },
+    {
+      "id": "koi",
+      "name": "锦鲤",
+      "en_name": "Koi",
+      "scientific_name": "Cyprinus rubrofuscus",
+      "habitat": "freshwater",
+      "price": 600,
+      "width": 155,
+      "height": 96,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "guppy",
+      "name": "孔雀鱼",
+      "en_name": "Guppy",
+      "scientific_name": "Poecilia reticulata",
+      "habitat": "tropical",
+      "price": 140,
+      "width": 64,
+      "height": 40,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "neon-tetra",
+      "name": "霓虹灯鱼",
+      "en_name": "Neon tetra",
+      "scientific_name": "Paracheirodon innesi",
+      "habitat": "tropical",
+      "price": 140,
+      "width": 52,
+      "height": 33,
+      "speed": 0.96,
+      "existing_asset": true
+    },
+    {
+      "id": "zebra-danio",
+      "name": "斑马鱼",
+      "en_name": "Zebra danio",
+      "scientific_name": "Danio rerio",
+      "habitat": "tropical",
+      "price": 140,
+      "width": 60,
+      "height": 38,
+      "speed": 1.06,
+      "existing_asset": true
+    },
+    {
+      "id": "siamese-fighting-fish",
+      "name": "暹罗斗鱼",
+      "en_name": "Siamese fighting fish",
+      "scientific_name": "Betta splendens",
+      "habitat": "tropical",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "banggai-cardinalfish",
+      "name": "邦盖天竺鲷",
+      "en_name": "Banggai cardinalfish",
+      "scientific_name": "Pterapogon kauderni",
+      "habitat": "marine",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "firefish",
+      "name": "火焰虾虎鱼",
+      "en_name": "Fire goby",
+      "scientific_name": "Nemateleotris magnifica",
+      "habitat": "marine",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "sixline-wrasse",
+      "name": "六线龙",
+      "en_name": "Six-line wrasse",
+      "scientific_name": "Pseudocheilinus hexataenia",
+      "habitat": "marine",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "fairy-wrasse",
+      "name": "太阳仙女隆头鱼",
+      "en_name": "Solor fairy wrasse",
+      "scientific_name": "Cirrhilabrus solorensis",
+      "habitat": "marine",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "flame-angelfish",
+      "name": "火焰神仙鱼",
+      "en_name": "Flame angelfish",
+      "scientific_name": "Centropyge loricula",
+      "habitat": "marine",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "coral-beauty",
+      "name": "珊瑚美人神仙鱼",
+      "en_name": "Coral beauty",
+      "scientific_name": "Centropyge bispinosa",
+      "habitat": "marine",
+      "price": 140,
+      "width": 80,
+      "height": 50,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "emperor-angelfish",
+      "name": "皇帝神仙鱼",
+      "en_name": "Emperor angelfish",
+      "scientific_name": "Pomacanthus imperator",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "foxface-rabbitfish",
+      "name": "狐狸鱼",
+      "en_name": "Foxface rabbitfish",
+      "scientific_name": "Siganus vulpinus",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "sailfin-tang",
+      "name": "帆鳍吊鱼",
+      "en_name": "Sailfin tang",
+      "scientific_name": "Zebrasoma veliferum",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "naso-tang",
+      "name": "橙棘吊鱼",
+      "en_name": "Orangespine unicornfish",
+      "scientific_name": "Naso lituratus",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "purple-tang",
+      "name": "紫吊鱼",
+      "en_name": "Purple tang",
+      "scientific_name": "Zebrasoma xanthurum",
+      "habitat": "marine",
+      "price": 280,
+      "width": 120,
+      "height": 80,
+      "speed": 0.85,
+      "existing_asset": true
+    },
+    {
+      "id": "rainbow-trout",
+      "name": "虹鳟",
+      "en_name": "Rainbow trout",
+      "scientific_name": "Oncorhynchus mykiss",
+      "habitat": "freshwater",
+      "price": 280,
+      "width": 145,
+      "height": 88,
+      "speed": 1.06,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trout",
+        "color": "#839b98",
+        "pattern": "pink-spots"
+      }
+    },
+    {
+      "id": "brown-trout",
+      "name": "褐鳟",
+      "en_name": "Brown trout",
+      "scientific_name": "Salmo trutta",
+      "habitat": "freshwater",
+      "price": 290,
+      "width": 150,
+      "height": 90,
+      "speed": 1.02,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trout",
+        "color": "#ab9c6a",
+        "pattern": "red-spots"
+      }
+    },
+    {
+      "id": "brook-trout",
+      "name": "溪红点鲑",
+      "en_name": "Brook trout",
+      "scientific_name": "Salvelinus fontinalis",
+      "habitat": "freshwater",
+      "price": 280,
+      "width": 140,
+      "height": 84,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trout",
+        "color": "#72856e",
+        "pattern": "vermiculate"
+      }
+    },
+    {
+      "id": "lake-trout",
+      "name": "湖红点鲑",
+      "en_name": "Lake trout",
+      "scientific_name": "Salvelinus namaycush",
+      "habitat": "freshwater",
+      "price": 310,
+      "width": 160,
+      "height": 92,
+      "speed": 1.04,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trout",
+        "color": "#6e8580",
+        "pattern": "pale-spots"
+      }
+    },
+    {
+      "id": "arctic-char",
+      "name": "北极红点鲑",
+      "en_name": "Arctic char",
+      "scientific_name": "Salvelinus alpinus",
+      "habitat": "freshwater",
+      "price": 300,
+      "width": 155,
+      "height": 90,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trout",
+        "color": "#758b87",
+        "pattern": "orange-belly"
+      }
+    },
+    {
+      "id": "atlantic-salmon",
+      "name": "大西洋鲑",
+      "en_name": "Atlantic salmon",
+      "scientific_name": "Salmo salar",
+      "habitat": "freshwater",
+      "price": 340,
+      "width": 175,
+      "height": 98,
+      "speed": 1.12,
+      "existing_asset": false,
+      "artwork": {
+        "form": "salmon",
+        "color": "#8badaf",
+        "pattern": "black-spots"
+      }
+    },
+    {
+      "id": "sockeye-salmon",
+      "name": "红鲑",
+      "en_name": "Sockeye salmon",
+      "scientific_name": "Oncorhynchus nerka",
+      "habitat": "freshwater",
+      "price": 350,
+      "width": 170,
+      "height": 100,
+      "speed": 1.08,
+      "existing_asset": false,
+      "artwork": {
+        "form": "humpback",
+        "color": "#ad5146",
+        "pattern": "green-head"
+      }
+    },
+    {
+      "id": "chinook-salmon",
+      "name": "大鳞大麻哈鱼",
+      "en_name": "Chinook salmon",
+      "scientific_name": "Oncorhynchus tshawytscha",
+      "habitat": "freshwater",
+      "price": 370,
+      "width": 185,
+      "height": 105,
+      "speed": 1.1,
+      "existing_asset": false,
+      "artwork": {
+        "form": "salmon",
+        "color": "#789a9e",
+        "pattern": "back-spots"
+      }
+    },
+    {
+      "id": "coho-salmon",
+      "name": "银大麻哈鱼",
+      "en_name": "Coho salmon",
+      "scientific_name": "Oncorhynchus kisutch",
+      "habitat": "freshwater",
+      "price": 340,
+      "width": 170,
+      "height": 96,
+      "speed": 1.12,
+      "existing_asset": false,
+      "artwork": {
+        "form": "salmon",
+        "color": "#9fbabc",
+        "pattern": "silver-side"
+      }
+    },
+    {
+      "id": "arctic-grayling",
+      "name": "北极茴鱼",
+      "en_name": "Arctic grayling",
+      "scientific_name": "Thymallus arcticus",
+      "habitat": "freshwater",
+      "price": 300,
+      "width": 145,
+      "height": 100,
+      "speed": 0.95,
+      "existing_asset": false,
+      "artwork": {
+        "form": "grayling",
+        "color": "#8a9a9f",
+        "pattern": "violet-spots"
+      }
+    },
+    {
+      "id": "yellow-perch",
+      "name": "黄鲈",
+      "en_name": "Yellow perch",
+      "scientific_name": "Perca flavescens",
+      "habitat": "freshwater",
+      "price": 220,
+      "width": 120,
+      "height": 82,
+      "speed": 0.9,
+      "existing_asset": false,
+      "artwork": {
+        "form": "perch",
+        "color": "#c6b96e",
+        "pattern": "perch-bars"
+      }
+    },
+    {
+      "id": "european-perch",
+      "name": "河鲈",
+      "en_name": "European perch",
+      "scientific_name": "Perca fluviatilis",
+      "habitat": "freshwater",
+      "price": 240,
+      "width": 135,
+      "height": 88,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "perch",
+        "color": "#9ba97d",
+        "pattern": "perch-bars"
+      }
+    },
+    {
+      "id": "zander",
+      "name": "梭鲈",
+      "en_name": "Zander",
+      "scientific_name": "Sander lucioperca",
+      "habitat": "freshwater",
+      "price": 300,
+      "width": 165,
+      "height": 92,
+      "speed": 1.03,
+      "existing_asset": false,
+      "artwork": {
+        "form": "zander",
+        "color": "#a5afa0",
+        "pattern": "olive-bars"
+      }
+    },
+    {
+      "id": "walleye",
+      "name": "玻璃梭鲈",
+      "en_name": "Walleye",
+      "scientific_name": "Sander vitreus",
+      "habitat": "freshwater",
+      "price": 290,
+      "width": 160,
+      "height": 90,
+      "speed": 1,
+      "existing_asset": false,
+      "artwork": {
+        "form": "zander",
+        "color": "#adab78",
+        "pattern": "mottled"
+      }
+    },
+    {
+      "id": "northern-pike",
+      "name": "白斑狗鱼",
+      "en_name": "Northern pike",
+      "scientific_name": "Esox lucius",
+      "habitat": "freshwater",
+      "price": 350,
+      "width": 195,
+      "height": 80,
+      "speed": 1.05,
+      "existing_asset": false,
+      "artwork": {
+        "form": "pike",
+        "color": "#7d936a",
+        "pattern": "pale-spots"
+      }
+    },
+    {
+      "id": "muskellunge",
+      "name": "北美狗鱼",
+      "en_name": "Muskellunge",
+      "scientific_name": "Esox masquinongy",
+      "habitat": "freshwater",
+      "price": 380,
+      "width": 205,
+      "height": 84,
+      "speed": 1.02,
+      "existing_asset": false,
+      "artwork": {
+        "form": "pike",
+        "color": "#aca486",
+        "pattern": "vertical-mottle"
+      }
+    },
+    {
+      "id": "largemouth-bass",
+      "name": "大口黑鲈",
+      "en_name": "Largemouth bass",
+      "scientific_name": "Micropterus salmoides",
+      "habitat": "freshwater",
+      "price": 280,
+      "width": 150,
+      "height": 94,
+      "speed": 0.9,
+      "existing_asset": false,
+      "artwork": {
+        "form": "bass",
+        "color": "#879672",
+        "pattern": "broken-stripe"
+      }
+    },
+    {
+      "id": "smallmouth-bass",
+      "name": "小口黑鲈",
+      "en_name": "Smallmouth bass",
+      "scientific_name": "Micropterus dolomieu",
+      "habitat": "freshwater",
+      "price": 270,
+      "width": 140,
+      "height": 90,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "bass",
+        "color": "#a49367",
+        "pattern": "olive-bars"
+      }
+    },
+    {
+      "id": "bluegill",
+      "name": "蓝鳃太阳鱼",
+      "en_name": "Bluegill",
+      "scientific_name": "Lepomis macrochirus",
+      "habitat": "freshwater",
+      "price": 220,
+      "width": 105,
+      "height": 86,
+      "speed": 0.78,
+      "existing_asset": false,
+      "artwork": {
+        "form": "sunfish",
+        "color": "#7b9da0",
+        "pattern": "bluegill"
+      }
+    },
+    {
+      "id": "pumpkinseed",
+      "name": "瓜子仁太阳鱼",
+      "en_name": "Pumpkinseed",
+      "scientific_name": "Lepomis gibbosus",
+      "habitat": "freshwater",
+      "price": 230,
+      "width": 105,
+      "height": 86,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "sunfish",
+        "color": "#bd9c65",
+        "pattern": "pumpkin"
+      }
+    },
+    {
+      "id": "black-crappie",
+      "name": "黑莓鲈",
+      "en_name": "Black crappie",
+      "scientific_name": "Pomoxis nigromaculatus",
+      "habitat": "freshwater",
+      "price": 240,
+      "width": 120,
+      "height": 92,
+      "speed": 0.84,
+      "existing_asset": false,
+      "artwork": {
+        "form": "sunfish",
+        "color": "#a6b4a5",
+        "pattern": "black-mottle"
+      }
+    },
+    {
+      "id": "white-crappie",
+      "name": "白莓鲈",
+      "en_name": "White crappie",
+      "scientific_name": "Pomoxis annularis",
+      "habitat": "freshwater",
+      "price": 240,
+      "width": 120,
+      "height": 92,
+      "speed": 0.84,
+      "existing_asset": false,
+      "artwork": {
+        "form": "sunfish",
+        "color": "#c2c6b2",
+        "pattern": "vertical-mottle"
+      }
+    },
+    {
+      "id": "channel-catfish",
+      "name": "斑点叉尾鮰",
+      "en_name": "Channel catfish",
+      "scientific_name": "Ictalurus punctatus",
+      "habitat": "freshwater",
+      "price": 300,
+      "width": 170,
+      "height": 100,
+      "speed": 0.72,
+      "existing_asset": false,
+      "artwork": {
+        "form": "catfish",
+        "color": "#9ba8a2",
+        "pattern": "black-spots"
+      }
+    },
+    {
+      "id": "wels-catfish",
+      "name": "欧洲巨鲶",
+      "en_name": "Wels catfish",
+      "scientific_name": "Silurus glanis",
+      "habitat": "freshwater",
+      "price": 420,
+      "width": 220,
+      "height": 95,
+      "speed": 0.66,
+      "existing_asset": false,
+      "artwork": {
+        "form": "wels",
+        "color": "#718075",
+        "pattern": "mottled"
+      }
+    },
+    {
+      "id": "sterlet",
+      "name": "小体鲟",
+      "en_name": "Sterlet",
+      "scientific_name": "Acipenser ruthenus",
+      "habitat": "freshwater",
+      "price": 360,
+      "width": 190,
+      "height": 105,
+      "speed": 0.82,
+      "existing_asset": false,
+      "artwork": {
+        "form": "sturgeon",
+        "color": "#a1a48b",
+        "pattern": "scutes"
+      }
+    },
+    {
+      "id": "american-paddlefish",
+      "name": "匙吻鲟",
+      "en_name": "American paddlefish",
+      "scientific_name": "Polyodon spathula",
+      "habitat": "freshwater",
+      "price": 420,
+      "width": 230,
+      "height": 105,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "paddlefish",
+        "color": "#829ea2",
+        "pattern": "plain"
+      }
+    },
+    {
+      "id": "bowfin",
+      "name": "弓鳍鱼",
+      "en_name": "Bowfin",
+      "scientific_name": "Amia calva",
+      "habitat": "freshwater",
+      "price": 300,
+      "width": 170,
+      "height": 90,
+      "speed": 0.76,
+      "existing_asset": false,
+      "artwork": {
+        "form": "bowfin",
+        "color": "#8b9372",
+        "pattern": "tail-eye"
+      }
+    },
+    {
+      "id": "alligator-gar",
+      "name": "鳄雀鳝",
+      "en_name": "Alligator gar",
+      "scientific_name": "Atractosteus spatula",
+      "habitat": "freshwater",
+      "price": 430,
+      "width": 230,
+      "height": 90,
+      "speed": 0.78,
+      "existing_asset": false,
+      "artwork": {
+        "form": "gar",
+        "color": "#aaa47d",
+        "pattern": "black-spots"
+      }
+    },
+    {
+      "id": "longnose-gar",
+      "name": "长吻雀鳝",
+      "en_name": "Longnose gar",
+      "scientific_name": "Lepisosteus osseus",
+      "habitat": "freshwater",
+      "price": 400,
+      "width": 215,
+      "height": 80,
+      "speed": 0.82,
+      "existing_asset": false,
+      "artwork": {
+        "form": "gar-long",
+        "color": "#b2b39a",
+        "pattern": "black-spots"
+      }
+    },
+    {
+      "id": "tench",
+      "name": "丁鱥",
+      "en_name": "Tench",
+      "scientific_name": "Tinca tinca",
+      "habitat": "freshwater",
+      "price": 260,
+      "width": 140,
+      "height": 92,
+      "speed": 0.76,
+      "existing_asset": false,
+      "artwork": {
+        "form": "carp",
+        "color": "#97985f",
+        "pattern": "bronze"
+      }
+    },
+    {
+      "id": "cardinal-tetra",
+      "name": "红莲灯鱼",
+      "en_name": "Cardinal tetra",
+      "scientific_name": "Paracheirodon axelrodi",
+      "habitat": "tropical",
+      "price": 150,
+      "width": 54,
+      "height": 34,
+      "speed": 0.96,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra",
+        "color": "#8eabb4",
+        "pattern": "cardinal"
+      }
+    },
+    {
+      "id": "rummy-nose-tetra",
+      "name": "红鼻剪刀鱼",
+      "en_name": "Rummy-nose tetra",
+      "scientific_name": "Petitella bleheri",
+      "habitat": "tropical",
+      "price": 160,
+      "width": 56,
+      "height": 35,
+      "speed": 1.02,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra",
+        "color": "#c1c6be",
+        "pattern": "rummy"
+      }
+    },
+    {
+      "id": "ember-tetra",
+      "name": "火焰灯鱼",
+      "en_name": "Ember tetra",
+      "scientific_name": "Hyphessobrycon amandae",
+      "habitat": "tropical",
+      "price": 140,
+      "width": 48,
+      "height": 32,
+      "speed": 0.92,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra-deep",
+        "color": "#d89559",
+        "pattern": "ember"
+      }
+    },
+    {
+      "id": "black-neon-tetra",
+      "name": "黑莲灯鱼",
+      "en_name": "Black neon tetra",
+      "scientific_name": "Hyphessobrycon herbertaxelrodi",
+      "habitat": "tropical",
+      "price": 150,
+      "width": 55,
+      "height": 35,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra",
+        "color": "#a6b2a6",
+        "pattern": "black-neon"
+      }
+    },
+    {
+      "id": "lemon-tetra",
+      "name": "柠檬灯鱼",
+      "en_name": "Lemon tetra",
+      "scientific_name": "Hyphessobrycon pulchripinnis",
+      "habitat": "tropical",
+      "price": 160,
+      "width": 58,
+      "height": 40,
+      "speed": 0.92,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra-deep",
+        "color": "#d8d28b",
+        "pattern": "lemon"
+      }
+    },
+    {
+      "id": "congo-tetra",
+      "name": "刚果灯鱼",
+      "en_name": "Congo tetra",
+      "scientific_name": "Phenacogrammus interruptus",
+      "habitat": "tropical",
+      "price": 210,
+      "width": 75,
+      "height": 50,
+      "speed": 0.93,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra-deep",
+        "color": "#91a5b5",
+        "pattern": "rainbow"
+      }
+    },
+    {
+      "id": "bleeding-heart-tetra",
+      "name": "红心灯鱼",
+      "en_name": "Bleeding-heart tetra",
+      "scientific_name": "Hyphessobrycon erythrostigma",
+      "habitat": "tropical",
+      "price": 180,
+      "width": 62,
+      "height": 45,
+      "speed": 0.87,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra-deep",
+        "color": "#c9b3a4",
+        "pattern": "heart"
+      }
+    },
+    {
+      "id": "serpae-tetra",
+      "name": "红裙灯鱼",
+      "en_name": "Serpae tetra",
+      "scientific_name": "Hyphessobrycon eques",
+      "habitat": "tropical",
+      "price": 160,
+      "width": 56,
+      "height": 40,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "tetra-deep",
+        "color": "#c96c51",
+        "pattern": "serpae"
+      }
+    },
+    {
+      "id": "harlequin-rasbora",
+      "name": "三角灯鱼",
+      "en_name": "Harlequin rasbora",
+      "scientific_name": "Trigonostigma heteromorpha",
+      "habitat": "tropical",
+      "price": 150,
+      "width": 55,
+      "height": 36,
+      "speed": 0.96,
+      "existing_asset": false,
+      "artwork": {
+        "form": "rasbora",
+        "color": "#caa18b",
+        "pattern": "triangle"
+      }
+    },
+    {
+      "id": "chili-rasbora",
+      "name": "辣椒灯鱼",
+      "en_name": "Chili rasbora",
+      "scientific_name": "Boraras brigittae",
+      "habitat": "tropical",
+      "price": 150,
+      "width": 44,
+      "height": 30,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "minnow",
+        "color": "#ba6451",
+        "pattern": "dark-stripe"
+      }
+    },
+    {
+      "id": "celestial-pearl-danio",
+      "name": "银河斑马鱼",
+      "en_name": "Celestial pearl danio",
+      "scientific_name": "Danio margaritatus",
+      "habitat": "tropical",
+      "price": 180,
+      "width": 48,
+      "height": 31,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "minnow",
+        "color": "#658692",
+        "pattern": "pearl-danio"
+      }
+    },
+    {
+      "id": "white-cloud-minnow",
+      "name": "白云金丝鱼",
+      "en_name": "White cloud mountain minnow",
+      "scientific_name": "Tanichthys albonubes",
+      "habitat": "tropical",
+      "price": 140,
+      "width": 52,
+      "height": 32,
+      "speed": 1.02,
+      "existing_asset": false,
+      "artwork": {
+        "form": "minnow",
+        "color": "#a5a887",
+        "pattern": "gold-stripe"
+      }
+    },
+    {
+      "id": "rosy-barb",
+      "name": "玫瑰鲃",
+      "en_name": "Rosy barb",
+      "scientific_name": "Pethia conchonius",
+      "habitat": "tropical",
+      "price": 180,
+      "width": 75,
+      "height": 48,
+      "speed": 0.96,
+      "existing_asset": false,
+      "artwork": {
+        "form": "barb",
+        "color": "#ca927b",
+        "pattern": "tail-dot"
+      }
+    },
+    {
+      "id": "tiger-barb",
+      "name": "四间鲃",
+      "en_name": "Tiger barb",
+      "scientific_name": "Puntigrus tetrazona",
+      "habitat": "tropical",
+      "price": 180,
+      "width": 65,
+      "height": 45,
+      "speed": 1.04,
+      "existing_asset": false,
+      "artwork": {
+        "form": "barb",
+        "color": "#c7ac6e",
+        "pattern": "tiger-bars"
+      }
+    },
+    {
+      "id": "cherry-barb",
+      "name": "樱桃鲃",
+      "en_name": "Cherry barb",
+      "scientific_name": "Puntius titteya",
+      "habitat": "tropical",
+      "price": 170,
+      "width": 62,
+      "height": 38,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "rasbora",
+        "color": "#b45f50",
+        "pattern": "dark-stripe"
+      }
+    },
+    {
+      "id": "denison-barb",
+      "name": "丹尼逊鲃",
+      "en_name": "Denison barb",
+      "scientific_name": "Sahyadria denisonii",
+      "habitat": "tropical",
+      "price": 230,
+      "width": 95,
+      "height": 45,
+      "speed": 1.12,
+      "existing_asset": false,
+      "artwork": {
+        "form": "torpedo",
+        "color": "#b6bca5",
+        "pattern": "denison"
+      }
+    },
+    {
+      "id": "bala-shark",
+      "name": "银鲨",
+      "en_name": "Bala shark",
+      "scientific_name": "Balantiocheilos melanopterus",
+      "habitat": "tropical",
+      "price": 280,
+      "width": 125,
+      "height": 68,
+      "speed": 1.08,
+      "existing_asset": false,
+      "artwork": {
+        "form": "torpedo",
+        "color": "#b2bfc2",
+        "pattern": "black-fins"
+      }
+    },
+    {
+      "id": "swordtail",
+      "name": "剑尾鱼",
+      "en_name": "Green swordtail",
+      "scientific_name": "Xiphophorus hellerii",
+      "habitat": "tropical",
+      "price": 190,
+      "width": 80,
+      "height": 48,
+      "speed": 0.9,
+      "existing_asset": false,
+      "artwork": {
+        "form": "swordtail",
+        "color": "#9cab84",
+        "pattern": "red-stripe"
+      }
+    },
+    {
+      "id": "southern-platy",
+      "name": "月光鱼",
+      "en_name": "Southern platyfish",
+      "scientific_name": "Xiphophorus maculatus",
+      "habitat": "tropical",
+      "price": 160,
+      "width": 64,
+      "height": 44,
+      "speed": 0.84,
+      "existing_asset": false,
+      "artwork": {
+        "form": "livebearer",
+        "color": "#cf8a52",
+        "pattern": "orange"
+      }
+    },
+    {
+      "id": "sailfin-molly",
+      "name": "帆鳍摩利鱼",
+      "en_name": "Sailfin molly",
+      "scientific_name": "Poecilia latipinna",
+      "habitat": "tropical",
+      "price": 210,
+      "width": 85,
+      "height": 65,
+      "speed": 0.86,
+      "existing_asset": false,
+      "artwork": {
+        "form": "molly",
+        "color": "#a7b5ac",
+        "pattern": "speckled"
+      }
+    },
+    {
+      "id": "endlers-livebearer",
+      "name": "安德拉斯孔雀鱼",
+      "en_name": "Endler's livebearer",
+      "scientific_name": "Poecilia wingei",
+      "habitat": "tropical",
+      "price": 170,
+      "width": 50,
+      "height": 33,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "livebearer",
+        "color": "#97b6a5",
+        "pattern": "endler"
+      }
+    },
+    {
+      "id": "dwarf-gourami",
+      "name": "丽丽鱼",
+      "en_name": "Dwarf gourami",
+      "scientific_name": "Trichogaster lalius",
+      "habitat": "tropical",
+      "price": 220,
+      "width": 76,
+      "height": 58,
+      "speed": 0.72,
+      "existing_asset": false,
+      "artwork": {
+        "form": "gourami",
+        "color": "#8eb8b8",
+        "pattern": "gourami-red"
+      }
+    },
+    {
+      "id": "pearl-gourami",
+      "name": "珍珠马甲鱼",
+      "en_name": "Pearl gourami",
+      "scientific_name": "Trichopodus leerii",
+      "habitat": "tropical",
+      "price": 240,
+      "width": 98,
+      "height": 70,
+      "speed": 0.7,
+      "existing_asset": false,
+      "artwork": {
+        "form": "gourami",
+        "color": "#afad95",
+        "pattern": "pearl"
+      }
+    },
+    {
+      "id": "honey-gourami",
+      "name": "蜜丽丽鱼",
+      "en_name": "Honey gourami",
+      "scientific_name": "Trichogaster chuna",
+      "habitat": "tropical",
+      "price": 190,
+      "width": 65,
+      "height": 48,
+      "speed": 0.72,
+      "existing_asset": false,
+      "artwork": {
+        "form": "gourami",
+        "color": "#d4b75e",
+        "pattern": "honey"
+      }
+    },
+    {
+      "id": "kissing-gourami",
+      "name": "接吻鱼",
+      "en_name": "Kissing gourami",
+      "scientific_name": "Helostoma temminckii",
+      "habitat": "tropical",
+      "price": 240,
+      "width": 105,
+      "height": 75,
+      "speed": 0.68,
+      "existing_asset": false,
+      "artwork": {
+        "form": "gourami",
+        "color": "#d1b8ae",
+        "pattern": "pink"
+      }
+    },
+    {
+      "id": "blue-ram",
+      "name": "荷兰凤凰鱼",
+      "en_name": "Ram cichlid",
+      "scientific_name": "Mikrogeophagus ramirezi",
+      "habitat": "tropical",
+      "price": 230,
+      "width": 70,
+      "height": 52,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cichlid",
+        "color": "#b7b975",
+        "pattern": "ram"
+      }
+    },
+    {
+      "id": "bolivian-ram",
+      "name": "玻利维亚凤凰鱼",
+      "en_name": "Bolivian ram",
+      "scientific_name": "Mikrogeophagus altispinosus",
+      "habitat": "tropical",
+      "price": 220,
+      "width": 82,
+      "height": 58,
+      "speed": 0.78,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cichlid",
+        "color": "#c9b58b",
+        "pattern": "ram-brown"
+      }
+    },
+    {
+      "id": "cockatoo-cichlid",
+      "name": "凤头短鲷",
+      "en_name": "Cockatoo dwarf cichlid",
+      "scientific_name": "Apistogramma cacatuoides",
+      "habitat": "tropical",
+      "price": 250,
+      "width": 76,
+      "height": 54,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cockatoo",
+        "color": "#b5a980",
+        "pattern": "cockatoo"
+      }
+    },
+    {
+      "id": "kribensis",
+      "name": "红肚凤凰鱼",
+      "en_name": "Kribensis",
+      "scientific_name": "Pelvicachromis pulcher",
+      "habitat": "tropical",
+      "price": 220,
+      "width": 84,
+      "height": 54,
+      "speed": 0.82,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cichlid-long",
+        "color": "#b1aa8b",
+        "pattern": "purple-belly"
+      }
+    },
+    {
+      "id": "oscar",
+      "name": "地图鱼",
+      "en_name": "Oscar",
+      "scientific_name": "Astronotus ocellatus",
+      "habitat": "tropical",
+      "price": 300,
+      "width": 140,
+      "height": 98,
+      "speed": 0.7,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cichlid-big",
+        "color": "#706a57",
+        "pattern": "oscar"
+      }
+    },
+    {
+      "id": "jack-dempsey",
+      "name": "蓝宝石慈鲷",
+      "en_name": "Jack Dempsey",
+      "scientific_name": "Rocio octofasciata",
+      "habitat": "tropical",
+      "price": 280,
+      "width": 125,
+      "height": 86,
+      "speed": 0.76,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cichlid-big",
+        "color": "#687f80",
+        "pattern": "blue-flecks"
+      }
+    },
+    {
+      "id": "electric-yellow-cichlid",
+      "name": "非洲王子鱼",
+      "en_name": "Electric yellow cichlid",
+      "scientific_name": "Labidochromis caeruleus",
+      "habitat": "tropical",
+      "price": 230,
+      "width": 88,
+      "height": 55,
+      "speed": 0.9,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cichlid-long",
+        "color": "#e0ca50",
+        "pattern": "black-dorsal"
+      }
+    },
+    {
+      "id": "frontosa",
+      "name": "六间鱼",
+      "en_name": "Frontosa",
+      "scientific_name": "Cyphotilapia frontosa",
+      "habitat": "tropical",
+      "price": 330,
+      "width": 140,
+      "height": 100,
+      "speed": 0.7,
+      "existing_asset": false,
+      "artwork": {
+        "form": "hump-cichlid",
+        "color": "#bbc5c1",
+        "pattern": "six-bars"
+      }
+    },
+    {
+      "id": "boesemans-rainbowfish",
+      "name": "澳洲彩虹鱼",
+      "en_name": "Boeseman's rainbowfish",
+      "scientific_name": "Melanotaenia boesemani",
+      "habitat": "tropical",
+      "price": 250,
+      "width": 92,
+      "height": 62,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "rainbowfish",
+        "color": "#89a7b1",
+        "pattern": "half-orange"
+      }
+    },
+    {
+      "id": "dwarf-neon-rainbowfish",
+      "name": "电光美人鱼",
+      "en_name": "Dwarf neon rainbowfish",
+      "scientific_name": "Melanotaenia praecox",
+      "habitat": "tropical",
+      "price": 210,
+      "width": 68,
+      "height": 46,
+      "speed": 1,
+      "existing_asset": false,
+      "artwork": {
+        "form": "rainbowfish",
+        "color": "#7fa9ba",
+        "pattern": "iridescent"
+      }
+    },
+    {
+      "id": "threadfin-rainbowfish",
+      "name": "丝鳍彩虹鱼",
+      "en_name": "Threadfin rainbowfish",
+      "scientific_name": "Iriatherina werneri",
+      "habitat": "tropical",
+      "price": 240,
+      "width": 70,
+      "height": 58,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "threadfin",
+        "color": "#b7ad86",
+        "pattern": "iridescent"
+      }
+    },
+    {
+      "id": "clown-loach",
+      "name": "皇冠泥鳅",
+      "en_name": "Clown loach",
+      "scientific_name": "Chromobotia macracanthus",
+      "habitat": "tropical",
+      "price": 260,
+      "width": 100,
+      "height": 55,
+      "speed": 0.82,
+      "existing_asset": false,
+      "artwork": {
+        "form": "loach",
+        "color": "#d9a950",
+        "pattern": "clown-bars"
+      }
+    },
+    {
+      "id": "kuhli-loach",
+      "name": "库利鳅",
+      "en_name": "Kuhli loach",
+      "scientific_name": "Pangio kuhlii",
+      "habitat": "tropical",
+      "price": 190,
+      "width": 98,
+      "height": 35,
+      "speed": 0.7,
+      "existing_asset": false,
+      "artwork": {
+        "form": "eel-loach",
+        "color": "#c6a567",
+        "pattern": "banded"
+      }
+    },
+    {
+      "id": "panda-corydoras",
+      "name": "熊猫鼠鱼",
+      "en_name": "Panda corydoras",
+      "scientific_name": "Corydoras panda",
+      "habitat": "tropical",
+      "price": 180,
+      "width": 65,
+      "height": 44,
+      "speed": 0.7,
+      "existing_asset": false,
+      "artwork": {
+        "form": "corydoras",
+        "color": "#c7bfa7",
+        "pattern": "panda"
+      }
+    },
+    {
+      "id": "bronze-corydoras",
+      "name": "青铜鼠鱼",
+      "en_name": "Bronze corydoras",
+      "scientific_name": "Corydoras aeneus",
+      "habitat": "tropical",
+      "price": 170,
+      "width": 68,
+      "height": 44,
+      "speed": 0.72,
+      "existing_asset": false,
+      "artwork": {
+        "form": "corydoras",
+        "color": "#a5a17c",
+        "pattern": "bronze"
+      }
+    },
+    {
+      "id": "bristlenose-pleco",
+      "name": "胡子异型鱼",
+      "en_name": "Bristlenose pleco",
+      "scientific_name": "Ancistrus cirrhosus",
+      "habitat": "tropical",
+      "price": 230,
+      "width": 95,
+      "height": 54,
+      "speed": 0.62,
+      "existing_asset": false,
+      "artwork": {
+        "form": "pleco",
+        "color": "#8a8563",
+        "pattern": "pale-spots"
+      }
+    },
+    {
+      "id": "zebra-pleco",
+      "name": "斑马异型鱼",
+      "en_name": "Zebra pleco",
+      "scientific_name": "Hypancistrus zebra",
+      "habitat": "tropical",
+      "price": 280,
+      "width": 85,
+      "height": 50,
+      "speed": 0.64,
+      "existing_asset": false,
+      "artwork": {
+        "form": "pleco",
+        "color": "#d1cbb7",
+        "pattern": "zebra"
+      }
+    },
+    {
+      "id": "glass-catfish",
+      "name": "玻璃猫鱼",
+      "en_name": "Glass catfish",
+      "scientific_name": "Kryptopterus vitreolus",
+      "habitat": "tropical",
+      "price": 220,
+      "width": 92,
+      "height": 52,
+      "speed": 0.78,
+      "existing_asset": false,
+      "artwork": {
+        "form": "glass-catfish",
+        "color": "#b7cfcd",
+        "pattern": "transparent"
+      }
+    },
+    {
+      "id": "african-butterflyfish",
+      "name": "非洲蝴蝶鱼",
+      "en_name": "African butterflyfish",
+      "scientific_name": "Pantodon buchholzi",
+      "habitat": "tropical",
+      "price": 260,
+      "width": 90,
+      "height": 68,
+      "speed": 0.64,
+      "existing_asset": false,
+      "artwork": {
+        "form": "surfacefish",
+        "color": "#ada48a",
+        "pattern": "mottled"
+      }
+    },
+    {
+      "id": "elephantnose-fish",
+      "name": "象鼻鱼",
+      "en_name": "Elephantnose fish",
+      "scientific_name": "Gnathonemus petersii",
+      "habitat": "tropical",
+      "price": 280,
+      "width": 120,
+      "height": 68,
+      "speed": 0.72,
+      "existing_asset": false,
+      "artwork": {
+        "form": "elephantnose",
+        "color": "#7f7c6a",
+        "pattern": "pale-bands"
+      }
+    },
+    {
+      "id": "regal-angelfish",
+      "name": "蓝纹神仙鱼",
+      "en_name": "Regal angelfish",
+      "scientific_name": "Pygoplites diacanthus",
+      "habitat": "marine",
+      "price": 300,
+      "width": 115,
+      "height": 88,
+      "speed": 0.84,
+      "existing_asset": false,
+      "artwork": {
+        "form": "marine-angel",
+        "color": "#dcbd64",
+        "pattern": "regal-bars"
+      }
+    },
+    {
+      "id": "queen-angelfish",
+      "name": "女王神仙鱼",
+      "en_name": "Queen angelfish",
+      "scientific_name": "Holacanthus ciliaris",
+      "habitat": "marine",
+      "price": 340,
+      "width": 130,
+      "height": 95,
+      "speed": 0.82,
+      "existing_asset": false,
+      "artwork": {
+        "form": "marine-angel",
+        "color": "#88b6b6",
+        "pattern": "queen"
+      }
+    },
+    {
+      "id": "bicolor-angelfish",
+      "name": "双色神仙鱼",
+      "en_name": "Bicolor angelfish",
+      "scientific_name": "Centropyge bicolor",
+      "habitat": "marine",
+      "price": 250,
+      "width": 90,
+      "height": 65,
+      "speed": 0.84,
+      "existing_asset": false,
+      "artwork": {
+        "form": "marine-angel",
+        "color": "#dfc14e",
+        "pattern": "bicolor"
+      }
+    },
+    {
+      "id": "copperband-butterflyfish",
+      "name": "铜带蝴蝶鱼",
+      "en_name": "Copperband butterflyfish",
+      "scientific_name": "Chelmon rostratus",
+      "habitat": "marine",
+      "price": 290,
+      "width": 110,
+      "height": 90,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "longsnout",
+        "color": "#d7cfaa",
+        "pattern": "copper-bars"
+      }
+    },
+    {
+      "id": "raccoon-butterflyfish",
+      "name": "浣熊蝴蝶鱼",
+      "en_name": "Raccoon butterflyfish",
+      "scientific_name": "Chaetodon lunula",
+      "habitat": "marine",
+      "price": 270,
+      "width": 105,
+      "height": 80,
+      "speed": 0.86,
+      "existing_asset": false,
+      "artwork": {
+        "form": "butterfly-deep",
+        "color": "#d9c36b",
+        "pattern": "raccoon"
+      }
+    },
+    {
+      "id": "threadfin-butterflyfish",
+      "name": "人字蝴蝶鱼",
+      "en_name": "Threadfin butterflyfish",
+      "scientific_name": "Chaetodon auriga",
+      "habitat": "marine",
+      "price": 280,
+      "width": 110,
+      "height": 90,
+      "speed": 0.84,
+      "existing_asset": false,
+      "artwork": {
+        "form": "butterfly-banner",
+        "color": "#d2ceb0",
+        "pattern": "chevron"
+      }
+    },
+    {
+      "id": "powder-blue-tang",
+      "name": "粉蓝吊鱼",
+      "en_name": "Powder blue tang",
+      "scientific_name": "Acanthurus leucosternon",
+      "habitat": "marine",
+      "price": 320,
+      "width": 125,
+      "height": 90,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "surgeon",
+        "color": "#85b7cc",
+        "pattern": "powder-blue"
+      }
+    },
+    {
+      "id": "achilles-tang",
+      "name": "阿基里斯吊鱼",
+      "en_name": "Achilles tang",
+      "scientific_name": "Acanthurus achilles",
+      "habitat": "marine",
+      "price": 340,
+      "width": 125,
+      "height": 90,
+      "speed": 1,
+      "existing_asset": false,
+      "artwork": {
+        "form": "surgeon",
+        "color": "#5b686a",
+        "pattern": "orange-tail"
+      }
+    },
+    {
+      "id": "clown-triggerfish",
+      "name": "小丑炮弹鱼",
+      "en_name": "Clown triggerfish",
+      "scientific_name": "Balistoides conspicillum",
+      "habitat": "marine",
+      "price": 330,
+      "width": 130,
+      "height": 90,
+      "speed": 0.82,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trigger",
+        "color": "#52616a",
+        "pattern": "trigger-dots"
+      }
+    },
+    {
+      "id": "picasso-triggerfish",
+      "name": "毕加索炮弹鱼",
+      "en_name": "Picasso triggerfish",
+      "scientific_name": "Rhinecanthus aculeatus",
+      "habitat": "marine",
+      "price": 310,
+      "width": 120,
+      "height": 82,
+      "speed": 0.86,
+      "existing_asset": false,
+      "artwork": {
+        "form": "trigger",
+        "color": "#b5ac85",
+        "pattern": "picasso"
+      }
+    },
+    {
+      "id": "yellow-boxfish",
+      "name": "黄箱鲀",
+      "en_name": "Yellow boxfish",
+      "scientific_name": "Ostracion cubicus",
+      "habitat": "marine",
+      "price": 290,
+      "width": 90,
+      "height": 75,
+      "speed": 0.56,
+      "existing_asset": false,
+      "artwork": {
+        "form": "boxfish",
+        "color": "#d7ba54",
+        "pattern": "black-spots"
+      }
+    },
+    {
+      "id": "longhorn-cowfish",
+      "name": "长角箱鲀",
+      "en_name": "Longhorn cowfish",
+      "scientific_name": "Lactoria cornuta",
+      "habitat": "marine",
+      "price": 320,
+      "width": 115,
+      "height": 82,
+      "speed": 0.52,
+      "existing_asset": false,
+      "artwork": {
+        "form": "cowfish",
+        "color": "#c5b565",
+        "pattern": "pale-spots"
+      }
+    },
+    {
+      "id": "blue-green-chromis",
+      "name": "蓝绿光鳃鱼",
+      "en_name": "Blue-green chromis",
+      "scientific_name": "Chromis viridis",
+      "habitat": "marine",
+      "price": 170,
+      "width": 65,
+      "height": 43,
+      "speed": 1,
+      "existing_asset": false,
+      "artwork": {
+        "form": "chromis",
+        "color": "#8cbbba",
+        "pattern": "iridescent"
+      }
+    },
+    {
+      "id": "yellowtail-damselfish",
+      "name": "黄尾蓝雀鲷",
+      "en_name": "Yellowtail damselfish",
+      "scientific_name": "Chrysiptera parasema",
+      "habitat": "marine",
+      "price": 180,
+      "width": 64,
+      "height": 42,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "chromis",
+        "color": "#4f84b8",
+        "pattern": "yellow-tail"
+      }
+    },
+    {
+      "id": "sergeant-major",
+      "name": "五带豆娘鱼",
+      "en_name": "Sergeant major",
+      "scientific_name": "Abudefduf saxatilis",
+      "habitat": "marine",
+      "price": 210,
+      "width": 85,
+      "height": 60,
+      "speed": 0.98,
+      "existing_asset": false,
+      "artwork": {
+        "form": "chromis-deep",
+        "color": "#b6bba0",
+        "pattern": "five-bars"
+      }
+    },
+    {
+      "id": "lyretail-anthias",
+      "name": "金花鲈",
+      "en_name": "Lyretail anthias",
+      "scientific_name": "Pseudanthias squamipinnis",
+      "habitat": "marine",
+      "price": 230,
+      "width": 80,
+      "height": 52,
+      "speed": 0.94,
+      "existing_asset": false,
+      "artwork": {
+        "form": "anthias",
+        "color": "#d89971",
+        "pattern": "orange"
+      }
+    },
+    {
+      "id": "purple-firefish",
+      "name": "紫火焰虾虎鱼",
+      "en_name": "Purple firefish",
+      "scientific_name": "Nemateleotris decora",
+      "habitat": "marine",
+      "price": 240,
+      "width": 78,
+      "height": 50,
+      "speed": 0.8,
+      "existing_asset": false,
+      "artwork": {
+        "form": "dartfish",
+        "color": "#c6c4ba",
+        "pattern": "purple-fins"
+      }
+    },
+    {
+      "id": "yellow-watchman-goby",
+      "name": "黄守望虾虎鱼",
+      "en_name": "Yellow watchman goby",
+      "scientific_name": "Cryptocentrus cinctus",
+      "habitat": "marine",
+      "price": 220,
+      "width": 85,
+      "height": 50,
+      "speed": 0.68,
+      "existing_asset": false,
+      "artwork": {
+        "form": "goby",
+        "color": "#cfbe67",
+        "pattern": "blue-spots"
+      }
+    },
+    {
+      "id": "neon-goby",
+      "name": "霓虹虾虎鱼",
+      "en_name": "Neon goby",
+      "scientific_name": "Elacatinus oceanops",
+      "habitat": "marine",
+      "price": 190,
+      "width": 58,
+      "height": 32,
+      "speed": 0.78,
+      "existing_asset": false,
+      "artwork": {
+        "form": "goby-slim",
+        "color": "#52687c",
+        "pattern": "neon-blue"
+      }
+    },
+    {
+      "id": "flame-hawkfish",
+      "name": "火焰鹰鱼",
+      "en_name": "Flame hawkfish",
+      "scientific_name": "Neocirrhites armatus",
+      "habitat": "marine",
+      "price": 240,
+      "width": 78,
+      "height": 48,
+      "speed": 0.7,
+      "existing_asset": false,
+      "artwork": {
+        "form": "hawkfish",
+        "color": "#c5624f",
+        "pattern": "hawk"
+      }
+    },
+    {
+      "id": "longnose-hawkfish",
+      "name": "长吻鹰鱼",
+      "en_name": "Longnose hawkfish",
+      "scientific_name": "Oxycirrhites typus",
+      "habitat": "marine",
+      "price": 260,
+      "width": 95,
+      "height": 52,
+      "speed": 0.68,
+      "existing_asset": false,
+      "artwork": {
+        "form": "hawkfish-long",
+        "color": "#d7baa0",
+        "pattern": "red-grid"
+      }
+    },
+    {
+      "id": "bluehead-wrasse",
+      "name": "蓝头隆头鱼",
+      "en_name": "Bluehead wrasse",
+      "scientific_name": "Thalassoma bifasciatum",
+      "habitat": "marine",
+      "price": 240,
+      "width": 95,
+      "height": 50,
+      "speed": 1.08,
+      "existing_asset": false,
+      "artwork": {
+        "form": "wrasse-long",
+        "color": "#93ab87",
+        "pattern": "blue-head"
+      }
+    },
+    {
+      "id": "harlequin-tuskfish",
+      "name": "花面猪齿鱼",
+      "en_name": "Harlequin tuskfish",
+      "scientific_name": "Choerodon fasciatus",
+      "habitat": "marine",
+      "price": 320,
+      "width": 130,
+      "height": 82,
+      "speed": 0.86,
+      "existing_asset": false,
+      "artwork": {
+        "form": "wrasse-deep",
+        "color": "#b68c70",
+        "pattern": "tusk-bars"
+      }
+    },
+    {
+      "id": "panther-grouper",
+      "name": "驼背鲈",
+      "en_name": "Panther grouper",
+      "scientific_name": "Cromileptes altivelis",
+      "habitat": "marine",
+      "price": 330,
+      "width": 145,
+      "height": 90,
+      "speed": 0.78,
+      "existing_asset": false,
+      "artwork": {
+        "form": "grouper",
+        "color": "#c7c5ad",
+        "pattern": "big-spots"
+      }
+    },
+    {
+      "id": "snowflake-moray",
+      "name": "星斑裸胸鳝",
+      "en_name": "Snowflake moray",
+      "scientific_name": "Echidna nebulosa",
+      "habitat": "marine",
+      "price": 350,
+      "width": 190,
+      "height": 75,
+      "speed": 0.66,
+      "existing_asset": false,
+      "artwork": {
+        "form": "moray",
+        "color": "#c7c5a8",
+        "pattern": "moray-snow"
+      }
+    }
+  ]
+}

@@ -79,6 +79,8 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.True(s.TodoShowClearCompletedButton);
         Assert.True(s.TodoReminderEnabled);
         Assert.Equal(5, s.TodoDefaultReminderOffsetMinutes);
+        Assert.Equal(23 * 60 + 59, s.TodoDefaultDueTimeMinutes);
+        Assert.Equal((int)DayOfWeek.Sunday, s.TodoThisWeekDueDay);
         Assert.True(s.TodoUseWideDetailPane);
         Assert.Equal(string.Empty, s.TodoLayoutMode);
         Assert.True(s.TodoAutoSelectFirstInWideLayout);
@@ -326,6 +328,8 @@ public sealed class SettingsSliceContractBaselineTests
         "todoShowClearCompletedButton",
         "todoReminderEnabled",
         "todoDefaultReminderOffsetMinutes",
+         "todoDefaultDueTimeMinutes",
+         "todoThisWeekDueDay",
         "todoUseWideDetailPane",
         "todoLayoutMode",
         "todoAutoSelectFirstInWideLayout",
@@ -439,6 +443,10 @@ public sealed class SettingsSliceContractBaselineTests
         "systemMonitorMemoryChartColor",
         "systemMonitorNetworkChartColor",
         "systemMonitorRefreshIntervalSeconds",
+        "calendarShowTaskMarkers",
+        "calendarShowHolidays",
+        "calendarTaskMarkerColor",
+        "calendarHolidayMarkerColor",
         "widgetGroups",
         "widgetTopologyLayouts",
         "activeWidgetTopologyKey",

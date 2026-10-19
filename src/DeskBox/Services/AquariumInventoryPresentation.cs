@@ -10,7 +10,14 @@ internal sealed record AquariumOwnedProduct(
 internal static class AquariumInventoryPresentation
 {
     internal static IReadOnlyList<string> Categories { get; } =
-        ["fish", "plant", "shrimp", "crab", "shellfish", "decoration"];
+        ["fish", "plant", "coral", "algae", "snail", "shrimp", "crab", "shellfish", "decoration", "pack"];
+
+    internal static IReadOnlyList<string> FishHabitats { get; } = ["all", "freshwater", "tropical", "marine"];
+
+    // Habitat is a browsing group, not a water-compatibility restriction on scenes.
+    // Older cached catalogs omit it and remain visible in the All group.
+    internal static bool MatchesHabitat(AquariumCatalogItem product, string habitat) =>
+        habitat == "all" || product.Category == "fish" && product.Habitat == habitat;
 
     internal static IReadOnlyList<AquariumOwnedProduct> Summarize(
         IReadOnlyList<AquariumInventoryItem> inventory,

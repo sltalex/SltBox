@@ -31,6 +31,7 @@ internal static class WidgetSettingsMenuHelper
         WidgetKind.Aquarium => "AquariumSettings",
         WidgetKind.SystemMonitor => "FeatureWidgets",
         WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocsSettings",
+        WidgetKind.Calendar => "CalendarSettings",
         _ => null
     };
 
@@ -51,6 +52,7 @@ internal static class WidgetSettingsMenuHelper
         WidgetKind.Aquarium => "Widget.Settings.Aquarium",
         WidgetKind.SystemMonitor => "SystemMonitor.Title",
         WidgetKind.DingTalkGroupDocs => "Widget.Settings.DingTalkGroupDocs",
+        WidgetKind.Calendar => "Calendar.Title",
         _ => "Common.Configure"
     };
 

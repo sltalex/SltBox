@@ -615,11 +615,6 @@ public sealed partial class WidgetManager
                 (enabled, reveal) => SetContentFeatureWidgetEnabledAsync(WidgetKind.Aquarium, enabled, reveal),
                 () => HideAndCloseFeatureWidgetAsync(WidgetKind.Aquarium)),
             new(
-                WidgetKind.FourWheelDrive,
-                async _ => await CreateSingletonContentFeatureWidgetAsync(WidgetKind.FourWheelDrive),
-                (enabled, reveal) => SetContentFeatureWidgetEnabledAsync(WidgetKind.FourWheelDrive, enabled, reveal),
-                () => HideAndCloseFeatureWidgetAsync(WidgetKind.FourWheelDrive)),
-            new(
                 WidgetKind.SystemMonitor,
                 async _ => await CreateSingletonContentFeatureWidgetAsync(WidgetKind.SystemMonitor),
                 (enabled, reveal) => SetContentFeatureWidgetEnabledAsync(WidgetKind.SystemMonitor, enabled, reveal),
@@ -628,7 +623,12 @@ public sealed partial class WidgetManager
                 WidgetKind.DingTalkGroupDocs,
                 async _ => await CreateSingletonContentFeatureWidgetAsync(WidgetKind.DingTalkGroupDocs),
                 (enabled, reveal) => SetContentFeatureWidgetEnabledAsync(WidgetKind.DingTalkGroupDocs, enabled, reveal),
-                () => HideAndCloseFeatureWidgetAsync(WidgetKind.DingTalkGroupDocs))
+                () => HideAndCloseFeatureWidgetAsync(WidgetKind.DingTalkGroupDocs)),
+            new(
+                WidgetKind.Calendar,
+                async _ => await CreateSingletonContentFeatureWidgetAsync(WidgetKind.Calendar),
+                (enabled, reveal) => SetContentFeatureWidgetEnabledAsync(WidgetKind.Calendar, enabled, reveal),
+                () => HideAndCloseFeatureWidgetAsync(WidgetKind.Calendar))
         ];
 
         return handlers.ToDictionary(handler => handler.WidgetKind);
@@ -711,14 +711,6 @@ public sealed partial class WidgetManager
                     request.ShowRaisedWhileInitializing,
                     request.CancellationToken)),
             new(
-                WidgetKind.FourWheelDrive,
-                async request => await CreateContentWidgetFromConfigAsync(
-                    request.Config,
-                    request.KeepPreparedForAnimation,
-                    request.RevealAfterCreate,
-                    request.ShowRaisedWhileInitializing,
-                    request.CancellationToken)),
-            new(
                 WidgetKind.SystemMonitor,
                 async request => await CreateContentWidgetFromConfigAsync(
                     request.Config,
@@ -728,6 +720,14 @@ public sealed partial class WidgetManager
                     request.CancellationToken)),
             new(
                 WidgetKind.DingTalkGroupDocs,
+                async request => await CreateContentWidgetFromConfigAsync(
+                    request.Config,
+                    request.KeepPreparedForAnimation,
+                    request.RevealAfterCreate,
+                    request.ShowRaisedWhileInitializing,
+                    request.CancellationToken)),
+            new(
+                WidgetKind.Calendar,
                 async request => await CreateContentWidgetFromConfigAsync(
                     request.Config,
                     request.KeepPreparedForAnimation,
@@ -2438,9 +2438,9 @@ public sealed partial class WidgetManager
             WidgetKind.Glance => (360, 260),
             WidgetKind.Tree => (300, 340),
             WidgetKind.Aquarium => (420, 300),
-            WidgetKind.FourWheelDrive => (420, 360),
             WidgetKind.SystemMonitor => (380, 320),
             WidgetKind.DingTalkGroupDocs => (420, 460),
+            WidgetKind.Calendar => (380, 460),
             _ => (
                 _settingsService.Settings.DefaultWidgetWidth,
                 _settingsService.Settings.DefaultWidgetHeight)

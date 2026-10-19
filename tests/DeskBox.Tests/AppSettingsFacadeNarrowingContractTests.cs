@@ -38,20 +38,19 @@ public sealed class AppSettingsFacadeNarrowingContractTests
     [Fact]
     public void PassthroughCount_IsFrozenAtBatch51Level()
     {
-        // 227 = batch-51 (220) plus desktopAutoOrganizationDelaySeconds plus
-        // managedDragOutAction plus the two drag-out tip flags plus
-        // widgetAnimationStaggerEnabled plus silentStartup plus
-        // weatherIconStyle; +5 = schema v10 global widget background fields
+        // 249 = the batch-51 facade fields plus desktopAutoOrganizationDelaySeconds,
+        // managedDragOutAction, the two drag-out tip flags, widgetAnimationStaggerEnabled,
+        // silentStartup, weatherIconStyle, the schema-v10 global widget background fields,
         // (mode, unified/panorama image, dim, unified fit — all nullable,
         // carried by Migration_9_To_10); +1 = schema v11 text shadow switch
-        // (carried by Migration_10_To_11) (13 slice
+        // (carried by Migration_10_To_11) and the two Todo due-date defaults (13 slice
         // accessors and SchemaVersion are the
         // only other members). Growing this count adds a settings.json field
         // without a schema-versioned migration; shrinking
         // it drops a field from every file written henceforth. Either change
         // is a disk-schema decision — update this pin consciously alongside
         // the SettingsSliceContractBaselineTests order pin.
-        Assert.Equal(246, Passthroughs.Length);
+        Assert.Equal(252, Passthroughs.Length);
         Assert.Equal(13, SliceAccessors.Length);
     }
 
@@ -59,7 +58,7 @@ public sealed class AppSettingsFacadeNarrowingContractTests
     public void EveryPassthrough_IsAFrozenSchemaMember_AndViceVersa()
     {
         // The facade IS the schema: with the WhenWritingNull member forced on,
-        // the serialized member set is exactly schemaVersion plus the 221
+        // the serialized member set is exactly schemaVersion plus the 249
         // passthrough wire names (camelCase unless a JsonPropertyName
         // overrides it). This proves there is no dead passthrough sitting
         // outside the wire, and no wire member without a passthrough owner.
@@ -69,8 +68,8 @@ public sealed class AppSettingsFacadeNarrowingContractTests
         expected.Add("schemaVersion");
         Assert.True(
             SerializedMemberNames.SetEquals(expected),
-            "Serialized member set must equal schemaVersion + the 245 passthrough wire names.");
-        Assert.Equal(247, SerializedMemberNames.Count);
+            "Serialized member set must equal schemaVersion + the 249 passthrough wire names.");
+        Assert.Equal(253, SerializedMemberNames.Count);
     }
 
     [Fact]

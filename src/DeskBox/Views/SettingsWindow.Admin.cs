@@ -23,13 +23,16 @@ public sealed partial class SettingsWindow
     {
         if (_isClosed) return;
         bool isAdmin = IsVerifiedAdmin;
-        if (!isAdmin && _currentSettingsSection is "Admin" or "AquariumSettings" or "Backpack")
+        if (!isAdmin && _currentSettingsSection is ("Admin" or "AquariumSettings" or "Backpack" or "AquariumStore"))
             NavigateToSettingsSection("General");
         if (isAdmin)
         {
             if (!SettingsNavigationView.MenuItems.Contains(BackpackNavItem))
                 SettingsNavigationView.MenuItems.Insert(
                     SettingsNavigationView.MenuItems.IndexOf(GeneralNavItem) + 1, BackpackNavItem);
+            if (!SettingsNavigationView.MenuItems.Contains(AquariumStoreNavItem))
+                SettingsNavigationView.MenuItems.Insert(
+                    SettingsNavigationView.MenuItems.IndexOf(BackpackNavItem) + 1, AquariumStoreNavItem);
             if (!SettingsNavigationView.MenuItems.Contains(AdminNavItem))
                 SettingsNavigationView.MenuItems.Insert(
                     SettingsNavigationView.MenuItems.IndexOf(AboutNavItem), AdminNavItem);
@@ -37,9 +40,11 @@ public sealed partial class SettingsWindow
         else
         {
             SettingsNavigationView.MenuItems.Remove(BackpackNavItem);
+            SettingsNavigationView.MenuItems.Remove(AquariumStoreNavItem);
             SettingsNavigationView.MenuItems.Remove(AdminNavItem);
         }
         BackpackNavItem.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
+        AquariumStoreNavItem.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
         AdminNavItem.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
         RefreshFeatureWidgetList();
         RefreshSettingsSearchResults();

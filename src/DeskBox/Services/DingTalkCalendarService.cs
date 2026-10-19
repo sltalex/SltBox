@@ -50,7 +50,8 @@ public sealed class DingTalkCalendarService
         return new DingTalkCalendarSnapshot(
             true,
             events
-                .Where(item => item.Start >= now && item.Start < weekEnd)
+                .Where(item => !item.IsCancelled && !item.IsDeleted &&
+                    item.Start >= now && item.Start < weekEnd)
                 .OrderBy(item => item.Start)
                 .ThenBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray());

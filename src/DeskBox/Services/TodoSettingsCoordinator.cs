@@ -474,6 +474,34 @@ public sealed class TodoSettingsCoordinator : ITodoSettings
         SavePreference(checkNow: false);
     }
 
+    public TodoDueDefaultsSettings ReadDueDefaults()
+    {
+        TodoSettingsSlice todo = _settings.Settings.Todo;
+        return new(
+            SettingsService.NormalizeTodoDueTimeMinutes(todo.TodoDefaultDueTimeMinutes),
+            SettingsService.NormalizeTodoThisWeekDueDay(todo.TodoThisWeekDueDay));
+    }
+
+    public void SetDefaultDueTimeMinutes(int minutes)
+    {
+        ObjectDisposedException.ThrowIf(_stopped, this);
+        int normalized = SettingsService.NormalizeTodoDueTimeMinutes(minutes);
+        TodoSettingsSlice todo = _settings.Settings.Todo;
+        if (todo.TodoDefaultDueTimeMinutes == normalized) return;
+        todo.TodoDefaultDueTimeMinutes = normalized;
+        _settings.SaveDebounced();
+    }
+
+    public void SetThisWeekDueDay(int day)
+    {
+        ObjectDisposedException.ThrowIf(_stopped, this);
+        int normalized = SettingsService.NormalizeTodoThisWeekDueDay(day);
+        TodoSettingsSlice todo = _settings.Settings.Todo;
+        if (todo.TodoThisWeekDueDay == normalized) return;
+        todo.TodoThisWeekDueDay = normalized;
+        _settings.SaveDebounced();
+    }
+
     public void ResetReminderPreferences(bool scheduleSave = true)
     {
         ObjectDisposedException.ThrowIf(_stopped, this);

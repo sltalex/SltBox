@@ -59,6 +59,12 @@ public sealed class TodoSettingsSlice
     /// <summary>Default reminder lead time in minutes before a Todo due date.</summary>
     public int TodoDefaultReminderOffsetMinutes { get; set; } = 5;
 
+    /// <summary>Default local time used when a new task receives a due-date preset.</summary>
+    public int TodoDefaultDueTimeMinutes { get; set; } = 1439;
+
+    /// <summary>Weekday used by the “This week” due-date preset (Sunday = 0).</summary>
+    public int TodoThisWeekDueDay { get; set; } = 0;
+
     public bool TodoUseWideDetailPane { get; set; } = true;
 
     /// <summary>

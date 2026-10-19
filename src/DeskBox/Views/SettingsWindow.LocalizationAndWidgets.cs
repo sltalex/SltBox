@@ -135,7 +135,7 @@ public sealed partial class SettingsWindow
         try
         {
             var entries = ViewModel.FeatureWidgetEntries
-                .Where(entry => entry.Kind is not (WidgetKind.Aquarium or WidgetKind.FourWheelDrive) || IsVerifiedAdmin)
+                .Where(entry => entry.Kind != WidgetKind.Aquarium || IsVerifiedAdmin)
                 .ToArray();
             bool requiresRebuild = entries.Length != _featureWidgetRows.Count ||
                 entries.Any(entry =>
@@ -455,7 +455,7 @@ public sealed partial class SettingsWindow
 
         if (sender is ToggleSwitch { Tag: WidgetKind kind } toggle)
         {
-            if (kind is WidgetKind.Aquarium or WidgetKind.FourWheelDrive && !IsVerifiedAdmin)
+            if (kind == WidgetKind.Aquarium && !IsVerifiedAdmin)
             {
                 DispatcherQueue.TryEnqueue(RefreshFeatureWidgetList);
                 return;

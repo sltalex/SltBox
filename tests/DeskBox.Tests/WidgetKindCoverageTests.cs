@@ -5,7 +5,7 @@ namespace DeskBox.Tests;
 
 public sealed class WidgetKindCoverageTests
 {
-    private static readonly WidgetKind[] LegacyWidgetKinds = [WidgetKind.Productivity];
+    private static readonly WidgetKind[] LegacyWidgetKinds = [WidgetKind.Productivity, WidgetKind.FourWheelDrive];
 
     private static readonly WidgetKind[] ActiveWidgetKinds = Enum
         .GetValues<WidgetKind>()

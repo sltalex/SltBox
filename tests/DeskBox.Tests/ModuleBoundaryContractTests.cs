@@ -169,6 +169,7 @@ public sealed class ModuleBoundaryContractTests
         // Aquarium content is created lazily from the composition root because
         // the provider inventory is constructed before the authenticated session.
         ["src/DeskBox/Services/WidgetContentFactory.cs"] = 2,
+        ["src/DeskBox/Services/CalendarWidgetContentProvider.cs"] = 1,
     };
 
     [Fact]

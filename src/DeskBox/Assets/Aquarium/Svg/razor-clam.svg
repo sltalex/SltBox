@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+<title>蛏子</title>
+<desc>Original cartoon shellfish illustration: razor-clam. Rounded dark teal outlines, flat cel shading, transparent background.</desc>
+<g transform="rotate(-13 130 120)">
+<path d="M83 57 Q83 38 103 38 L122 38 Q140 39 141 57 L141 180 Q141 202 120 204 L102 204 Q82 203 82 183 Z" fill="#d4a257" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M93 58 Q92 48 104 48 L115 48 Q126 48 126 59 L126 180 Q126 190 114 192 L104 192 Q94 190 94 180 Z" fill="#ffe3a0" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M91 76 L130 76 M91 109 L130 109 M91 143 L130 143 M91 177 L130 177" fill="none" stroke="#c18b45" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M99 58 L99 170" fill="none" stroke="#fff1c7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</g>
+<g transform="rotate(9 190 120)">
+<path d="M164 198 Q155 208 168 215 Q184 222 194 213 Q209 219 220 210 Q228 201 216 195 Z" fill="#8fcdb1" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M163 59 Q161 42 176 37 Q184 33 193 38 Q201 29 212 38 Q225 43 222 62 L218 192 L163 191 Z" fill="#c9efd4" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M153 66 Q153 48 169 48 Q174 48 177 57 L177 188 Q174 205 163 205 Q151 203 151 187 Z" fill="#e2b565" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M177 61 Q177 51 186 51 L211 51 Q228 51 229 67 L229 187 Q229 205 212 206 L194 206 Q178 205 177 189 Z" fill="#f5ce7f" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M211 56 Q222 56 222 70 L222 187 Q222 199 211 199 L198 199 Q215 184 211 56 Z" fill="#d5a354" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M183 80 L222 80 M183 115 L222 115 M183 151 L222 151 M183 183 L222 183" fill="none" stroke="#d4a15a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M187 65 L187 105 M187 155 L187 173" fill="none" stroke="#fff2c6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="188" cy="133" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="186.7" cy="130.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="180" cy="144" rx="8" ry="4" fill="#e99c7b" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<ellipse cx="210" cy="133" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="208.7" cy="130.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="218" cy="144" rx="8" ry="4" fill="#e99c7b" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<path d="M193 144 Q199 152 205 144" fill="none" stroke="#194957" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</g>
+</svg>

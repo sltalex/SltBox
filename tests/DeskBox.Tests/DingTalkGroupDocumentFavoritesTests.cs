@@ -5,6 +5,56 @@ namespace DeskBox.Tests;
 public sealed class DingTalkGroupDocumentFavoritesTests
 {
     [Fact]
+    public async Task FavoritingSharedDocumentInOneGroupDoesNotFavoriteSameDocumentInAnotherGroup()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"deskbox-dingtalk-favorites-{Guid.NewGuid():N}");
+        try
+        {
+            var dws = new FakeDwsClient();
+            const string sharedUrl = "https://alidocs.dingtalk.com/i/nodes/shared-document?utm_source=im";
+            var clicked = new DingTalkGroupDocument(
+                "研发群", "项目资料", sharedUrl, DateTimeOffset.UtcNow, "conversation-a");
+            var otherGroup = clicked with { GroupName = "运营群", ConversationId = "conversation-b" };
+            var favorites = new DingTalkGroupDocumentFavorites(dws, root);
+
+            await favorites.SetFavoriteAsync(clicked, true);
+
+            Assert.True(favorites.IsFavorite(clicked));
+            Assert.False(favorites.IsFavorite(otherGroup));
+
+            var reopened = new DingTalkGroupDocumentFavorites(dws, root);
+            await reopened.LoadAsync();
+            Assert.True(reopened.IsFavorite(clicked));
+            Assert.False(reopened.IsFavorite(otherGroup));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ExistingFavoriteMigratesFromGroupNameToConversationIdentity()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"deskbox-dingtalk-favorites-{Guid.NewGuid():N}");
+        try
+        {
+            var dws = new FakeDwsClient();
+            const string url = "https://alidocs.dingtalk.com/i/nodes/existing";
+            var oldDocument = new DingTalkGroupDocument("同名群", "项目资料", url, DateTimeOffset.UtcNow);
+            await new DingTalkGroupDocumentFavorites(dws, root).SetFavoriteAsync(oldDocument, true);
+
+            var reopened = new DingTalkGroupDocumentFavorites(dws, root);
+            await reopened.UpdateDocumentMetadataAsync(
+            [
+                oldDocument with { ConversationId = "conversation-a" },
+                oldDocument with { ConversationId = "conversation-b" }
+            ]);
+
+            Assert.True(reopened.IsFavorite(oldDocument with { ConversationId = "conversation-a" }));
+            Assert.False(reopened.IsFavorite(oldDocument with { ConversationId = "conversation-b" }));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task FavoriteSurvivesReloadAndSharesIdentityAcrossLinkParameters()
     {
         string root = Path.Combine(Path.GetTempPath(), $"deskbox-dingtalk-favorites-{Guid.NewGuid():N}");

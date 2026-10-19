@@ -1489,7 +1489,6 @@ IsHideAnimationRunning = true;
                         WidgetKind.Glance => "Glance.Title",
                         WidgetKind.Search => "Search.Title",
                         WidgetKind.SystemMonitor => "SystemMonitor.Title",
-                        WidgetKind.FourWheelDrive => "FourWheelDrive.Title",
                         WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
                         _ => ""
                     };

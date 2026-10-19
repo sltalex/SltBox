@@ -39,6 +39,10 @@ public sealed partial class FeatureWidgetsSettingsViewModel : ObservableObject
     private string _systemMonitorMemoryChartColor = "#46AE85";
     private string _systemMonitorNetworkChartColor = "#E6A23C";
     private int _systemMonitorRefreshIntervalSeconds = 2;
+    private bool _calendarShowTaskMarkers = true;
+    private bool _calendarShowHolidays;
+    private string _calendarTaskMarkerColor = "#3791DC";
+    private string _calendarHolidayMarkerColor = "#E04C4C";
 
     public FeatureWidgetsSettingsViewModel(
         IFeatureWidgetsSettings settings,
@@ -57,6 +61,10 @@ public sealed partial class FeatureWidgetsSettingsViewModel : ObservableObject
     public string SystemMonitorMemoryChartColor { get => _systemMonitorMemoryChartColor; set { if (SetProperty(ref _systemMonitorMemoryChartColor, value) && !_isSyncingPresentation) _settings.SetSystemMonitorChartColor("Memory", value); } }
     public string SystemMonitorNetworkChartColor { get => _systemMonitorNetworkChartColor; set { if (SetProperty(ref _systemMonitorNetworkChartColor, value) && !_isSyncingPresentation) _settings.SetSystemMonitorChartColor("Network", value); } }
     public int SystemMonitorRefreshIntervalSeconds { get => _systemMonitorRefreshIntervalSeconds; set { if (SetProperty(ref _systemMonitorRefreshIntervalSeconds, value) && !_isSyncingPresentation) _settings.SetSystemMonitorRefreshInterval(value); } }
+    public bool CalendarShowTaskMarkers { get => _calendarShowTaskMarkers; set { if (SetProperty(ref _calendarShowTaskMarkers, value) && !_isSyncingPresentation) _settings.SetCalendarShowTaskMarkers(value); } }
+    public bool CalendarShowHolidays { get => _calendarShowHolidays; set { if (SetProperty(ref _calendarShowHolidays, value) && !_isSyncingPresentation) _settings.SetCalendarShowHolidays(value); } }
+    public string CalendarTaskMarkerColor { get => _calendarTaskMarkerColor; set { if (SetProperty(ref _calendarTaskMarkerColor, value) && !_isSyncingPresentation) _settings.SetCalendarMarkerColor("Task", value); } }
+    public string CalendarHolidayMarkerColor { get => _calendarHolidayMarkerColor; set { if (SetProperty(ref _calendarHolidayMarkerColor, value) && !_isSyncingPresentation) _settings.SetCalendarMarkerColor("Holiday", value); } }
 
     public object[] AvailableSystemMonitorChartStyles =>
         [new SettingsOption("Bars", _localize("Settings.SystemMonitor.ChartStyle.Bars")), new SettingsOption("Line", _localize("Settings.SystemMonitor.ChartStyle.Line"))];
@@ -82,6 +90,8 @@ public sealed partial class FeatureWidgetsSettingsViewModel : ObservableObject
             return options.Cast<object>().ToArray();
         }
     }
+
+    public object[] AvailableCalendarMarkerColors => AvailableSystemMonitorColors;
 
     public string FolderOpenBehavior
     {
@@ -211,6 +221,11 @@ public sealed partial class FeatureWidgetsSettingsViewModel : ObservableObject
             SystemMonitorMemoryChartColor = monitor.MemoryColor;
             SystemMonitorNetworkChartColor = monitor.NetworkColor;
             SystemMonitorRefreshIntervalSeconds = monitor.RefreshIntervalSeconds;
+            CalendarShowTaskMarkers = _settings.ReadCalendarShowTaskMarkers();
+            CalendarShowHolidays = _settings.ReadCalendarShowHolidays();
+            CalendarMarkerColors markers = _settings.ReadCalendarMarkerColors();
+            CalendarTaskMarkerColor = markers.TaskColor;
+            CalendarHolidayMarkerColor = markers.HolidayColor;
         }
         finally
         {
@@ -233,6 +248,7 @@ public sealed partial class FeatureWidgetsSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(AvailableSystemMonitorChartStyles));
         OnPropertyChanged(nameof(AvailableSystemMonitorRefreshIntervals));
         OnPropertyChanged(nameof(AvailableSystemMonitorColors));
+        OnPropertyChanged(nameof(AvailableCalendarMarkerColors));
     }
 
     public void SetFeatureWidgetEnabled(WidgetKind kind, bool enabled) =>

@@ -136,10 +136,11 @@ public sealed partial class TodoWidgetContent
         return new DateTimeOffset(localDateTime);
     }
 
-    private static DateTimeOffset GetDefaultCustomDueDate()
+    private DateTimeOffset GetDefaultCustomDueDate()
     {
         DateTime today = DateTime.Now.Date;
-        return new DateTimeOffset(new DateTime(today.Year, today.Month, today.Day, 23, 59, 0, DateTimeKind.Local));
+        return ViewModel?.CreateConfiguredDueDate(new DateTimeOffset(today))
+            ?? new DateTimeOffset(new DateTime(today.Year, today.Month, today.Day, 23, 59, 0, DateTimeKind.Local));
     }
 
     private Task DeleteItemAsync(TodoItemViewModel item) =>

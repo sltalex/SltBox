@@ -16,7 +16,7 @@ public sealed class DingTalkGroupDocumentFavorites
     private readonly string _stateDirectory;
     private readonly string? _legacyStateDirectory;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private volatile HashSet<string> _urls = new(StringComparer.Ordinal);
+    private volatile HashSet<string> _keys = new(StringComparer.Ordinal);
     private volatile DingTalkGroupDocument[] _favoriteDocuments = [];
     private string? _statePath;
 
@@ -33,11 +33,22 @@ public sealed class DingTalkGroupDocumentFavorites
 
     public event Action? Changed;
 
-    public bool IsFavorite(string url) => _urls.Contains(DocumentKey(url));
+    public bool IsFavorite(string url)
+    {
+        string urlKey = DocumentKey(url);
+        return _keys.Contains(urlKey) || _favoriteDocuments.Any(document => DocumentKey(document.Url) == urlKey);
+    }
+
+    public bool IsFavorite(DingTalkGroupDocument document) =>
+        _keys.Contains(DocumentIdentity(document)) ||
+        _keys.Contains(LegacyGroupIdentity(document)) ||
+        _keys.Contains(DocumentKey(document.Url));
 
     public IReadOnlyList<DingTalkGroupDocument> FavoriteDocuments => _favoriteDocuments;
 
     internal static string CanonicalKey(string url) => DocumentKey(url);
+
+    internal static string CanonicalKey(DingTalkGroupDocument document) => DocumentIdentity(document);
 
     // Backups may run before the widget is opened or DWS has authenticated.
     // Migrate only known favorite stores, never the device-local sync index.
@@ -146,7 +157,8 @@ public sealed class DingTalkGroupDocumentFavorites
     private async Task SetFavoriteCoreAsync(string url, DingTalkGroupDocument? document, bool favorite,
         CancellationToken cancellationToken)
     {
-        string key = DocumentKey(url);
+        string urlKey = DocumentKey(url);
+        string key = document is null ? urlKey : DocumentIdentity(document);
         bool changed = false;
         await _gate.WaitAsync(cancellationToken);
         try
@@ -156,12 +168,20 @@ public sealed class DingTalkGroupDocumentFavorites
             try
             {
                 await LoadCoreAsync(status, cancellationToken);
-                var next = new HashSet<string>(_urls, StringComparer.Ordinal);
-                var documents = _favoriteDocuments.ToDictionary(item => DocumentKey(item.Url), StringComparer.Ordinal);
-                changed = favorite ? next.Add(key) : next.Remove(key);
+                var next = new HashSet<string>(_keys, StringComparer.Ordinal);
+                var documents = _favoriteDocuments.ToDictionary(DocumentIdentity, StringComparer.Ordinal);
+                if (document is not null && next.Remove(urlKey)) changed = true;
+                if (document is not null)
+                {
+                    string legacyGroupKey = LegacyGroupIdentity(document);
+                    if (legacyGroupKey != key && next.Remove(legacyGroupKey)) changed = true;
+                    if (legacyGroupKey != key && documents.Remove(legacyGroupKey)) changed = true;
+                }
+                changed |= favorite ? next.Add(key) : next.Remove(key);
                 if (favorite && document is not null &&
                     (!documents.TryGetValue(key, out DingTalkGroupDocument? old) ||
-                     old.GroupName != document.GroupName || old.Title != document.Title || old.Url != document.Url))
+                     old.GroupName != document.GroupName || old.Title != document.Title ||
+                     old.Url != document.Url || old.ConversationId != document.ConversationId))
                 {
                     documents[key] = document;
                     changed = true;
@@ -169,8 +189,8 @@ public sealed class DingTalkGroupDocumentFavorites
                 if (!favorite) documents.Remove(key);
                 if (!changed) return;
                 await SaveCoreAsync(_statePath!, next, documents.Values, cancellationToken);
-                _urls = next;
-                _favoriteDocuments = [.. documents.Values.OrderBy(item => DocumentKey(item.Url), StringComparer.Ordinal)];
+                _keys = next;
+                _favoriteDocuments = [.. documents.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
             }
             finally { StoreGate.Release(); }
         }
@@ -190,22 +210,40 @@ public sealed class DingTalkGroupDocumentFavorites
             try
             {
                 await LoadCoreAsync(status, cancellationToken);
-                var known = _favoriteDocuments.ToDictionary(item => DocumentKey(item.Url), StringComparer.Ordinal);
+                var next = new HashSet<string>(_keys, StringComparer.Ordinal);
+                var known = _favoriteDocuments.ToDictionary(DocumentIdentity, StringComparer.Ordinal);
                 foreach (DingTalkGroupDocument indexed in documents)
                 {
-                    if (!TryDocumentKey(indexed.Url, out string? key) || key is null || !_urls.Contains(key)) continue;
+                    if (!TryDocumentKey(indexed.Url, out string? urlKey) || urlKey is null) continue;
+                    string key = DocumentIdentity(indexed);
+                    string legacyGroupKey = LegacyGroupIdentity(indexed);
+                    bool legacyUrl = next.Contains(urlKey);
+                    bool legacyGroup = legacyGroupKey != key && next.Contains(legacyGroupKey);
+                    if (!next.Contains(key) && !legacyUrl && !legacyGroup) continue;
+                    if (legacyUrl || legacyGroup)
+                    {
+                        next.Remove(urlKey);
+                        next.Remove(legacyGroupKey);
+                        next.Add(key);
+                        if (legacyGroup && known.Remove(legacyGroupKey, out DingTalkGroupDocument? legacyDocument) &&
+                            !known.ContainsKey(key))
+                            known[key] = legacyDocument with { ConversationId = indexed.ConversationId };
+                        changed = true;
+                    }
                     DingTalkGroupDocument document = indexed;
                     if (known.TryGetValue(key, out DingTalkGroupDocument? named) &&
                         document.Title == "群文档" && named.Title != "群文档")
                         document = document with { Title = named.Title };
                     if (known.TryGetValue(key, out DingTalkGroupDocument? old) &&
-                        old.GroupName == document.GroupName && old.Title == document.Title && old.Url == document.Url) continue;
+                        old.GroupName == document.GroupName && old.Title == document.Title &&
+                        old.Url == document.Url && old.ConversationId == document.ConversationId) continue;
                     known[key] = document;
                     changed = true;
                 }
                 if (!changed) return;
-                await SaveCoreAsync(_statePath!, _urls, known.Values, cancellationToken);
-                _favoriteDocuments = [.. known.Values.OrderBy(item => DocumentKey(item.Url), StringComparer.Ordinal)];
+                await SaveCoreAsync(_statePath!, next, known.Values, cancellationToken);
+                _keys = next;
+                _favoriteDocuments = [.. known.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
             }
             finally { StoreGate.Release(); }
         }
@@ -250,13 +288,15 @@ public sealed class DingTalkGroupDocumentFavorites
             }
             foreach (DingTalkGroupDocument document in store?.Documents ?? [])
             {
-                if (!TryDocumentKey(document.Url, out string? key) || key is null) continue;
+                if (!TryDocumentKey(document.Url, out string? urlKey) || urlKey is null) continue;
+                string key = DocumentIdentity(document);
+                urls.Remove(urlKey);
                 urls.Add(key);
                 documents[key] = document;
             }
         }
-        _urls = urls;
-        _favoriteDocuments = [.. documents.Values.OrderBy(item => DocumentKey(item.Url), StringComparer.Ordinal)];
+        _keys = urls;
+        _favoriteDocuments = [.. documents.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
         _statePath = path;
     }
 
@@ -272,7 +312,7 @@ public sealed class DingTalkGroupDocumentFavorites
 
     private void ClearVisibleState()
     {
-        _urls = new HashSet<string>(StringComparer.Ordinal);
+        _keys = new HashSet<string>(StringComparer.Ordinal);
         _favoriteDocuments = [];
         _statePath = null;
     }
@@ -282,8 +322,8 @@ public sealed class DingTalkGroupDocumentFavorites
     {
         var store = new DingTalkGroupDocumentFavoritesStore
         {
-            DocumentUrls = [.. urls.Order(StringComparer.Ordinal)],
-            Documents = [.. documents.OrderBy(item => DocumentKey(item.Url), StringComparer.Ordinal)]
+            DocumentUrls = [.. urls.Where(IsLegacyUrlKey).Order(StringComparer.Ordinal)],
+            Documents = [.. documents.OrderBy(DocumentIdentity, StringComparer.Ordinal)]
         };
         string json = SerializeStore(
             store, DingTalkGroupDocumentFavoritesJsonContext.Default.DingTalkGroupDocumentFavoritesStore);
@@ -303,6 +343,19 @@ public sealed class DingTalkGroupDocumentFavorites
         if (TryDocumentKey(url, out string? key) && key is not null) return key;
         throw new ArgumentException("A DingTalk document URL is required.", nameof(url));
     }
+
+    private static string DocumentIdentity(DingTalkGroupDocument document)
+    {
+        string groupKey = string.IsNullOrWhiteSpace(document.ConversationId)
+            ? "name:" + document.GroupName.Trim().ToUpperInvariant()
+            : "id:" + document.ConversationId.Trim();
+        return $"{groupKey}\u001f{DocumentKey(document.Url)}";
+    }
+
+    private static string LegacyGroupIdentity(DingTalkGroupDocument document) =>
+        $"name:{document.GroupName.Trim().ToUpperInvariant()}\u001f{DocumentKey(document.Url)}";
+
+    private static bool IsLegacyUrlKey(string key) => key.StartsWith("https://", StringComparison.Ordinal);
 
     private static bool TryDocumentKey(string? url, out string? key)
     {

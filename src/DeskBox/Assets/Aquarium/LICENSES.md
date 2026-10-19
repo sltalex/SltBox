@@ -4,18 +4,51 @@ The legacy root-level photographic assets below are adapted from photographs ret
 
 ## Original SVG collection
 
-The 150 files in `Svg/` (50 fish, 50 aquatic plants, 50 rockscapes) are original
-naturalistic vector illustrations authored for SltBox. The matching 150 PNGs in
+The 250 naturalistic files in `Svg/` (150 fish, 50 aquatic plants, 50 rockscapes) are original
+naturalistic vector illustrations authored for SltBox. The matching 250 PNGs in
 `Vector/` are transparent raster exports of those SVGs, not photographs. They
 contain no embedded third-party photos, external fonts or remote resources.
 These originals and their exports are distributed under GPL-3.0-or-later, like
 the project's original procedural artwork. See the repository `LICENSE`.
 
-Reproduce them using `scripts/generate-aquarium-svg-assets.py` and the three
+Reproduce them using `scripts/generate-aquarium-svg-assets.py` and the
 `scripts/aquarium_svg/` modules. The full inventory and subject names are in
-`docs/design/aquarium-realistic-expansion-plan.json`. The legacy photographic
+`docs/design/aquarium-realistic-expansion-plan.json` and
+`docs/design/aquarium-fish-expansion-plan.json`. The legacy photographic
 licenses below apply only to the corresponding root-level files, not to the new
 vector originals or their PNG exports.
+
+## Original cartoon SVG collection
+
+An additional 30 files in `Svg/` and their 30 transparent exports in `Vector/`
+depict 10 shrimp, 10 crabs and 10 shellfish in a deliberately cartoon style.
+They are original SltBox vector artwork, distributed under GPL-3.0-or-later.
+They contain no third-party photos, embedded bitmaps, fonts or remote resources.
+
+The inventory is `docs/design/aquarium-cartoon-expansion-plan.json`. Reproduce
+the artwork with `scripts/generate-aquarium-svg-assets.py --category shrimp`,
+`--category crabs`, or `--category shellfish`; the corresponding modules live in
+`scripts/aquarium_svg/`. Existing shrimp/crab/shellfish item IDs now resolve to
+these vector exports. Their root-level legacy PNGs and attributions remain
+unchanged for compatibility.
+
+An additional 60 cartoon SVG originals and transparent PNG exports depict
+20 corals, 20 algae and 20 snails. These original SltBox illustrations also
+use GPL-3.0-or-later and contain no external imagery or resources. Inventories
+are in `docs/design/aquarium-reef-expansion-plan.json` and
+`docs/design/aquarium-snail-expansion-plan.json`; reproduce with categories
+`corals`, `algae`, and `snails`. In total the collection ships 340 SVG/PNG pairs.
+Fish habitat groups are browsing labels, not biological cohabitation guidance.
+
+## Aquarium card-pack artwork
+
+`aquarium-card-pack.svg` and its transparent `aquarium-card-pack.png` export
+are original SltBox vector artwork under GPL-3.0-or-later. The three stacked
+ocean collectible cards share the aquarium's deep teal, aqua and pale-gold
+palette. They contain no third-party images, fonts or external resources.
+Reproduce the PNG with `scripts/generate-aquarium-card-pack.py` using the same
+pinned resvg/Pillow renderer as the species artwork. The shop, backpack and
+pack-opening dialog reuse this artwork; it is not a placeable scene species.
 
 ## Legacy photographic assets
 

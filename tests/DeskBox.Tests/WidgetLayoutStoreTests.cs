@@ -68,7 +68,7 @@ public sealed class WidgetLayoutStoreTests : IDisposable
     // ── Three-domain ownership contract ────────────────────────────────
 
     [Fact]
-    public void SettingsWireKeys_AreExactlyTheElevenLayoutMembers()
+    public void SettingsWireKeys_AreExactlyTheLayoutMembers()
     {
         // The strip set IS the migration surface: a member added to the slice
         // without a conscious ownership decision fails here, and a facade key
@@ -86,6 +86,10 @@ public sealed class WidgetLayoutStoreTests : IDisposable
             "systemMonitorMemoryChartColor",
             "systemMonitorNetworkChartColor",
             "systemMonitorRefreshIntervalSeconds",
+            "calendarShowTaskMarkers",
+            "calendarShowHolidays",
+            "calendarTaskMarkerColor",
+            "calendarHolidayMarkerColor",
             "widgetGroups",
             "widgetTopologyLayouts",
             "activeWidgetTopologyKey",
@@ -116,11 +120,11 @@ public sealed class WidgetLayoutStoreTests : IDisposable
     [Fact]
     public void SliceHasExactlyTheExpectedMembers()
     {
-        // A 12th member is a device-vs-user-data decision, not a casual add:
+        // A new member is a device-vs-user-data decision, not a casual add:
         // it lands in the file AND the settings strip set automatically, so
         // this pins the count.
         Assert.Equal(
-            20,
+            24,
             typeof(WidgetLayoutSettingsSlice).GetProperties(
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.Public).Length);

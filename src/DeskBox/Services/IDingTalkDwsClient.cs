@@ -50,7 +50,9 @@ public sealed record DingTalkCalendarEvent(
     string Title,
     DateTimeOffset Start,
     DateTimeOffset End,
-    string Location);
+    string Location,
+    bool IsCancelled = false,
+    bool IsDeleted = false);
 
 public interface IDingTalkDwsClient
 {

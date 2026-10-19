@@ -1,0 +1,20 @@
+<UserControl
+    x:Class="DeskBox.Views.SettingsSections.AquariumStoreSection"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:svc="using:DeskBox.Services">
+    <StackPanel Spacing="12">
+        <TextBlock FontSize="24" FontWeight="SemiBold" svc:Localized.Key="Aquarium.Settings.Store" />
+        <toolkit:SettingsCard
+            ContentAlignment="Vertical"
+            HorizontalContentAlignment="Stretch"
+            svc:Localized.HeaderKey="Aquarium.Settings.Store">
+            <StackPanel Spacing="8">
+                <StackPanel x:Name="StoreCategories" Orientation="Vertical" Spacing="6" />
+                <StackPanel x:Name="StoreItems" Spacing="10" />
+            </StackPanel>
+        </toolkit:SettingsCard>
+        <TextBlock x:Name="StoreStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+    </StackPanel>
+</UserControl>

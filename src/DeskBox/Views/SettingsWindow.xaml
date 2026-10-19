@@ -210,6 +210,15 @@ Text="SltBox" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="AquariumStoreNavItem"
+                    Tag="AquariumStore"
+                    Visibility="Collapsed"
+                    svc:Localized.Key="Aquarium.Settings.Store">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE719;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
                     Tag="Appearance"
                     svc:Localized.Key="Settings.Nav.Appearance">
                     <NavigationViewItem.Icon>
@@ -1838,6 +1847,23 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                             </toolkit:SettingsCard>
                         </StackPanel>
                     </DataTemplate>
+                    <DataTemplate x:Key="CalendarSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <StackPanel x:Name="CalendarSettingsSection" Visibility="Collapsed" Style="{StaticResource SectionPanelStyle}">
+                            <TextBlock Style="{StaticResource SectionTitleTextStyle}" svc:Localized.Key="Calendar.Title" />
+                            <toolkit:SettingsCard svc:Localized.HeaderKey="Settings.Calendar.ShowTaskMarkers.Title" svc:Localized.DescriptionKey="Settings.Calendar.ShowTaskMarkers.Description">
+                                <ToggleSwitch IsOn="{Binding CalendarShowTaskMarkers, Mode=TwoWay}" />
+                            </toolkit:SettingsCard>
+                            <toolkit:SettingsCard svc:Localized.HeaderKey="Settings.Calendar.ShowHolidays.Title" svc:Localized.DescriptionKey="Settings.Calendar.ShowHolidays.Description">
+                                <ToggleSwitch IsOn="{Binding CalendarShowHolidays, Mode=TwoWay}" />
+                            </toolkit:SettingsCard>
+                            <toolkit:SettingsCard svc:Localized.HeaderKey="Settings.Calendar.TaskMarkerColor.Title" svc:Localized.DescriptionKey="Settings.Calendar.TaskMarkerColor.Description">
+                                <ComboBox MinWidth="160" ItemsSource="{Binding AvailableCalendarMarkerColors}" controls:SettingsComboBox.Value="{Binding CalendarTaskMarkerColor, Mode=TwoWay}" />
+                            </toolkit:SettingsCard>
+                            <toolkit:SettingsCard svc:Localized.HeaderKey="Settings.Calendar.HolidayMarkerColor.Title" svc:Localized.DescriptionKey="Settings.Calendar.HolidayMarkerColor.Description">
+                                <ComboBox MinWidth="160" ItemsSource="{Binding AvailableCalendarMarkerColors}" controls:SettingsComboBox.Value="{Binding CalendarHolidayMarkerColor, Mode=TwoWay}" />
+                            </toolkit:SettingsCard>
+                        </StackPanel>
+                    </DataTemplate>
                     <DataTemplate x:Key="QuickCaptureSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <StackPanel
                     x:Name="QuickCaptureSettingsSection"
@@ -2122,6 +2148,12 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                     </toolkit:SettingsCard>
                                     <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.ContentEditor.EnterBehavior.Description" svc:Localized.HeaderKey="Settings.ContentEditor.EnterBehavior.Title">
                                         <ComboBox MinWidth="220" ItemsSource="{Binding AvailableEnterBehaviorOptions}" controls:SettingsComboBox.Value="{Binding EditorEnterBehavior, Mode=TwoWay}" />
+                                    </toolkit:SettingsCard>
+                                    <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.Todo.DueDefaults.Time.Description" svc:Localized.HeaderKey="Settings.Todo.DueDefaults.Time.Title">
+                                        <TimePicker MinWidth="140" ClockIdentifier="24HourClock" MinuteIncrement="1" Time="{Binding DefaultDueTime, Mode=TwoWay}" />
+                                    </toolkit:SettingsCard>
+                                    <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.Todo.DueDefaults.Day.Description" svc:Localized.HeaderKey="Settings.Todo.DueDefaults.Day.Title">
+                                        <ComboBox MinWidth="180" ItemsSource="{Binding AvailableThisWeekDueDayOptions}" controls:SettingsComboBox.Value="{Binding ThisWeekDueDay, Mode=TwoWay}" />
                                     </toolkit:SettingsCard>
                                     <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.Todo.ShowCompleted.Description" svc:Localized.HeaderKey="Settings.Todo.ShowCompleted.Title">
                                         <ToggleSwitch MinWidth="0" OffContent="" OnContent="" IsOn="{Binding ShowCompletedTasks, Mode=TwoWay}" />
@@ -2416,6 +2448,9 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                     </DataTemplate>
                     <DataTemplate x:Key="BackpackSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:AquariumBackpackSection x:Name="BackpackSection" Visibility="Collapsed" />
+                    </DataTemplate>
+                    <DataTemplate x:Key="AquariumStoreSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <sections:AquariumStoreSection x:Name="AquariumStoreSection" Visibility="Collapsed" />
                     </DataTemplate>
                     <DataTemplate x:Key="DingTalkGroupDocsSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:DingTalkGroupDocsSettingsSection x:Name="DingTalkGroupDocsSettingsSection" Visibility="Collapsed" />

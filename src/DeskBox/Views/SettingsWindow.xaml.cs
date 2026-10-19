@@ -98,6 +98,7 @@ public sealed partial class SettingsWindow : Window
         {
             ["General"] = new("General", "Settings.Section.General", null, "General"),
             ["Backpack"] = new("Backpack", "Settings.Nav.Backpack", null, "Backpack"),
+            ["AquariumStore"] = new("AquariumStore", "Aquarium.Settings.Store", null, "AquariumStore"),
             ["PerformanceSettings"] = new("PerformanceSettings", "Settings.Performance.Title", "General", "General"),
             ["Appearance"] = new("Appearance", "Settings.Section.Appearance", null, "Appearance"),
             ["CapsuleMode"] = new("CapsuleMode", "Settings.Section.CapsuleMode", null, "CapsuleMode"),
@@ -123,6 +124,7 @@ public sealed partial class SettingsWindow : Window
             ["AquariumSettings"] = new("AquariumSettings", "Aquarium.Title", "FeatureWidgets", "FeatureWidgets"),
             ["DingTalkGroupDocsSettings"] = new("DingTalkGroupDocsSettings", "DingTalkGroupDocs.Settings.Title", "FeatureWidgets", "FeatureWidgets"),
             ["SystemMonitorSettings"] = new("SystemMonitorSettings", "SystemMonitor.Title", "FeatureWidgets", "FeatureWidgets"),
+            ["CalendarSettings"] = new("CalendarSettings", "Calendar.Title", "FeatureWidgets", "FeatureWidgets"),
             ["AppearanceMaterialSettings"] = new("AppearanceMaterialSettings", "Settings.Material.Title", "Appearance", "Appearance"),
             ["AppearanceDensitySettings"] = new("AppearanceDensitySettings", "Settings.Density.Title", "Appearance", "Appearance"),
             ["AppearanceWindowSettings"] = new("AppearanceWindowSettings", "Settings.Group.AppVisual.Title", "Appearance", "Appearance"),

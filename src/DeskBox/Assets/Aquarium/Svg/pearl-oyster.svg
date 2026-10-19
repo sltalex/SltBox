@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+<title>珍珠贝</title>
+<desc>Original cartoon shellfish illustration: pearl-oyster. Rounded dark teal outlines, flat cel shading, transparent background.</desc>
+<path d="M79 148 Q48 132 56 108 Q42 86 64 71 Q63 45 90 45 Q107 23 130 37 Q158 16 181 36 Q208 23 226 46 Q253 45 255 72 Q278 88 265 110 Q269 134 239 150 Z" fill="#e89ebc" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M82 135 Q69 124 77 108 Q64 91 83 82 Q80 63 103 64 Q117 47 135 57 Q159 40 180 57 Q203 47 215 65 Q236 63 235 84 Q255 96 241 111 Q250 129 230 137 Z" fill="#fff0de" stroke="#ba719f" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M92 127 Q111 85 135 66 M124 136 Q136 88 150 64 M168 139 Q172 90 170 64 M201 136 Q209 92 193 68 M226 128 Q233 104 219 86" fill="none" stroke="#f5c4d0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M46 157 Q46 142 66 140 Q161 126 254 141 Q275 143 275 157 Q265 187 230 203 Q160 226 92 204 Q59 188 46 157 Z" fill="#eab1cb" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="160" cy="151" rx="109" ry="29" fill="#fce6d3" stroke="#194957" stroke-width="4" opacity="1"/>
+<path d="M75 179 Q153 207 244 177 Q219 203 161 211 Q108 209 75 179 Z" fill="#c27eac" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M96 184 L108 199 M128 191 L133 206 M162 194 L163 208 M194 190 L191 204 M224 183 L216 196" fill="none" stroke="#f9cddb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="160" cy="130" rx="43" ry="43" fill="#f3edfa" stroke="#194957" stroke-width="4" opacity="1"/>
+<path d="M130 158 Q168 172 194 143 Q190 170 162 173 Q142 173 130 158 Z" fill="#bfbbeb" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="143" cy="108" rx="12" ry="8" fill="#ffffff" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="160" cy="99" rx="4" ry="3" fill="#ffffff" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="147" cy="131" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="145.7" cy="128.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="139" cy="142" rx="8" ry="4" fill="#efa7ba" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<ellipse cx="175" cy="131" rx="5.2" ry="7" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="173.7" cy="128.5" rx="1.7" ry="2.2" fill="#fffdf4" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="183" cy="142" rx="8" ry="4" fill="#efa7ba" stroke="none" stroke-width="4.5" opacity="0.7"/>
+<path d="M155 142 Q161 150 167 142" fill="none" stroke="#194957" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M238 46 L241 35 M248 53 L259 50 M88 105 L82 96" fill="none" stroke="#fff3df" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</svg>

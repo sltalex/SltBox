@@ -28,7 +28,7 @@ public sealed class WidgetRegistry
     }
 
     public bool IsAllowedForCurrentUser(WidgetKind kind) =>
-        kind is not (WidgetKind.Aquarium or WidgetKind.FourWheelDrive) || _isAquariumAvailable();
+        kind != WidgetKind.Aquarium || _isAquariumAvailable();
 
     public bool IsKnown(WidgetKind widgetKind)
     {
@@ -77,8 +77,8 @@ public sealed class WidgetRegistry
             new(WidgetKind.SystemMonitor, CanCreateWindow: true, IsImplemented: true),
             new(WidgetKind.Tree, CanCreateWindow: true, IsImplemented: true),
             new(WidgetKind.DingTalkGroupDocs, CanCreateWindow: true, IsImplemented: true),
-            new(WidgetKind.Aquarium, CanCreateWindow: true, IsImplemented: true),
-            new(WidgetKind.FourWheelDrive, CanCreateWindow: true, IsImplemented: true)
+            new(WidgetKind.Calendar, CanCreateWindow: true, IsImplemented: true),
+            new(WidgetKind.Aquarium, CanCreateWindow: true, IsImplemented: true)
         ]);
     }
 }

@@ -193,6 +193,30 @@ public sealed class DingTalkGroupDocumentServiceTests
     }
 
     [Fact]
+    public async Task RefreshAsync_SeparatesDifferentGroupsThatHaveTheSameDisplayNameAndDocument()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            const string url = "https://alidocs.dingtalk.com/i/shared";
+            var dws = new FakeDwsClient();
+            dws.Pages.Enqueue(new DingTalkGroupMessagePage(
+            [
+                new("conversation-a", "项目群", $"[方案]({url})", DateTimeOffset.UtcNow, false),
+                new("conversation-b", "项目群", $"[方案]({url})", DateTimeOffset.UtcNow, false)
+            ], false, null));
+
+            IReadOnlyList<DingTalkGroupDocument> documents =
+                await new DingTalkGroupDocumentService(dws, root).RefreshAsync();
+
+            Assert.Equal(2, documents.Count);
+            Assert.Equal(["conversation-a", "conversation-b"],
+                documents.Select(document => document.ConversationId).Order().ToArray());
+        }
+        finally { DeleteTempRoot(root); }
+    }
+
+    [Fact]
     public async Task LoadAsync_SeparatesIndexesWhenDwsAccountChanges()
     {
         string root = CreateTempRoot();

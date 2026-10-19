@@ -36,6 +36,10 @@ public readonly record struct TodoInputSettings(
     string NewTaskPosition,
     string EditorEnterBehavior);
 
+public readonly record struct TodoDueDefaultsSettings(
+    int DueTimeMinutes,
+    int ThisWeekDueDay);
+
 public readonly record struct TodoDisplayOptions(
     bool ShowCompletedTasks,
     bool ShowFooterStats,
@@ -69,6 +73,9 @@ public interface ITodoSettings
     void SetNewTaskPosition(string? position);
     void SetEditorEnterBehavior(string? behavior);
     void ResetInputPreferences(bool scheduleSave = true);
+    TodoDueDefaultsSettings ReadDueDefaults();
+    void SetDefaultDueTimeMinutes(int minutes);
+    void SetThisWeekDueDay(int day);
     TodoDisplayOptions ReadDisplayOptions();
     void SetShowCompletedTasks(bool visible);
     void SetShowFooterStats(bool visible);

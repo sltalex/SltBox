@@ -40,6 +40,56 @@ public sealed class FeatureWidgetsSettingsCoordinator : IFeatureWidgetsSettings
             NormalizeRefreshInterval(layout.SystemMonitorRefreshIntervalSeconds));
     }
 
+    public bool ReadCalendarShowTaskMarkers() => _settings.Settings.CalendarShowTaskMarkers;
+
+    public bool SetCalendarShowTaskMarkers(bool enabled)
+    {
+        ThrowIfStopped();
+        if (_settings.Settings.CalendarShowTaskMarkers == enabled) return false;
+        _settings.Settings.CalendarShowTaskMarkers = enabled;
+        _settings.SaveDebounced();
+        return true;
+    }
+
+    public bool ReadCalendarShowHolidays() => _settings.Settings.CalendarShowHolidays;
+
+    public bool SetCalendarShowHolidays(bool enabled)
+    {
+        ThrowIfStopped();
+        if (_settings.Settings.CalendarShowHolidays == enabled) return false;
+        _settings.Settings.CalendarShowHolidays = enabled;
+        _settings.SaveDebounced();
+        return true;
+    }
+
+    public CalendarMarkerColors ReadCalendarMarkerColors()
+    {
+        WidgetLayoutSettingsSlice layout = _settings.Settings.WidgetLayout;
+        return new CalendarMarkerColors(
+            NormalizeChartColor(layout.CalendarTaskMarkerColor, "#3791DC"),
+            NormalizeChartColor(layout.CalendarHolidayMarkerColor, "#E04C4C"));
+    }
+
+    public bool SetCalendarMarkerColor(string marker, string? color)
+    {
+        ThrowIfStopped();
+        WidgetLayoutSettingsSlice layout = _settings.Settings.WidgetLayout;
+        string fallback = string.Equals(marker, "Task", StringComparison.OrdinalIgnoreCase)
+            ? "#3791DC"
+            : "#E04C4C";
+        string normalized = NormalizeChartColor(color, fallback);
+        string before = string.Equals(marker, "Task", StringComparison.OrdinalIgnoreCase)
+            ? layout.CalendarTaskMarkerColor
+            : layout.CalendarHolidayMarkerColor;
+        if (before == normalized) return false;
+        if (string.Equals(marker, "Task", StringComparison.OrdinalIgnoreCase))
+            layout.CalendarTaskMarkerColor = normalized;
+        else
+            layout.CalendarHolidayMarkerColor = normalized;
+        _settings.SaveDebounced();
+        return true;
+    }
+
     public bool SetSystemMonitorChartStyle(string? style)
     {
         ThrowIfStopped();

@@ -149,6 +149,42 @@ public sealed class TodoSettingsCoordinatorTests : IDisposable
     }
 
     [Fact]
+    public async Task DueDefaults_PersistAndNormalizeTimeAndWeekday()
+    {
+        var settings = new SettingsService(_root);
+        var coordinator = new TodoSettingsCoordinator(settings);
+
+        Assert.Equal(TodoOptionKinds.DefaultDueTimeMinutes,
+            coordinator.ReadDueDefaults().DueTimeMinutes);
+        Assert.Equal(TodoOptionKinds.DefaultThisWeekDueDay,
+            coordinator.ReadDueDefaults().ThisWeekDueDay);
+
+        coordinator.SetDefaultDueTimeMinutes(9 * 60 + 30);
+        coordinator.SetThisWeekDueDay((int)DayOfWeek.Friday);
+        Assert.Equal(new TodoDueDefaultsSettings(9 * 60 + 30, (int)DayOfWeek.Friday),
+            coordinator.ReadDueDefaults());
+
+        coordinator.SetDefaultDueTimeMinutes(-1);
+        Assert.Equal(TodoOptionKinds.MinDueTimeMinutes,
+            coordinator.ReadDueDefaults().DueTimeMinutes);
+        coordinator.SetDefaultDueTimeMinutes(24 * 60);
+        Assert.Equal(TodoOptionKinds.MaxDueTimeMinutes,
+            coordinator.ReadDueDefaults().DueTimeMinutes);
+        coordinator.SetThisWeekDueDay(99);
+        Assert.Equal(TodoOptionKinds.DefaultThisWeekDueDay,
+            coordinator.ReadDueDefaults().ThisWeekDueDay);
+
+        await settings.FlushPendingSaveAsync();
+        var reloaded = new SettingsService(_root);
+        await reloaded.LoadAsync();
+        Assert.Equal(TodoOptionKinds.MaxDueTimeMinutes,
+            reloaded.Settings.Todo.TodoDefaultDueTimeMinutes);
+        Assert.Equal(TodoOptionKinds.DefaultThisWeekDueDay,
+            reloaded.Settings.Todo.TodoThisWeekDueDay);
+        await coordinator.StopAsync();
+    }
+
+    [Fact]
     public async Task LayoutMode_PersistsWithLegacyWideFlagAndAutoSelect()
     {
         var settings = new SettingsService(_root);

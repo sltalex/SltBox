@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "style": "original_cartoon_svg",
+  "purpose": "贝类、蟹类、虾类各 10 款原创卡通 SVG。保留已有物品 ID，透明 PNG 导出供现有 WinUI 渲染使用。",
+  "target_counts": { "shellfish": 10, "crab": 10, "shrimp": 10 },
+  "shrimp": [
+    { "id": "cherry-shrimp", "name": "樱花虾", "en_name": "Cherry shrimp", "price": 90 },
+    { "id": "amano-shrimp", "name": "大和藻虾", "en_name": "Amano shrimp", "price": 120 },
+    { "id": "crystal-red-shrimp", "name": "水晶红虾", "en_name": "Crystal red shrimp", "price": 150 },
+    { "id": "blue-dream-shrimp", "name": "蓝梦虾", "en_name": "Blue dream shrimp", "price": 140 },
+    { "id": "yellow-shrimp", "name": "黄金米虾", "en_name": "Yellow shrimp", "price": 130 },
+    { "id": "tiger-shrimp", "name": "虎纹虾", "en_name": "Tiger shrimp", "price": 160 },
+    { "id": "bamboo-shrimp", "name": "竹节虾", "en_name": "Bamboo shrimp", "price": 180 },
+    { "id": "cleaner-shrimp", "name": "清洁虾", "en_name": "Cleaner shrimp", "price": 200 },
+    { "id": "peppermint-shrimp", "name": "薄荷虾", "en_name": "Peppermint shrimp", "price": 170 },
+    { "id": "harlequin-shrimp", "name": "小丑虾", "en_name": "Harlequin shrimp", "price": 240 }
+  ],
+  "crabs": [
+    { "id": "hermit-crab", "name": "寄居蟹", "en_name": "Hermit crab", "price": 150 },
+    { "id": "fiddler-crab", "name": "招潮蟹", "en_name": "Fiddler crab", "price": 170 },
+    { "id": "porcelain-crab", "name": "瓷蟹", "en_name": "Porcelain crab", "price": 210 },
+    { "id": "emerald-crab", "name": "绿宝石蟹", "en_name": "Emerald crab", "price": 230 },
+    { "id": "red-claw-crab", "name": "红螯蟹", "en_name": "Red claw crab", "price": 160 },
+    { "id": "vampire-crab", "name": "吸血鬼蟹", "en_name": "Vampire crab", "price": 220 },
+    { "id": "pom-pom-crab", "name": "拳击蟹", "en_name": "Pom-pom crab", "price": 240 },
+    { "id": "blue-swimmer-crab", "name": "蓝花蟹", "en_name": "Blue swimmer crab", "price": 200 },
+    { "id": "sally-lightfoot-crab", "name": "红石蟹", "en_name": "Sally lightfoot crab", "price": 190 },
+    { "id": "halloween-crab", "name": "万圣节蟹", "en_name": "Halloween crab", "price": 260 }
+  ],
+  "shellfish": [
+    { "id": "scallop", "name": "扇贝", "en_name": "Scallop", "price": 80 },
+    { "id": "oyster", "name": "牡蛎", "en_name": "Oyster", "price": 70 },
+    { "id": "giant-clam", "name": "砗磲", "en_name": "Giant clam", "price": 240 },
+    { "id": "blue-mussel", "name": "蓝贻贝", "en_name": "Blue mussel", "price": 90 },
+    { "id": "pearl-oyster", "name": "珍珠贝", "en_name": "Pearl oyster", "price": 220 },
+    { "id": "cockle", "name": "鸟蛤", "en_name": "Cockle", "price": 100 },
+    { "id": "razor-clam", "name": "蛏子", "en_name": "Razor clam", "price": 110 },
+    { "id": "abalone", "name": "鲍鱼", "en_name": "Abalone", "price": 180 },
+    { "id": "conch", "name": "海螺", "en_name": "Conch", "price": 160 },
+    { "id": "nautilus", "name": "鹦鹉螺", "en_name": "Nautilus", "price": 250 }
+  ]
+}

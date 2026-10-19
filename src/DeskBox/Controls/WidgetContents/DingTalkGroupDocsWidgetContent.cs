@@ -241,10 +241,10 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         string filter = _search.Text?.Trim() ?? string.Empty;
         IEnumerable<DingTalkGroupDocument> visibleDocuments = _showFavorites
             ? _favorites.FavoriteDocuments.Concat(documents)
-                .DistinctBy(document => DingTalkGroupDocumentFavorites.CanonicalKey(document.Url))
+                .DistinctBy(DingTalkGroupDocumentFavorites.CanonicalKey)
             : documents;
         var groups = visibleDocuments
-            .Where(document => !_showFavorites || _favorites.IsFavorite(document.Url))
+            .Where(document => !_showFavorites || _favorites.IsFavorite(document))
             .Where(document => string.IsNullOrWhiteSpace(filter) ||
                 document.GroupName.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
                 document.Title.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
@@ -296,10 +296,10 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
                 var star = new Button
                 {
                     Style = (Style)Application.Current.Resources["WidgetTitleActionButtonStyle"],
-                    Content = new FontIcon { Glyph = _favorites.IsFavorite(document.Url) ? "\uE735" : "\uE734", FontSize = 14 },
+                    Content = new FontIcon { Glyph = _favorites.IsFavorite(document) ? "\uE735" : "\uE734", FontSize = 14 },
                     VerticalAlignment = VerticalAlignment.Center
                 };
-                string action = _localization.T(_favorites.IsFavorite(document.Url)
+                string action = _localization.T(_favorites.IsFavorite(document)
                     ? "DingTalkGroupDocs.Favorite.Remove" : "DingTalkGroupDocs.Favorite.Add");
                 ToolTipService.SetToolTip(star, action);
                 AutomationProperties.SetName(star, action);
@@ -359,7 +359,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         button.IsEnabled = false;
         try
         {
-            await _favorites.SetFavoriteAsync(document, !_favorites.IsFavorite(document.Url));
+            await _favorites.SetFavoriteAsync(document, !_favorites.IsFavorite(document));
             SetStatus(string.Empty);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or

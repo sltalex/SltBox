@@ -151,15 +151,59 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
                 continue;
             }
 
+            bool isCancelled = IsTruthyFlag(item.IsCancelled, item.IsCanceled, item.Cancelled,
+                item.Canceled, item.IsCancelledSnakeCase, item.IsCanceledSnakeCase) ||
+                IsLifecycleState(item.Status, item.EventStatus, item.State, item.EventStatusSnakeCase,
+                    "cancelled", "canceled", "cancelled_event", "cancelledEvent");
+            bool isDeleted = IsTruthyFlag(item.IsDeleted, item.Deleted, item.IsDeletedSnakeCase) ||
+                IsLifecycleState(item.Status, item.EventStatus, item.State, item.EventStatusSnakeCase,
+                    "deleted", "removed", "deleted_event", "deletedEvent");
+
             events.Add(new DingTalkCalendarEvent(
                 item.EventId.Trim(),
                 string.IsNullOrWhiteSpace(item.Title) ? "(无标题会议)" : item.Title.Trim(),
                 start,
                 end,
-                item.Location?.Trim() ?? string.Empty));
+                item.Location?.Trim() ?? string.Empty,
+                isCancelled,
+                isDeleted));
         }
 
         return events;
+    }
+
+    private static bool IsTruthyFlag(params JsonElement[] values) => values.Any(IsTruthy);
+
+    private static bool IsTruthy(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.True)
+            return true;
+        if (value.ValueKind is JsonValueKind.False or JsonValueKind.Null or JsonValueKind.Undefined)
+            return false;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out int number))
+            return number != 0;
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            string text = value.GetString()?.Trim() ?? string.Empty;
+            return text.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                text.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+                text.Equals("1", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
+
+    private static bool IsLifecycleState(JsonElement first, JsonElement second, JsonElement third,
+        JsonElement fourth, params string[] inactiveStates)
+    {
+        foreach (JsonElement value in new[] { first, second, third, fourth })
+        {
+            if (value.ValueKind != JsonValueKind.String)
+                continue;
+            string state = value.GetString()?.Trim() ?? string.Empty;
+            if (inactiveStates.Any(item => state.Equals(item, StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+        return false;
     }
 
     private async Task<T> RunJsonAsync<T>(

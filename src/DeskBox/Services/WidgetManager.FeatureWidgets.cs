@@ -375,10 +375,10 @@ public sealed partial class WidgetManager
             WidgetKind.Glance => "Glance.Title",
             WidgetKind.Tree => "Tree.Title",
             WidgetKind.Aquarium => "Aquarium.Title",
-            WidgetKind.FourWheelDrive => "FourWheelDrive.Title",
             WidgetKind.Tags => "Tags.Title",
             WidgetKind.SystemMonitor => "SystemMonitor.Title",
             WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
+            WidgetKind.Calendar => "Calendar.Title",
             _ => string.Empty
         };
 
@@ -433,9 +433,9 @@ public sealed partial class WidgetManager
                 WidgetKind.Glance => 360,
                 WidgetKind.Tree => 300,
                 WidgetKind.Aquarium => 420,
-                WidgetKind.FourWheelDrive => 420,
                 WidgetKind.SystemMonitor => 380,
                 WidgetKind.DingTalkGroupDocs => 420,
+                WidgetKind.Calendar => 380,
                 _ => Math.Max(_settingsService.Settings.DefaultWidgetWidth, 320)
             },
             Height = kind switch
@@ -446,9 +446,9 @@ public sealed partial class WidgetManager
                 WidgetKind.Glance => 260,
                 WidgetKind.Tree => 340,
                 WidgetKind.Aquarium => 300,
-                WidgetKind.FourWheelDrive => 360,
                 WidgetKind.SystemMonitor => 320,
                 WidgetKind.DingTalkGroupDocs => 460,
+                WidgetKind.Calendar => 460,
                 _ => Math.Max(_settingsService.Settings.DefaultWidgetHeight, 360)
             }
         };

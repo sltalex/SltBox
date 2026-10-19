@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Numerics;
 using DeskBox.Contracts;
 using DeskBox.Platform;
@@ -646,13 +647,46 @@ public sealed partial class TodoWidgetContent : UserControl
                     Padding = new Thickness(10, 7, 10, 7)
                 };
                 var content = new StackPanel { Spacing = 2 };
-                content.Children.Add(new TextBlock
+                var titleRow = new Grid { ColumnSpacing = 8 };
+                titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var title = new TextBlock
                 {
                     Text = meeting.Title,
                     FontWeight = FontWeights.Normal,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     MaxLines = 2
+                };
+                DateTime meetingDate = meeting.Start.ToLocalTime().Date;
+                DateTime today = DateTime.Now.Date;
+                var titleContent = new Grid { ColumnSpacing = 6 };
+                titleContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                titleContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                bool isToday = meetingDate == today;
+                bool isTomorrow = meetingDate == today.AddDays(1);
+                titleContent.Children.Add(new Ellipse
+                {
+                    Width = 7,
+                    Height = 7,
+                    Fill = new SolidColorBrush(isToday
+                        ? ColorHelper.FromArgb(255, 0, 120, 212)
+                        : ColorHelper.FromArgb(255, 230, 126, 34)),
+                    Opacity = isToday || isTomorrow ? 1 : 0,
+                    VerticalAlignment = VerticalAlignment.Center
                 });
+                Grid.SetColumn(title, 1);
+                titleContent.Children.Add(title);
+                titleRow.Children.Add(titleContent);
+                var weekday = new TextBlock
+                {
+                    Text = meeting.Start.ToLocalTime().ToString("ddd", CultureInfo.CurrentCulture),
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"],
+                    FontSize = 11,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(weekday, 1);
+                titleRow.Children.Add(weekday);
+                content.Children.Add(titleRow);
                 content.Children.Add(new TextBlock
                 {
                     Text = $"{meeting.Start.ToLocalTime():M月d日 HH:mm} - {meeting.End.ToLocalTime():HH:mm}",

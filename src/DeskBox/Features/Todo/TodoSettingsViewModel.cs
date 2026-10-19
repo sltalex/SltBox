@@ -64,6 +64,10 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
     ];
 
     private static readonly string[] FooterDisplayValues = ["Stats", "ClearCompleted"];
+    private static readonly int[] ThisWeekDueDayValues =
+        [(int)DayOfWeek.Monday, (int)DayOfWeek.Tuesday, (int)DayOfWeek.Wednesday,
+         (int)DayOfWeek.Thursday, (int)DayOfWeek.Friday, (int)DayOfWeek.Saturday,
+         (int)DayOfWeek.Sunday];
 
     private readonly ITodoSettings _settings;
     private readonly Func<string, string> _localize;
@@ -80,6 +84,8 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
     private bool _enabled;
     private bool _remindersEnabled = true;
     private int _defaultOffsetMinutes = TodoOptionKinds.DefaultReminderOffsetMinutes;
+    private TimeSpan _defaultDueTime = TimeSpan.FromMinutes(TodoOptionKinds.DefaultDueTimeMinutes);
+    private int _thisWeekDueDay = TodoOptionKinds.DefaultThisWeekDueDay;
     private string _layoutMode = TodoOptionKinds.LayoutModeAuto;
     private bool _autoSelectFirstInWideLayout = true;
     private bool _showTabBar = true;
@@ -106,6 +112,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
     private string[]? _cachedEnterBehaviorNames;
     private string[]? _cachedPreviewLineNames;
     private string[]? _cachedReminderOffsetNames;
+    private string[]? _cachedThisWeekDueDayNames;
     private int _enableGeneration;
     private bool _enablePending;
     private bool _disposed;
@@ -197,6 +204,33 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             }
 
             RunWrite(() => _settings.SetDefaultReminderOffset(value));
+        }
+    }
+
+    public TimeSpan DefaultDueTime
+    {
+        get => _defaultDueTime;
+        set
+        {
+            int minutes = NormalizeDueTimeMinutes(value);
+            TimeSpan normalized = TimeSpan.FromMinutes(minutes);
+            if (!SetProperty(ref _defaultDueTime, normalized)) return;
+            OnPropertyChanged(nameof(DueDefaultsSummaryText));
+            if (_isSyncingPresentation) return;
+            RunWrite(() => _settings.SetDefaultDueTimeMinutes(minutes));
+        }
+    }
+
+    public int ThisWeekDueDay
+    {
+        get => _thisWeekDueDay;
+        set
+        {
+            int normalized = TodoOptionKinds.NormalizeThisWeekDueDay(value);
+            if (!SetProperty(ref _thisWeekDueDay, normalized)) return;
+            OnPropertyChanged(nameof(DueDefaultsSummaryText));
+            if (_isSyncingPresentation) return;
+            RunWrite(() => _settings.SetThisWeekDueDay(normalized));
         }
     }
 
@@ -576,6 +610,10 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
         ? GetReminderOffsetDisplayName(DefaultOffsetMinutes)
         : _localize("Settings.Toggle.Off");
 
+    public string DueDefaultsSummaryText => _format(
+        "Settings.Todo.DueDefaults.Summary",
+        [DefaultDueTime.ToString(@"hh\:mm"), GetThisWeekDueDayDisplayName(ThisWeekDueDay)]);
+
     public string FooterDisplaySummaryText
     {
         get
@@ -673,6 +711,17 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
         }
     }
 
+    public IReadOnlyList<SettingsOption> AvailableThisWeekDueDayOptions
+    {
+        get
+        {
+            _cachedThisWeekDueDayNames ??= ThisWeekDueDayValues
+                .Select(GetThisWeekDueDayDisplayName)
+                .ToArray();
+            return WrapOptions(BuildOptions(ThisWeekDueDayValues, _cachedThisWeekDueDayNames));
+        }
+    }
+
     /// <summary>The tab filters offered by the visibility flyout.</summary>
     public string[] AvailableDefaultFilters => DefaultFilterValues;
 
@@ -732,6 +781,18 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             60 => _localize("Settings.Todo.ReminderOffset.OneHour"),
             1440 => _localize("Settings.Todo.ReminderOffset.OneDay"),
             var value => _format("Settings.Todo.ReminderOffset.Minutes", [value])
+        };
+
+    public string GetThisWeekDueDayDisplayName(int day) =>
+        day switch
+        {
+            (int)DayOfWeek.Monday => _localize("Settings.Todo.DueDefaults.Day.Monday"),
+            (int)DayOfWeek.Tuesday => _localize("Settings.Todo.DueDefaults.Day.Tuesday"),
+            (int)DayOfWeek.Wednesday => _localize("Settings.Todo.DueDefaults.Day.Wednesday"),
+            (int)DayOfWeek.Thursday => _localize("Settings.Todo.DueDefaults.Day.Thursday"),
+            (int)DayOfWeek.Friday => _localize("Settings.Todo.DueDefaults.Day.Friday"),
+            (int)DayOfWeek.Saturday => _localize("Settings.Todo.DueDefaults.Day.Saturday"),
+            _ => _localize("Settings.Todo.DueDefaults.Day.Sunday")
         };
 
     public string GetTabDisplayName(string filter) =>
@@ -855,6 +916,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
         }
 
         TodoReminderSettings reminder = _settings.Read();
+        TodoDueDefaultsSettings dueDefaults = _settings.ReadDueDefaults();
         TodoLayoutSettings layout = _settings.ReadLayout();
         TodoTabSettings tabs = _settings.ReadTabs();
         TodoContentDisplaySettings contentDisplay = _settings.ReadContentDisplay();
@@ -868,6 +930,8 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             Enabled = _enablePending ? Enabled : reminder.Enabled;
             RemindersEnabled = reminder.RemindersEnabled;
             DefaultOffsetMinutes = reminder.DefaultOffsetMinutes;
+            DefaultDueTime = TimeSpan.FromMinutes(dueDefaults.DueTimeMinutes);
+            ThisWeekDueDay = dueDefaults.ThisWeekDueDay;
             LayoutMode = layout.LayoutMode;
             AutoSelectFirstInWideLayout = layout.AutoSelectFirstInWideLayout;
             ShowTabBar = tabs.ShowTabBar;
@@ -904,6 +968,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
         OnPropertyChanged(nameof(LayoutSummaryText));
         OnPropertyChanged(nameof(TabsSummaryText));
         OnPropertyChanged(nameof(ReminderSummaryText));
+        OnPropertyChanged(nameof(DueDefaultsSummaryText));
         OnPropertyChanged(nameof(ContentSummaryText));
         OnPropertyChanged(nameof(FooterDisplaySummaryText));
         RefreshTabDerivedProperties();
@@ -922,11 +987,13 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
         _cachedEnterBehaviorNames = null;
         _cachedPreviewLineNames = null;
         _cachedReminderOffsetNames = null;
+        _cachedThisWeekDueDayNames = null;
         OnPropertyChanged(nameof(AvailableLayoutOptions));
         OnPropertyChanged(nameof(AvailableNewTaskPositionOptions));
         OnPropertyChanged(nameof(AvailableEnterBehaviorOptions));
         OnPropertyChanged(nameof(AvailablePreviewLineOptions));
         OnPropertyChanged(nameof(AvailableReminderOffsetOptions));
+        OnPropertyChanged(nameof(AvailableThisWeekDueDayOptions));
         OnPropertyChanged(nameof(VisibleDefaultFilterOptions));
         // Re-notify the current selections: replacing the localized option
         // arrays makes WinUI reset every bound ComboBox.SelectedIndex to -1.
@@ -1105,6 +1172,13 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             committed = false;
             return false;
         }
+    }
+
+    private static int NormalizeDueTimeMinutes(TimeSpan value)
+    {
+        if (value < TimeSpan.Zero) return TodoOptionKinds.MinDueTimeMinutes;
+        if (value >= TimeSpan.FromDays(1)) return TodoOptionKinds.MaxDueTimeMinutes;
+        return TodoOptionKinds.NormalizeDueTimeMinutes((int)value.TotalMinutes);
     }
 
     // Build real SettingsOption[] arrays (not collection expressions): the

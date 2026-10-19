@@ -18,6 +18,7 @@ public sealed partial class AdminSettingsSection : UserControl
     private readonly Grid _overviewMetrics = new() { ColumnSpacing = 10, RowSpacing = 10 };
     private readonly SettingsCard _overviewCard = new();
     private readonly SettingsCard _usersCard = new();
+    private readonly SettingsCard _detailCard = new() { Visibility = Visibility.Collapsed };
     private readonly SettingsCard _auditCard = new();
     private readonly TextBox _search = new() { Width = 220 };
     private readonly StackPanel _users = new() { Spacing = 5 };
@@ -36,7 +37,6 @@ public sealed partial class AdminSettingsSection : UserControl
     private int _treeVersion;
     private string _treeDay = string.Empty;
     private bool _busy;
-    private ContentDialog? _detailDialog;
 
     public AdminSettingsSection()
     {
@@ -49,6 +49,8 @@ public sealed partial class AdminSettingsSection : UserControl
         searchRow.Children.Add(ActionButton("Settings.Admin.Search", async () => await LoadUsersAsync()));
         ConfigureCard(_usersCard, "Settings.Admin.User", new StackPanel { Spacing = 10, Children = { searchRow, CreateTableHeader(L("Settings.Admin.User"), L("Settings.Admin.Stage"), L("Settings.Admin.DingTalk"), string.Empty), _users } });
         _root.Children.Add(_usersCard);
+        ConfigureCard(_detailCard, "Settings.Admin.User", _detail);
+        _root.Children.Add(_detailCard);
         var auditActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         auditActions.Children.Add(ActionButton("Settings.Admin.RefreshAudit", async () => await LoadAuditAsync()));
         ConfigureCard(_auditCard, "Settings.Admin.Audit", new StackPanel { Spacing = 10, Children = { auditActions, CreateTableHeader("Time", "Actor", "Target", "Action", "Reason", "Result"), _audit } });
@@ -67,6 +69,9 @@ public sealed partial class AdminSettingsSection : UserControl
     {
         _overviewCard.Header = L("Settings.Admin.Overview");
         _usersCard.Header = L("Settings.Admin.User");
+        _detailCard.Header = _targetName is null
+            ? L("Settings.Admin.User")
+            : $"{L("Settings.Admin.User")}: {_targetName}";
         _auditCard.Header = L("Settings.Admin.Audit");
         _reason.PlaceholderText = L("Settings.Admin.Reason");
         _search.PlaceholderText = L("Settings.Admin.SearchHint");
@@ -154,35 +159,15 @@ public sealed partial class AdminSettingsSection : UserControl
         }
         catch (Exception error) { _status.Text = error.Message; }
         finally { _busy = false; }
-        if (loaded) await ShowDetailDialogAsync();
+        if (loaded) ShowDetailPanel();
     }
 
-    private async Task ShowDetailDialogAsync()
+    private void ShowDetailPanel()
     {
-        if (XamlRoot is null || _targetId is null) return;
-        _detailDialog?.Hide();
-        Detach(_detail);
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = $"{L("Settings.Admin.User")}: {_targetName}",
-            CloseButtonText = L("Common.Cancel"),
-            DefaultButton = ContentDialogButton.Close,
-            Content = new ScrollViewer
-            {
-                MaxWidth = 920,
-                MaxHeight = 680,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Content = _detail
-            }
-        };
-        _detailDialog = dialog;
-        try { await dialog.ShowAsync(); }
-        finally
-        {
-            if (ReferenceEquals(_detailDialog, dialog)) _detailDialog = null;
-        }
+        if (_targetId is null) return;
+        _detailCard.Header = $"{L("Settings.Admin.User")}: {_targetName}";
+        _detailCard.Visibility = Visibility.Visible;
+        _detailCard.StartBringIntoView();
     }
 
     private async Task LoadDetailCoreAsync(string id)
@@ -349,7 +334,13 @@ public sealed partial class AdminSettingsSection : UserControl
             using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post, "../admin/index.php", content, null);
             await EnsureSuccessAsync(response);
             _status.Text = L("Settings.Admin.Success");
-            if (request.Action == "delete_user") { _targetId = null; _detail.Children.Clear(); _detailDialog?.Hide(); }
+            if (request.Action == "delete_user")
+            {
+                _targetId = null;
+                _targetName = null;
+                _detail.Children.Clear();
+                _detailCard.Visibility = Visibility.Collapsed;
+            }
             else await LoadDetailCoreAsync(_targetId);
             await LoadUsersCoreAsync();
             await LoadAuditCoreAsync();

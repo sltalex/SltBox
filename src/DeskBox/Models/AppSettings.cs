@@ -274,6 +274,12 @@ public class AppSettings
     /// <inheritdoc cref="TodoSettingsSlice.TodoDefaultReminderOffsetMinutes"/>
     public int TodoDefaultReminderOffsetMinutes { get => Todo.TodoDefaultReminderOffsetMinutes; set => Todo.TodoDefaultReminderOffsetMinutes = value; }
 
+    /// <inheritdoc cref="TodoSettingsSlice.TodoDefaultDueTimeMinutes"/>
+    public int TodoDefaultDueTimeMinutes { get => Todo.TodoDefaultDueTimeMinutes; set => Todo.TodoDefaultDueTimeMinutes = value; }
+
+    /// <inheritdoc cref="TodoSettingsSlice.TodoThisWeekDueDay"/>
+    public int TodoThisWeekDueDay { get => Todo.TodoThisWeekDueDay; set => Todo.TodoThisWeekDueDay = value; }
+
     /// <inheritdoc cref="TodoSettingsSlice.TodoUseWideDetailPane"/>
     public bool TodoUseWideDetailPane { get => Todo.TodoUseWideDetailPane; set => Todo.TodoUseWideDetailPane = value; }
 
@@ -620,6 +626,10 @@ public class AppSettings
     public string SystemMonitorMemoryChartColor { get => WidgetLayout.SystemMonitorMemoryChartColor; set => WidgetLayout.SystemMonitorMemoryChartColor = value; }
     public string SystemMonitorNetworkChartColor { get => WidgetLayout.SystemMonitorNetworkChartColor; set => WidgetLayout.SystemMonitorNetworkChartColor = value; }
     public int SystemMonitorRefreshIntervalSeconds { get => WidgetLayout.SystemMonitorRefreshIntervalSeconds; set => WidgetLayout.SystemMonitorRefreshIntervalSeconds = value; }
+    public bool CalendarShowTaskMarkers { get => WidgetLayout.CalendarShowTaskMarkers; set => WidgetLayout.CalendarShowTaskMarkers = value; }
+    public bool CalendarShowHolidays { get => WidgetLayout.CalendarShowHolidays; set => WidgetLayout.CalendarShowHolidays = value; }
+    public string CalendarTaskMarkerColor { get => WidgetLayout.CalendarTaskMarkerColor; set => WidgetLayout.CalendarTaskMarkerColor = value; }
+    public string CalendarHolidayMarkerColor { get => WidgetLayout.CalendarHolidayMarkerColor; set => WidgetLayout.CalendarHolidayMarkerColor = value; }
 
     /// <inheritdoc cref="WidgetLayoutSettingsSlice.WidgetGroups"/>
     public List<WidgetGroupConfig> WidgetGroups { get => WidgetLayout.WidgetGroups; set => WidgetLayout.WidgetGroups = value; }

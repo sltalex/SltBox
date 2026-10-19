@@ -158,6 +158,9 @@ public partial class App : Application
     private DateTimeOffset? _lastBareExternalActivationAtUtc;
     private readonly bool _processStartupLaunchDetected;
     private bool _cloudBackupUnverifiedToastShown;
+    private CancellationTokenSource? _backgroundUpdateCheckCancellationSource;
+
+    private static readonly TimeSpan BackgroundUpdateCheckInterval = TimeSpan.FromHours(1);
 
     public static new App Current => (App)Application.Current;
 
@@ -1629,29 +1632,76 @@ public partial class App : Application
             return;
         }
 
-        _ = Task.Run(async () =>
+        if (_backgroundUpdateCheckCancellationSource is not null)
         {
-            try
-            {
-                await Task.Delay(IsStartupMode ? TimeSpan.FromSeconds(45) : TimeSpan.FromSeconds(12));
-                var result = await AppUpdateService.CheckForUpdatesAsync();
-                SettingsService.Settings.LastUpdateCheckAt = DateTimeOffset.Now;
-                SettingsService.SaveDebounced(notifySubscribers: false);
+            return;
+        }
 
-                if (result.IsUpdateAvailable && result.Manifest is not null)
-                {
-                    Log($"[Update] New version available: {result.Manifest.Version}");
-                }
-                else if (result.Status == AppUpdateCheckStatus.Failed)
-                {
-                    Log($"[Update] Background check failed: {result.ErrorMessage}");
-                }
-            }
-            catch (Exception ex)
+        _backgroundUpdateCheckCancellationSource = new CancellationTokenSource();
+        CancellationToken cancellationToken = _backgroundUpdateCheckCancellationSource.Token;
+        _ = Task.Run(() => RunBackgroundUpdateChecksAsync(cancellationToken));
+    }
+
+    private async Task RunBackgroundUpdateChecksAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(
+                IsStartupMode ? TimeSpan.FromSeconds(45) : TimeSpan.FromSeconds(12),
+                cancellationToken);
+
+            while (!cancellationToken.IsCancellationRequested && !IsShuttingDown)
             {
-                Log($"[Update] Background check crashed: {ex}");
+                try
+                {
+                    var result = await AppUpdateService.CheckForUpdatesAsync(cancellationToken);
+                    SettingsService.Settings.LastUpdateCheckAt = DateTimeOffset.Now;
+                    SettingsService.SaveDebounced(notifySubscribers: false);
+
+                    if (result.IsUpdateAvailable && result.Manifest is not null)
+                    {
+                        Log($"[Update] New version available: {result.Manifest.Version}");
+                    }
+                    else if (result.Status == AppUpdateCheckStatus.Failed)
+                    {
+                        Log($"[Update] Background check failed: {result.ErrorMessage}");
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await Task.Delay(BackgroundUpdateCheckInterval, cancellationToken);
             }
-        });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Log($"[Update] Background check crashed: {ex}");
+        }
+    }
+
+    private void CancelBackgroundUpdateCheck()
+    {
+        CancellationTokenSource? cancellationSource = Interlocked.Exchange(
+            ref _backgroundUpdateCheckCancellationSource,
+            null);
+        if (cancellationSource is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cancellationSource.Cancel();
+        }
+        finally
+        {
+            cancellationSource.Dispose();
+        }
     }
 
     internal void RefreshQuickCaptureClipboardService(bool captureCurrent = false)
@@ -4716,7 +4766,6 @@ public partial class App : Application
         if (identity is null || previousIdentity is not null)
         {
             WidgetManager.HideAndCloseFeatureWidgetAsync(WidgetKind.Aquarium);
-            WidgetManager.HideAndCloseFeatureWidgetAsync(WidgetKind.FourWheelDrive);
         }
 
         // A verified administrator who logs back in should regain an enabled
@@ -4732,16 +4781,6 @@ public partial class App : Application
                 TaskContinuationOptions.OnlyOnFaulted);
         }
 
-        if (identity is not null && FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.FourWheelDrive))
-        {
-            WidgetManager.CreateOrShowFeatureWidgetAsync(WidgetKind.FourWheelDrive).ContinueWith(
-                task =>
-                {
-                    if (task.Exception is not null)
-                        Log($"[FourWheelDrive] Failed to restore the feature widget: {task.Exception}");
-                },
-                TaskContinuationOptions.OnlyOnFaulted);
-        }
     }
 
     private async Task<bool> ShutdownCoreAsync()
@@ -4749,6 +4788,7 @@ public partial class App : Application
         Interlocked.Exchange(ref s_shutdownRequested, 1);
         TimeSpan shutdownGrace = TimeSpan.FromSeconds(15);
         return await _shutdownSequence.RunAsync(
+            ShutdownStep.Sync("background-update-check", CancelBackgroundUpdateCheck),
             ShutdownStep.Sync("tree-counter", () =>
             {
                 SettingsService.SettingsChanged -= OnTreeFeatureSettingsChanged;

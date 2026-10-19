@@ -2,7 +2,8 @@ using System.Numerics;
 
 namespace DeskBox.Controls.WidgetContents;
 
-internal sealed record AquariumFishMotionInput(string InstanceId, string SpeciesId, double X, double Y);
+internal sealed record AquariumFishMotionInput(string InstanceId, string SpeciesId, double X, double Y,
+    int? SwimLayer = null);
 
 internal sealed record AquariumFishMotionPlan(
     double DurationSeconds,
@@ -55,6 +56,7 @@ internal static class AquariumFishMotionPlanner
     {
         double centerX = school.Average(item => item.X * sceneWidth);
         double centerY = school.Average(item => item.Y * sceneHeight);
+        double initialCenterY = centerY;
         string species = school[0].SpeciesId;
         double speed = AquariumArtworkCatalog.TryGetProfile(species, out var artwork) && artwork.SpeedMultiplier > 0
             ? artwork.SpeedMultiplier : .75;
@@ -91,8 +93,14 @@ internal static class AquariumFishMotionPlanner
                     : centerX - direction * lag + (random.NextDouble() - .5) * (straggler ? 52 : 28);
                 double y = returningToLoop
                     ? member.Y * sceneHeight
-                    : centerY + (random.NextDouble() - .5) * (straggler ? 48 : 24);
-                targets[member.InstanceId] = (x, Math.Clamp(y, sceneHeight * .14, sceneHeight * .82));
+                    : member.SwimLayer is int
+                        ? member.Y * sceneHeight + (centerY - initialCenterY) * .18 +
+                          (random.NextDouble() - .5) * (straggler ? 24 : 12)
+                        : centerY + (random.NextDouble() - .5) * (straggler ? 48 : 24);
+                (double minY, double maxY) = member.SwimLayer is int layer
+                    ? AquariumSwimDepth.Band(layer)
+                    : (.14, .82);
+                targets[member.InstanceId] = (x, Math.Clamp(y, sceneHeight * minY, sceneHeight * maxY));
                 double deltaX = x - current[member.InstanceId].X;
                 headings[member.InstanceId] = Math.Abs(deltaX) > 4
                     ? (float)(deltaX >= 0 ? 1 : -1)
@@ -160,9 +168,5 @@ internal static class AquariumFishMotionPlanner
     }
 
     private static int StableHash(string value)
-    {
-        uint hash = 2166136261;
-        foreach (char character in value) hash = (hash ^ character) * 16777619;
-        return (int)(hash & 0x7fffffff);
-    }
+        => (int)(AquariumSwimDepth.StableHash(value) & 0x7fffffff);
 }

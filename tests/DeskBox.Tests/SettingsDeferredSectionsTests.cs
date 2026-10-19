@@ -32,6 +32,9 @@ public sealed class SettingsDeferredSectionsTests
         Assert.Contains(SettingsSearchCatalog.Entries, entry =>
             entry.SectionTag == "Backpack" &&
             entry.HeaderKey == "Aquarium.Backpack.Aquarium");
+        Assert.Contains(SettingsSearchCatalog.Entries, entry =>
+            entry.SectionTag == "AquariumStore" &&
+            entry.HeaderKey == "Aquarium.Settings.Store");
     }
 
     [Fact]

@@ -32,6 +32,19 @@ public sealed class AdminSettingsPresentationTests
         Assert.Contains("_authSession.IsAuthenticated", adminCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AccountSettings_OpenInlineWithoutDependingOnAContentDialogComponent()
+    {
+        string root = FindRepositoryRoot();
+        string section = File.ReadAllText(Path.Combine(root,
+            "src", "DeskBox", "Views", "SettingsSections", "AdminSettingsSection.cs"));
+
+        Assert.Contains("_detailCard", section, StringComparison.Ordinal);
+        Assert.Contains("ShowDetailPanel", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContentDialog", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowDetailDialogAsync", section, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);

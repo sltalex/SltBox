@@ -705,7 +705,6 @@ public sealed partial class WidgetManager
             WidgetKind.SystemMonitor => "SystemMonitor.Title",
             WidgetKind.Tree => "Tree.Title",
             WidgetKind.Aquarium => "Aquarium.Title",
-            WidgetKind.FourWheelDrive => "FourWheelDrive.Title",
             WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
             _ => null
         };

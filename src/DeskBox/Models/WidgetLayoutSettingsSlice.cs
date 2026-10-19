@@ -18,6 +18,10 @@ public sealed class WidgetLayoutSettingsSlice
     public string SystemMonitorMemoryChartColor { get; set; } = "#46AE85";
     public string SystemMonitorNetworkChartColor { get; set; } = "#E6A23C";
     public int SystemMonitorRefreshIntervalSeconds { get; set; } = 2;
+    public bool CalendarShowTaskMarkers { get; set; } = true;
+    public bool CalendarShowHolidays { get; set; }
+    public string CalendarTaskMarkerColor { get; set; } = "#3791DC";
+    public string CalendarHolidayMarkerColor { get; set; } = "#E04C4C";
     /// <summary>
     /// Enabled state for singleton feature widgets, keyed by <see cref="WidgetKind"/> name.
     /// Legacy boolean properties are still kept as compatibility mirrors.
@@ -97,6 +101,10 @@ public sealed class WidgetLayoutSettingsSlice
         SystemMonitorMemoryChartColor = other.SystemMonitorMemoryChartColor;
         SystemMonitorNetworkChartColor = other.SystemMonitorNetworkChartColor;
         SystemMonitorRefreshIntervalSeconds = other.SystemMonitorRefreshIntervalSeconds;
+        CalendarShowTaskMarkers = other.CalendarShowTaskMarkers;
+        CalendarShowHolidays = other.CalendarShowHolidays;
+        CalendarTaskMarkerColor = other.CalendarTaskMarkerColor;
+        CalendarHolidayMarkerColor = other.CalendarHolidayMarkerColor;
         Widgets = other.Widgets;
         WidgetGroups = other.WidgetGroups;
         WidgetTopologyLayouts = other.WidgetTopologyLayouts;

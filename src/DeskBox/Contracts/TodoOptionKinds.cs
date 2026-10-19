@@ -31,6 +31,11 @@ public static class TodoOptionKinds
     public const int MinReminderOffsetMinutes = 0;
     public const int MaxReminderOffsetMinutes = 1440;
 
+    public const int DefaultDueTimeMinutes = 23 * 60 + 59;
+    public const int MinDueTimeMinutes = 0;
+    public const int MaxDueTimeMinutes = 23 * 60 + 59;
+    public const int DefaultThisWeekDueDay = (int)DayOfWeek.Sunday;
+
     /// <summary>The offset choices offered by the reminder-offset combo.</summary>
     public static readonly int[] ReminderOffsetSteps = [0, 5, 10, 15, 30, 60, 1440];
 
@@ -76,4 +81,12 @@ public static class TodoOptionKinds
             ? minutes
             : DefaultReminderOffsetMinutes;
     }
+
+    public static int NormalizeDueTimeMinutes(int minutes) =>
+        Math.Clamp(minutes, MinDueTimeMinutes, MaxDueTimeMinutes);
+
+    public static int NormalizeThisWeekDueDay(int day) =>
+        day is >= (int)DayOfWeek.Sunday and <= (int)DayOfWeek.Saturday
+            ? day
+            : DefaultThisWeekDueDay;
 }

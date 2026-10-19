@@ -1,4 +1,4 @@
-using DeskBox.Models;
+﻿using DeskBox.Models;
 using DeskBox.Services;
 
 namespace DeskBox.Tests;
@@ -27,8 +27,8 @@ public sealed class FeatureWidgetKindContractTests
                 WidgetKind.Glance,
                 WidgetKind.Tree,
                 WidgetKind.Aquarium,
-                WidgetKind.FourWheelDrive,
-                WidgetKind.DingTalkGroupDocs
+                WidgetKind.DingTalkGroupDocs,
+                WidgetKind.Calendar
             },
             FeatureWidgetSettings.FeatureKinds);
     }
@@ -64,6 +64,15 @@ public sealed class FeatureWidgetKindContractTests
     }
 
     [Fact]
+    public void CalendarIsDisabledByDefault()
+    {
+        var settings = new AppSettings();
+        Assert.False(FeatureWidgetSettings.IsEnabled(settings, WidgetKind.Calendar));
+        Assert.True(settings.CalendarShowTaskMarkers);
+        Assert.False(settings.CalendarShowHolidays);
+    }
+
+    [Fact]
     public void DescriptorTable_DeclaresEachKindOnce()
     {
         WidgetKind[] kinds = WidgetContentFactory.DescriptorList
@@ -74,6 +83,30 @@ public sealed class FeatureWidgetKindContractTests
     }
 
     [Fact]
+    public void RemovedFourWheelDriveStateAndWidgetsAreMigratedAway()
+    {
+        var settings = new AppSettings
+        {
+            Widgets = [new WidgetConfig { WidgetKind = WidgetKind.FourWheelDrive }],
+            FeatureWidgetEnabledStates = new Dictionary<string, bool>
+            {
+                [nameof(WidgetKind.FourWheelDrive)] = true
+            }
+        };
+
+        Assert.True(FeatureWidgetSettings.Normalize(settings));
+        var normalize = typeof(SettingsService).GetMethod(
+            "NormalizeWidgetContentSettings",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(normalize);
+        Assert.True((bool)normalize!.Invoke(null, [settings])!);
+        Assert.Empty(settings.Widgets);
+        Assert.DoesNotContain(nameof(WidgetKind.FourWheelDrive), settings.FeatureWidgetEnabledStates.Keys);
+        Assert.False(WidgetRegistry.Default.IsKnown(WidgetKind.FourWheelDrive));
+        Assert.False(FeatureWidgetSettings.IsFeatureWidget(WidgetKind.FourWheelDrive));
+    }
+
+    [Fact]
     public void EveryWidgetKindIsDescribedExceptTheKnownGap()
     {
         // WidgetKind.Productivity is declared in the enum but has neither a
@@ -81,7 +114,7 @@ public sealed class FeatureWidgetKindContractTests
         // it and nothing enumerates the enum to notice. It stays listed here as
         // a known gap: either give it a descriptor (Placeholder/Planned, like
         // Tags) or drop the enum member, then remove it from this list.
-        WidgetKind[] knownGap = [WidgetKind.Productivity];
+        WidgetKind[] knownGap = [WidgetKind.Productivity, WidgetKind.FourWheelDrive];
 
         WidgetKind[] described = WidgetContentFactory.DescriptorList
             .Select(descriptor => descriptor.WidgetKind)

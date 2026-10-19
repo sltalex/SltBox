@@ -10,7 +10,8 @@ public sealed record DingTalkGroupDocument(
     string GroupName,
     string Title,
     string Url,
-    DateTimeOffset LastSeenAt);
+    DateTimeOffset LastSeenAt,
+    string ConversationId = "");
 
 public sealed record DingTalkGroupDocumentSyncProgress(
     int CompletedSegments,
@@ -196,7 +197,7 @@ public sealed class DingTalkGroupDocumentService
             int total = completed + segments.Count;
 
             var byGroupAndUrl = _documents.ToDictionary(
-                document => MakeKey(document.GroupName, document.Url),
+                document => MakeKey(document.ConversationId, document.GroupName, document.Url),
                 document => document,
                 StringComparer.OrdinalIgnoreCase);
             var titleLookups = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -260,7 +261,8 @@ public sealed class DingTalkGroupDocumentService
                 bool pendingWindow = initialSync && _pendingWindowStart == segmentStart &&
                     _pendingWindowEnd == segmentEnd;
                 var windowDocuments = pendingWindow
-                    ? _pendingDocuments.ToDictionary(document => MakeKey(document.GroupName, document.Url),
+                    ? _pendingDocuments.ToDictionary(document => MakeKey(
+                        document.ConversationId, document.GroupName, document.Url),
                         document => document, StringComparer.OrdinalIgnoreCase)
                     : new Dictionary<string, DingTalkGroupDocument>(StringComparer.OrdinalIgnoreCase);
                 string? cursor = pendingWindow ? _pendingCursor : null;
@@ -427,12 +429,23 @@ public sealed class DingTalkGroupDocumentService
             groupName,
             title,
             url,
-            message.CreatedAt);
-        string key = MakeKey(groupName, url);
+            message.CreatedAt,
+            message.ConversationId);
+        string legacyKey = MakeKey(string.Empty, groupName, url);
+        if (!string.IsNullOrWhiteSpace(message.ConversationId) &&
+            byGroupAndUrl.Remove(legacyKey, out DingTalkGroupDocument? legacy))
+            document = MergeDocument(legacy, document);
+        string key = MakeKey(message.ConversationId, groupName, url);
         byGroupAndUrl[key] = MergeDocument(byGroupAndUrl.GetValueOrDefault(key), document);
     }
 
-    private static string MakeKey(string groupName, string url) => $"{groupName}\u001f{url}";
+    private static string MakeKey(string conversationId, string groupName, string url)
+    {
+        string groupKey = string.IsNullOrWhiteSpace(conversationId)
+            ? "name:" + groupName.ToUpperInvariant()
+            : "id:" + conversationId.Trim();
+        return $"{groupKey}\u001f{url}";
+    }
 
     private static bool IsGenericTitle(string title) =>
         string.Equals(title, "群文档", StringComparison.Ordinal);

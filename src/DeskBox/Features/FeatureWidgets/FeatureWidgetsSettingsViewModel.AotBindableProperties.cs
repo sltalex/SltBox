@@ -18,9 +18,14 @@ namespace DeskBox.Features.FeatureWidgets;
     nameof(SystemMonitorMemoryChartColor),
     nameof(SystemMonitorNetworkChartColor),
     nameof(SystemMonitorRefreshIntervalSeconds),
+    nameof(CalendarShowTaskMarkers),
+    nameof(CalendarShowHolidays),
+    nameof(CalendarTaskMarkerColor),
+    nameof(CalendarHolidayMarkerColor),
     nameof(AvailableSystemMonitorChartStyles),
     nameof(AvailableSystemMonitorRefreshIntervals),
-    nameof(AvailableSystemMonitorColors)
+    nameof(AvailableSystemMonitorColors),
+    nameof(AvailableCalendarMarkerColors)
 ], [])]
 public sealed partial class FeatureWidgetsSettingsViewModel
 {

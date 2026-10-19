@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace DeskBox.Services;
@@ -92,6 +93,22 @@ internal sealed class DwsCalendarEventDto
     [JsonPropertyName("start")] public string Start { get; set; } = string.Empty;
     [JsonPropertyName("end")] public string End { get; set; } = string.Empty;
     [JsonPropertyName("location")] public string? Location { get; set; }
+    // DWS versions have used several names and both boolean and textual values
+    // for lifecycle state. Keep these as JsonElement so older/newer responses
+    // remain readable without making the whole calendar request fail.
+    [JsonPropertyName("status")] public JsonElement Status { get; set; }
+    [JsonPropertyName("eventStatus")] public JsonElement EventStatus { get; set; }
+    [JsonPropertyName("state")] public JsonElement State { get; set; }
+    [JsonPropertyName("isCancelled")] public JsonElement IsCancelled { get; set; }
+    [JsonPropertyName("isCanceled")] public JsonElement IsCanceled { get; set; }
+    [JsonPropertyName("isDeleted")] public JsonElement IsDeleted { get; set; }
+    [JsonPropertyName("deleted")] public JsonElement Deleted { get; set; }
+    [JsonPropertyName("cancelled")] public JsonElement Cancelled { get; set; }
+    [JsonPropertyName("canceled")] public JsonElement Canceled { get; set; }
+    [JsonPropertyName("is_cancelled")] public JsonElement IsCancelledSnakeCase { get; set; }
+    [JsonPropertyName("is_canceled")] public JsonElement IsCanceledSnakeCase { get; set; }
+    [JsonPropertyName("is_deleted")] public JsonElement IsDeletedSnakeCase { get; set; }
+    [JsonPropertyName("event_status")] public JsonElement EventStatusSnakeCase { get; set; }
 }
 
 [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]

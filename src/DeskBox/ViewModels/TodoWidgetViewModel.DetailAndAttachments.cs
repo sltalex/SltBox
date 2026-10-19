@@ -16,7 +16,7 @@ public sealed partial class TodoWidgetViewModel
     public void SetDraftDueDatePreset(TodoDuePreset preset)
     {
         DateTimeOffset today = new(DateTime.Now.Date);
-        int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)today.DayOfWeek + 7) % 7;
+        int daysUntilWeekEnd = (GetConfiguredThisWeekDueDay() - (int)today.DayOfWeek + 7) % 7;
         int daysUntilMonday = ((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7;
         if (daysUntilMonday == 0)
         {
@@ -25,10 +25,10 @@ public sealed partial class TodoWidgetViewModel
 
         DraftDueDate = preset switch
         {
-            TodoDuePreset.Today => WithEndOfDay(today),
-            TodoDuePreset.Tomorrow => WithEndOfDay(today.AddDays(1)),
-            TodoDuePreset.ThisWeek => WithEndOfDay(today.AddDays(daysUntilSunday)),
-            TodoDuePreset.NextMonday => WithEndOfDay(today.AddDays(daysUntilMonday)),
+            TodoDuePreset.Today => CreateConfiguredDueDate(today),
+            TodoDuePreset.Tomorrow => CreateConfiguredDueDate(today.AddDays(1)),
+            TodoDuePreset.ThisWeek => CreateConfiguredDueDate(today.AddDays(daysUntilWeekEnd)),
+            TodoDuePreset.NextMonday => CreateConfiguredDueDate(today.AddDays(daysUntilMonday)),
             TodoDuePreset.Clear => null,
             _ => null
         };

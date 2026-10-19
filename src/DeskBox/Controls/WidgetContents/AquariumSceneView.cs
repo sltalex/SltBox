@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Diagnostics;
 using DeskBox.Services;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
@@ -21,11 +22,25 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
     private readonly Canvas _canvas = new() { Width = SceneWidth, Height = SceneHeight };
     private readonly Grid _root = new() { Background = new SolidColorBrush(ColorHelper.FromArgb(255, 9, 42, 49)) };
     private readonly List<(Visual Visual, string Property, CompositionAnimation Animation)> _motions = [];
+    private readonly List<DepthMotion> _depthMotions = [];
     private readonly Dictionary<string, SceneObject> _objects = new(StringComparer.Ordinal);
     private IReadOnlyDictionary<string, AquariumFishMotionPlan> _fishPlans = new Dictionary<string, AquariumFishMotionPlan>();
     private readonly List<Image> _images = [];
     private readonly DispatcherTimer _policyTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    private readonly DispatcherTimer _depthTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private int _motionSeed = Random.Shared.Next();
+
+    private sealed class DepthMotion(Visual visual, Border host, AquariumPlacement placement,
+        AquariumFishMotionPlan swim, double width, AquariumDepthMotionPlan plan)
+    {
+        internal Visual Visual { get; } = visual;
+        internal Border Host { get; } = host;
+        internal AquariumPlacement Placement { get; } = placement;
+        internal AquariumFishMotionPlan Swim { get; } = swim;
+        internal double Width { get; } = width;
+        internal AquariumDepthMotionPlan Plan { get; set; } = plan;
+        internal long StartedAt { get; set; }
+    }
     private bool _visible = true;
     private bool _animationEnabled = true;
     private bool _motionRunning;
@@ -45,6 +60,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         Content = _root;
         _root.SizeChanged += (_, _) => _root.Clip = new RectangleGeometry { Rect = new Rect(0, 0, _root.ActualWidth, _root.ActualHeight) };
         _policyTimer.Tick += (_, _) => UpdateMotion();
+        _depthTimer.Tick += (_, _) => UpdateDepthLayers();
         Loaded += (_, _) => UpdateMotion();
         Unloaded += (_, _) => { _policyTimer.Stop(); StopMotion(); };
         Render([], [], []);
@@ -57,20 +73,22 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         App.Log($"[Aquarium] Scene render placements={placements.Count} inventory={inventory.Count} catalog={catalog.Count} loaded={IsLoaded} visible={_visible}");
         ClearScene();
         var background = new Image { Width = SceneWidth, Height = SceneHeight, Source = Asset("background"), Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
+        Canvas.SetZIndex(background, -100);
         _images.Add(background);
         _canvas.Children.Add(background);
         AddCausticLights();
         var products = catalog.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var owned = inventory.ToDictionary(item => item.Id, StringComparer.Ordinal);
-        var visible = placements.Where(item => owned.ContainsKey(item.InstanceId))
+        var categories = placements.Where(item => owned.ContainsKey(item.InstanceId))
             .Where(item => products.ContainsKey(owned[item.InstanceId].ItemId))
-            .OrderBy(item => item.Layer)
-            .ThenBy(item => products[owned[item.InstanceId].ItemId].Category == "fish" ? 1 : 0)
-            .ThenBy(item => item.Y).ToList();
+            .ToDictionary(item => item.InstanceId,
+                item => products[owned[item.InstanceId].ItemId].Category, StringComparer.Ordinal);
+        IReadOnlyList<AquariumPlacement> visible = AquariumSwimDepth.ForDisplay(
+            placements.Where(item => categories.ContainsKey(item.InstanceId)).ToArray(), categories);
         _fishPlans = AquariumFishMotionPlanner.Build(
-            visible.Where(item => products[owned[item.InstanceId].ItemId].Category == "fish")
+            visible.Where(item => IsAnimatedCreature(products[owned[item.InstanceId].ItemId].Category))
                 .Select(item => new AquariumFishMotionInput(item.InstanceId, owned[item.InstanceId].ItemId,
-                    item.X, item.Y)).ToList(), SceneWidth, SceneHeight, NextMotionSeed());
+                    item.X, item.Y, item.Layer)).ToList(), SceneWidth, SceneHeight, NextMotionSeed());
         foreach (AquariumPlacement placement in visible)
         {
             AquariumCatalogItem product = products[owned[placement.InstanceId].ItemId];
@@ -109,6 +127,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             };
             Canvas.SetLeft(light, -180 + index * 250);
             Canvas.SetTop(light, -60);
+            Canvas.SetZIndex(light, -99);
             _canvas.Children.Add(light);
             ElementCompositionPreview.SetIsTranslationEnabled(light, true);
             Visual visual = ElementCompositionPreview.GetElementVisual(light);
@@ -150,7 +169,6 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
 
     private void AddObject(AquariumPlacement placement, AquariumCatalogItem product)
     {
-        bool fish = product.Category == "fish";
         bool animatedCreature = IsAnimatedCreature(product.Category);
         (double width, double height) = AquariumArtworkCatalog.TryGetProfile(product.AssetKey, out var artwork)
             ? (artwork.Width, artwork.Height) : product.Id switch
@@ -178,14 +196,15 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         {
             Child = image, Background = new SolidColorBrush(Colors.Transparent),
             BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(220, 185, 241, 234)),
-            CornerRadius = new CornerRadius(8), IsHitTestVisible = IsEditing && !fish
+            CornerRadius = new CornerRadius(8), IsHitTestVisible = IsEditing && !animatedCreature
         };
         var item = new SceneObject(placement, product, host, width, height);
         _objects.Add(placement.InstanceId, item);
+        Canvas.SetZIndex(host, placement.Layer);
         _canvas.Children.Add(host);
         Arrange(item);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(host, product.Name);
-        if (IsEditing && !fish)
+        if (IsEditing && !animatedCreature)
         {
             host.PointerPressed += (_, args) => BeginDrag(item, args);
             host.PointerMoved += (_, args) => MoveDrag(item, args);
@@ -199,21 +218,16 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             (float)(height * placement.Scale * AquariumArtworkCatalog.VerticalAnchor(product.AssetKey, animatedCreature)), 0);
         if (animatedCreature)
         {
-            AddRandomFishMotion(visual, placement, width, height);
+            AddRandomFishMotion(visual, host, placement, width, height);
         }
-        else if (product.Category == "plant")
+        else if (product.Category is "plant" or "algae")
             AddPlantSway(visual, placement);
     }
 
     private static int StableSeed(string value)
-    {
-        uint hash = 2166136261;
-        foreach (char character in value) hash = (hash ^ character) * 16777619;
-        return (int)(hash & 0x7fffffff);
-    }
+        => (int)(AquariumSwimDepth.StableHash(value) & 0x7fffffff);
 
-    private static bool IsAnimatedCreature(string category) =>
-        category is "fish" or "shrimp" or "crab";
+    private static bool IsAnimatedCreature(string category) => AquariumSwimDepth.IsSwimming(category);
 
     private void AddPlantSway(Visual visual, AquariumPlacement placement)
     {
@@ -227,12 +241,15 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             (.76f, -amplitude * .55f), (1, -amplitude));
     }
 
-    private void AddRandomFishMotion(Visual visual, AquariumPlacement placement, double width, double height)
+    private void AddRandomFishMotion(Visual visual, Border host, AquariumPlacement placement, double width, double height)
     {
         if (_fishPlans.TryGetValue(placement.InstanceId, out AquariumFishMotionPlan? plan))
         {
-            AddVector(visual, "Translation", plan.DurationSeconds, plan.Translation.ToArray(), linear: true);
-            AddScalar(visual, "Scale.X", plan.DurationSeconds, plan.Facing.ToArray());
+            AquariumDepthMotionPlan depth = AquariumDepthMotionPlanner.Build(plan, placement,
+                width * placement.Scale, SceneWidth, SceneHeight, NextMotionSeed());
+            AddDepthAnimations(visual, depth);
+            _depthMotions.Add(new DepthMotion(visual, host, placement, plan,
+                width * placement.Scale, depth));
             return;
         }
         var random = new Random(StableSeed(placement.InstanceId) ^ _motionSeed);
@@ -251,11 +268,11 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         var facing = new List<(float Progress, float Value)> { (0, currentFacing) };
         double currentX = startX;
         double currentY = startY;
-        // Fish stay in a broad swimming band and only drift vertically a
-        // little while travelling horizontally. This avoids the previous
-        // near-vertical and backwards-looking paths.
-        double swimTop = Math.Max(SceneHeight * .18, height);
-        double swimBottom = Math.Min(SceneHeight * .78, SceneHeight - height);
+        // A swimming creature drifts within its depth band while travelling
+        // mainly horizontally, rather than crossing the whole water column.
+        (double minY, double maxY) = AquariumSwimDepth.Band(placement.Layer);
+        double swimTop = minY * SceneHeight;
+        double swimBottom = maxY * SceneHeight;
 
         for (int segment = 1; segment <= segments; segment++)
         {
@@ -375,6 +392,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             };
             Canvas.SetLeft(bubble, 40 + index * 57 % 760);
             Canvas.SetTop(bubble, SceneHeight + 20);
+            Canvas.SetZIndex(bubble, 100);
             _canvas.Children.Add(bubble);
             ElementCompositionPreview.SetIsTranslationEnabled(bubble, true);
             Visual visual = ElementCompositionPreview.GetElementVisual(bubble);
@@ -391,26 +409,47 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
     }
 
     private void AddScalar(Visual visual, string property, double seconds, params (float Progress, float Value)[] frames)
+        => AddScalar(visual, property, seconds, repeat: true, frames);
+
+    private void AddScalar(Visual visual, string property, double seconds, bool repeat,
+        params (float Progress, float Value)[] frames)
     {
         var animation = visual.Compositor.CreateScalarKeyFrameAnimation();
         animation.Duration = TimeSpan.FromSeconds(seconds);
-        animation.IterationBehavior = AnimationIterationBehavior.Forever;
+        animation.IterationBehavior = repeat ? AnimationIterationBehavior.Forever : AnimationIterationBehavior.Count;
+        if (!repeat)
+        {
+            animation.IterationCount = 1;
+            animation.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+        }
         var ease = visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(.42f, 0), new Vector2(.58f, 1));
         foreach (var frame in frames) animation.InsertKeyFrame(frame.Progress, frame.Value, ease);
         _motions.Add((visual, property, animation));
     }
 
     private void AddVector(Visual visual, string property, double seconds,
-        (float Progress, Vector3 Value)[] frames, bool linear = false)
+        (float Progress, Vector3 Value)[] frames, bool linear = false, bool repeat = true)
     {
         var animation = visual.Compositor.CreateVector3KeyFrameAnimation();
         animation.Duration = TimeSpan.FromSeconds(seconds);
-        animation.IterationBehavior = AnimationIterationBehavior.Forever;
+        animation.IterationBehavior = repeat ? AnimationIterationBehavior.Forever : AnimationIterationBehavior.Count;
+        if (!repeat)
+        {
+            animation.IterationCount = 1;
+            animation.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+        }
         CompositionEasingFunction ease = linear
             ? visual.Compositor.CreateLinearEasingFunction()
             : visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(.42f, 0), new Vector2(.58f, 1));
         foreach (var frame in frames) animation.InsertKeyFrame(frame.Progress, frame.Value, ease);
         _motions.Add((visual, property, animation));
+    }
+
+    private void AddDepthAnimations(Visual visual, AquariumDepthMotionPlan depth)
+    {
+        AddVector(visual, "Translation", depth.DurationSeconds, depth.Translation.ToArray(), linear: true, repeat: false);
+        AddScalar(visual, "Scale.X", depth.DurationSeconds, repeat: false, depth.HorizontalScale.ToArray());
+        AddScalar(visual, "Scale.Y", depth.DurationSeconds, repeat: false, depth.VerticalScale.ToArray());
     }
 
     private void UpdateMotion()
@@ -422,17 +461,53 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         App.Log($"[Aquarium] Motion {(animate ? "start" : "stop")} eligible={eligible} loaded={IsLoaded} visible={_visible} enabled={_animationEnabled} system={WindowsCompatibilityService.ShouldAnimate} motions={_motions.Count}");
         if (!animate) { StopMotion(); return; }
         foreach (var motion in _motions) motion.Visual.StartAnimation(motion.Property, motion.Animation);
+        long startedAt = Stopwatch.GetTimestamp();
+        foreach (DepthMotion motion in _depthMotions) motion.StartedAt = startedAt;
         _motionRunning = true;
+        if (_depthMotions.Count > 0) _depthTimer.Start();
+    }
+
+    private void UpdateDepthLayers()
+    {
+        if (!_motionRunning) return;
+        foreach (DepthMotion motion in _depthMotions)
+        {
+            double elapsed = Stopwatch.GetElapsedTime(motion.StartedAt).TotalSeconds;
+            if (elapsed >= motion.Plan.DurationSeconds)
+            {
+                int nextInitialLayer = motion.Plan.LayerChanges[^1].Layer;
+                foreach (var active in _motions.Where(item => item.Visual == motion.Visual &&
+                    item.Property is "Translation" or "Scale.X" or "Scale.Y").ToArray())
+                {
+                    motion.Visual.StopAnimation(active.Property);
+                    active.Animation.Dispose();
+                    _motions.Remove(active);
+                }
+                motion.Plan = AquariumDepthMotionPlanner.Build(motion.Swim, motion.Placement,
+                    motion.Width, SceneWidth, SceneHeight, NextMotionSeed(), nextInitialLayer);
+                AddDepthAnimations(motion.Visual, motion.Plan);
+                foreach (var active in _motions.Where(item => item.Visual == motion.Visual &&
+                    item.Property is "Translation" or "Scale.X" or "Scale.Y"))
+                    active.Visual.StartAnimation(active.Property, active.Animation);
+                motion.StartedAt = Stopwatch.GetTimestamp();
+                elapsed = 0;
+            }
+            int layer = motion.Plan.LayerAt(elapsed);
+            if (Canvas.GetZIndex(motion.Host) != layer) Canvas.SetZIndex(motion.Host, layer);
+        }
     }
 
     private void StopMotion()
     {
+        _depthTimer.Stop();
         foreach (var motion in _motions)
         {
             motion.Visual.StopAnimation(motion.Property);
-            if (motion.Property == "Scale.X") motion.Visual.Scale = Vector3.One;
+            if (motion.Property is "Scale.X" or "Scale.Y") motion.Visual.Scale = Vector3.One;
             else if (motion.Property == "RotationAngleInDegrees") motion.Visual.RotationAngleInDegrees = 0;
         }
+        foreach (DepthMotion motion in _depthMotions)
+            Canvas.SetZIndex(motion.Host, motion.Plan.LayerChanges[0].Layer);
         _motionRunning = false;
     }
 
@@ -441,6 +516,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         StopMotion();
         foreach (var motion in _motions) motion.Animation.Dispose();
         _motions.Clear();
+        _depthMotions.Clear();
         foreach (Image image in _images) image.Source = null;
         _images.Clear();
         _objects.Clear();

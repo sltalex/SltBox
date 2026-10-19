@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+<title>海螺</title>
+<desc>Original cartoon shellfish illustration: conch. Rounded dark teal outlines, flat cel shading, transparent background.</desc>
+<path d="M222 91 Q243 63 254 27 Q266 61 250 94 Q267 110 253 138 Q270 159 240 180 L123 188 Q85 173 87 139 Q88 100 128 83 Q172 60 222 91 Z" fill="#f7c995" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M196 78 Q205 57 226 46 Q229 70 219 91" fill="#f1ad87" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M224 96 Q243 99 257 112 M231 121 Q248 125 256 138 M230 148 Q246 152 250 165" fill="none" stroke="#d78977" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M224 104 Q216 78 186 70 Q172 56 163 45 L153 72 Q133 72 120 84 L97 78 L102 102 Q90 119 87 141 L69 154 L92 166 Q99 184 123 188 L227 184 Q263 151 224 104 Z" fill="#f2ae8c" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M103 154 Q122 180 162 175 Q199 167 224 144 Q246 160 227 184 L123 188 Q101 184 93 166 Z" fill="#d48278" stroke="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M121 147 C98 125 126 89 160 91 C194 92 204 123 187 141 C174 157 146 151 143 133 Q141 118 154 115 Q169 112 173 125" fill="none" stroke="#bc746a" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M116 109 Q126 93 146 90 M191 90 L207 104" fill="none" stroke="#ffe7bc" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M226 113 Q248 143 228 179 Q213 191 194 182 Q181 171 183 154 Q188 127 210 113 Q220 108 226 113 Z" fill="#ffe3bc" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M220 127 Q234 145 220 169 Q212 181 202 173 Q195 160 204 143 Z" fill="#a65e71" stroke="#194957" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M84 176 Q107 167 128 177 Q147 188 174 181 Q185 171 201 177 Q220 189 208 203 Q166 216 121 211 Q82 211 64 197 Q59 182 84 176 Z" fill="#87d4be" stroke="#194957" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<path d="M81 185 L74 155 M103 181 L109 151" fill="none" stroke="#70bba8" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="72" cy="151" rx="11" ry="13" fill="#c0eed4" stroke="#194957" stroke-width="3" opacity="1"/>
+<ellipse cx="110" cy="148" rx="11" ry="13" fill="#c0eed4" stroke="#194957" stroke-width="3" opacity="1"/>
+<ellipse cx="72" cy="152" rx="4" ry="6" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="110" cy="149" rx="4" ry="6" fill="#194957" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="71" cy="150" rx="1.6" ry="2" fill="#fffdf3" stroke="none" stroke-width="4.5" opacity="1"/>
+<ellipse cx="109" cy="147" rx="1.6" ry="2" fill="#fffdf3" stroke="none" stroke-width="4.5" opacity="1"/>
+<path d="M86 185 Q94 193 102 183" fill="none" stroke="#194957" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+<ellipse cx="75" cy="185" rx="7" ry="4" fill="#ecb0ac" stroke="none" stroke-width="4.5" opacity="1"/>
+<path d="M128 196 Q163 204 190 197" fill="none" stroke="#c7efcf" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
+</svg>

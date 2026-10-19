@@ -1,10 +1,30 @@
 using System.Numerics;
 using DeskBox.Controls.WidgetContents;
+using DeskBox.Services;
 
 namespace DeskBox.Tests;
 
 public sealed class AquariumFishMotionPlannerTests
 {
+    [Fact]
+    public void FishStayWithinTheirAssignedSwimmingDepthThroughoutTheRoute()
+    {
+        AquariumFishMotionInput[] fish =
+        [
+            new("back", "clownfish", .3, .28, AquariumLayer.Min),
+            new("front", "pufferfish", .7, .70, AquariumLayer.Max)
+        ];
+        IReadOnlyDictionary<string, AquariumFishMotionPlan> plans =
+            AquariumFishMotionPlanner.Build(fish, 840, 600, 17);
+
+        foreach (AquariumFishMotionInput member in fish)
+        {
+            (double minY, double maxY) = AquariumSwimDepth.Band(member.SwimLayer!.Value);
+            Assert.All(plans[member.InstanceId].Translation, frame =>
+                Assert.InRange(member.Y * 600 + frame.Value.Y, minY * 600 - .01, maxY * 600 + .01));
+        }
+    }
+
     [Fact]
     public void EachTurnHoldsTranslationUntilFacingHasChanged()
     {

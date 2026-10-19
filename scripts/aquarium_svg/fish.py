@@ -561,6 +561,393 @@ def special(item_id):
     raise ValueError(f"No drawing for {item_id}")
 
 
+# Morphometric family templates for the expanded natural-history collection.
+# Values are body depth, shoulder position, snout length, peduncle x, dorsal
+# architecture and caudal architecture.  Family-specific structures below add
+# adipose fins, finlets, barbels, scutes, feelers, horns or elongated jaws.
+EXPANDED_FORMS = {
+    "trout": (48, 355, 0, 141, "salmon", "fork"),
+    "salmon": (51, 362, 8, 135, "salmon", "fork"),
+    "humpback": (66, 350, 8, 136, "salmon", "fork"),
+    "grayling": (44, 356, 0, 143, "grayling", "fork"),
+    "perch": (63, 355, 0, 143, "double", "fork"),
+    "zander": (43, 368, 20, 133, "double", "fork"),
+    "pike": (29, 375, 65, 119, "rear", "fork"),
+    "bass": (65, 368, 16, 145, "double", "round"),
+    "sunfish": (91, 346, -18, 169, "spiny", "round"),
+    "catfish": (49, 364, 14, 133, "catfish", "deepfork"),
+    "wels": (42, 402, 28, 78, "tiny", "round"),
+    "sturgeon": (40, 350, 50, 128, "rear", "heterocercal"),
+    "paddlefish": (45, 335, 91, 111, "rear", "heterocercal"),
+    "bowfin": (46, 370, 10, 128, "ribbon", "round"),
+    "gar": (27, 375, 55, 110, "rear", "round"),
+    "gar-long": (22, 365, 88, 105, "rear", "round"),
+    "carp": (69, 355, -2, 146, "slope", "round"),
+    "tetra": (43, 360, 0, 148, "salmon", "fork"),
+    "tetra-deep": (66, 351, -4, 159, "tetra", "fork"),
+    "rasbora": (51, 357, 0, 145, "triangle", "fork"),
+    "minnow": (33, 368, 5, 135, "triangle", "fork"),
+    "barb": (69, 355, -5, 150, "triangle", "fork"),
+    "torpedo": (38, 363, 10, 132, "triangle", "deepfork"),
+    "swordtail": (47, 365, -1, 160, "slope", "sword"),
+    "livebearer": (53, 360, -8, 177, "slope", "round"),
+    "molly": (56, 355, -5, 168, "sail", "round"),
+    "gourami": (88, 352, -12, 163, "gourami", "round"),
+    "cichlid": (72, 355, -8, 160, "spiny", "round"),
+    "cockatoo": (56, 357, 0, 148, "cockatoo", "lyre"),
+    "cichlid-long": (52, 360, 0, 147, "spiny", "round"),
+    "cichlid-big": (83, 360, 8, 151, "spiny", "round"),
+    "hump-cichlid": (95, 379, 0, 150, "spiny", "round"),
+    "rainbowfish": (74, 350, -5, 153, "double", "fork"),
+    "threadfin": (32, 355, -2, 154, "threadfin", "lyre"),
+    "loach": (48, 365, 10, 141, "triangle", "fork"),
+    "eel-loach": (18, 410, 35, 72, "tiny", "round"),
+    "corydoras": (66, 366, -5, 148, "triangle", "fork"),
+    "pleco": (52, 390, 8, 139, "sail", "fork"),
+    "glass-catfish": (35, 379, 10, 132, "tiny", "fork"),
+    "surfacefish": (40, 370, 10, 156, "rear", "fan"),
+    "elephantnose": (63, 370, 12, 144, "rear", "fork"),
+    "marine-angel": (98, 343, -8, 169, "angel", "round"),
+    "longsnout": (99, 331, 55, 177, "angel", "round"),
+    "butterfly-deep": (97, 338, 2, 171, "angel", "round"),
+    "butterfly-banner": (95, 337, 11, 169, "banner", "round"),
+    "surgeon": (85, 350, 2, 164, "angel", "fork"),
+    "trigger": (84, 345, 26, 148, "trigger", "lyre"),
+    "boxfish": (72, 370, 10, 182, "box", "round"),
+    "cowfish": (68, 368, 25, 164, "box", "round"),
+    "chromis": (59, 350, -7, 148, "spiny", "fork"),
+    "chromis-deep": (81, 350, -8, 158, "spiny", "fork"),
+    "anthias": (63, 350, -3, 151, "spiny", "lyre"),
+    "dartfish": (31, 362, 8, 137, "dart", "point"),
+    "goby": (39, 388, 10, 126, "double", "round"),
+    "goby-slim": (23, 390, 6, 120, "double", "round"),
+    "hawkfish": (55, 378, 9, 141, "spiny", "round"),
+    "hawkfish-long": (36, 364, 58, 140, "spiny", "round"),
+    "wrasse-long": (38, 368, 16, 136, "ribbon", "round"),
+    "wrasse-deep": (68, 368, 12, 142, "spiny", "round"),
+    "grouper": (80, 379, 12, 139, "hump", "round"),
+    "moray": (28, 410, 26, 55, "eel", "none"),
+}
+
+# Closely related species share anatomy but not an identical outline. These
+# overrides encode recognizable differences in depth, shoulder and jaw length.
+SPECIES_PROPORTIONS = {
+    "brown-trout": (53, 351, 3), "brook-trout": (45, 359, -2),
+    "lake-trout": (43, 372, 7), "arctic-char": (50, 348, 2),
+    "chinook-salmon": (63, 359, 13), "coho-salmon": (54, 369, 4),
+    "european-perch": (68, 351, 3), "walleye": (49, 370, 23),
+    "muskellunge": (32, 381, 69), "smallmouth-bass": (60, 360, 6),
+    "bluegill": (96, 342, -22), "black-crappie": (83, 353, -8),
+    "white-crappie": (77, 358, -5), "cardinal-tetra": (38, 362, 1),
+    "rummy-nose-tetra": (36, 373, 6), "black-neon-tetra": (44, 358, 0),
+    "ember-tetra": (58, 353, -5), "lemon-tetra": (63, 352, -3),
+    "congo-tetra": (72, 345, 0), "bleeding-heart-tetra": (74, 349, -1),
+    "chili-rasbora": (29, 377, 3), "white-cloud-minnow": (34, 367, 8),
+    "rosy-barb": (61, 358, -2), "cherry-barb": (41, 370, 4),
+    "bala-shark": (45, 357, 6), "endlers-livebearer": (40, 368, -4),
+    "dwarf-gourami": (90, 345, -14), "pearl-gourami": (81, 359, -7),
+    "honey-gourami": (77, 352, -13), "kissing-gourami": (93, 360, 5),
+    "bolivian-ram": (67, 361, -1), "electric-yellow-cichlid": (47, 372, 5),
+    "jack-dempsey": (73, 362, 5), "dwarf-neon-rainbowfish": (67, 352, -7),
+    "bronze-corydoras": (60, 376, -2), "zebra-pleco": (46, 390, 3),
+    "queen-angelfish": (104, 339, -5), "bicolor-angelfish": (88, 350, -4),
+    "achilles-tang": (91, 345, -1), "picasso-triggerfish": (75, 349, 34),
+    "yellowtail-damselfish": (54, 353, -5),
+}
+
+
+def expanded_body(form, depth, shoulder, snout, tx):
+    top, bottom, nose = 200 - depth, 200 + depth * .83, 510 + snout
+    if form in ("pike", "gar", "gar-long"):
+        jaw = 455 if form == "pike" else 468
+        return (f"M{tx} 192 Q225 {top} 370 {top} Q432 {top} {jaw} 184 "
+                f"L{nose} 193 L{nose+9} 201 L{nose} 211 L{jaw} 213 "
+                f"Q390 {bottom} 277 {bottom-5} Q191 217 {tx} 211Z")
+    if form == "paddlefish":
+        return "M111 192 Q227 149 348 158 Q413 163 445 187 Q511 177 596 186 Q624 197 596 209 L460 213 Q407 247 329 239 Q210 219 111 213Z"
+    if form == "sturgeon":
+        return "M128 192 Q245 151 353 160 Q425 163 456 180 L570 202 L519 213 L472 222 Q414 247 326 236 Q211 219 128 214Z"
+    if form in ("boxfish", "cowfish"):
+        return (f"M{tx} 184 L263 143 Q352 107 438 145 L{nose} 190 "
+                f"L{nose+4} 217 L449 259 Q347 276 265 254 L{tx} 216Z")
+    if form in ("eel-loach", "moray", "wels"):
+        return (f"M{tx} 203 Q150 181 242 185 Q315 {top-6} 417 {top} "
+                f"Q480 {top} {nose} 187 L{nose+14} 201 L{nose} 213 "
+                f"Q440 {bottom} 358 {bottom-8} Q249 218 172 216 Q100 220 {tx} 208Z")
+    if form == "longsnout":
+        return "M177 187 Q229 91 322 97 Q397 92 436 161 L564 195 L571 204 L545 208 L456 199 Q432 286 337 287 Q229 278 177 215Z"
+    if form == "grouper":
+        return "M139 190 Q213 163 259 119 Q295 84 350 117 Q429 125 464 170 L522 192 L529 203 L513 219 Q467 273 369 270 Q230 258 139 215Z"
+    if form == "hump-cichlid":
+        return "M150 189 Q242 151 318 125 Q344 75 395 99 Q441 117 463 172 L510 195 L520 205 L506 218 Q451 281 352 278 Q229 256 150 215Z"
+    if form in ("corydoras", "pleco"):
+        return (f"M{tx} 192 Q242 {top-6} {shoulder} {top} Q443 {top+3} {nose} 205 "
+                f"L{nose+10} 218 Q497 239 429 243 Q270 245 {tx} 213Z")
+    if form == "elephantnose":
+        return "M144 192 Q235 143 359 137 Q436 140 482 177 Q503 190 508 214 Q520 252 507 271 Q500 278 498 267 L493 227 Q422 258 337 249 Q221 232 144 214Z"
+    if form == "surfacefish":
+        return "M156 189 Q275 149 416 157 L514 179 L525 193 L507 213 Q449 259 345 246 Q229 225 156 216Z"
+    return (f"M{tx} 189 C220 {200-depth*.6:.1f} 263 {top} {shoulder} {top} "
+            f"C430 {top} 467 175 {nose} 195 L{nose+10} 204 L{nose-4} 216 "
+            f"C463 {bottom:.1f} 378 {bottom+9:.1f} 312 {bottom:.1f} "
+            f"Q221 {bottom-8:.1f} {tx} 215Z")
+
+
+def expanded_fins(form, depth, kind, tailkind, tx, fin):
+    top = 200 - depth
+    p = []
+    if tailkind == "heterocercal":
+        p.append(fin_shape(f"M{tx+8} 187 Q97 152 49 82 Q58 145 91 194 Q62 224 57 268 Q107 236 {tx+8} 216Z", [f"M{tx} 201 L60 {y}" for y in (107, 141, 233, 255)]))
+    elif tailkind == "sword":
+        p.append(tail("round", tx))
+        p.append(path(f"M{tx} 211 Q115 251 36 291 L78 277 Q124 253 {tx+5} 216Z", fin, "#536555", 1))
+    elif tx < 100 and tailkind == "round":
+        p.append(fin_shape(f"M{tx+8} 193 Q52 179 37 187 Q28 202 38 216 Q55 222 {tx+8} 211Z", [f"M{tx} 202 L39 {y}" for y in (190,198,207,213)]))
+    elif tailkind != "none":
+        p.append(tail(tailkind, tx))
+    if kind in ("salmon", "tetra", "triangle", "catfish"):
+        p.append(fin_shape(f"M280 {top+8} L311 {max(33, top-55)} Q333 {top-55} 346 {top-35} L371 {top+6}Z", [f"M{295+i*9} {top+5} L{312+i*6} {top-40+i*5}" for i in range(7)]))
+        if kind in ("salmon", "tetra", "catfish"):
+            p.append(fin_shape(f"M191 {top+27} Q185 {top-4} 208 {top+1} L233 {top+21}Z", []))
+    elif kind == "grayling":
+        p.append(fin_shape("M213 170 L224 79 Q303 45 407 84 L426 159Z", [f"M{228+i*13} 163 L{233+i*12} {75+int(9*math.cos(i*.7))}" for i in range(15)]))
+        p.append(spots(91, "#963e53", 36, 3.2, (237, 393), (83, 139), .8))
+    elif kind in ("rear", "box", "tiny"):
+        x = 198 if kind != "tiny" else 323
+        y = 200 - depth * .6
+        p.append(fin_shape(f"M{x-23} {y+9} L{x+4} {y-45} Q{x+30} {y-37} {x+53} {y-2}Z", [f"M{x-10+i*8} {y+5} L{x+6+i*5} {y-34+i*5}" for i in range(6)]))
+    elif kind == "slope":
+        p.append(fin_shape(f"M268 {top+17} Q272 {top-34} 301 {top-42} Q337 {top-25} 381 {top+8}Z", [f"M{283+i*11} {top+10} L{292+i*8} {top-29+i*5}" for i in range(8)]))
+    elif kind in ("ribbon", "eel"):
+        p.append(fin_shape(f"M{tx+5} 189 Q238 {top-29} 420 {top-20} L452 {top+17} Q275 {top-5} {tx+5} 204Z", [f"M{x} {top+8} l-5 -24" for x in range(176, 432, 12)]))
+    elif kind == "trigger":
+        p.append(fin_shape(f"M352 {top+5} L365 {top-53} L378 {top-8} L411 {top+10}Z", []))
+        p.append(fin_shape(f"M177 184 Q197 102 260 99 L319 140Z", [f"M{194+i*9} 163 L{214+i*8} {120-i*2}" for i in range(9)]))
+    elif kind == "dart":
+        p.append(fin_shape("M345 171 L365 44 Q386 56 378 173Z M171 186 Q201 143 290 164 L314 178Z", ["M360 171 L366 58", "M200 182 L211 154"]))
+    elif kind == "threadfin":
+        p.append(fin_shape("M205 183 Q193 113 232 86 Q273 111 287 175Z M318 173 L343 106 Q364 144 380 176Z", ["M223 177 L232 98", "M244 174 L239 110"]))
+        p.append(path("M216 174 Q185 80 203 37 M236 169 Q217 69 236 42 M258 177 Q243 97 265 60", "none", fin, 2))
+    elif kind in ("angel", "banner", "sail", "gourami"):
+        crown = max(30, top - (54 if kind == "sail" else 35))
+        p.append(fin_shape(f"M{tx+10} 184 Q183 {crown+18} 282 {crown} Q372 {crown-8} 447 {top+40} L409 {top+40}Z", [f"M{218+i*13} {top+35} L{217+i*13} {crown+12+int(17*math.sin(i*.3))}" for i in range(16)]))
+        if kind == "banner":
+            p.append(path(f"M282 {crown+7} Q341 14 446 35 Q347 25 319 {crown+16}Z", "url(#fin)", fin, .8))
+    else:
+        # Separate spiny and soft dorsal lobes follow the actual shoulder.
+        front = " ".join(f"L{278+i*12} {top-(34 if i%2==0 else 11)}" for i in range(13))
+        if kind == "cockatoo":
+            front = "L293 73 L302 117 L321 58 L329 113 L348 53 L355 115 L372 85 L382 121 L405 97"
+        p.append(fin_shape(f"M249 {top+17} {front} Q439 {top-14} 461 {top+43} L411 {top+27}Z", [f"M{279+i*12} {top+18} L{279+i*12} {top-20}" for i in range(12)]))
+        if kind == "double":
+            p.append(fin_shape(f"M174 {top+34} Q185 {top-18} 224 {top-25} L279 {top+17}Z", [f"M{188+i*10} {top+28} L{210+i*6} {top-11}" for i in range(7)]))
+    # Anal and pelvic fins have different insertions in elongated, compressed
+    # and bottom-dwelling families; this prevents a one-shape recolor set.
+    bottom = 200 + depth * .83
+    if form in ("moray", "wels", "eel-loach", "glass-catfish"):
+        p.append(fin_shape(f"M{tx+15} 214 Q229 {bottom+38} 407 {bottom+23} L437 {bottom-8} Q238 {bottom+6} {tx+15} 214Z", [f"M{x} {bottom} l-8 22" for x in range(165, 404, 13)]))
+    elif form in ("gourami", "marine-angel", "longsnout", "butterfly-deep", "butterfly-banner", "surgeon"):
+        p.append(fin_shape(f"M{tx+12} 214 Q218 {min(355,bottom+59)} 324 {min(363,bottom+53)} Q399 {bottom+39} 444 {bottom-8} L404 {bottom-17}Z", [f"M{225+i*13} {bottom-8} L{230+i*12} {min(351,bottom+37)}" for i in range(14)]))
+    elif form not in ("boxfish", "cowfish"):
+        p.append(fin_shape(f"M204 221 Q224 {bottom+42} 286 {bottom+32} L324 {bottom-6}Z", [f"M{225+i*12} {bottom-7} L{235+i*11} {bottom+27-i*2}" for i in range(7)]))
+    return "".join(p)
+
+
+def expanded_markings(entry, top, bottom):
+    art, item_id = entry["artwork"], entry["id"]
+    style = art["pattern"]
+    dark, pale = "#34494a", "#e6e7ca"
+    s = []
+    if style in ("perch-bars", "olive-bars", "tiger-bars", "six-bars", "five-bars", "clown-bars", "banded", "zebra", "regal-bars", "copper-bars", "tusk-bars"):
+        n = {"perch-bars": 7, "olive-bars": 7, "tiger-bars": 4, "six-bars": 6, "five-bars": 5, "clown-bars": 3, "banded": 10, "zebra": 8, "regal-bars": 8, "copper-bars": 4, "tusk-bars": 5}[style]
+        color = "#9d6545" if style == "copper-bars" else "#427ea1" if style == "regal-bars" else "#b96745" if style == "tusk-bars" else dark
+        for i in range(n):
+            x, w = 181 + i * 303 / max(1,n-1), 13 if n > 6 else 23
+            s.append(path(f"M{x:.1f} 65 Q{x-20:.1f} 188 {x+14:.1f} 328 L{x+w+14:.1f} 328 Q{x+w-20:.1f} 188 {x+w:.1f} 65Z", color, opacity=.87))
+            if style in ("regal-bars", "tusk-bars"):
+                s.append(path(f"M{x+w+4:.1f} 65 Q{x+w-15:.1f} 188 {x+w+19:.1f} 328", "none", "#d8e0c8" if style == "regal-bars" else "#6eb8bf", 4, .86))
+    if style in ("pink-spots", "red-spots", "black-spots", "back-spots", "pale-spots", "violet-spots", "speckled", "black-mottle", "vertical-mottle", "mottled", "big-spots", "blue-flecks", "blue-spots", "pearl", "pearl-danio", "moray-snow", "trigger-dots"):
+        color = pale if style in ("pale-spots", "pearl", "pearl-danio", "trigger-dots") else "#75b9ca" if style in ("blue-flecks", "blue-spots") else dark
+        radius = 11 if style == "trigger-dots" else 8 if style == "big-spots" else 4.5 if style in ("black-mottle", "mottled", "moray-snow") else 2.8
+        count = 35 if radius >= 8 else 110 if radius > 3 else 155
+        if style == "pink-spots":
+            s.append(path("M137 209 Q327 184 499 203", "none", "#b57284", 15, .7))
+        if style == "moray-snow":
+            s.append(spots(item_id + "base", "#5a665a", 95, 10, (90, 541), (150, 248), .84))
+        s.append(spots(item_id, color, count, radius, (130, 545), (top, 206 if style == "back-spots" else bottom), .73))
+        if style == "red-spots":
+            s.append(spots(item_id + "rim", pale, 18, 5, (185, 475), (163, 223), .8))
+            s.append(spots(item_id + "rim", "#9f4e3e", 18, 2.9, (185, 475), (163, 223), .95))
+        if style in ("pearl", "pearl-danio"):
+            s.append(path("M144 205 Q319 184 507 205", "none", dark, 4 if style == "pearl" else 1.5, .8))
+    if style in ("vermiculate", "oscar", "pumpkin", "chevron"):
+        for i in range(19):
+            x = 170 + i*17
+            y = top + 12 + (i%4)*14
+            d = f"M{x} {y} q-14 12 1 22 t-1 20 t7 23"
+            s.append(path(d, "none", "#cb8d54" if style == "oscar" else "#c9c7a3" if style == "vermiculate" else "#5f9d9d" if style == "pumpkin" else "#7f8675", 8 if style == "oscar" else 3, .85))
+    if style in ("cardinal", "black-neon", "dark-stripe", "gold-stripe", "red-stripe", "broken-stripe", "denison", "neon-blue"):
+        color = "#388da4" if style in ("cardinal", "neon-blue") else "#c14d45" if style == "red-stripe" else "#ded7a0" if style == "gold-stripe" else dark
+        s.append(path("M127 207 Q323 178 505 198", "none", color, 11 if style in ("cardinal", "neon-blue", "broken-stripe") else 8, .9))
+        if style in ("cardinal", "black-neon", "gold-stripe", "neon-blue"):
+            s.append(path("M147 198 Q322 172 501 191", "none", "#9ed8d2" if style != "gold-stripe" else pale, 3, .9))
+        if style == "cardinal":
+            s.append(path("M141 214 Q320 202 491 214 L492 270 L145 265Z", "#ad514a", opacity=.94))
+        if style == "denison":
+            s.append(path("M325 186 Q414 174 504 193", "none", "#b34e47", 8, .92))
+        if style == "broken-stripe":
+            s.append(spots(item_id,"#506c4c",80,5,(165,480),(183,223),.7))
+    if style in ("orange-belly", "purple-belly", "honey", "pink", "ember", "orange", "half-orange"):
+        color = "#a25f80" if style == "purple-belly" else "#d0b0a9" if style == "pink" else "#cb854f"
+        s.append(path("M126 216 Q325 184 511 217 L531 310 L129 310Z" if style != "half-orange" else "M100 60 H310 Q280 196 310 330 H100Z", color, opacity=.74))
+    if style in ("bluegill", "pumpkin", "heart", "serpae", "tail-dot", "tail-eye", "ram", "ram-brown", "panda", "rummy", "hawk", "raccoon", "powder-blue", "green-head", "blue-head"):
+        if style in ("green-head", "blue-head", "rummy", "powder-blue"):
+            color = "#7b975b" if style == "green-head" else "#518dae" if style == "blue-head" else "#af504a" if style == "rummy" else "#303e42"
+            s.append(path("M432 74 Q402 195 437 324 H603 V74Z", color, opacity=.93))
+        elif style in ("tail-dot", "tail-eye"):
+            s.append(ellipse(181,187,16,13,"#c9a96b"))
+            s.append(ellipse(181,187,11,9,dark))
+        elif style in ("bluegill", "pumpkin"):
+            s.append(path("M417 176 Q388 204 415 231 L440 215 L440 184Z", "#507c85", opacity=.8))
+            s.append(ellipse(424,201,12,10,dark))
+            if style == "pumpkin":
+                s.append(ellipse(415,201,4,8,"#b56240"))
+        elif style == "heart":
+            s.append(ellipse(405,195,12,14,"#ae4f4b"))
+        elif style in ("panda", "raccoon", "ram", "ram-brown", "hawk"):
+            s.append(path("M450 89 Q427 181 460 292 L484 291 Q457 183 477 89Z", dark, opacity=.88))
+            if style == "panda":
+                s.append(ellipse(180,205,26,24,dark))
+            elif style.startswith("ram"):
+                s.append(ellipse(365,199,17,27,dark))
+                s.append(spots(item_id,"#96cdd1",75,2.8,(220,450),(155,253),.85))
+        else:
+            s.append(ellipse(406,192,12,22,dark))
+    if style == "triangle":
+        s.append(path("M178 205 L356 159 L354 249Z",dark))
+    if style == "lemon":
+        s.append(path("M170 201 Q329 188 493 201", "none", "#e4d870", 12, .42))
+    if style == "cockatoo":
+        s.append(path("M145 206 Q329 184 501 204", "none", dark, 8, .9))
+        s.append(ellipse(181,204,13,11,dark))
+    if style == "blue-head":
+        s.append(path("M393 82 Q380 192 402 304 L430 304 Q410 189 422 82Z", "#e1e0c4"))
+        s.append(path("M379 82 Q369 192 389 304 L402 304 Q380 189 393 82Z", dark))
+    if style == "vertical-mottle":
+        for x in range(185,490,42):
+            s.append(path(f"M{x} 93 q-13 38 1 60 t-2 55 t9 70", "none", dark, 6, .4))
+    if style == "bicolor":
+        s.append(path("M110 50 H330 Q346 192 330 340 H110Z", "#3d609a"))
+        s.append(path("M439 85 L442 180 L470 185 L473 92Z", "#3d609a"))
+    if style == "picasso":
+        for d, color in (("M406 156 L356 213 L418 246 L452 178Z", "#354e58"),("M456 176 L391 199 L373 187 L438 165Z", "#6dabad"),("M180 171 L285 190 L245 231 L173 220Z", "#ded7b7")):
+            s.append(path(d,color))
+        s.append(path("M480 195 L505 203", "none", "#b39a4b",7))
+    if style in ("gourami-red", "red-grid"):
+        for x in range(171,512,22):
+            s.append(path(f"M{x} 90 Q{x-20} 200 {x+30} 312", "none", "#b75f4b",5,.83))
+        if style == "red-grid":
+            for y in range(156,253,18):
+                s.append(path(f"M147 {y} Q338 {y-15} 540 {y}","none","#b75f4b",4,.8))
+    if style in ("rainbow", "iridescent", "silver-side", "bronze", "queen"):
+        for y,color in ((181,"#d6d3a9"),(189,"#a7ccc9"),(197,"#7b9dbe")):
+            s.append(path(f"M149 {y+18} Q327 {y-13} 499 {y+8}","none",color,6,.45))
+    if style == "queen":
+        s.append(path("M421 106 Q395 135 422 163 Q448 155 454 132Z","#47768d"))
+        s.append(ellipse(431,135,10,8,"#c4d8bc"))
+    if style in ("orange-tail", "yellow-tail"):
+        s.append(ellipse(173,201,23,20,"#c67f44" if style == "orange-tail" else "#dbbf4d"))
+    if style == "endler":
+        for x,y,rx,ry,color in ((276,197,23,21,"#364c48"),(324,203,24,13,"#c57948"),(382,190,21,9,"#60b1b5")):
+            s.append(ellipse(x,y,rx,ry,color))
+    return "".join(s)
+
+
+def expanded(entry):
+    art, item_id = entry["artwork"], entry["id"]
+    form = art["form"]
+    depth, shoulder, snout, tx, dorsalkind, tailkind = EXPANDED_FORMS[form]
+    depth, shoulder, snout = SPECIES_PROPORTIONS.get(item_id, (depth, shoulder, snout))
+    base = art["color"]
+    back, flank, belly = mix(base, "#162b32", .48), base, mix(base, "#f1ead0", .65)
+    fin = mix(base, "#aab9ad", .23)
+    if item_id in ("yellow-perch", "european-perch", "cherry-barb", "rosy-barb", "dwarf-neon-rainbowfish"):
+        fin = "#bb7657"
+    if item_id in ("powder-blue-tang", "yellowtail-damselfish", "queen-angelfish"):
+        fin = "#ccb551"
+    if item_id == "purple-firefish":
+        fin = "#8e6a9a"
+    body = expanded_body(form, depth, shoulder, snout, tx)
+    p = [defs(back, flank, belly, fin, body), expanded_fins(form, depth, dorsalkind, tailkind, tx, fin)]
+    if item_id == "bala-shark":
+        p.append(path("M61 110 Q74 164 97 200 Q75 240 61 292 M311 103 Q332 102 346 121 M222 246 Q242 277 284 271", "none", "#35494c", 7, .86))
+    if item_id == "electric-yellow-cichlid":
+        p.append(path("M280 130 L292 145 L304 130 L316 145 L328 130 L340 145 L352 130 L364 145 L376 130 L388 146 Q423 130 450 174", "none", "#364546", 6, .9))
+    if item_id == "rummy-nose-tetra":
+        p.append(path("M68 148 L92 170 M85 184 L123 188 M85 213 L125 212 M68 253 L92 232", "none", "#354849", 6, .9))
+    if item_id == "cockatoo-cichlid":
+        p.append(path("M294 75 L320 61 L347 56 M60 121 Q87 166 105 191 M60 283 Q86 241 102 219", "none", "#bd7448", 6, .85))
+    if form in ("surfacefish", "pleco"):
+        p.append(fin_shape("M423 210 Q361 128 263 118 Q266 204 411 232Z", [f"M417 216 L{276+i*12} {138+i*7}" for i in range(10)]))
+    p.append(path(body,"url(#body)",back,.8,.79 if form == "glass-catfish" else 1))
+    p += ['<g clip-path="url(#outline)">', expanded_markings(entry, 200-depth, 200+depth*.83)]
+    if form not in ("catfish", "wels", "eel-loach", "glass-catfish", "moray", "boxfish", "cowfish"):
+        p.append(scales(item_id, form in ("carp", "gar", "gar-long")))
+    if form == "glass-catfish":
+        p.append(path("M137 204 Q324 181 488 198", "none", "#e1ebdc", 3,.78))
+        for x in range(176,459,15):
+            p.append(path(f"M{x} 199 l-9 -17 M{x} 200 l-15 28", "none", "#a2b8b3",1,.65))
+    if art["pattern"] == "scutes":
+        for i,x in enumerate(range(165,465,21)):
+            y=178-16*math.sin(i*.2)
+            p.append(path(f"M{x} {y} l11 -9 l10 8 l-10 8Z", "#c1c6ac", "#667c70", .6))
+    p += [path(body,"url(#shade)"), '</g>']
+    eye_x,eye_y = (478+snout*.22,184)
+    if form in ("pike","gar","gar-long","paddlefish","sturgeon"):
+        eye_x,eye_y=452,185
+    if form in ("marine-angel","butterfly-deep","butterfly-banner","longsnout"):
+        eye_x,eye_y=451,177
+    if form in ("gourami","sunfish","cichlid","hump-cichlid"):
+        eye_x,eye_y=467,182
+    if form in ("corydoras","pleco"):
+        eye_x,eye_y=467,190
+    # Natural-sized eyes, curved operculum and light pectoral rays keep the
+    # realistic collection distinct from the cartoon invertebrate series.
+    gill_x=eye_x-33
+    p.append(path(f"M{gill_x} {eye_y-14} Q{gill_x-17} 207 {gill_x+3} 232", "none", back,1.7,.74))
+    if form != "moray":
+        p.append(fin_shape(f"M{gill_x-5} 213 Q{gill_x-52} 213 {gill_x-86} 256 Q{gill_x-45} 260 {gill_x-1} 232Z", [f"M{gill_x-7} 219 L{gill_x-78+i*11} {250-i*3}" for i in range(7)]))
+    p.append(eye(round(eye_x,1),eye_y,5.5 if depth<40 else 6.2,"#b9ae7a"))
+    nose=510+snout
+    if form == "elephantnose":
+        p.append(path("M500 263 l7 3","none",back,1.5))
+    elif form == "paddlefish":
+        p.append(path("M460 213 Q477 222 490 215","none",back,1.5))
+    elif form == "sturgeon":
+        p.append(path("M479 216 l-9 9 M490 215 l-8 10 M501 214 l-7 10","none",belly,2))
+    else:
+        p.append(path(f"M{nose+3} 205 Q{nose-13} 211 {nose-30} 208","none",back,1.4,.85))
+    if form in ("catfish","wels","glass-catfish","corydoras","loach","eel-loach"):
+        for d in (f"M{nose-3} 213 Q{nose+43} 231 601 211",f"M{nose-9} 219 Q{nose+15} 258 574 260",f"M{nose-4} 204 Q{nose+39} 185 603 184"):
+            p.append(path(d,"none",mix(base,"#e7e4cc",.5),1.9,.93))
+    if form == "gourami":
+        p.append(path("M427 252 Q423 314 363 351 M411 252 Q407 316 344 340","none",belly,2))
+    if form == "threadfin":
+        p.append(path("M342 229 Q286 288 213 351 M366 230 Q320 296 258 341","none",fin,2.6))
+    if form == "cowfish":
+        p.append(path("M468 158 L496 102 L490 177Z M455 242 L421 299 L471 249Z","url(#body)",back,1))
+    if form == "boxfish":
+        p.append(path("M277 155 L286 246 M282 242 Q373 257 448 246","none",back,1.2,.35))
+    if form == "pleco" and item_id == "bristlenose-pleco":
+        p.append(path("M511 206 l18 -20 M510 211 l28 -7 M502 201 l7 -24 M494 199 l-4 -23","none",back,2.7))
+    if item_id == "harlequin-tuskfish":
+        p.append(path("M516 207 l-2 8 l-4 -9 M508 208 l-2 7 l-3 -7","#b4ccd0"))
+    if form == "hawkfish":
+        for x in range(285,418,14):
+            p.append(path(f"M{x} {200-depth-26} l-4 -9 m4 9 l4 -8","none",fin,1.4))
+    return "".join(p)
+
+
 def generate(entries, output_dir):
     """Write one transparent, standalone 640 x 400 SVG per fish entry."""
     output_dir = Path(output_dir)
@@ -574,9 +961,11 @@ def generate(entries, output_dir):
     }
     for entry in entries:
         item_id = entry["id"]
-        if item_id not in known:
+        if "artwork" in entry:
+            artwork = expanded(entry)
+        elif item_id not in known:
             raise ValueError(f"Unknown fish identity: {item_id}")
-        if item_id in PROFILES:
+        elif item_id in PROFILES:
             artwork = regular(item_id)
         elif item_id.endswith("shark") or item_id == "scalloped-hammerhead":
             artwork = shark(item_id)
@@ -602,7 +991,7 @@ def generate(entries, output_dir):
 if __name__ == "__main__":
     root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--plan", type=Path, default=root / "docs/design/aquarium-realistic-expansion-plan.json")
+    parser.add_argument("--plan", type=Path, default=root / "docs/design/aquarium-fish-expansion-plan.json")
     parser.add_argument("--output", type=Path, default=root / "src/DeskBox/Assets/Aquarium/Svg")
     args = parser.parse_args()
     plan = json.loads(args.plan.read_text(encoding="utf-8"))

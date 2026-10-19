@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DeskBox.Contracts;
 using DeskBox.Models;
 using DeskBox.Services;
 using Microsoft.UI.Xaml;
@@ -524,16 +525,28 @@ public sealed partial class TodoWidgetViewModel
         _ => _showAllTab
     };
 
-    private static DateTimeOffset WithEndOfDay(DateTimeOffset date)
+    internal DateTimeOffset CreateConfiguredDueDate(DateTimeOffset date)
     {
+        int minutes = _settingsService is null
+            ? TodoOptionKinds.DefaultDueTimeMinutes
+            : TodoOptionKinds.NormalizeDueTimeMinutes(
+                _settingsService.Settings.Todo.TodoDefaultDueTimeMinutes);
         return new DateTimeOffset(
             date.Year,
             date.Month,
             date.Day,
-            23,
-            59,
             0,
-            date.Offset);
+            0,
+            0,
+            date.Offset).AddMinutes(minutes);
+    }
+
+    internal int GetConfiguredThisWeekDueDay()
+    {
+        return _settingsService is null
+            ? TodoOptionKinds.DefaultThisWeekDueDay
+            : TodoOptionKinds.NormalizeThisWeekDueDay(
+                _settingsService.Settings.Todo.TodoThisWeekDueDay);
     }
 
     private static int CompareVisibleItems(TodoItemViewModel? left, TodoItemViewModel? right)
