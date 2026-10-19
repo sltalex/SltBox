@@ -27,6 +27,7 @@ public sealed partial class AdminSettingsSection : UserControl
     private readonly TextBox _confirm = new();
     private readonly PasswordBox _password = new();
     private readonly TextBox[] _treeInputs = [new(), new(), new(), new(), new()];
+    private readonly TextBox _coinInput = new() { MaxLength = 10 };
     private IAuthSession? _auth;
     private IAuthenticatedAccountApi? _api;
     private LocalizationService? _localization;
@@ -253,6 +254,17 @@ public sealed partial class AdminSettingsSection : UserControl
         treeActions.Children.Add(ActionButton("Settings.Admin.Reset", async () => await MutateAsync(new() { Action = "tree_reset", BaseVersion = _treeVersion, Day = _treeDay })));
         treePanel.Children.Add(treeActions);
         SettingsCard treeCard = CreateCard(L("Settings.Admin.Tree"), treePanel);
+        JsonElement aquarium = value.GetProperty("aquarium");
+        var coinPanel = new StackPanel { Spacing = 8 };
+        coinPanel.Children.Add(new TextBlock
+        {
+            Text = L("Settings.Admin.CoinBalance"),
+            Opacity = .72
+        });
+        _coinInput.Text = aquarium.GetProperty("coins").GetInt64().ToString(CultureInfo.InvariantCulture);
+        coinPanel.Children.Add(_coinInput.Parent is null ? _coinInput : Detach(_coinInput));
+        coinPanel.Children.Add(ActionButton("Settings.Admin.SetCoins", async () => await SetAquariumCoinsAsync()));
+        SettingsCard coinsCard = CreateCard(L("Settings.Admin.Coins"), coinPanel);
         JsonElement identity = value.GetProperty("identity");
         var dingPanel = new StackPanel { Spacing = 8 };
         if (identity.ValueKind != JsonValueKind.Null)
@@ -270,7 +282,8 @@ public sealed partial class AdminSettingsSection : UserControl
         AddDetailSection(_detail, sessionsCard, row, 0);
         AddDetailSection(_detail, backupsCard, row++, 1);
         AddDetailSection(_detail, treeCard, row, 0);
-        AddDetailSection(_detail, dingCard, row++, 1);
+        AddDetailSection(_detail, coinsCard, row++, 1);
+        AddDetailSection(_detail, dingCard, row++, 0, 2);
         if (!isAdmin)
         {
             var danger = new StackPanel { Spacing = 8 };
@@ -310,6 +323,17 @@ public sealed partial class AdminSettingsSection : UserControl
         await MutateAsync(new() { Action = "tree_correct", BaseVersion = _treeVersion, Day = _treeDay,
             TotalEnergy = values[0], TodayGrowth = values[1], FruitEnergy = values[2],
             FruitTotal = values[3], HarvestedTotal = values[4] });
+    }
+
+    private async Task SetAquariumCoinsAsync()
+    {
+        if (!long.TryParse(_coinInput.Text, NumberStyles.None, CultureInfo.InvariantCulture, out long coins)
+            || coins > int.MaxValue)
+        {
+            _status.Text = L("Settings.Admin.InvalidNumber");
+            return;
+        }
+        await MutateAsync(new() { Action = "set_aquarium_coins", Coins = coins });
     }
 
     private async Task MutateAsync(AdminMutationRequest request)
@@ -507,6 +531,7 @@ public sealed partial class AdminSettingsSection : UserControl
             if (request.FruitEnergy is long fruitEnergy) writer.WriteNumber("fruit_energy", fruitEnergy);
             if (request.FruitTotal is long fruitTotal) writer.WriteNumber("fruit_total", fruitTotal);
             if (request.HarvestedTotal is long harvestedTotal) writer.WriteNumber("harvested_total", harvestedTotal);
+            if (request.Coins is long coins) writer.WriteNumber("coins", coins);
             writer.WriteEndObject();
         }
         return stream.ToArray();

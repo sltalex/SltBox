@@ -69,6 +69,26 @@ fails('state_conflict', static fn() => admin_mutate($pdo, $adminId, $common + [
 admin_mutate($pdo, $adminId, $common + ['action' => 'tree_reset', 'day' => '2026-10-16', 'base_version' => 1], $clock);
 check(tree_read_state($pdo, $memberId, '2026-10-16')['total_energy'] === 0, 'Reset clears cloud tree state.');
 
+$coinDetail = admin_read($pdo, $adminId, 'user', ['id' => $memberId], $clock);
+check(!$coinDetail['aquarium']['initialized'] && $coinDetail['aquarium']['coins'] === 0,
+    'An untouched aquarium has no editable balance yet.');
+admin_mutate($pdo, $adminId, $common + ['action' => 'set_aquarium_coins', 'coins' => 260], $clock);
+$coinDetail = admin_read($pdo, $adminId, 'user', ['id' => $memberId], $clock);
+check($coinDetail['aquarium']['initialized'] && $coinDetail['aquarium']['coins'] === 260,
+    'Administrators can set an uninitialized account to an exact aquarium coin balance.');
+$wallet = $pdo->prepare('SELECT delta, balance, reason FROM aquarium_wallet_entries WHERE user_id = ? ORDER BY id DESC LIMIT 1');
+$wallet->execute([$memberId]);
+check($wallet->fetch(PDO::FETCH_ASSOC) === ['delta' => 260, 'balance' => 260, 'reason' => 'admin_adjustment'],
+    'The first administrator balance change creates an accountable wallet entry.');
+admin_mutate($pdo, $adminId, $common + ['action' => 'set_aquarium_coins', 'coins' => 40], $clock);
+$wallet->execute([$memberId]);
+check($wallet->fetch(PDO::FETCH_ASSOC) === ['delta' => -220, 'balance' => 40, 'reason' => 'admin_adjustment'],
+    'Subsequent administrator balance changes record the exact negative adjustment.');
+fails('invalid_coins', static fn() => admin_mutate($pdo, $adminId, $common + [
+    'action' => 'set_aquarium_coins', 'coins' => -1], $clock));
+fails('invalid_coins', static fn() => admin_mutate($pdo, $adminId, $common + [
+    'action' => 'set_aquarium_coins', 'coins' => 2147483648], $clock));
+
 $backupId = auth_random_id();
 $pdo->prepare('INSERT INTO account_backup_snapshots (id,user_id,device_id,app_version,file_count,total_bytes,sha256,created_at) '
     . 'VALUES (?,?,?,?,?,?,?,?)')->execute([$backupId, $memberId, 'device-b', '1', 1, 13, str_repeat('a', 64), '2026-10-16 12:00:00']);
@@ -98,6 +118,6 @@ admin_mutate($pdo, $adminId, $common + ['action' => 'delete_user',
     'confirm_username' => 'second_user', 'admin_password' => 'secret1'], $clock);
 check((int)$pdo->query('SELECT COUNT(*) FROM auth_users')->fetchColumn() === 1, 'Account deleted.');
 check((int)$pdo->query("SELECT COUNT(*) FROM auth_sessions WHERE user_id = '{$memberId}'")->fetchColumn() === 0, 'Deleted sessions cascade.');
-check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 13, 'Operations and failures audited.');
-check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 5, 'Failed operations are audited.');
+check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 17, 'Operations and failures audited.');
+check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 7, 'Failed operations are audited.');
 echo "admin_service_test: ok\n";

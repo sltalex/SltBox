@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
+require_once __DIR__ . '/aquarium.php';
 
 function admin_require(PDO $pdo, string $token, callable $clock): array
 {
@@ -90,12 +91,17 @@ function admin_read(PDO $pdo, string $actorId, string $view, array $query, calla
         'fruit_energy' => (int)($treeProfile['fruit_energy'] ?? 0),
         'fruit_inventory' => max(0, $fruitTotal - $harvested),
         'fruit_total' => $fruitTotal, 'harvested_total' => $harvested];
+    $aquariumProfile = $pdo->prepare('SELECT initialized, coins FROM aquarium_profiles WHERE user_id = :id');
+    $aquariumProfile->execute([':id' => $targetId]);
+    $aquarium = $aquariumProfile->fetch(PDO::FETCH_ASSOC);
     return ['user' => $user, 'sessions' => $sessions->fetchAll(PDO::FETCH_ASSOC),
         'backups' => $backups->fetchAll(PDO::FETCH_ASSOC),
         'backup_uploads' => $uploads->fetchAll(PDO::FETCH_ASSOC),
         'identity' => $identity->fetch(PDO::FETCH_ASSOC) ?: null,
         'tree' => ['participating' => is_array($treeProfile) && (bool)$treeProfile['participation_enabled'],
-            'state' => $treeState]];
+            'state' => $treeState],
+        'aquarium' => ['initialized' => is_array($aquarium) && (bool)$aquarium['initialized'],
+            'coins' => (int)($aquarium['coins'] ?? 0)]];
 }
 
 function admin_id(array $values, string $key): string
@@ -116,7 +122,7 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         throw new ApiError('invalid_reason', 'A reason of at most 500 bytes is required.', 400);
     }
     $allowed = ['disable', 'enable', 'revoke_session', 'revoke_all_sessions', 'delete_user',
-        'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk'];
+        'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk', 'set_aquarium_coins'];
     if (!in_array($action, $allowed, true)) { throw new ApiError('invalid_action', 'Unknown action.', 400); }
     if ($action === 'delete_user') {
         auth_rate_limit($pdo, 'admin_delete', hash('sha256', $actorId), 5, 900, $clock);
@@ -167,6 +173,8 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
             $delete = $pdo->prepare("DELETE FROM account_identities WHERE user_id = :id AND provider = 'dingtalk'");
             $delete->execute([':id' => $targetId]);
             $details['unlinked'] = $delete->rowCount() > 0;
+        } elseif ($action === 'set_aquarium_coins') {
+            $details = admin_set_aquarium_coins($pdo, $targetId, $body, $now, $driver);
         } else {
             $details = admin_change_tree($pdo, $targetId, $action, $body, $now, $driver);
         }
@@ -186,6 +194,36 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         }
         throw $error;
     }
+}
+
+function admin_set_aquarium_coins(PDO $pdo, string $userId, array $body,
+    DateTimeImmutable $now, string $driver): array
+{
+    $coins = $body['coins'] ?? null;
+    if (!is_int($coins) || $coins < 0 || $coins > 2147483647) {
+        throw new ApiError('invalid_coins', 'Aquarium coin balance is invalid.', 400);
+    }
+    $insert = $driver === 'sqlite'
+        ? 'INSERT INTO aquarium_profiles (user_id, initialized, coins, scene_version, scene_json, created_at, updated_at) '
+            . "VALUES (:user, 0, 0, 0, '[]', :now, :now) ON CONFLICT(user_id) DO NOTHING"
+        : 'INSERT INTO aquarium_profiles (user_id, initialized, coins, scene_version, scene_json, created_at, updated_at) '
+            . "VALUES (:user, 0, 0, 0, '[]', :now, :now) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)";
+    $pdo->prepare($insert)->execute([':user' => $userId, ':now' => auth_sql_time($now)]);
+    $profile = $pdo->prepare('SELECT initialized, coins FROM aquarium_profiles WHERE user_id = :user'
+        . ($driver === 'mysql' ? ' FOR UPDATE' : ''));
+    $profile->execute([':user' => $userId]);
+    $current = $profile->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($current)) { throw new ApiError('server_error', 'Aquarium profile could not be created.', 500); }
+    $before = (int)$current['coins'];
+    $delta = $coins - $before;
+    $pdo->prepare('UPDATE aquarium_profiles SET initialized = 1, coins = :coins, updated_at = :now WHERE user_id = :user')
+        ->execute([':coins' => $coins, ':now' => auth_sql_time($now), ':user' => $userId]);
+    if ($delta !== 0) {
+        aquarium_record_wallet($pdo, $userId, 'admin-' . auth_random_id(), $delta, $coins,
+            'admin_adjustment', null, $now);
+    }
+    return ['initialized_before' => (bool)$current['initialized'], 'initialized' => true,
+        'before' => $before, 'after' => $coins, 'delta' => $delta];
 }
 
 function admin_write_audit(PDO $pdo, string $actorId, string $targetId, string $action,

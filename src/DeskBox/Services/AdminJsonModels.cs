@@ -16,4 +16,5 @@ internal sealed class AdminMutationRequest
     public long? FruitEnergy { get; set; }
     public long? FruitTotal { get; set; }
     public long? HarvestedTotal { get; set; }
+    public long? Coins { get; set; }
 }
