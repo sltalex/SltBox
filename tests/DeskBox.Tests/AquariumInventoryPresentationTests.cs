@@ -20,23 +20,38 @@ public sealed class AquariumInventoryPresentationTests
     [Fact]
     public void StoreGroupsPartitionEveryAquariumCategoryAndExposeFishHabitats()
     {
-        Assert.Equal(["fish", "plants", "scenery", "invertebrates", "pack"],
+        Assert.Equal(["pack"],
             AquariumStoreBrowse.Groups.Select(group => group.Id));
-        foreach (string category in AquariumInventoryPresentation.Categories)
-        {
-            AquariumCatalogItem item = new(category, category, category, 100, category);
-            Assert.Single(AquariumStoreBrowse.Groups,
-                group => AquariumStoreBrowse.Matches(item, group.Id, "all"));
-        }
-
-        Assert.Equal(["all", "freshwater", "tropical", "marine"],
-            AquariumStoreBrowse.Subcategories("fish"));
         Assert.Empty(AquariumStoreBrowse.Subcategories("pack"));
-        AquariumCatalogItem marine = new("fish", "Fish", "fish", 100, "fish", "marine");
-        Assert.True(AquariumStoreBrowse.Matches(marine, "fish", "marine"));
-        Assert.False(AquariumStoreBrowse.Matches(marine, "fish", "freshwater"));
-        Assert.True(AquariumStoreBrowse.Matches(
-            new AquariumCatalogItem("legacy", "Legacy", "fish", 100, "legacy"), "fish", "all"));
+        AquariumCatalogItem pack = new("pack", "Pack", "pack", 100, "pack");
+        AquariumCatalogItem fish = new("fish", "Fish", "fish", 100, "fish", "marine");
+        Assert.True(AquariumStoreBrowse.Matches(pack, "pack", "all"));
+        Assert.False(AquariumStoreBrowse.Matches(fish, "pack", "all"));
+        Assert.False(AquariumStoreBrowse.Matches(fish, "fish", "all"));
+    }
+
+    [Fact]
+    public void AquariumAndGeneralBackpacksPartitionOwnedProducts()
+    {
+        AquariumCatalogItem[] catalog =
+        [
+            new("fish", "Fish", "fish", 100, "fish"),
+            new("plant", "Plant", "plant", 100, "plant"),
+            new("pack", "Pack", "pack", 100, "pack")
+        ];
+        AquariumInventoryItem[] inventory =
+        [
+            new("fish-1", "fish", "now"),
+            new("plant-1", "plant", "now"),
+            new("pack-1", "pack", "now")
+        ];
+
+        var owned = AquariumInventoryPresentation.Summarize(inventory, [], catalog);
+
+        Assert.Equal(["fish", "plant"], AquariumInventoryPresentation.AquariumItems(owned)
+            .Select(item => item.Product.Category));
+        Assert.Equal("pack", Assert.Single(AquariumInventoryPresentation.GeneralItems(owned)).Product.Category);
+        Assert.DoesNotContain("pack", AquariumInventoryPresentation.AquariumCategories);
     }
 
     [Fact]
@@ -102,10 +117,14 @@ public sealed class AquariumInventoryPresentationTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("_storeCategoryFilter", settings, StringComparison.Ordinal);
         Assert.Contains("BackpackPrimaryCategories", backpack, StringComparison.Ordinal);
-        Assert.Contains("BackpackCategories", backpack, StringComparison.Ordinal);
+        Assert.DoesNotContain("BackpackCategories", backpack, StringComparison.Ordinal);
         Assert.Contains("StoreCategories", store, StringComparison.Ordinal);
         Assert.Contains("StoreItems", store, StringComparison.Ordinal);
         Assert.DoesNotContain("SaveLayout", backpack, StringComparison.Ordinal);
+        Assert.DoesNotContain("_walletTab", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("RenderWallet", settings, StringComparison.Ordinal);
+        Assert.Contains("AquariumInventoryPresentation.GeneralItems", settings, StringComparison.Ordinal);
+        Assert.Contains("AquariumInventoryPresentation.AquariumItems", settings, StringComparison.Ordinal);
         Assert.Contains("backpack.AquariumRequested += () => NavigateToSettingsSection(\"AquariumSettings\")", navigation,
             StringComparison.Ordinal);
         Assert.Contains("AttachExternalStore(store)", navigation, StringComparison.Ordinal);

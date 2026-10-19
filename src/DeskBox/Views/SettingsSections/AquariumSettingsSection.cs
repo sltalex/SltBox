@@ -58,9 +58,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private readonly StackPanel _backpackCategories = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
     private AquariumBackpackSection? _externalBackpack;
     private AquariumStoreSection? _externalStore;
-    private readonly StackPanel _wallet = new() { Spacing = 8 };
-    private readonly PivotItem _backpackTab = new();
-    private readonly PivotItem _walletTab = new();
     private readonly Button _refresh = ActionButton("Aquarium.Settings.Refresh");
     private readonly Button _save = ActionButton("Aquarium.Settings.Save");
     private readonly Button _discard = ActionButton("Aquarium.Settings.Discard");
@@ -85,7 +82,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private bool _disposed;
     private string? _noticeKey;
     private string _selectedBackpackCategory = "fish";
-    private string _selectedStoreGroup = "fish";
+    private string _selectedStoreGroup = "pack";
     private string _selectedStoreSubcategory = "all";
     private string _selectedBackpackHabitat = "all";
     private readonly ComboBox _layer = new() { Width = 125, IsEnabled = false };
@@ -127,16 +124,12 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         animationRow.Children.Add(_animation);
         root.Children.Add(animationRow);
         root.Children.Add(_status);
-        var tabs = new Pivot();
+        root.Children.Add(Label("Aquarium.Settings.Backpack", 18));
         var backpackContent = new StackPanel { Spacing = 8 };
         backpackContent.Children.Add(_backpackPrimaryCategories);
         backpackContent.Children.Add(_backpackCategories);
         backpackContent.Children.Add(_backpack);
-        _backpackTab.Content = backpackContent;
-        _walletTab.Content = _wallet;
-        tabs.Items.Add(_backpackTab);
-        tabs.Items.Add(_walletTab);
-        root.Children.Add(tabs);
+        root.Children.Add(backpackContent);
         var shell = new Grid();
         shell.Children.Add(root);
         BuildPackRevealOverlay();
@@ -258,7 +251,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     internal void AttachExternalBackpack(AquariumBackpackSection page)
     {
         _externalBackpack = page;
-        RenderBackpack(page.ItemsHost, page.PrimaryCategoriesHost, page.CategoriesHost);
+        RenderExternalBackpack();
         UpdateStatus();
     }
 
@@ -326,8 +319,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             _hasDraft = true;
         }
         _coins.Text = F("Aquarium.Settings.Coins", state?.Coins ?? 0);
-        _backpackTab.Header = L("Aquarium.Settings.Backpack");
-        _walletTab.Header = L("Aquarium.Settings.Wallet");
         foreach (ComboBoxItem item in _layer.Items.OfType<ComboBoxItem>())
             if (item.Tag is int layer)
                 item.Content = LayerLabel(layer);
@@ -344,10 +335,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         UpdateSelection();
         RenderStore();
         RenderBackpack(_backpack, _backpackPrimaryCategories, _backpackCategories);
-        if (_externalBackpack is not null)
-            RenderBackpack(_externalBackpack.ItemsHost, _externalBackpack.PrimaryCategoriesHost,
-                _externalBackpack.CategoriesHost);
-        RenderWallet();
+        RenderExternalBackpack();
         UpdateStatus();
     }
 
@@ -374,6 +362,11 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         store.CategoriesHost.Children.Clear();
         store.ItemsHost.Children.Clear();
         if (_service is null) return;
+        if (!AquariumStoreBrowse.Groups.Any(group => group.Id == _selectedStoreGroup))
+        {
+            _selectedStoreGroup = AquariumStoreBrowse.Groups[0].Id;
+            _selectedStoreSubcategory = AquariumStoreBrowse.Groups[0].Subcategories.FirstOrDefault() ?? "all";
+        }
         var primaryCategories = new WrapPanel { HorizontalSpacing = 6, VerticalSpacing = 6 };
         store.CategoriesHost.Children.Add(primaryCategories);
         foreach (AquariumStoreGroup group in AquariumStoreBrowse.Groups)
@@ -453,24 +446,40 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             host.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
             return;
         }
-        IReadOnlyList<AquariumOwnedProduct> ownedProducts = AquariumInventoryPresentation.Summarize(
-            state.Inventory, _draft, _service.Catalog);
-        string selectedCategory = AquariumInventoryPresentation.Categories.Contains(_selectedBackpackCategory,
-            StringComparer.Ordinal) ? _selectedBackpackCategory : AquariumInventoryPresentation.Categories[0];
+        IReadOnlyList<AquariumOwnedProduct> ownedProducts = AquariumInventoryPresentation.AquariumItems(
+            AquariumInventoryPresentation.Summarize(state.Inventory, _draft, _service.Catalog));
+        string selectedCategory = AquariumInventoryPresentation.AquariumCategories.Contains(_selectedBackpackCategory,
+            StringComparer.Ordinal) ? _selectedBackpackCategory : AquariumInventoryPresentation.AquariumCategories[0];
         if (selectedCategory == "fish")
             host.Children.Add(HabitatFilter(_selectedBackpackHabitat, habitat =>
             {
                 _selectedBackpackHabitat = habitat;
                 RenderBackpack(_backpack, _backpackPrimaryCategories, _backpackCategories);
-                if (_externalBackpack is not null)
-                    RenderBackpack(_externalBackpack.ItemsHost, _externalBackpack.PrimaryCategoriesHost,
-                        _externalBackpack.CategoriesHost);
             }));
         AquariumOwnedProduct[] products = ownedProducts
             .Where(item => item.Product.Category == selectedCategory &&
                 (selectedCategory != "fish" || AquariumInventoryPresentation.MatchesHabitat(item.Product, _selectedBackpackHabitat)))
             .ToArray();
-        if (products.Length > 0)
+        AddBackpackCards(host, products, showEdit: true);
+    }
+
+    private void RenderExternalBackpack()
+    {
+        if (_externalBackpack is not { } page) return;
+        page.PrimaryCategoriesHost.Children.Clear();
+        page.ItemsHost.Children.Clear();
+        page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.Aquarium"), false, null,
+            page.RequestAquariumSettings));
+        page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.General"), true, null,
+            RenderExternalBackpack));
+        var owned = AquariumInventoryPresentation.Summarize(_service?.State?.Inventory ?? [], _draft,
+            _service?.Catalog ?? []);
+        AddBackpackCards(page.ItemsHost, AquariumInventoryPresentation.GeneralItems(owned), showEdit: false);
+    }
+
+    private void AddBackpackCards(StackPanel host, IReadOnlyList<AquariumOwnedProduct> products, bool showEdit)
+    {
+        if (products.Count > 0)
         {
             var cards = new WrapPanel
             {
@@ -479,10 +488,10 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
                 VerticalSpacing = 8
             };
             foreach (AquariumOwnedProduct product in products)
-                cards.Children.Add(BackpackCard(product, ReferenceEquals(host, _backpack)));
+                cards.Children.Add(BackpackCard(product, showEdit));
             host.Children.Add(cards);
         }
-        if (products.Length == 0)
+        if (products.Count == 0)
             host.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
     }
 
@@ -491,15 +500,13 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         primaryCategories.Children.Clear();
         categories.Orientation = Orientation.Vertical;
         categories.Children.Clear();
-        bool external = ReferenceEquals(primaryCategories, _externalBackpack?.PrimaryCategoriesHost);
-        primaryCategories.Children.Add(CategoryButton(L("Aquarium.Backpack.Aquarium"), true, null,
-            external ? _externalBackpack!.RequestAquariumSettings : null));
+        primaryCategories.Children.Add(CategoryButton(L("Aquarium.Backpack.Aquarium"), true, null, null));
         if (_service is null) return;
         AquariumState? state = _service.State;
         var owned = AquariumInventoryPresentation.Summarize(state?.Inventory ?? [], _draft, _service.Catalog);
         var categoryButtons = new WrapPanel { HorizontalSpacing = 6, VerticalSpacing = 6 };
         categories.Children.Add(categoryButtons);
-        foreach (string category in AquariumInventoryPresentation.Categories)
+        foreach (string category in AquariumInventoryPresentation.AquariumCategories)
         {
             int count = owned.Where(item => item.Product.Category == category)
                 .Sum(item => item.OwnedCount);
@@ -547,9 +554,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             }
             _selectedBackpackCategory = category;
             RenderBackpack(_backpack, _backpackPrimaryCategories, _backpackCategories);
-            if (_externalBackpack is not null)
-                RenderBackpack(_externalBackpack.ItemsHost, _externalBackpack.PrimaryCategoriesHost,
-                    _externalBackpack.CategoriesHost);
         };
         return button;
     }
@@ -568,7 +572,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             Child = new TextBlock { Text = $"×{owned.OwnedCount}", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 11 }
         };
         imageHost.Children.Add(quantity);
-        if (showEdit && owned.NextToRecall is { } editable && product.Category != "fish" && !IsCardPack(product.Category))
+        if (showEdit && owned.NextToRecall is { } editable && product.Category is not ("fish" or "jellyfish") && !IsCardPack(product.Category))
         {
             var edit = ActionButton("Aquarium.Settings.Edit");
             edit.FontSize = 11;
@@ -648,36 +652,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         return button;
     }
 
-    private void RenderWallet()
-    {
-        _wallet.Children.Clear();
-        _wallet.Children.Add(new TextBlock { Text = _coins.Text, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        if (_service?.State is not { } state || state.Wallet.Count == 0)
-        {
-            _wallet.Children.Add(Label("Aquarium.Settings.EmptyWallet", 13, .7));
-            return;
-        }
-        foreach (AquariumWalletEntry entry in state.Wallet)
-        {
-            var row = new Grid { ColumnSpacing = 16, Padding = new Thickness(4, 8, 4, 8) };
-            row.ColumnDefinitions.Add(new ColumnDefinition());
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            string reason = L(entry.Reason == "pack_open" ? "Aquarium.Settings.CardPack.Open"
-                : entry.Delta > 0 ? "Aquarium.Settings.Gift" : "Aquarium.Settings.Purchase");
-            if (entry.ItemId is { } itemId && Product(itemId) is { } product) reason += " · " + ProductName(product);
-            var labels = new StackPanel { Spacing = 3 };
-            labels.Children.Add(new TextBlock { Text = reason, TextWrapping = TextWrapping.Wrap });
-            string date = DateTimeOffset.TryParse(entry.CreatedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
-                ? parsed.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) : entry.CreatedAt;
-            labels.Children.Add(new TextBlock { Text = date, FontSize = 12, Opacity = .65 });
-            row.Children.Add(labels);
-            var amount = new TextBlock { Text = entry.Delta.ToString("+#,0;-#,0;0", CultureInfo.CurrentCulture), VerticalAlignment = VerticalAlignment.Center, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-            Grid.SetColumn(amount, 1);
-            row.Children.Add(amount);
-            _wallet.Children.Add(row);
-        }
-    }
-
     private Border StoreProductCard(AquariumCatalogItem product, string detail, Button action)
     {
         var panel = new StackPanel { Spacing = 4 };
@@ -744,7 +718,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         }
         else
         {
-            bool fish = product.Category == "fish";
+            bool fish = product.Category is "fish" or "jellyfish";
             int count = _draft.Count(placement => IsFish(placement.InstanceId) == fish);
             _draft.Add(new AquariumPlacement(owned.Id, .25 + count % 4 * .16,
                 AquariumArtworkCatalog.DefaultPlacementY(product.AssetKey, fish, count), 1));
@@ -1008,7 +982,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private bool IsFish(string instanceId)
     {
         AquariumInventoryItem? item = _service?.State?.Inventory.FirstOrDefault(item => item.Id == instanceId);
-        return item is not null && Product(item.ItemId)?.Category == "fish";
+        return item is not null && Product(item.ItemId)?.Category is "fish" or "jellyfish";
     }
 
     private static bool IsCardPack(string? category) => category == "pack";
@@ -1028,7 +1002,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         AquariumInventoryItem? owned = _service?.State?.Inventory.FirstOrDefault(item => item.Id == _selectedId);
         AquariumCatalogItem? product = owned is null ? null : Product(owned.ItemId);
         _updating = true;
-        _scale.IsEnabled = !_busy && placement is not null && product is not null && product.Category != "fish";
+        _scale.IsEnabled = !_busy && placement is not null && product is not null && product.Category is not ("fish" or "jellyfish");
         _layer.IsEnabled = !_busy && placement is not null && product is not null &&
             (product.Category is "plant" or "decoration" or "coral" or "algae" or "snail");
         _scale.Value = placement?.Scale ?? 1;

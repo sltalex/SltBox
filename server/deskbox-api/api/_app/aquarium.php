@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 
-const AQUARIUM_CATALOG_VERSION = 7;
+const AQUARIUM_CATALOG_VERSION = 8;
 const AQUARIUM_INITIAL_COINS = 1000;
 const AQUARIUM_CARD_PACK_ID = 'aquarium-card-pack';
 
@@ -350,6 +350,16 @@ function aquarium_catalog(): array
         ['id' => 'terraced-rock', 'name' => '梯田岩', 'category' => 'decoration', 'price' => 180, 'asset_key' => 'terraced-rock'],
         ['id' => 'pagoda-cave', 'name' => '宝塔洞岩', 'category' => 'decoration', 'price' => 180, 'asset_key' => 'pagoda-cave'],
         ['id' => 'reef-boulder', 'name' => '礁石巨石', 'category' => 'decoration', 'price' => 180, 'asset_key' => 'reef-boulder'],
+        ['id' => 'moon-jellyfish', 'name' => '月亮水母', 'category' => 'jellyfish', 'price' => 260, 'asset_key' => 'moon-jellyfish'],
+        ['id' => 'lion-mane-jellyfish', 'name' => '狮鬃水母', 'category' => 'jellyfish', 'price' => 520, 'asset_key' => 'lion-mane-jellyfish'],
+        ['id' => 'blue-blubber-jellyfish', 'name' => '蓝脂水母', 'category' => 'jellyfish', 'price' => 330, 'asset_key' => 'blue-blubber-jellyfish'],
+        ['id' => 'cannonball-jellyfish', 'name' => '炮弹水母', 'category' => 'jellyfish', 'price' => 300, 'asset_key' => 'cannonball-jellyfish'],
+        ['id' => 'upside-down-jellyfish', 'name' => '倒立水母', 'category' => 'jellyfish', 'price' => 360, 'asset_key' => 'upside-down-jellyfish'],
+        ['id' => 'flower-hat-jellyfish', 'name' => '花笠水母', 'category' => 'jellyfish', 'price' => 460, 'asset_key' => 'flower-hat-jellyfish'],
+        ['id' => 'sea-nettle', 'name' => '海刺水母', 'category' => 'jellyfish', 'price' => 390, 'asset_key' => 'sea-nettle'],
+        ['id' => 'crystal-jellyfish', 'name' => '水晶水母', 'category' => 'jellyfish', 'price' => 480, 'asset_key' => 'crystal-jellyfish'],
+        ['id' => 'comb-jelly', 'name' => '栉水母', 'category' => 'jellyfish', 'price' => 340, 'asset_key' => 'comb-jelly'],
+        ['id' => 'portuguese-man-o-war', 'name' => '僧帽水母', 'category' => 'jellyfish', 'price' => 500, 'asset_key' => 'portuguese-man-o-war'],
         ['id' => AQUARIUM_CARD_PACK_ID, 'name' => '水族卡包', 'category' => 'pack', 'price' => 200, 'asset_key' => 'aquarium-card-pack'],
     ]];
 }
@@ -515,10 +525,15 @@ function aquarium_buy(PDO $pdo, string $userId, string $operationId, array $prof
     // Accept the previous catalog version for already queued purchases from
     // older clients. The server still validates the item and price below.
     $catalogVersion = aquarium_int($body, 'catalog_version');
-    if (!in_array($catalogVersion, [2, 3, 4, 5, 6, AQUARIUM_CATALOG_VERSION], true)) {
+    if (!in_array($catalogVersion, [2, 3, 4, 5, 6, 7, AQUARIUM_CATALOG_VERSION], true)) {
         throw new ApiError('catalog_conflict', 'The aquarium catalog changed. Refresh the catalog.', 409);
     }
     $item = aquarium_item(aquarium_string($body, 'item_id'));
+    // Aquarium life is awarded by opening a card pack. Keep the pack itself
+    // as the only directly purchasable catalogue item.
+    if ($item['category'] !== 'pack' && $catalogVersion === AQUARIUM_CATALOG_VERSION) {
+        throw new ApiError('draw_only', 'Aquarium items can only be obtained from card packs.', 409);
+    }
     $balance = (int)$profile['coins'] - $item['price'];
     if ($balance < 0) { throw new ApiError('insufficient_coins', 'Not enough aquarium coins.', 409); }
     $pdo->prepare('UPDATE aquarium_profiles SET coins = :coins, updated_at = :now WHERE user_id = :user')

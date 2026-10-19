@@ -120,12 +120,12 @@ foreach (['catalog', 'state', 'actions'] as $endpoint) {
 }
 
 $catalog = aquarium_catalog();
-aquarium_expect($catalog['catalog_version'] === 7 && $catalog['catalog_version'] === AQUARIUM_CATALOG_VERSION,
+aquarium_expect($catalog['catalog_version'] === 8 && $catalog['catalog_version'] === AQUARIUM_CATALOG_VERSION,
     'The catalog advertises the version checked by mutations.');
 $catalogItemsBeforePack = count($catalog['items']);
-aquarium_expect($catalogItemsBeforePack === 341,
+aquarium_expect($catalogItemsBeforePack === 351,
     'The catalog contains only the prepared aquarium choices.');
-foreach (['fish' => 150, 'plant' => 50, 'shrimp' => 10, 'crab' => 10, 'shellfish' => 10,
+foreach (['fish' => 150, 'plant' => 50, 'shrimp' => 10, 'crab' => 10, 'shellfish' => 10, 'jellyfish' => 10,
     'coral' => 20, 'algae' => 20, 'snail' => 20, 'decoration' => 50, 'pack' => 1] as $category => $expected) {
     aquarium_expect(count(array_filter($catalog['items'],
         static fn(array $item): bool => $item['category'] === $category)) === $expected,
@@ -177,6 +177,17 @@ foreach (['aquarium-fish-expansion-plan.json' => ['fish' => 'fish'],
     }
 }
 aquarium_expect(count($fishHabitats) === 3, 'Freshwater, tropical and marine fish are all represented.');
+$jellyfishPlan = json_decode(file_get_contents(__DIR__ . '/../../../docs/design/aquarium-jellyfish-expansion-plan.json'), true, 32, JSON_THROW_ON_ERROR);
+aquarium_expect(count($jellyfishPlan['jellyfish']) === 10, 'The jellyfish artwork manifest has ten choices.');
+foreach ($jellyfishPlan['jellyfish'] as $entry) {
+    $item = aquarium_item($entry['id']);
+    aquarium_expect($item['category'] === 'jellyfish' && $item['price'] === $entry['price']
+        && $item['name'] === $entry['name'] && $item['asset_key'] === $entry['id'],
+        'Jellyfish catalog metadata matches the reviewed artwork manifest.');
+    aquarium_expect(is_file(__DIR__ . '/../../../src/DeskBox/Assets/Aquarium/Svg/' . $item['id'] . '.svg')
+        && is_file(__DIR__ . '/../../../src/DeskBox/Assets/Aquarium/Vector/' . $item['id'] . '.png'),
+        'Every jellyfish choice ships its SVG source and transparent runtime export.');
+}
 $packCatalogItem = aquarium_item(AQUARIUM_CARD_PACK_ID);
 aquarium_expect($packCatalogItem['category'] === 'pack' && $packCatalogItem['price'] === 200
     && $packCatalogItem['asset_key'] === AQUARIUM_CARD_PACK_ID,
@@ -331,8 +342,32 @@ aquarium_expect(count($expandedState['inventory']) === 3 && $expandedState['coin
 aquarium_expect($expandedState['scene'] === [] && $expandedState['scene_version'] === 0,
     'The expanded catalog never places purchases or overwrites the saved layout automatically.');
 
-// Version 7 life categories share authoritative prices, idempotent purchases
-// and the same versioned placement/recall contract as existing inventory.
+// Duplicate jellyfish purchases remain separate owned instances in catalog v8.
+$jellyUser = auth_register($pdo, 'aquarium_jelly_user', 'secret8', 'device-jelly', '127.0.0.8', $clock);
+$jellyUserId = $jellyUser['user']['id'];
+aquarium_mutate($pdo, $jellyUserId, aquarium_request('initialize'), $clock);
+$queuedVersionSeven = aquarium_request('buy', ['catalog_version' => 7, 'item_id' => 'moon-jellyfish']);
+aquarium_mutate($pdo, $jellyUserId, $queuedVersionSeven, $clock);
+$jellyBuy = aquarium_request('buy', ['catalog_version' => 7, 'item_id' => 'moon-jellyfish', 'price' => 0]);
+$jellyState = aquarium_mutate($pdo, $jellyUserId, $jellyBuy, $clock);
+aquarium_expect($jellyState['coins'] === 480 && count($jellyState['inventory']) === 2
+    && count(array_unique(array_column($jellyState['inventory'], 'id'))) === 2,
+    'Version 7 remains accepted and the same jellyfish can be bought twice at the server price.');
+aquarium_expect(aquarium_mutate($pdo, $jellyUserId, $jellyBuy, $clock) === $jellyState,
+    'Retrying a jellyfish purchase does not grant or charge an extra instance.');
+$jellyScene = array_map(static fn(array $owned): array =>
+    ['instance_id' => $owned['id'], 'x' => 0.5, 'y' => 0.4, 'scale' => 1.0], $jellyState['inventory']);
+$jellyPlaced = aquarium_mutate($pdo, $jellyUserId,
+    aquarium_request('save_scene', ['base_scene_version' => 0, 'scene' => $jellyScene]), $clock);
+aquarium_expect(count($jellyPlaced['scene']) === 2 && $jellyPlaced['inventory'] === $jellyState['inventory'],
+    'Both owned jellyfish can be placed together.');
+$jellyRecalled = aquarium_mutate($pdo, $jellyUserId,
+    aquarium_request('save_scene', ['base_scene_version' => 1, 'scene' => []]), $clock);
+aquarium_expect($jellyRecalled['scene'] === [] && $jellyRecalled['inventory'] === $jellyState['inventory']
+    && $jellyRecalled['coins'] === 480, 'Recalling jellyfish preserves ownership and balance.');
+
+// Legacy queued purchases remain compatible while the current catalog routes
+// aquarium life through card packs.
 $lifeUser = auth_register($pdo, 'aquarium_life_user', 'secret6', 'device-life', '127.0.0.7', $clock);
 $lifeUserId = $lifeUser['user']['id'];
 $lifeState = aquarium_mutate($pdo, $lifeUserId, aquarium_request('initialize'), $clock);
@@ -355,14 +390,14 @@ foreach ($lifePurchases as $itemId => $serverPrice) {
     aquarium_expect($lifeState['scene'] === [] && $lifeState['scene_version'] === 0,
         'New fish, coral, algae and snails remain in the backpack until explicitly placed.');
     aquarium_expect(aquarium_mutate($pdo, $lifeUserId, array_reverse($lifeBuy, true), $clock) === $lifeState,
-        'Retrying a version 7 purchase cannot duplicate its instance, debit or wallet entry.');
+        'Retrying a version 8 purchase cannot duplicate its instance, debit or wallet entry.');
 }
-aquarium_expect($lifeState['coins'] === 370, 'Four version 7 representative purchases cost exactly 630 coins.');
+aquarium_expect($lifeState['coins'] === 370, 'Four version 8 representative purchases cost exactly 630 coins.');
 $queuedVersionSix = aquarium_request('buy', ['catalog_version' => 6, 'item_id' => 'clownfish']);
 $lifeState = aquarium_mutate($pdo, $lifeUserId, $queuedVersionSix, $clock);
 aquarium_expect($lifeState['coins'] === 270 && count($lifeState['inventory']) === 5
     && count($lifeState['wallet']) === 6 && $lifeState['scene'] === [],
-    'Queued version 6 purchases remain accepted after the version 7 expansion.');
+    'Queued version 6 purchases remain accepted after the version 8 expansion.');
 aquarium_expect(aquarium_mutate($pdo, $lifeUserId, $queuedVersionSix, $clock) === $lifeState,
     'A retried queued version 6 purchase still charges and delivers only once.');
 $lifeOwnedByItem = array_column($lifeState['inventory'], 'id', 'item_id');
@@ -398,6 +433,9 @@ $lifeOperations->execute([':user' => $lifeUserId]);
 aquarium_expect((int)$lifeOperations->fetchColumn() === 8
     && array_sum(array_column($lifeRecalled['wallet'], 'delta')) === 270,
     'Initialization, five purchases and two layout changes each journal once; retries and conflicts add nothing.');
+
+aquarium_error('draw_only', 409, static fn() => aquarium_mutate($pdo, $lifeUserId,
+    aquarium_request('buy', ['catalog_version' => 8, 'item_id' => 'clownfish']), $clock));
 
 // Card packs are ordinary inventory instances until explicitly opened. The
 // server chooses the reward, consumes exactly one pack and returns the same

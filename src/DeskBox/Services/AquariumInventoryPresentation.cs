@@ -10,7 +10,16 @@ internal sealed record AquariumOwnedProduct(
 internal static class AquariumInventoryPresentation
 {
     internal static IReadOnlyList<string> Categories { get; } =
-        ["fish", "plant", "coral", "algae", "snail", "shrimp", "crab", "shellfish", "decoration", "pack"];
+        ["fish", "plant", "coral", "algae", "snail", "shrimp", "crab", "shellfish", "jellyfish", "decoration", "pack"];
+
+    internal static IReadOnlyList<string> AquariumCategories { get; } =
+        Categories.Where(category => category != "pack").ToArray();
+
+    internal static IReadOnlyList<AquariumOwnedProduct> AquariumItems(IEnumerable<AquariumOwnedProduct> owned) =>
+        owned.Where(item => AquariumCategories.Contains(item.Product.Category, StringComparer.Ordinal)).ToArray();
+
+    internal static IReadOnlyList<AquariumOwnedProduct> GeneralItems(IEnumerable<AquariumOwnedProduct> owned) =>
+        owned.Where(item => item.Product.Category == "pack").ToArray();
 
     internal static IReadOnlyList<string> FishHabitats { get; } = ["all", "freshwater", "tropical", "marine"];
 

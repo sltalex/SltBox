@@ -26,6 +26,9 @@ internal static class AquariumFishMotionPlanner
     private const double TurnSecondsRange = .22;
     private const double AccelerationFraction = .24;
 
+    // Scene units per second, shared by ordinary swimming and viewport crossings.
+    internal static double CruiseSpeed(double speedMultiplier) => 34 * Math.Max(.35, speedMultiplier);
+
     internal static IReadOnlyDictionary<string, AquariumFishMotionPlan> Build(
         IReadOnlyList<AquariumFishMotionInput> inputs, double sceneWidth, double sceneHeight, int seed)
     {
@@ -58,8 +61,9 @@ internal static class AquariumFishMotionPlanner
         double centerY = school.Average(item => item.Y * sceneHeight);
         double initialCenterY = centerY;
         string species = school[0].SpeciesId;
-        double speed = AquariumArtworkCatalog.TryGetProfile(species, out var artwork) && artwork.SpeedMultiplier > 0
+        double baseSpeed = AquariumArtworkCatalog.TryGetProfile(species, out var artwork) && artwork.SpeedMultiplier > 0
             ? artwork.SpeedMultiplier : .75;
+        double speed = SpeciesPace(species, baseSpeed);
         var random = new Random(StableHash($"{schoolId}:{seed}"));
         var paths = school.ToDictionary(item => item.InstanceId, _ => new List<(float, Vector3)> { (0, Vector3.Zero) }, StringComparer.Ordinal);
         var facings = school.ToDictionary(item => item.InstanceId, _ => new List<(float, float)> { (0, random.Next(2) == 0 ? -1 : 1) }, StringComparer.Ordinal);
@@ -105,6 +109,11 @@ internal static class AquariumFishMotionPlanner
                 headings[member.InstanceId] = Math.Abs(deltaX) > 4
                     ? (float)(deltaX >= 0 ? 1 : -1)
                     : facing[member.InstanceId];
+                double deltaY = targets[member.InstanceId].Y - current[member.InstanceId].Y;
+                double distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+                // Keep the school in sync without rushing distant members or
+                // compressing a long return to the origin into a short leg.
+                swim = Math.Max(swim, distance / (CruiseSpeed(speed) * (1 - .5 * AccelerationFraction)));
             }
             segments.Add((turn, swim, targets, headings));
             foreach (AquariumFishMotionInput member in school)
@@ -122,9 +131,10 @@ internal static class AquariumFishMotionPlanner
                 float turnEnd = (float)(elapsed / total);
                 // Translation is held during the turn. The head flips at the
                 // end of the turn, and only then does the linear swim begin.
-                paths[member.InstanceId].Add((Math.Max(0, turnEnd - .006f), paths[member.InstanceId][^1].Item2));
+                float turnStart = (float)((elapsed - segment.Turn / 2) / total);
+                paths[member.InstanceId].Add((turnStart, paths[member.InstanceId][^1].Item2));
                 paths[member.InstanceId].Add((turnEnd, paths[member.InstanceId][^1].Item2));
-                facings[member.InstanceId].Add((Math.Max(0, turnEnd - .006f), facing[member.InstanceId]));
+                facings[member.InstanceId].Add((turnStart, facing[member.InstanceId]));
                 facings[member.InstanceId].Add((turnEnd, segment.Headings[member.InstanceId]));
                 elapsed += segment.Swim;
                 double accelerationSeconds = segment.Swim * AccelerationFraction;
@@ -150,9 +160,10 @@ internal static class AquariumFishMotionPlanner
             double restoreTurn = TurnSecondsMin;
             elapsed += restoreTurn;
             float restoreEnd = (float)(elapsed / total);
-            paths[member.InstanceId].Add((Math.Max(0, restoreEnd - .006f), paths[member.InstanceId][^1].Item2));
+            float restoreStart = (float)((elapsed - restoreTurn / 2) / total);
+            paths[member.InstanceId].Add((restoreStart, paths[member.InstanceId][^1].Item2));
             paths[member.InstanceId].Add((restoreEnd, paths[member.InstanceId][^1].Item2));
-            facings[member.InstanceId].Add((Math.Max(0, restoreEnd - .006f), facing[member.InstanceId]));
+            facings[member.InstanceId].Add((restoreStart, facing[member.InstanceId]));
             facings[member.InstanceId].Add((restoreEnd, initialFacing[member.InstanceId]));
             bool isStraggler = false;
             for (int segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
@@ -169,4 +180,34 @@ internal static class AquariumFishMotionPlanner
 
     private static int StableHash(string value)
         => (int)(AquariumSwimDepth.StableHash(value) & 0x7fffffff);
+
+    private static double SpeciesPace(string species, double baseSpeed)
+    {
+        string key = species.ToLowerInvariant();
+        // The artwork profile supplies the species' base pace. These broad
+        // behavior bands keep fast schooling and cruising fish distinct from
+        // ambush, bottom-dwelling, and slow-bodied fish even when their art
+        // profile happens to share a placeholder value.
+        double behavior = key switch
+        {
+            var value when value.Contains("sardine") || value.Contains("anchovy") ||
+                value.Contains("herring") || value.Contains("tetra") || value.Contains("danio") ||
+                value.Contains("barb") || value.Contains("minnow") || value.Contains("chromis") => 1.08,
+            var value when value.Contains("tuna") || value.Contains("mackerel") ||
+                value.Contains("salmon") || value.Contains("trout") || value.Contains("barracuda") ||
+                value.Contains("tang") || value.Contains("wrasse") || value.Contains("trevally") => 1.05,
+            var value when value.Contains("puffer") || value.Contains("boxfish") ||
+                value.Contains("cowfish") || value.Contains("sunfish") || value.Contains("manta") ||
+                value.Contains("ray") || value.Contains("seahorse") || value.Contains("jellyfish") => .86,
+            var value when value.Contains("goby") || value.Contains("loach") ||
+                value.Contains("cory") || value.Contains("pleco") || value.Contains("catfish") ||
+                value.Contains("sturgeon") || value.Contains("eel") => .9,
+            _ => 1
+        };
+
+        // Break ties between catalogue entries that share a broad placeholder
+        // profile while remaining deterministic for every instance of a species.
+        double speciesVariation = .985 + StableHash(key) % 31 / 1000d;
+        return Math.Clamp(baseSpeed * behavior * speciesVariation, .35, 1.35);
+    }
 }

@@ -7,6 +7,28 @@ namespace DeskBox.Tests;
 public sealed class AquariumFishMotionPlannerTests
 {
     [Fact]
+    public void LongReturnLegsAndSchoolCatchupsNeverExceedNormalCruiseSpeed()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            AquariumFishMotionInput[] inputs = Enumerable.Range(0, 5)
+                .Select(index => new AquariumFishMotionInput($"fish-{index}", "clownfish",
+                    .05 + index * .22, .28, AquariumLayer.Min)).ToArray();
+            foreach (var plan in AquariumFishMotionPlanner.Build(inputs, 840, 600, seed).Values)
+            {
+                foreach (var pair in plan.Translation.Zip(plan.Translation.Skip(1)))
+                {
+                    double seconds = (pair.Second.Progress - pair.First.Progress) * plan.DurationSeconds;
+                    Assert.True(seconds > 0, $"Non-increasing frame time for seed {seed}.");
+                    double speed = (pair.Second.Value - pair.First.Value).Length() / seconds;
+                    Assert.True(speed <= 35 * Math.Max(.35, plan.SpeedMultiplier),
+                        $"Seed {seed}: speed {speed:F2} exceeds normal cruise speed.");
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void FishStayWithinTheirAssignedSwimmingDepthThroughoutTheRoute()
     {
         AquariumFishMotionInput[] fish =
@@ -57,6 +79,25 @@ public sealed class AquariumFishMotionPlannerTests
 
         Assert.NotEqual(plans["clown-1"].SpeedMultiplier, plans["puffer-1"].SpeedMultiplier);
         Assert.True(plans["clown-1"].DurationSeconds < plans["puffer-1"].DurationSeconds);
+    }
+
+    [Fact]
+    public void SpeciesPaceUsesBehaviorBandsAndBreaksProfileTiesDeterministically()
+    {
+        AquariumFishMotionInput[] fish =
+        [
+            new("school-1", "sardine", .2, .4),
+            new("cruiser-1", "blue-tang", .35, .4),
+            new("slow-1", "pufferfish", .5, .4),
+            new("tie-a", "fairy-wrasse", .65, .4),
+            new("tie-b", "flame-angelfish", .8, .4)
+        ];
+        var plans = AquariumFishMotionPlanner.Build(fish, 840, 600, 17);
+
+        Assert.True(plans["school-1"].SpeedMultiplier > plans["slow-1"].SpeedMultiplier);
+        Assert.NotEqual(plans["tie-a"].SpeedMultiplier, plans["tie-b"].SpeedMultiplier);
+        Assert.Equal(plans["school-1"].SpeedMultiplier,
+            AquariumFishMotionPlanner.Build(fish, 840, 600, 17)["school-1"].SpeedMultiplier);
     }
 
     [Fact]

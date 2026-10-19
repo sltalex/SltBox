@@ -9,11 +9,6 @@ internal static class AquariumStoreBrowse
 {
     internal static IReadOnlyList<AquariumStoreGroup> Groups { get; } =
     [
-        new("fish", ["fish"], ["all", "freshwater", "tropical", "marine"]),
-        new("plants", ["plant", "algae"], ["all", "plant", "algae"]),
-        new("scenery", ["coral", "decoration"], ["all", "coral", "decoration"]),
-        new("invertebrates", ["shrimp", "crab", "shellfish", "snail"],
-            ["all", "shrimp", "crab", "shellfish", "snail"]),
         new("pack", ["pack"], [])
     ];
 
