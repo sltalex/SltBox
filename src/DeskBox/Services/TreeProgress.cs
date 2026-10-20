@@ -67,11 +67,17 @@ public sealed class TreeProgress
         }
     }
 
-    public long Harvest()
+    /// <summary>
+    /// Picks exactly one fruit from the tree and credits a random 1-5 fruit
+    /// reward to the account inventory.  The inventory count is the number of
+    /// fruits still on the tree; HarvestedFruit is the account backpack total.
+    /// </summary>
+    public long Harvest(Random? random = null)
     {
-        long picked = FruitInventory;
-        HarvestedFruit = checked(HarvestedFruit + picked);
-        FruitInventory = 0;
-        return picked;
+        if (FruitInventory <= 0) return 0;
+        int reward = (random ?? Random.Shared).Next(1, 6);
+        FruitInventory--;
+        HarvestedFruit = checked(HarvestedFruit + reward);
+        return reward;
     }
 }

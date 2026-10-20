@@ -78,7 +78,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             Windows.Foundation.Point point = args.GetPosition(_treeSurface);
             if (TreeIllustrationLayout.CanHarvest(state.Stage, state.FruitInventory, point.X, point.Y))
             {
-                _counter.Harvest();
+                long reward = _counter.Harvest();
+                App.Log($"[Tree] Picked one fruit; credited {reward} fruit(s) to the account backpack.");
                 Refresh();
                 args.Handled = true;
             }

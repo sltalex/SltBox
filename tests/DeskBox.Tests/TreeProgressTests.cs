@@ -53,7 +53,7 @@ public sealed class TreeProgressTests
     }
 
     [Fact]
-    public void MatureOverflowBecomesFruitWithoutReusingGrowthEnergy()
+    public void PickingOneFruitCreditsRandomRewardAndLeavesOtherTreeFruit()
     {
         var tree = new TreeProgress();
         tree.AddEnergy(143999, Day);
@@ -61,9 +61,24 @@ public sealed class TreeProgressTests
         Assert.Equal(5, tree.Stage);
         Assert.Equal(2, tree.FruitInventory);
         Assert.Equal(1, tree.FruitEnergy);
-        Assert.Equal(2, tree.Harvest());
-        Assert.Equal(0, tree.Harvest());
-        Assert.Equal(2, tree.HarvestedFruit);
+        Assert.Equal(5, tree.Harvest(new FixedRandom(5)));
+        Assert.Equal(1, tree.FruitInventory);
+        Assert.Equal(5, tree.HarvestedFruit);
+        Assert.Equal(1, tree.Harvest(new FixedRandom(1)));
+        Assert.Equal(0, tree.FruitInventory);
+    }
+
+    [Fact]
+    public void HarvestRewardIsAlwaysBetweenOneAndFive()
+    {
+        for (int seed = 0; seed < 20; seed++)
+        {
+            var tree = new TreeProgress { FruitInventory = 1 };
+            long reward = tree.Harvest(new Random(seed));
+            Assert.InRange(reward, 1, 5);
+            Assert.Equal(0, tree.FruitInventory);
+            Assert.Equal(reward, tree.HarvestedFruit);
+        }
     }
 
     [Fact]
@@ -159,5 +174,10 @@ public sealed class TreeProgressTests
         {
             if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
         }
+    }
+
+    private sealed class FixedRandom(int value) : Random
+    {
+        public override int Next(int minValue, int maxValue) => Math.Clamp(value, minValue, maxValue - 1);
     }
 }
