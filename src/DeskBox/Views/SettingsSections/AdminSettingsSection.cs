@@ -12,12 +12,19 @@ namespace DeskBox.Views.SettingsSections;
 
 public sealed partial class AdminSettingsSection : UserControl
 {
+    private readonly Grid _shell = new();
+    private readonly StackPanel _adminMenu = new() { Spacing = 2 };
+    private readonly TextBlock _pageTitle = new() { FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+    private readonly TextBlock _pageSubtitle = new() { FontSize = 12, Opacity = .62 };
+    private readonly List<(Button Button, string Key, string Section)> _menuItems = [];
+    private readonly List<(TextBlock Label, string Key)> _menuHeadings = [];
+    private string _selectedSection = "account";
     private readonly StackPanel _root = new()
     {
-        Spacing = 6,
-        Margin = new Thickness(10, 8, 10, 12),
+        Spacing = 10,
+        Margin = new Thickness(20, 16, 24, 26),
         HorizontalAlignment = HorizontalAlignment.Stretch,
-        MaxWidth = 980
+        MaxWidth = double.PositiveInfinity
     };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _overview = new() { TextWrapping = TextWrapping.Wrap, Opacity = .72 };
@@ -49,8 +56,7 @@ public sealed partial class AdminSettingsSection : UserControl
 
     public AdminSettingsSection()
     {
-        Content = _root;
-        _root.Children.Add(SectionHeading("Settings.Admin.AccountManagement"));
+        BuildShell();
         ConfigureCard(_overviewCard, "Settings.Admin.Overview", new StackPanel { Spacing = 12, Children = { _status, _overview, _overviewMetrics } });
         _root.Children.Add(_overviewCard);
 
@@ -61,11 +67,6 @@ public sealed partial class AdminSettingsSection : UserControl
         _root.Children.Add(_usersCard);
         ConfigureCard(_detailCard, "Settings.Admin.User", _detail);
         _root.Children.Add(_detailCard);
-        _root.Children.Add(SectionHeading("Settings.Admin.TreeManagement"));
-        _root.Children.Add(new TextBlock { Text = "选择账号后可校正或重置种树状态。", Opacity = .65 });
-        _root.Children.Add(SectionHeading("Settings.Admin.StoreManagement"));
-        _root.Children.Add(new TextBlock { Text = "水族馆商城与账号金币通过账号详情管理。", Opacity = .65 });
-        _root.Children.Add(SectionHeading("Settings.Admin.RecycleFruit"));
         var recyclePanel = new StackPanel { Spacing = 6 };
         recyclePanel.Children.Add(new TextBlock { Text = "每个果实回收获得的金币", Opacity = .7 });
         var recycleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -76,9 +77,129 @@ public sealed partial class AdminSettingsSection : UserControl
         recyclePanel.Children.Add(_fruitPriceReason);
         ConfigureCard(_fruitRecycleCard, "Settings.Admin.RecycleFruit", recyclePanel);
         _root.Children.Add(_fruitRecycleCard);
-        _root.Children.Add(SectionHeading("Settings.Admin.AquariumManagement"));
         ConfigureCard(_auditCard, "Settings.Admin.Audit", new StackPanel { Spacing = 10, Children = { CreateTableHeader("Time", "Actor", "Target", "Action", "Reason", "Result"), _audit } });
         _root.Children.Add(_auditCard);
+        SelectAdminSection("account");
+    }
+
+    private void BuildShell()
+    {
+        _shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(66) });
+        _shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var header = new Grid { Padding = new Thickness(22, 0, 24, 0), ColumnSpacing = 16 };
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var identity = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
+        identity.Children.Add(_pageTitle);
+        identity.Children.Add(_pageSubtitle);
+        header.Children.Add(identity);
+        var badge = new Border
+        {
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(6),
+            VerticalAlignment = VerticalAlignment.Center,
+            BorderThickness = new Thickness(1),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.LightGray),
+            Child = new TextBlock { Text = "ADMIN", FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Opacity = .75 }
+        };
+        Grid.SetColumn(badge, 1);
+        header.Children.Add(badge);
+        _shell.Children.Add(new Border { Child = header, BorderThickness = new Thickness(0, 0, 0, 1), BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.LightGray) });
+
+        var body = new Grid { ColumnSpacing = 0 };
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var sidebar = new Border
+        {
+            Padding = new Thickness(12, 18, 12, 14),
+            BorderThickness = new Thickness(0, 0, 1, 0),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.LightGray),
+            Child = _adminMenu
+        };
+        body.Children.Add(sidebar);
+        var content = new ScrollViewer
+        {
+            Content = _root,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetColumn(content, 1);
+        body.Children.Add(content);
+        Grid.SetRow(body, 1);
+        _shell.Children.Add(body);
+        BuildAdminMenu();
+    }
+
+    private void BuildAdminMenu()
+    {
+        AddMenuHeading("Settings.Admin.AccountManagement");
+        AddMenuItem("Settings.Admin.Menu.Overview", "account", "\uE80F");
+        AddMenuItem("Settings.Admin.Menu.Users", "users", "\uE77B");
+        AddMenuItem("Settings.Admin.Menu.Audit", "audit", "\uE8D7");
+        AddMenuHeading("Settings.Admin.TreeManagement");
+        AddMenuItem("Settings.Admin.Menu.Tree", "tree", "\uE8B7");
+        AddMenuHeading("Settings.Admin.StoreManagement");
+        AddMenuItem("Settings.Admin.Menu.Store", "store", "\uE719");
+        AddMenuHeading("Settings.Admin.RecycleFruit");
+        AddMenuItem("Settings.Admin.Menu.Recycle", "recycle", "\uE74D");
+        AddMenuHeading("Settings.Admin.AquariumManagement");
+        AddMenuItem("Settings.Admin.Menu.Aquarium", "aquarium", "\uE7B7");
+    }
+
+    private void AddMenuHeading(string key)
+    {
+        var label = new TextBlock
+        {
+            Text = L(key), FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Opacity = .56, Margin = new Thickness(10, 14, 4, 4)
+        };
+        _menuHeadings.Add((label, key));
+        _adminMenu.Children.Add(label);
+    }
+
+    private void AddMenuItem(string key, string section, string glyph)
+    {
+        var icon = new FontIcon { Glyph = glyph, FontSize = 16, Opacity = .78 };
+        var button = new Button
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(10, 8, 10, 8),
+            MinHeight = 38,
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { icon, new TextBlock { Text = L(key), VerticalAlignment = VerticalAlignment.Center } } }
+        };
+        button.Click += (_, _) => SelectAdminSection(section);
+        _menuItems.Add((button, key, section));
+        _adminMenu.Children.Add(button);
+    }
+
+    private void SelectAdminSection(string section)
+    {
+        _selectedSection = section;
+        _overviewCard.Visibility = section == "account" ? Visibility.Visible : Visibility.Collapsed;
+        _usersCard.Visibility = section is "account" or "users" ? Visibility.Visible : Visibility.Collapsed;
+        _auditCard.Visibility = section == "audit" ? Visibility.Visible : Visibility.Collapsed;
+        _fruitRecycleCard.Visibility = section == "recycle" ? Visibility.Visible : Visibility.Collapsed;
+        _detailCard.Visibility = _targetId is not null && section is ("users" or "tree" or "store" or "aquarium")
+            ? Visibility.Visible : Visibility.Collapsed;
+        _pageTitle.Text = L(section switch
+        {
+            "tree" => "Settings.Admin.TreeManagement",
+            "store" => "Settings.Admin.StoreManagement",
+            "recycle" => "Settings.Admin.RecycleFruit",
+            "aquarium" => "Settings.Admin.AquariumManagement",
+            "audit" => "Settings.Admin.Menu.Audit",
+            "users" => "Settings.Admin.Menu.Users",
+            _ => "Settings.Admin.AccountManagement"
+        });
+        _pageSubtitle.Text = L("Settings.Admin.WorkspaceSubtitle");
+        foreach ((Button button, _, string itemSection) in _menuItems)
+        {
+            button.Background = new SolidColorBrush(itemSection == section
+                ? Microsoft.UI.Colors.LightSteelBlue : Microsoft.UI.Colors.Transparent);
+        }
     }
 
     public void Initialize(IAuthSession auth, LocalizationService localization)
@@ -98,6 +219,15 @@ public sealed partial class AdminSettingsSection : UserControl
             : $"{L("Settings.Admin.User")}: {_targetName}";
         _auditCard.Header = L("Settings.Admin.Audit");
         _fruitRecycleCard.Header = L("Settings.Admin.RecycleFruit");
+        _pageSubtitle.Text = L("Settings.Admin.WorkspaceSubtitle");
+        foreach ((Button button, string key, _) in _menuItems)
+        {
+            if (button.Content is StackPanel panel && panel.Children.LastOrDefault() is TextBlock label)
+                label.Text = L(key);
+        }
+        foreach ((TextBlock label, string key) in _menuHeadings)
+            label.Text = L(key);
+        SelectAdminSection(_selectedSection);
         _reason.PlaceholderText = L("Settings.Admin.Reason");
         _search.PlaceholderText = L("Settings.Admin.SearchHint");
         _confirm.PlaceholderText = L("Settings.Admin.ConfirmUsername");
@@ -232,6 +362,9 @@ public sealed partial class AdminSettingsSection : UserControl
         bool isAdmin = user.GetProperty("is_admin").GetInt32() == 1;
         _detail.Children.Clear();
         _detail.RowDefinitions.Clear();
+        _detail.ColumnDefinitions.Clear();
+        _detail.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _detail.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var accountPanel = new StackPanel { Spacing = 8 };
         accountPanel.Children.Add(CreateSummaryRow(_targetName!, user.GetProperty("status").GetString()!, id));
         accountPanel.Children.Add(LabeledField("Settings.Admin.Reason", _reason.Parent is null ? _reason : Detach(_reason)));
@@ -288,10 +421,10 @@ public sealed partial class AdminSettingsSection : UserControl
         SettingsCard coinsCard = CreateCard(L("Settings.Admin.Coins"), coinPanel);
         SettingsCard accountCard = CreateCard(L("Settings.Admin.User"), accountPanel);
         int row = 0;
-        AddDetailSection(_detail, accountCard, row++);
-        AddDetailSection(_detail, backupsCard, row++);
-        AddDetailSection(_detail, treeCard, row++);
-        AddDetailSection(_detail, coinsCard, row++);
+        AddDetailSection(_detail, accountCard, row, 0);
+        AddDetailSection(_detail, backupsCard, row++, 1);
+        AddDetailSection(_detail, treeCard, row, 0);
+        AddDetailSection(_detail, coinsCard, row++, 1);
         if (!isAdmin)
         {
             var danger = new StackPanel { Spacing = 8 };
@@ -302,7 +435,9 @@ public sealed partial class AdminSettingsSection : UserControl
             {
                 Action = "delete_user", ConfirmUsername = _confirm.Text, AdminPassword = _password.Password
             })));
-            AddDetailSection(_detail, CreateDangerCard(L("Settings.Admin.DeleteUser"), danger), row++);
+            var dangerCard = CreateDangerCard(L("Settings.Admin.DeleteUser"), danger);
+            Grid.SetColumnSpan(dangerCard, 2);
+            AddDetailSection(_detail, dangerCard, row++, 0);
         }
     }
 
@@ -313,11 +448,12 @@ public sealed partial class AdminSettingsSection : UserControl
         return element;
     }
 
-    private static void AddDetailSection(Grid grid, FrameworkElement content, int row)
+    private static void AddDetailSection(Grid grid, FrameworkElement content, int row, int column)
     {
         while (grid.RowDefinitions.Count <= row)
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Grid.SetRow(content, row);
+        Grid.SetColumn(content, column);
         grid.Children.Add(content);
     }
 
