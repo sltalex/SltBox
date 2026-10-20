@@ -13,6 +13,9 @@ public sealed class TodoSettingsSlice
     /// <summary>Todo tab style. Valid values: <c>"Pivot"</c>, <c>"Button"</c>.</summary>
     public string TodoTabStyle { get; set; } = "Button";
 
+    /// <summary>Todo category bar position: Top, Left, or Right.</summary>
+    public string TodoTabBarPosition { get; set; } = "Top";
+
     public bool TodoShowTabBar { get; set; } = true;
 
     public bool TodoShowAllTab { get; set; } = true;

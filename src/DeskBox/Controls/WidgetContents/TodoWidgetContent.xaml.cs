@@ -1,3 +1,4 @@
+using CommunityToolkit.WinUI.Controls;
 using System.ComponentModel;
 using System.Collections.Specialized;
 using System.Globalization;
@@ -49,6 +50,7 @@ public sealed partial class TodoWidgetContent : UserControl
     private bool _isClosingDetail;
     private bool _isSavingDetailDraft;
     private bool _isChangingTodoFilter;
+    private bool _isSynchronizingTodoFilter;
     private Button? _pressedColorFilterButton;
     private bool _isStartingColorFilterDrag;
     private bool _colorFilterHandledEventsRegistered;
@@ -351,7 +353,56 @@ public sealed partial class TodoWidgetContent : UserControl
         }
 
         WidgetSegmentedStyleHelper.Apply(TodoFilterSegmented, ViewModel?.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(TodoLeftSegmented, ViewModel?.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(TodoRightSegmented, ViewModel?.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(TodoMeetingLeftSegmented, ViewModel?.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(TodoMeetingRightSegmented, ViewModel?.TabStyle);
         ApplySegmentedLayout();
+    }
+
+    private async void TodoSideSegmented_SelectionChanged(
+        object sender, SelectionChangedEventArgs e)
+    {
+        if (_isSynchronizingTodoFilter || _isChangingTodoFilter ||
+            sender is not Segmented segmented || segmented.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        int selectedIndex = segmented.SelectedIndex;
+        if (TodoFilterSegmented.SelectedIndex != selectedIndex)
+        {
+            _isSynchronizingTodoFilter = true;
+            try
+            {
+                TodoFilterSegmented.SelectedIndex = selectedIndex;
+            }
+            finally
+            {
+                _isSynchronizingTodoFilter = false;
+            }
+        }
+
+        if (selectedIndex == 6)
+        {
+            ShowMeetings();
+            return;
+        }
+
+        ShowTodoList();
+        TodoFilter filter = selectedIndex switch
+        {
+            1 => TodoFilter.Active,
+            2 => TodoFilter.Today,
+            3 => TodoFilter.ThisWeek,
+            4 => TodoFilter.ThisMonth,
+            5 => TodoFilter.Important,
+            7 => TodoFilter.Completed,
+            _ => TodoFilter.All
+        };
+        if (ViewModel?.SelectedFilter != filter)
+            ViewModel?.SetFilter(filter);
+        await Task.CompletedTask;
     }
 
     // CommunityToolkit's Segmented uses EqualPanel internally. During the
@@ -836,6 +887,29 @@ public sealed partial class TodoWidgetContent : UserControl
         }
 
         EnsureWideDetailSelection();
+    }
+
+    private void SideFilter_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is null || sender is not FrameworkElement { Tag: string tag }) return;
+        if (tag == "Meetings")
+        {
+            ShowMeetings();
+            if (sender is ToggleButton meetingToggle) meetingToggle.IsChecked = true;
+            return;
+        }
+        ShowTodoList();
+        ViewModel.SelectedFilter = tag switch
+        {
+            "Active" => TodoFilter.Active,
+            "Today" => TodoFilter.Today,
+            "ThisWeek" => TodoFilter.ThisWeek,
+            "ThisMonth" => TodoFilter.ThisMonth,
+            "Important" => TodoFilter.Important,
+            "Completed" => TodoFilter.Completed,
+            _ => TodoFilter.All
+        };
+        if (sender is ToggleButton toggle) toggle.IsChecked = true;
     }
 
     private void MetadataDueDate_Click(object sender, RoutedEventArgs e)

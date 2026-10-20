@@ -36,6 +36,7 @@ namespace DeskBox.Features.QuickCapture;
     nameof(ShowWideOptions),
     nameof(StatusText),
     nameof(TabStyleIndex),
+    nameof(TabBarPositionIndex),
     nameof(TabsSummaryText),
     nameof(VisibleDefaultViewOptions),
     nameof(VisibleTabsText),

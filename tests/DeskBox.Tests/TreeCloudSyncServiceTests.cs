@@ -13,7 +13,11 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     [Fact]
     public async Task SyncUploadsFullSnapshotAndAppliesAuthoritativeState()
     {
-        var api = new FakeApi { State = State(version: 1, energy: 500, growth: 20, stage: 1, fruitEnergy: 10, fruitInventory: 2, harvested: 3) };
+        var api = new FakeApi
+        {
+            State = State(version: 0, energy: 0, growth: 0, stage: 1, fruitEnergy: 0, fruitInventory: 0, harvested: 0),
+            UploadState = State(version: 1, energy: 500, growth: 20, stage: 1, fruitEnergy: 10, fruitInventory: 2, harvested: 3)
+        };
         var auth = new FakeAuth("user-1", "Simon");
         TreeProgress local = Progress(100, 10, 1, 1);
         TreeProgress? applied = null;
@@ -23,8 +27,8 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
 
         Assert.True(await service.SyncNowAsync());
         using JsonDocument body = JsonDocument.Parse(Assert.Single(api.Bodies));
-        Assert.Equal("PUT", api.Methods[0]);
-        Assert.Equal(100, body.RootElement.GetProperty("total_energy").GetInt64());
+        Assert.Equal("POST", api.Methods[1]);
+        Assert.Equal(100, body.RootElement.GetProperty("energy_delta").GetInt64());
         Assert.Equal(10, body.RootElement.GetProperty("today_growth").GetInt64());
         Assert.Equal(500, applied!.TotalEnergy);
         Assert.Equal(2, applied.FruitInventory);
@@ -48,11 +52,10 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ConflictReadsCloudStateAndUsesItsVersion()
+    public async Task ExistingCloudStateIsPulledBeforeLocalUpload()
     {
         var api = new FakeApi
         {
-            Conflict = true,
             State = State(version: 7, energy: 900, growth: 90, stage: 1, fruitEnergy: 0, fruitInventory: 4, harvested: 2)
         };
         var auth = new FakeAuth("user-1", "Simon");
@@ -65,13 +68,13 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         Assert.True(await service.SyncNowAsync());
         Assert.Equal(900, applied!.TotalEnergy);
         Assert.Equal(2, applied.HarvestedFruit);
-        Assert.Equal(2, api.Methods.Count);
-        Assert.Equal("GET", api.Methods[1]);
-        Assert.True(service.HasConflict);
+        Assert.Single(api.Methods);
+        Assert.Equal("GET", api.Methods[0]);
+        Assert.False(service.HasConflict);
     }
 
     [Fact]
-    public async Task ConflictSnapshotIncludesChangesMadeWhileOffline()
+    public async Task OfflineRetryKeepsTheSameOperationId()
     {
         var auth = new FakeAuth("user-1", "Simon");
         TreeProgress local = Progress(100, 10, 1, 0);
@@ -81,21 +84,12 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
             await Assert.ThrowsAsync<HttpRequestException>(() => first.SyncNowAsync());
 
         local = Progress(150, 60, 1, 0);
-        var conflictApi = new FakeApi
-        {
-            Conflict = true,
-            State = State(version: 4, energy: 200, growth: 40, stage: 1, fruitEnergy: 0, fruitInventory: 1, harvested: 0)
-        };
+        var conflictApi = new FakeApi { State = State(version: 4, energy: 0, growth: 0, stage: 1, fruitEnergy: 0, fruitInventory: 0, harvested: 0) };
         await using (var second = new TreeCloudSyncService(conflictApi, auth, () => local, _root,
             () => DateTimeOffset.Parse("2026-10-14T08:00:00Z")))
             Assert.True(await second.SyncNowAsync());
 
-        string path = Path.Combine(_root, "state-user-1.json");
-        TreeCloudState saved = JsonSerializer.Deserialize(
-            await File.ReadAllTextAsync(path), AccountCloudJsonContext.Default.TreeCloudState)!;
-        using JsonDocument snapshot = JsonDocument.Parse(saved.ConflictSnapshot!);
-        Assert.Equal(150, snapshot.RootElement.GetProperty("total_energy").GetInt64());
-        Assert.Equal(60, snapshot.RootElement.GetProperty("today_growth").GetInt64());
+        Assert.Equal(firstOperation, ReadOperation(Assert.Single(conflictApi.Bodies)));
     }
 
     private static TreeProgress Progress(long energy, long today, long inventory, long harvested, TreeStateDto? state = null) => new()
@@ -140,6 +134,7 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         internal Exception? Failure { get; set; }
         internal bool Conflict { get; set; }
         internal TreeStateDto State { get; set; } = new() { Day = "2026-10-14", Stage = 1 };
+        internal TreeStateDto? UploadState { get; set; }
         internal List<byte[]> Bodies { get; } = [];
         internal List<string> Methods { get; } = [];
 
@@ -148,9 +143,9 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
             Methods.Add(method.Method);
             if (jsonBody is not null) Bodies.Add(jsonBody);
             if (Failure is not null) throw Failure;
-            if (Conflict && method == HttpMethod.Put)
+            if (Conflict && method == HttpMethod.Post)
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict));
-            return Response(JsonSerializer.Serialize(new TreeStateResponse { State = State }));
+            return Response(JsonSerializer.Serialize(new TreeProgressUploadResponse { State = method == HttpMethod.Post ? UploadState ?? State : State }));
         }
 
         private static Task<HttpResponseMessage> Response(string json) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

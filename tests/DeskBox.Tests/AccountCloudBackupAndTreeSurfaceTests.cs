@@ -36,6 +36,18 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
+    public void AccountManualSync_RemainsVisibleInCompactSignedInLayout()
+    {
+        string xaml = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml"));
+        string account = Slice(xaml, "svc:Localized.HeaderKey=\"Settings.Account.Title\"", "svc:Localized.HeaderKey=\"Settings.DingTalk.Title\"");
+
+        Assert.Contains("x:Name=\"AccountSignedInActions\"", account, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AccountSyncDataButton\"", account, StringComparison.Ordinal);
+        Assert.Contains("Grid.Column=\"2\"", account, StringComparison.Ordinal);
+        Assert.Contains("Grid.Row=\"1\"", account, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TreeSettings_UsesCardsAndAotSafeListViewRows()
     {
         string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));

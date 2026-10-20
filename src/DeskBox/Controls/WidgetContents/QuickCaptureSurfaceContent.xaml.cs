@@ -1,3 +1,4 @@
+using CommunityToolkit.WinUI.Controls;
 using DeskBox.Contracts;
 using DeskBox.Helpers;
 using DeskBox.Models;
@@ -2851,29 +2852,29 @@ public sealed partial class QuickCaptureSurfaceContent :
 
     private void UpdateSelectedViewVisual()
     {
-        if (QuickCaptureViewSegmented is null)
-        {
-            return;
-        }
-
         int selectedIndex = ViewModel.SelectedView switch
         {
             QuickCaptureViewMode.Pinned => 1,
             QuickCaptureViewMode.Recent => 2,
             _ => 0
         };
-        if (QuickCaptureViewSegmented.SelectedIndex != selectedIndex)
+        bool wasSynchronizing = _isSynchronizingViewSelection;
+        _isSynchronizingViewSelection = true;
+        try
         {
-            bool wasSynchronizing = _isSynchronizingViewSelection;
-            _isSynchronizingViewSelection = true;
-            try
-            {
+            if (QuickCaptureViewSegmented is not null &&
+                QuickCaptureViewSegmented.SelectedIndex != selectedIndex)
                 QuickCaptureViewSegmented.SelectedIndex = selectedIndex;
-            }
-            finally
-            {
-                _isSynchronizingViewSelection = wasSynchronizing;
-            }
+            if (QuickCaptureLeftSegmented is not null &&
+                QuickCaptureLeftSegmented.SelectedIndex != selectedIndex)
+                QuickCaptureLeftSegmented.SelectedIndex = selectedIndex;
+            if (QuickCaptureRightSegmented is not null &&
+                QuickCaptureRightSegmented.SelectedIndex != selectedIndex)
+                QuickCaptureRightSegmented.SelectedIndex = selectedIndex;
+        }
+        finally
+        {
+            _isSynchronizingViewSelection = wasSynchronizing;
         }
     }
 
@@ -3082,6 +3083,36 @@ public sealed partial class QuickCaptureSurfaceContent :
         await SwitchViewAsync(mode);
     }
 
+    private async void SideTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string tag }) return;
+        await SwitchViewAsync(tag switch
+        {
+            "Pinned" => QuickCaptureViewMode.Pinned,
+            "Recent" => QuickCaptureViewMode.Recent,
+            _ => QuickCaptureViewMode.Records
+        });
+        if (sender is ToggleButton toggle) toggle.IsChecked = true;
+    }
+
+    private async void QuickCaptureSideSegmented_SelectionChanged(
+        object sender, SelectionChangedEventArgs e)
+    {
+        if (_isSynchronizingViewSelection || !IsLoaded ||
+            sender is not Segmented segmented || segmented.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        QuickCaptureViewMode mode = segmented.SelectedIndex switch
+        {
+            1 => QuickCaptureViewMode.Pinned,
+            2 => QuickCaptureViewMode.Recent,
+            _ => QuickCaptureViewMode.Records
+        };
+        await SwitchViewAsync(mode);
+    }
+
     private async Task SwitchViewAsync(QuickCaptureViewMode mode)
     {
         long revision = ++_viewSwitchRevision;
@@ -3145,14 +3176,11 @@ public sealed partial class QuickCaptureSurfaceContent :
 
     private void ApplySegmentedStyle()
     {
-        if (QuickCaptureViewSegmented is null)
-        {
-            return;
-        }
+        if (QuickCaptureViewSegmented is null) return;
 
-        WidgetSegmentedStyleHelper.Apply(
-            QuickCaptureViewSegmented,
-            ViewModel.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(QuickCaptureViewSegmented, ViewModel.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(QuickCaptureLeftSegmented, ViewModel.TabStyle);
+        WidgetSegmentedStyleHelper.Apply(QuickCaptureRightSegmented, ViewModel.TabStyle);
         if (ViewModel.TabStyle == SettingsService.WidgetTabStyleButton)
         {
             WidgetSegmentedLayoutHelper.ApplyEqualItemWidths(QuickCaptureViewSegmented);

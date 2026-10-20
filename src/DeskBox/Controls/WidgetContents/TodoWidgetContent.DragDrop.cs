@@ -350,6 +350,23 @@ public sealed partial class TodoWidgetContent
             TodoFilterSegmented.SelectedIndex = selectedIndex;
         }
 
+        _isSynchronizingTodoFilter = true;
+        try
+        {
+            if (TodoLeftSegmented.SelectedIndex != selectedIndex)
+                TodoLeftSegmented.SelectedIndex = selectedIndex;
+            if (TodoRightSegmented.SelectedIndex != selectedIndex)
+                TodoRightSegmented.SelectedIndex = selectedIndex;
+            if (TodoMeetingLeftSegmented.SelectedIndex != selectedIndex)
+                TodoMeetingLeftSegmented.SelectedIndex = selectedIndex;
+            if (TodoMeetingRightSegmented.SelectedIndex != selectedIndex)
+                TodoMeetingRightSegmented.SelectedIndex = selectedIndex;
+        }
+        finally
+        {
+            _isSynchronizingTodoFilter = false;
+        }
+
         ApplyColorFilterButtonState(RedColorFilterButton, ViewModel.SelectedColorFilter == TodoColorFilter.Red);
         ApplyColorFilterButtonState(OrangeColorFilterButton, ViewModel.SelectedColorFilter == TodoColorFilter.Orange);
         ApplyColorFilterButtonState(YellowColorFilterButton, ViewModel.SelectedColorFilter == TodoColorFilter.Yellow);

@@ -12,7 +12,13 @@ namespace DeskBox.Views.SettingsSections;
 
 public sealed partial class AdminSettingsSection : UserControl
 {
-    private readonly StackPanel _root = new() { Spacing = 12, Margin = new Thickness(24) };
+    private readonly StackPanel _root = new()
+    {
+        Spacing = 12,
+        Margin = new Thickness(16),
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        MaxWidth = 980
+    };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _overview = new() { TextWrapping = TextWrapping.Wrap, Opacity = .72 };
     private readonly Grid _overviewMetrics = new() { ColumnSpacing = 10, RowSpacing = 10 };
@@ -22,7 +28,7 @@ public sealed partial class AdminSettingsSection : UserControl
     private readonly SettingsCard _auditCard = new();
     private readonly TextBox _search = new() { Width = 220 };
     private readonly StackPanel _users = new() { Spacing = 5 };
-    private readonly Grid _detail = new() { ColumnSpacing = 12, RowSpacing = 12 };
+    private readonly Grid _detail = new() { RowSpacing = 10 };
     private readonly StackPanel _audit = new() { Spacing = 5 };
     private readonly TextBox _reason = new() { MaxLength = 250 };
     private readonly TextBox _confirm = new();
@@ -47,13 +53,11 @@ public sealed partial class AdminSettingsSection : UserControl
         var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         searchRow.Children.Add(_search);
         searchRow.Children.Add(ActionButton("Settings.Admin.Search", async () => await LoadUsersAsync()));
-        ConfigureCard(_usersCard, "Settings.Admin.User", new StackPanel { Spacing = 10, Children = { searchRow, CreateTableHeader(L("Settings.Admin.User"), L("Settings.Admin.Stage"), L("Settings.Admin.DingTalk"), string.Empty), _users } });
+        ConfigureCard(_usersCard, "Settings.Admin.User", new StackPanel { Spacing = 10, Children = { searchRow, CreateTableHeader(L("Settings.Admin.User"), "Status", "Role", string.Empty), _users } });
         _root.Children.Add(_usersCard);
         ConfigureCard(_detailCard, "Settings.Admin.User", _detail);
         _root.Children.Add(_detailCard);
-        var auditActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        auditActions.Children.Add(ActionButton("Settings.Admin.RefreshAudit", async () => await LoadAuditAsync()));
-        ConfigureCard(_auditCard, "Settings.Admin.Audit", new StackPanel { Spacing = 10, Children = { auditActions, CreateTableHeader("Time", "Actor", "Target", "Action", "Reason", "Result"), _audit } });
+        ConfigureCard(_auditCard, "Settings.Admin.Audit", new StackPanel { Spacing = 10, Children = { CreateTableHeader("Time", "Actor", "Target", "Action", "Reason", "Result"), _audit } });
         _root.Children.Add(_auditCard);
     }
 
@@ -167,7 +171,6 @@ public sealed partial class AdminSettingsSection : UserControl
         if (_targetId is null) return;
         _detailCard.Header = $"{L("Settings.Admin.User")}: {_targetName}";
         _detailCard.Visibility = Visibility.Visible;
-        _detailCard.StartBringIntoView();
     }
 
     private async Task LoadDetailCoreAsync(string id)
@@ -180,9 +183,6 @@ public sealed partial class AdminSettingsSection : UserControl
         bool isAdmin = user.GetProperty("is_admin").GetInt32() == 1;
         _detail.Children.Clear();
         _detail.RowDefinitions.Clear();
-        _detail.ColumnDefinitions.Clear();
-        _detail.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _detail.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var accountPanel = new StackPanel { Spacing = 8 };
         accountPanel.Children.Add(CreateSummaryRow(_targetName!, user.GetProperty("status").GetString()!, id));
         accountPanel.Children.Add(LabeledField("Settings.Admin.Reason", _reason.Parent is null ? _reason : Detach(_reason)));
@@ -192,21 +192,8 @@ public sealed partial class AdminSettingsSection : UserControl
             string status = user.GetProperty("status").GetString()!;
             accountActions.Children.Add(ActionButton(status == "active" ? "Settings.Admin.Disable" : "Settings.Admin.Enable",
                 async () => await MutateAsync(new() { Action = status == "active" ? "disable" : "enable" })));
-            accountActions.Children.Add(ActionButton("Settings.Admin.RevokeAll", async () => await MutateAsync(new() { Action = "revoke_all_sessions" })));
         }
         if (accountActions.Children.Count > 0) accountPanel.Children.Add(accountActions);
-        var sessions = new StackPanel { Spacing = 4 };
-        sessions.Children.Add(CreateTableHeader("Device", "Created", "Status", string.Empty));
-        foreach (JsonElement session in value.GetProperty("sessions").EnumerateArray())
-        {
-            string sessionId = session.GetProperty("id").GetString()!;
-            var action = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            if (session.GetProperty("revoked_at").ValueKind == JsonValueKind.Null)
-                action.Children.Add(ActionButton("Settings.Admin.Revoke", async () => await MutateAsync(new() { Action = "revoke_session", SessionId = sessionId })));
-            sessions.Children.Add(CreateTableRow(session.GetProperty("device_id").GetString(), session.GetProperty("created_at").GetString(), session.GetProperty("revoked_at").ValueKind == JsonValueKind.Null ? "Active" : "Revoked", action));
-        }
-        if (sessions.Children.Count == 1) sessions.Children.Add(EmptyState("No sessions"));
-        SettingsCard sessionsCard = CreateCard(L("Settings.Admin.Sessions"), sessions);
         var backups = new StackPanel { Spacing = 4 };
         backups.Children.Add(CreateTableHeader("Created", "Device", "Size", "Status", string.Empty));
         foreach (JsonElement backup in value.GetProperty("backups").EnumerateArray())
@@ -250,25 +237,12 @@ public sealed partial class AdminSettingsSection : UserControl
         coinPanel.Children.Add(_coinInput.Parent is null ? _coinInput : Detach(_coinInput));
         coinPanel.Children.Add(ActionButton("Settings.Admin.SetCoins", async () => await SetAquariumCoinsAsync()));
         SettingsCard coinsCard = CreateCard(L("Settings.Admin.Coins"), coinPanel);
-        JsonElement identity = value.GetProperty("identity");
-        var dingPanel = new StackPanel { Spacing = 8 };
-        if (identity.ValueKind != JsonValueKind.Null)
-        {
-            dingPanel.Children.Add(CreateKeyValue("Name", identity.GetProperty("display_name").GetString()));
-            dingPanel.Children.Add(CreateKeyValue("Organization", identity.GetProperty("organization_name").GetString()));
-            dingPanel.Children.Add(CreateKeyValue("Department", identity.GetProperty("department_name").GetString()));
-            dingPanel.Children.Add(CreateKeyValue("Corp / User", $"{identity.GetProperty("corp_id").GetString()} / {identity.GetProperty("dingtalk_user_id").GetString()}"));
-            dingPanel.Children.Add(ActionButton("Settings.Admin.Unlink", async () => await MutateAsync(new() { Action = "unlink_dingtalk" })));
-        }
-        else dingPanel.Children.Add(EmptyState("No DingTalk binding"));
-        SettingsCard dingCard = CreateCard(L("Settings.Admin.DingTalk"), dingPanel);
+        SettingsCard accountCard = CreateCard(L("Settings.Admin.User"), accountPanel);
         int row = 0;
-        AddDetailSection(_detail, accountPanel, row++, 0, 2);
-        AddDetailSection(_detail, sessionsCard, row, 0);
-        AddDetailSection(_detail, backupsCard, row++, 1);
-        AddDetailSection(_detail, treeCard, row, 0);
-        AddDetailSection(_detail, coinsCard, row++, 1);
-        AddDetailSection(_detail, dingCard, row++, 0, 2);
+        AddDetailSection(_detail, accountCard, row++);
+        AddDetailSection(_detail, backupsCard, row++);
+        AddDetailSection(_detail, treeCard, row++);
+        AddDetailSection(_detail, coinsCard, row++);
         if (!isAdmin)
         {
             var danger = new StackPanel { Spacing = 8 };
@@ -279,7 +253,7 @@ public sealed partial class AdminSettingsSection : UserControl
             {
                 Action = "delete_user", ConfirmUsername = _confirm.Text, AdminPassword = _password.Password
             })));
-            AddDetailSection(_detail, CreateDangerCard(L("Settings.Admin.DeleteUser"), danger), row++, 0, 2);
+            AddDetailSection(_detail, CreateDangerCard(L("Settings.Admin.DeleteUser"), danger), row++);
         }
     }
 
@@ -290,13 +264,11 @@ public sealed partial class AdminSettingsSection : UserControl
         return element;
     }
 
-    private static void AddDetailSection(Grid grid, FrameworkElement content, int row, int column, int columnSpan = 1)
+    private static void AddDetailSection(Grid grid, FrameworkElement content, int row)
     {
         while (grid.RowDefinitions.Count <= row)
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Grid.SetRow(content, row);
-        Grid.SetColumn(content, column);
-        if (columnSpan > 1) Grid.SetColumnSpan(content, columnSpan);
         grid.Children.Add(content);
     }
 
@@ -346,15 +318,6 @@ public sealed partial class AdminSettingsSection : UserControl
             await LoadAuditCoreAsync();
             _password.Password = string.Empty;
         }
-        catch (Exception error) { _status.Text = error.Message; }
-        finally { _busy = false; }
-    }
-
-    private async Task LoadAuditAsync()
-    {
-        if (_busy) return;
-        _busy = true;
-        try { await LoadAuditCoreAsync(); _status.Text = string.Empty; }
         catch (Exception error) { _status.Text = error.Message; }
         finally { _busy = false; }
     }

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DeskBox.Contracts;
 using DeskBox.Controls;
 using DeskBox.Models;
 using DeskBox.Services;
@@ -58,6 +59,7 @@ public sealed partial class TodoWidgetViewModel : ObservableObject, IDisposable
     private double _layoutDensityScale = SettingsService.DefaultLayoutDensityScale;
     private string _newTaskPosition = SettingsService.TodoNewTaskPositionTop;
     private string _tabStyle = SettingsService.WidgetTabStyleButton;
+    private string _tabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
     private bool _showTabBar = true;
     private bool _showAllTab = true;
     private bool _showActiveTab;
@@ -540,7 +542,27 @@ public sealed partial class TodoWidgetViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _tabStyle, SettingsService.NormalizeWidgetTabStyle(value));
     }
 
-    public Visibility TabBarVisibility => _showTabBar ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility TabBarVisibility => _showTabBar &&
+        _tabBarPosition == QuickCaptureOptionKinds.TabBarPositionTop
+        ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility LeftTabBarVisibility => _showTabBar &&
+        _tabBarPosition == QuickCaptureOptionKinds.TabBarPositionLeft
+        ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility RightTabBarVisibility => _showTabBar &&
+        _tabBarPosition == QuickCaptureOptionKinds.TabBarPositionRight
+        ? Visibility.Visible : Visibility.Collapsed;
+    public string TabBarPosition
+    {
+        get => _tabBarPosition;
+        private set
+        {
+            if (!SetProperty(ref _tabBarPosition,
+                QuickCaptureOptionKinds.NormalizeTabBarPosition(value))) return;
+            OnPropertyChanged(nameof(TabBarVisibility));
+            OnPropertyChanged(nameof(LeftTabBarVisibility));
+            OnPropertyChanged(nameof(RightTabBarVisibility));
+        }
+    }
     public Visibility AllTabVisibility => _showAllTab ? Visibility.Visible : Visibility.Collapsed;
     public Visibility ActiveTabVisibility => _showActiveTab ? Visibility.Visible : Visibility.Collapsed;
     public Visibility TodayTabVisibility => _showTodayTab ? Visibility.Visible : Visibility.Collapsed;

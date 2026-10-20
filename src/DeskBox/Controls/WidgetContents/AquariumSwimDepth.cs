@@ -45,7 +45,7 @@ internal static class AquariumSwimDepth
         return placement with { Y = y, Scale = placement.Scale * ScaleFactor(layer), Layer = layer };
     }
 
-    internal static bool IsSwimming(string category) => category is "fish" or "shrimp" or "crab";
+    internal static bool IsSwimming(string category) => category is "fish" or "shrimp" or "crab" or "jellyfish";
 
     internal static uint StableHash(string value)
     {

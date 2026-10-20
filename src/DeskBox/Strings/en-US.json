@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "Add",
+  "DingTalkGroupDocs.Manual.Name": "Document name",
+  "DingTalkGroupDocs.Manual.Url": "Document URL (http:// or https://)",
+  "DingTalkGroupDocs.Manual.Group": "Added manually",
+  "DingTalkGroupDocs.Manual.Invalid": "Enter a document name and a valid HTTP/HTTPS URL.",
+  "DingTalkGroupDocs.Manual.SignIn": "Sign in to SltBox to add or view your account favorites.",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1230,6 +1236,11 @@
   "Settings.Restore.Tooltip": "Restore defaults without deleting existing content",
   "Settings.WidgetTabStyle.Pivot": "Indicator",
   "Settings.WidgetTabStyle.Button": "Segmented buttons",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "Official website download",
   "Settings.Download.Description": "Download SltBox from the official website",
   "Settings.Download.CopyTooltip": "Copy official download URL",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "Sign in",
   "Settings.Account.Register": "Register",
   "Settings.Account.SignOut": "Sign out",
+  "Settings.Account.SyncData": "Sync data",
+  "Settings.Account.Syncing": "Syncing tree data…",
+  "Settings.Account.SyncSuccess": "Tree data synced.",
+  "Settings.Account.SyncUnavailable": "Sync could not be started. Sign in and try again.",
+  "Settings.Account.SyncError": "Tree data could not be synced. Check your network and try again.",
   "Settings.Account.SignedInAs": "Signed in as {0}",
   "Settings.Account.Working": "Connecting to the account service…",
   "Settings.Account.Error.InvalidUsername": "Username must be 3–32 letters, numbers, or underscores.",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"Moon jellyfish"
+  ,"Aquarium.Item.lion-mane-jellyfish":"Lion's mane jellyfish"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"Blue blubber jellyfish"
+  ,"Aquarium.Item.cannonball-jellyfish":"Cannonball jellyfish"
+  ,"Aquarium.Item.upside-down-jellyfish":"Upside-down jellyfish"
+  ,"Aquarium.Item.flower-hat-jellyfish":"Flower hat jellyfish"
+  ,"Aquarium.Item.sea-nettle":"Sea nettle"
+  ,"Aquarium.Item.crystal-jellyfish":"Crystal jellyfish"
+  ,"Aquarium.Item.comb-jelly":"Comb jelly"
+  ,"Aquarium.Item.portuguese-man-o-war":"Portuguese man-of-war"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"Backpack"
   ,"Aquarium.Backpack.Aquarium":"Aquarium items"
+  ,"Aquarium.Backpack.General":"General"
   ,"Aquarium.Settings.Category":"Category"
+  ,"Aquarium.Category.jellyfish":"Jellyfish"
   ,"Aquarium.Category.fish":"Fish"
   ,"Aquarium.Store.Group.fish":"Fish"
   ,"Aquarium.Store.Group.plants":"Plants and algae"

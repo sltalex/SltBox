@@ -56,6 +56,9 @@ public sealed class QuickCaptureSettingsSlice
     /// <summary>Quick Capture tab style. Valid values: <c>"Pivot"</c>, <c>"Button"</c>.</summary>
     public string QuickCaptureTabStyle { get; set; } = "Button";
 
+    /// <summary>Quick Capture category bar position: Top, Left, or Right.</summary>
+    public string QuickCaptureTabBarPosition { get; set; } = "Top";
+
     public bool QuickCaptureShowTabBar { get; set; } = true;
 
     public bool QuickCaptureShowRecordsTab { get; set; } = true;

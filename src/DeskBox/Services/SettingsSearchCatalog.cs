@@ -203,6 +203,7 @@ internal static class SettingsSearchCatalog
         new("SearchSettings", "Settings.Search.DefaultTab.Title", "Settings.Search.DefaultTab.Description"),
         new("SearchSettings", "Settings.Search.IconAnimation.Title", "Settings.Search.IconAnimation.Description"),
         new("Backpack", "Aquarium.Backpack.Aquarium", null),
+        new("Backpack", "Aquarium.Backpack.General", null),
         new("AquariumStore", "Aquarium.Settings.Store", null),
         new("PerformanceSettings", "Settings.Performance.Mode.Title", "Settings.Performance.Mode.Description"),
         new("PerformanceSettings", "Settings.Performance.VisibleIdleCleanup.Title", "Settings.Performance.VisibleIdleCleanup.Description"),

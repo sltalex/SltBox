@@ -116,6 +116,7 @@ public sealed partial class QuickCaptureWidgetViewModel
         var settings = _settingsService.Settings;
         WidgetOpacity = settings.WidgetOpacity;
         TabStyle = settings.QuickCaptureTabStyle;
+        TabBarPosition = settings.QuickCaptureTabBarPosition;
         TextSize = SettingsService.NormalizeTextSize(
             (settings.QuickCaptureListTextSize > 0 ? settings.QuickCaptureListTextSize : settings.TextSize));
         ContentTextSize = SettingsService.NormalizeTextSize(
@@ -141,6 +142,8 @@ public sealed partial class QuickCaptureWidgetViewModel
         _showPinnedTab = settings.QuickCaptureShowPinnedTab;
         _showRecentTab = settings.QuickCaptureShowRecentTab;
         OnPropertyChanged(nameof(TabBarVisibility));
+        OnPropertyChanged(nameof(LeftTabBarVisibility));
+        OnPropertyChanged(nameof(RightTabBarVisibility));
         OnPropertyChanged(nameof(RecordsTabVisibility));
         OnPropertyChanged(nameof(PinnedTabVisibility));
         OnPropertyChanged(nameof(RecentTabVisibility));

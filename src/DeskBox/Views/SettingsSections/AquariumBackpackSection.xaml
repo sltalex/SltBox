@@ -6,10 +6,10 @@
     xmlns:svc="using:DeskBox.Services">
     <StackPanel Spacing="12">
         <TextBlock FontSize="24" FontWeight="SemiBold" svc:Localized.Key="Settings.Nav.Backpack" />
-        <toolkit:SettingsCard svc:Localized.HeaderKey="Aquarium.Backpack.Aquarium">
+        <toolkit:SettingsCard ContentAlignment="Vertical" HorizontalContentAlignment="Stretch"
+                              svc:Localized.HeaderKey="Settings.Nav.Backpack">
             <StackPanel Spacing="8">
                 <StackPanel x:Name="BackpackPrimaryCategories" Orientation="Horizontal" Spacing="6" />
-                <StackPanel x:Name="BackpackCategories" Orientation="Horizontal" Spacing="6" />
                 <StackPanel x:Name="BackpackItems" Spacing="10" />
             </StackPanel>
         </toolkit:SettingsCard>

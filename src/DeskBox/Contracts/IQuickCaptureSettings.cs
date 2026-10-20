@@ -6,6 +6,7 @@ public sealed record QuickCaptureSettingsSnapshot(bool Enabled, bool ClipboardEn
 
 public readonly record struct QuickCaptureTabSettings(
     string DefaultView,
+    string TabBarPosition,
     bool ShowTabBar,
     bool ShowRecordsTab,
     bool ShowPinnedTab,
@@ -40,6 +41,7 @@ public interface IQuickCaptureSettings
     void SetDefaultView(string? view);
     void SetTabVisible(string? view, bool visible);
     void SetTabBarVisible(bool visible);
+    void SetTabBarPosition(string? position);
     void ResetTabPreferences(bool scheduleSave = true);
     QuickCapturePresentationSettings ReadPresentation();
     void SetTabStyle(string? style);

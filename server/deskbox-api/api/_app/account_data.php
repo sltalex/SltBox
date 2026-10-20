@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 const TREE_FRUIT_COST = 3000;
+const TREE_STAGE_INTERVAL = 36000;
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 
@@ -299,9 +300,10 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
     try {
         $pdo->beginTransaction();
         tree_ensure_profile($pdo, $userId, $now, $driver);
-        $lock = $pdo->prepare('SELECT total_energy FROM tree_profiles WHERE user_id = :user_id' . ($driver === 'sqlite' ? '' : ' FOR UPDATE'));
+        $lock = $pdo->prepare('SELECT total_energy, fruit_energy FROM tree_profiles WHERE user_id = :user_id' . ($driver === 'sqlite' ? '' : ' FOR UPDATE'));
         $lock->execute([':user_id' => $userId]);
-        if ($lock->fetchColumn() === false) { throw new ApiError('invalid_session', 'The session is invalid or expired.', 401); }
+        $lockedProfile = $lock->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($lockedProfile)) { throw new ApiError('invalid_session', 'The session is invalid or expired.', 401); }
         $operationSql = $driver === 'sqlite'
             ? 'INSERT OR IGNORE INTO tree_progress_operations (user_id, operation_id, device_id, progress_day, energy_delta, day_growth_delta, fruit_delta, harvested_delta, created_at) VALUES (:user_id, :operation_id, :device_id, :day, :energy, :growth, :fruit, :harvested, :created_at)'
             : 'INSERT IGNORE INTO tree_progress_operations (user_id, operation_id, device_id, progress_day, energy_delta, day_growth_delta, fruit_delta, harvested_delta, created_at) VALUES (:user_id, :operation_id, :device_id, :day, :energy, :growth, :fruit, :harvested, :created_at)';
@@ -313,11 +315,19 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
         ]);
         $duplicate = $operation->rowCount() === 0;
         if (!$duplicate) {
+            $beforeEnergy = (int)$lockedProfile['total_energy'];
+            $afterEnergy = $beforeEnergy + $energy;
+            $fruitEnergy = (int)$lockedProfile['fruit_energy'];
+            $maturity = 4 * TREE_STAGE_INTERVAL;
+            $newFruitEnergy = $fruitEnergy + max(0, $afterEnergy - max($beforeEnergy, $maturity));
+            $newFruitEnergy %= TREE_FRUIT_COST;
             $update = $pdo->prepare(
                 'UPDATE tree_profiles SET total_energy = total_energy + :energy, fruit_total = fruit_total + :fruit, '
-                . 'harvested_total = harvested_total + :harvested, updated_at = :updated_at WHERE user_id = :user_id'
+                . 'harvested_total = harvested_total + :harvested, fruit_energy = :fruit_energy, '
+                . 'state_version = state_version + 1, updated_at = :updated_at WHERE user_id = :user_id'
             );
-            $update->execute([':energy' => $energy, ':fruit' => $fruit, ':harvested' => $harvested, ':updated_at' => auth_sql_time($now), ':user_id' => $userId]);
+            $update->execute([':energy' => $energy, ':fruit' => $fruit, ':harvested' => $harvested,
+                ':fruit_energy' => $newFruitEnergy, ':updated_at' => auth_sql_time($now), ':user_id' => $userId]);
             if ($growth > 0) {
                 $dailySql = $driver === 'sqlite'
                     ? 'INSERT INTO tree_daily_progress (user_id, progress_day, growth) VALUES (:user_id, :day, :growth) ON CONFLICT(user_id, progress_day) DO UPDATE SET growth = growth + excluded.growth'
@@ -330,7 +340,8 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
         }
         $profile = tree_read_profile($pdo, $userId);
         $pdo->commit();
-        return ['duplicate' => $duplicate, 'profile' => $profile];
+        return ['duplicate' => $duplicate, 'profile' => $profile,
+            'state' => tree_read_state($pdo, $userId, $now->format('Y-m-d'))];
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
         throw $error;

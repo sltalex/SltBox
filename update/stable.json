@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026101901",
-  "releaseDate": "2026-10-19",
+  "version": "2026102001",
+  "releaseDate": "2026-10-20",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026101901/SltBox_Setup_2026101901_x64.exe",
-  "mirrorUrl": "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026101901_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102001/SltBox_Setup_2026102001_x64.exe",
+  "mirrorUrl": "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026102001_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "d68057e2a111569d8471c1b6dfa3f9680e699b9e3b64860a6e4736613a2f8ae4",
-  "size": 102513961,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026101901",
+  "sha256": "aef7fdbb408f782d6ae4eb8f4da21b80ace8d3d2a7080334cb42159f74ab15e3",
+  "size": 103430248,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102001",
   "summary": {
-    "zh-CN": "SltBox 2026101901：水族馆扩充至 341 种商品，新增卡包、10 层游动景深、日历格子，并优化商城背包、钉钉收藏和自动更新。",
-    "en-US": "SltBox 2026101901 expands the aquarium to 341 items with card packs and 10 swim-depth layers, adds a calendar widget, and improves the store, DingTalk favorites, and automatic updates."
+    "zh-CN": "SltBox 2026102001：优化随记和待办分类栏布局与同步，并保留近期水族馆、钉钉群文档、种树同步和管理员功能更新。",
+    "en-US": "SltBox 2026102001 improves Notes and Todo category-bar layouts and synchronization while retaining the recent aquarium, DingTalk group documents, tree sync, and administrator updates."
   }
 }

@@ -32,7 +32,8 @@ public static class ServiceRegistry
         services.AddSingleton<DingTalkGroupDocumentService>(sp =>
             new DingTalkGroupDocumentService(sp.GetRequiredService<IDingTalkDwsClient>()));
         services.AddSingleton<DingTalkGroupDocumentFavorites>(sp =>
-            new DingTalkGroupDocumentFavorites(sp.GetRequiredService<IDingTalkDwsClient>()));
+            new DingTalkGroupDocumentFavorites(sp.GetRequiredService<IDingTalkDwsClient>(),
+                auth: sp.GetRequiredService<IAuthSession>(), account: sp.GetRequiredService<DingTalkAccountService>()));
         services.AddSingleton<DingTalkGroupDocumentSyncService>(sp =>
             new DingTalkGroupDocumentSyncService(
                 sp.GetRequiredService<DingTalkGroupDocumentService>(),
@@ -44,7 +45,8 @@ public static class ServiceRegistry
                 sp.GetRequiredService<IAuthenticatedAccountApi>(),
                 sp.GetRequiredService<IAuthSession>(),
                 sp.GetRequiredService<SettingsService>(),
-                sp.GetRequiredService<DeskBoxDataBackupService>()));
+                sp.GetRequiredService<DeskBoxDataBackupService>(),
+                favorites: sp.GetRequiredService<DingTalkGroupDocumentFavorites>()));
         services.AddSingleton<TreeCloudSyncService>(sp =>
             new TreeCloudSyncService(
                 sp.GetRequiredService<IAuthenticatedAccountApi>(),

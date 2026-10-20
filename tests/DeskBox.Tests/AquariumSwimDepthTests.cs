@@ -43,19 +43,23 @@ public sealed class AquariumSwimDepthTests
         [
             new("shrimp", .2, .8, 1.3, 0),
             new("crab", .8, .8, .9, 0),
+            new("jellyfish", .5, .4, 1.0, 0),
             new("plant", .5, .9, 1.1, -1),
             new("snail", .6, .9, 1, 1)
         ];
         var categories = new Dictionary<string, string>
         {
-            ["shrimp"] = "shrimp", ["crab"] = "crab", ["plant"] = "plant", ["snail"] = "snail"
+            ["shrimp"] = "shrimp", ["crab"] = "crab", ["jellyfish"] = "jellyfish",
+            ["plant"] = "plant", ["snail"] = "snail"
         };
 
         IReadOnlyList<AquariumPlacement> display = AquariumSwimDepth.ForDisplay(saved, categories);
 
-        Assert.All(display.Where(item => item.InstanceId is "shrimp" or "crab"), item =>
-            Assert.NotEqual(.8, item.Y));
-        Assert.Equal(saved[2], Assert.Single(display, item => item.InstanceId == "plant"));
-        Assert.Equal(saved[3], Assert.Single(display, item => item.InstanceId == "snail"));
+        Assert.All(display.Where(item => item.InstanceId is "shrimp" or "crab" or "jellyfish"), item =>
+            Assert.NotEqual(item.InstanceId == "jellyfish" ? .4 : .8, item.Y));
+        Assert.Equal(Assert.Single(saved, item => item.InstanceId == "plant"),
+            Assert.Single(display, item => item.InstanceId == "plant"));
+        Assert.Equal(Assert.Single(saved, item => item.InstanceId == "snail"),
+            Assert.Single(display, item => item.InstanceId == "snail"));
     }
 }

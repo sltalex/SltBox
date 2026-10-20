@@ -218,7 +218,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             (float)(height * placement.Scale * AquariumArtworkCatalog.VerticalAnchor(product.AssetKey, animatedCreature)), 0);
         if (animatedCreature)
         {
-            AddRandomFishMotion(visual, host, placement, width, height);
+            AddRandomFishMotion(visual, host, placement, width);
         }
         else if (product.Category is "plant" or "algae")
             AddPlantSway(visual, placement);
@@ -241,94 +241,16 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             (.76f, -amplitude * .55f), (1, -amplitude));
     }
 
-    private void AddRandomFishMotion(Visual visual, Border host, AquariumPlacement placement, double width, double height)
+    private void AddRandomFishMotion(Visual visual, Border host, AquariumPlacement placement, double width)
     {
-        if (_fishPlans.TryGetValue(placement.InstanceId, out AquariumFishMotionPlan? plan))
-        {
-            AquariumDepthMotionPlan depth = AquariumDepthMotionPlanner.Build(plan, placement,
-                width * placement.Scale, SceneWidth, SceneHeight, NextMotionSeed());
-            AddDepthAnimations(visual, depth);
-            _depthMotions.Add(new DepthMotion(visual, host, placement, plan,
-                width * placement.Scale, depth));
-            return;
-        }
-        var random = new Random(StableSeed(placement.InstanceId) ^ _motionSeed);
-        double startX = placement.X * SceneWidth;
-        double startY = placement.Y * SceneHeight;
-        int segments = 5;
-        double[] durations = Enumerable.Range(0, segments)
-            .Select(_ => .75 + random.NextDouble() * 1.35)
-            .ToArray();
-        double restoreTurn = .72;
-        double total = durations.Sum() + restoreTurn;
-        double elapsed = 0;
-        var path = new List<(float Progress, Vector3 Value)> { (0, Vector3.Zero) };
-        int initialFacing = random.Next(2) == 0 ? -1 : 1;
-        int currentFacing = initialFacing;
-        var facing = new List<(float Progress, float Value)> { (0, currentFacing) };
-        double currentX = startX;
-        double currentY = startY;
-        // A swimming creature drifts within its depth band while travelling
-        // mainly horizontally, rather than crossing the whole water column.
-        (double minY, double maxY) = AquariumSwimDepth.Band(placement.Layer);
-        double swimTop = minY * SceneHeight;
-        double swimBottom = maxY * SceneHeight;
-
-        for (int segment = 1; segment <= segments; segment++)
-        {
-            elapsed += durations[segment - 1];
-            float progress = (float)(elapsed / total);
-            double targetX;
-            double targetY;
-            if (segment == segments)
-            {
-                // Return to the starting point so the loop is seamless.
-                targetX = startX;
-                targetY = startY;
-            }
-            else
-            {
-                // Change direction occasionally, but keep every leg mainly
-                // horizontal so the fish never appears to swim backwards.
-                if (segment > 1 && random.NextDouble() < .30)
-                    currentFacing = -currentFacing;
-                double travel = 150 + random.NextDouble() * 250;
-                bool leaveFrame = random.NextDouble() < .36;
-                targetX = leaveFrame
-                    ? (currentFacing < 0
-                        ? -width * (1.2 + random.NextDouble() * 2.3)
-                        : SceneWidth + width * (1.2 + random.NextDouble() * 2.3))
-                    : currentX + currentFacing * travel;
-                targetY = Math.Clamp(currentY + NextRange(random, -45, 45), swimTop, swimBottom);
-            }
-
-            double offsetX = targetX - startX;
-            double offsetY = targetY - startY;
-            path.Add((progress, new Vector3((float)offsetX, (float)offsetY, 0)));
-            int segmentFacing = Math.Abs(targetX - currentX) > 4
-                ? (targetX >= currentX ? 1 : -1)
-                : currentFacing;
-            // Hold the old facing until the waypoint, then flip at the
-            // waypoint. The final waypoint keeps the direction of travel;
-            // the initial orientation is restored during a stationary turn.
-            facing.Add((Math.Max(0, progress - .015f), currentFacing));
-            facing.Add((progress, segmentFacing));
-            currentFacing = segmentFacing;
-            currentX = targetX;
-            currentY = targetY;
-        }
-
-        float restoreStart = (float)(durations.Sum() / total);
-        facing.Add((restoreStart, currentFacing));
-        facing.Add((1, initialFacing));
-
-        double seconds = 18 + random.NextDouble() * 18;
-        AddVector(visual, "Translation", seconds, path.ToArray(), linear: true);
-        AddScalar(visual, "Scale.X", seconds, facing.ToArray());
+        // Render creates a shared planner entry for every swimming category.
+        AquariumFishMotionPlan plan = _fishPlans[placement.InstanceId];
+        AquariumDepthMotionPlan depth = AquariumDepthMotionPlanner.Build(plan, placement,
+            width * placement.Scale, SceneWidth, SceneHeight, NextMotionSeed());
+        AddDepthAnimations(visual, depth);
+        _depthMotions.Add(new DepthMotion(visual, host, placement, plan,
+            width * placement.Scale, depth));
     }
-
-    private static double NextRange(Random random, double minimum, double maximum) =>
-        minimum + random.NextDouble() * Math.Max(0, maximum - minimum);
 
     private int NextMotionSeed() => unchecked(_motionSeed++);
 

@@ -14,6 +14,7 @@ public readonly record struct TodoLayoutSettings(
 
 public readonly record struct TodoTabSettings(
     string DefaultFilter,
+    string TabBarPosition,
     bool ShowTabBar,
     bool ShowAllTab,
     bool ShowActiveTab,
@@ -63,6 +64,7 @@ public interface ITodoSettings
     void SetDefaultFilter(string? filter);
     void SetTabVisible(string? filter, bool visible);
     void SetTabBarVisible(bool visible);
+    void SetTabBarPosition(string? position);
     void ResetTabPreferences(bool scheduleSave = true);
     TodoContentDisplaySettings ReadContentDisplay();
     void SetPreviewLineCount(int lineCount);

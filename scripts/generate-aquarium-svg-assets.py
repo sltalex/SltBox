@@ -29,12 +29,14 @@ PNG_DIR = ASSETS / "Vector"
 PREVIEW = ROOT / ".artifacts/aquarium-svg-preview"
 GROUPS = {"fish": "fish", "plants": "plants", "rocks": "rocks",
           "shrimp": "shrimp", "crabs": "crabs", "shellfish": "shellfish",
-          "corals": "corals", "algae": "algae", "snails": "snails"}
+          "corals": "corals", "algae": "algae", "snails": "snails",
+          "jellyfish": "jellyfish"}
 COUNTS = {"fish": 150, "plants": 50, "rocks": 50, "shrimp": 10, "crabs": 10, "shellfish": 10,
-          "corals": 20, "algae": 20, "snails": 20}
+          "corals": 20, "algae": 20, "snails": 20, "jellyfish": 10}
 TARGETS = {"fish": (320, 200), "plants": (200, 250), "rocks": (320, 240),
            "shrimp": (240, 180), "crabs": (240, 180), "shellfish": (220, 200),
-           "corals": (240, 220), "algae": (200, 250), "snails": (220, 200)}
+           "corals": (240, 220), "algae": (200, 250), "snails": (220, 200),
+           "jellyfish": (240, 220)}
 
 
 def load_plan():
@@ -45,6 +47,7 @@ def load_plan():
         ("aquarium-fish-expansion-plan.json", ("fish",)),
         ("aquarium-reef-expansion-plan.json", ("corals", "algae")),
         ("aquarium-snail-expansion-plan.json", ("snails",)),
+        ("aquarium-jellyfish-expansion-plan.json", ("jellyfish",)),
     ):
         expansion = json.loads((ROOT / "docs/design" / filename).read_text(encoding="utf-8-sig"))
         plan.update({group: expansion[group] for group in groups})
@@ -76,16 +79,19 @@ def check_svg(path):
                     raise ValueError(f"Missing or external paint reference: {path.name}: {reference}")
 
 
-def check_png(path):
+def check_png(path, translucent=False):
     with Image.open(path) as image:
-        if image.mode != "RGBA" or image.getchannel("A").getextrema() != (0, 255):
+        if image.mode != "RGBA":
+            raise ValueError(f"PNG needs an alpha channel: {path.name}")
+        minimum, maximum = image.getchannel("A").getextrema()
+        if minimum != 0 or maximum == 0 or (not translucent and maximum != 255):
             raise ValueError(f"PNG needs visible content and transparent pixels: {path.name}")
         if image.width > 320 or image.height > 250:
             raise ValueError(f"Unexpected runtime image size: {path.name}")
 
 
-def export_png(key, group):
-    data = resvg_py.svg_to_bytes(svg_path=str(SVG_DIR / f"{key}.svg"), skip_system_fonts=True)
+def runtime_image(key, group, svg_dir=SVG_DIR):
+    data = resvg_py.svg_to_bytes(svg_path=str(svg_dir / f"{key}.svg"), skip_system_fonts=True)
     with Image.open(io.BytesIO(data)) as rendered:
         image = rendered.convert("RGBA")
     bounds = image.getchannel("A").getbbox()
@@ -97,11 +103,16 @@ def export_png(key, group):
     width, height = TARGETS[group]
     image.thumbnail((width - 12, height - 12), Image.Resampling.LANCZOS)
     result = Image.new("RGBA", (width, height))
-    top = (height - image.height) // 2 if group in ("fish", "shrimp", "crabs") else height - image.height - 6
+    top = (height - image.height) // 2 if group in ("fish", "shrimp", "crabs", "jellyfish") else height - image.height - 6
     result.alpha_composite(image, ((width - image.width) // 2, top))
-    target = PNG_DIR / f"{key}.png"
+    return result
+
+
+def export_png(key, group, svg_dir=SVG_DIR, png_dir=PNG_DIR):
+    result = runtime_image(key, group, svg_dir)
+    target = png_dir / f"{key}.png"
     result.save(target, optimize=True)
-    check_png(target)
+    check_png(target, translucent=group == "jellyfish")
 
 
 def contact_sheet(entries, group):
@@ -140,7 +151,12 @@ def main():
             check_svg(SVG_DIR / f"{key}.svg")
             if not args.check:
                 export_png(key, group)
-            check_png(PNG_DIR / f"{key}.png")
+            elif group == "jellyfish":
+                expected = runtime_image(key, group)
+                with Image.open(PNG_DIR / f"{key}.png") as exported:
+                    if exported.size != expected.size or exported.convert("RGBA").tobytes() != expected.tobytes():
+                        raise ValueError(f"Runtime PNG differs from SVG export: {key}")
+            check_png(PNG_DIR / f"{key}.png", translucent=group == "jellyfish")
             digest = hashlib.sha256((PNG_DIR / f"{key}.png").read_bytes()).hexdigest()
             if digest in hashes:
                 raise ValueError(f"Duplicate rendered artwork: {key}")

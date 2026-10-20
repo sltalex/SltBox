@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "Añadir",
+  "DingTalkGroupDocs.Manual.Name": "Nombre del documento",
+  "DingTalkGroupDocs.Manual.Url": "URL del documento (http:// o https://)",
+  "DingTalkGroupDocs.Manual.Group": "Añadidos manualmente",
+  "DingTalkGroupDocs.Manual.Invalid": "Introduce un nombre y una URL HTTP/HTTPS válida.",
+  "DingTalkGroupDocs.Manual.SignIn": "Inicia sesión en SltBox para usar tus favoritos.",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1244,6 +1250,11 @@
   "Settings.Restore.Tooltip": "Restaurar los ajustes sin borrar el contenido existente",
   "Settings.WidgetTabStyle.Pivot": "Indicador",
   "Settings.WidgetTabStyle.Button": "Botones segmentados",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "Descarga del sitio web oficial",
   "Settings.Download.Description": "Descarga SltBox desde el sitio web oficial",
   "Settings.Download.CopyTooltip": "Copiar URL de descarga oficial",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "Iniciar sesión",
   "Settings.Account.Register": "Registrarse",
   "Settings.Account.SignOut": "Cerrar sesión",
+  "Settings.Account.SyncData": "Sincronizar datos",
+  "Settings.Account.Syncing": "Sincronizando datos del árbol…",
+  "Settings.Account.SyncSuccess": "Datos del árbol sincronizados.",
+  "Settings.Account.SyncUnavailable": "No se pudo iniciar la sincronización. Inicia sesión e inténtalo de nuevo.",
+  "Settings.Account.SyncError": "No se pudieron sincronizar los datos del árbol. Comprueba la red e inténtalo de nuevo.",
   "Settings.Account.SignedInAs": "Sesión iniciada como {0}",
   "Settings.Account.Working": "Conectando con el servicio de cuentas…",
   "Settings.Account.Error.InvalidUsername": "El nombre de usuario debe tener entre 3 y 32 letras, números o guiones bajos.",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"Medusa luna"
+  ,"Aquarium.Item.lion-mane-jellyfish":"Medusa melena de león"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"Medusa azul"
+  ,"Aquarium.Item.cannonball-jellyfish":"Medusa bala de cañón"
+  ,"Aquarium.Item.upside-down-jellyfish":"Medusa invertida"
+  ,"Aquarium.Item.flower-hat-jellyfish":"Medusa sombrero de flores"
+  ,"Aquarium.Item.sea-nettle":"Ortiga de mar"
+  ,"Aquarium.Item.crystal-jellyfish":"Medusa de cristal"
+  ,"Aquarium.Item.comb-jelly":"Ctenóforo"
+  ,"Aquarium.Item.portuguese-man-o-war":"Carabela portuguesa"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"Mochila"
   ,"Aquarium.Backpack.Aquarium":"Artículos de acuario"
+  ,"Aquarium.Backpack.General":"General"
   ,"Aquarium.Settings.Category":"Categoría"
+  ,"Aquarium.Category.jellyfish":"Medusas"
   ,"Aquarium.Category.fish":"Peces"
   ,"Aquarium.Store.Group.fish":"Peces"
   ,"Aquarium.Store.Group.plants":"Plantas y algas"

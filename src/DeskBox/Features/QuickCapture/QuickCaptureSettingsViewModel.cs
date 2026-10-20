@@ -81,6 +81,7 @@ public sealed partial class QuickCaptureSettingsViewModel : ObservableObject
     private bool _showRecentTab = true;
     private string _selectedDefaultView = QuickCaptureOptionKinds.DefaultViewRecords;
     private string _tabStyle = QuickCaptureOptionKinds.TabStyleButton;
+    private string _tabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
     private bool _showCreatedTime = true;
     private int _itemPreviewLineCount;
     private string _editorFormat = QuickCaptureOptionKinds.FormatMarkdown;
@@ -305,6 +306,30 @@ public sealed partial class QuickCaptureSettingsViewModel : ObservableObject
             }
 
             RunWithFailureProjection(() => _settings.SetTabStyle(style));
+        }
+    }
+
+    public int TabBarPositionIndex
+    {
+        get => _tabBarPosition switch
+        {
+            QuickCaptureOptionKinds.TabBarPositionLeft => 1,
+            QuickCaptureOptionKinds.TabBarPositionRight => 2,
+            _ => 0
+        };
+        set
+        {
+            string position = value switch
+            {
+                1 => QuickCaptureOptionKinds.TabBarPositionLeft,
+                2 => QuickCaptureOptionKinds.TabBarPositionRight,
+                _ => QuickCaptureOptionKinds.TabBarPositionTop
+            };
+            if (_tabBarPosition == position) return;
+            _tabBarPosition = position;
+            OnPropertyChanged(nameof(TabBarPositionIndex));
+            if (!_isSyncingPresentation)
+                RunWithFailureProjection(() => _settings.SetTabBarPosition(position));
         }
     }
 
@@ -800,6 +825,12 @@ public sealed partial class QuickCaptureSettingsViewModel : ObservableObject
             ShowPinnedTab = tabs.ShowPinnedTab;
             ShowRecentTab = tabs.ShowRecentTab;
             SelectedDefaultView = tabs.DefaultView;
+            TabBarPositionIndex = tabs.TabBarPosition switch
+            {
+                QuickCaptureOptionKinds.TabBarPositionLeft => 1,
+                QuickCaptureOptionKinds.TabBarPositionRight => 2,
+                _ => 0
+            };
             TabStyleIndex = presentation.TabStyle ==
                     QuickCaptureOptionKinds.TabStylePivot
                 ? 0

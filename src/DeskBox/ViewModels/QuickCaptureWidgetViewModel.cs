@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DeskBox.Contracts;
 using DeskBox.Models;
 using DeskBox.Services;
 using Microsoft.UI.Dispatching;
@@ -30,6 +31,7 @@ public sealed partial class QuickCaptureWidgetViewModel : ObservableObject, IDis
     private QuickCaptureViewMode _selectedView = QuickCaptureViewMode.Records;
     private QuickCaptureViewMode? _restoredViewForInitialization;
     private string _tabStyle = SettingsService.WidgetTabStyleButton;
+    private string _tabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
     private bool _showTabBar = true;
     private bool _showRecordsTab = true;
     private bool _showPinnedTab = true;
@@ -168,6 +170,8 @@ public sealed partial class QuickCaptureWidgetViewModel : ObservableObject, IDis
                 OnPropertyChanged(nameof(SearchButtonVisibility));
                 OnPropertyChanged(nameof(InputAreaVisibility));
                 OnPropertyChanged(nameof(TabBarVisibility));
+                OnPropertyChanged(nameof(LeftTabBarVisibility));
+                OnPropertyChanged(nameof(RightTabBarVisibility));
             }
         }
     }
@@ -273,9 +277,31 @@ public sealed partial class QuickCaptureWidgetViewModel : ObservableObject, IDis
 
     public bool IsRecentView => SelectedView == QuickCaptureViewMode.Recent;
 
-    public Visibility TabBarVisibility => _showTabBar && !IsSearchExpanded
+    public Visibility TabBarVisibility => _showTabBar && !IsSearchExpanded &&
+        _tabBarPosition == QuickCaptureOptionKinds.TabBarPositionTop
         ? Visibility.Visible
         : Visibility.Collapsed;
+
+    public Visibility LeftTabBarVisibility => _showTabBar && !IsSearchExpanded &&
+        _tabBarPosition == QuickCaptureOptionKinds.TabBarPositionLeft
+        ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility RightTabBarVisibility => _showTabBar && !IsSearchExpanded &&
+        _tabBarPosition == QuickCaptureOptionKinds.TabBarPositionRight
+        ? Visibility.Visible : Visibility.Collapsed;
+
+    public string TabBarPosition
+    {
+        get => _tabBarPosition;
+        private set
+        {
+            if (!SetProperty(ref _tabBarPosition,
+                QuickCaptureOptionKinds.NormalizeTabBarPosition(value))) return;
+            OnPropertyChanged(nameof(TabBarVisibility));
+            OnPropertyChanged(nameof(LeftTabBarVisibility));
+            OnPropertyChanged(nameof(RightTabBarVisibility));
+        }
+    }
 
     public Visibility RecordsTabVisibility => _showRecordsTab ? Visibility.Visible : Visibility.Collapsed;
 

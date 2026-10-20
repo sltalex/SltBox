@@ -9,6 +9,22 @@ public sealed class AccountBackupFileCatalogTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "DeskBoxAccountBackupTests", Guid.NewGuid().ToString("N"));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RestorePreservesOtherAccountsFavoritesIncludingOnRollback(bool fail)
+    {
+        string first = "dingtalk/" + DingTalkGroupDocumentFavorites.AccountFileName("first");
+        string second = "dingtalk/" + DingTalkGroupDocumentFavorites.AccountFileName("second");
+        Write(first, "{\"old\":true}");
+        Write(second, "{\"private\":true}");
+        var catalog = new AccountBackupFileCatalog(Path.Combine(_root, "data"), path => fail && path == first);
+        await catalog.PrepareRestoreAsync(Snapshot((first, "{\"new\":true}")), "first", _ => Task.CompletedTask);
+        Assert.Equal(!fail, (await catalog.ApplyPendingRestoreAsync()).Applied);
+        Assert.Equal("{\"private\":true}", File.ReadAllText(Path.Combine(_root, "data", second)));
+        Assert.Equal(fail ? "{\"old\":true}" : "{\"new\":true}", File.ReadAllText(Path.Combine(_root, "data", first)));
+    }
+
     [Fact]
     public async Task Capture_IncludesOnlyManagedPrimaryJsonFiles()
     {

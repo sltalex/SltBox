@@ -50,4 +50,21 @@ public sealed class WidgetTitleIconModeTests
         Assert.Contains("#2764E7", glance, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"sky\"", glance, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData(WidgetKind.Tree, WidgetTitleIconKind.Tree, "tree.svg")]
+    [InlineData(WidgetKind.Aquarium, WidgetTitleIconKind.Aquarium, "aquarium.svg")]
+    [InlineData(WidgetKind.DingTalkGroupDocs, WidgetTitleIconKind.DingTalkGroupDocs, "dingtalk-group-docs.svg")]
+    [InlineData(WidgetKind.Calendar, WidgetTitleIconKind.Calendar, "calendar.svg")]
+    public void FeatureWidgets_UseDedicatedColorIcons(
+        WidgetKind widgetKind,
+        WidgetTitleIconKind iconKind,
+        string assetFileName)
+    {
+        Assert.Equal(WidgetTitleIconKindNames.ToSettingValue(iconKind), WidgetTitleIconKindNames.FromWidgetKind(widgetKind));
+        Assert.Equal(Path.GetFileNameWithoutExtension(assetFileName), WidgetTitleIconKindNames.GetColorAssetName(iconKind));
+        string asset = File.ReadAllText(TestPaths.FromRepository(
+            $"src/DeskBox/Assets/WidgetTitleIcons/{assetFileName}"));
+        Assert.Contains("width=\"20\" height=\"20\" viewBox=\"0 0 20 20\"", asset, StringComparison.Ordinal);
+    }
 }

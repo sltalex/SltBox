@@ -1962,6 +1962,17 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                             </toolkit:SegmentedItem>
                                         </toolkit:Segmented>
                                     </toolkit:SettingsCard>
+                                    <toolkit:SettingsCard
+                                        IsEnabled="{Binding ShowTabBar}"
+                                        HorizontalContentAlignment="Right"
+                                        svc:Localized.DescriptionKey="Settings.TabBarPosition.Description"
+                                        svc:Localized.HeaderKey="Settings.TabBarPosition.Title">
+                                        <toolkit:Segmented MinWidth="220" SelectedIndex="{Binding TabBarPositionIndex, Mode=TwoWay}">
+                                            <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.TabBarPosition.Top" /></toolkit:SegmentedItem>
+                                            <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.TabBarPosition.Left" /></toolkit:SegmentedItem>
+                                            <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.TabBarPosition.Right" /></toolkit:SegmentedItem>
+                                        </toolkit:Segmented>
+                                    </toolkit:SettingsCard>
                                 </toolkit:SettingsExpander.Items>
                             </toolkit:SettingsExpander>
 
@@ -2115,6 +2126,13 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                         <toolkit:Segmented MinWidth="220" SelectedIndex="{Binding TabStyleIndex, Mode=TwoWay}">
                                             <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.WidgetTabStyle.Pivot" /></toolkit:SegmentedItem>
                                             <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.WidgetTabStyle.Button" /></toolkit:SegmentedItem>
+                                        </toolkit:Segmented>
+                                    </toolkit:SettingsCard>
+                                    <toolkit:SettingsCard IsEnabled="{Binding ShowTabBar}" HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.TabBarPosition.Description" svc:Localized.HeaderKey="Settings.TabBarPosition.Title">
+                                        <toolkit:Segmented MinWidth="220" SelectedIndex="{Binding TabBarPositionIndex, Mode=TwoWay}">
+                                            <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.TabBarPosition.Top" /></toolkit:SegmentedItem>
+                                            <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.TabBarPosition.Left" /></toolkit:SegmentedItem>
+                                            <toolkit:SegmentedItem><TextBlock svc:Localized.Key="Settings.TabBarPosition.Right" /></toolkit:SegmentedItem>
                                         </toolkit:Segmented>
                                     </toolkit:SettingsCard>
                                 </toolkit:SettingsExpander.Items>
@@ -3478,22 +3496,49 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                         TextWrapping="Wrap"
                                         Visibility="{Binding AccountStatusVisibility}" />
                                 </StackPanel>
-                                <StackPanel
-                                    Orientation="Horizontal"
-                                    Spacing="12"
+                                <Grid
+                                    x:Name="AccountSignedInActions"
+                                    ColumnSpacing="8"
+                                    RowSpacing="6"
                                     Visibility="{Binding AccountSignedInVisibility}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
                                     <TextBlock
+                                        Grid.Column="0"
                                         VerticalAlignment="Center"
                                         Style="{StaticResource SettingDescriptionTextStyle}"
-                                        Text="{Binding AccountSignedInText}" />
+                                        Text="{Binding AccountSignedInText}"
+                                        TextTrimming="CharacterEllipsis" />
                                     <Button
                                         x:Name="AccountSignOutButton"
+                                        Grid.Column="1"
                                         Click="AccountSignOutButton_Click"
                                         IsEnabled="{Binding AccountActionsEnabled}"
                                         Style="{StaticResource ActionButtonStyle}">
                                         <TextBlock svc:Localized.Key="Settings.Account.SignOut" />
                                     </Button>
-                                </StackPanel>
+                                    <Button
+                                        x:Name="AccountSyncDataButton"
+                                        Grid.Column="2"
+                                        Click="AccountSyncDataButton_Click"
+                                        Style="{StaticResource ActionButtonStyle}">
+                                        <TextBlock svc:Localized.Key="Settings.Account.SyncData" />
+                                    </Button>
+                                    <TextBlock
+                                        x:Name="AccountSyncStatusText"
+                                        Grid.Row="1"
+                                        Grid.ColumnSpan="3"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource SettingDescriptionTextStyle}"
+                                        TextWrapping="Wrap" />
+                                </Grid>
                             </Grid>
                         </toolkit:SettingsCard>
 

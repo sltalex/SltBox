@@ -27,6 +27,10 @@ public static class QuickCaptureOptionKinds
     public const string TabStylePivot = "Pivot";
     public const string TabStyleButton = "Button";
 
+    public const string TabBarPositionTop = "Top";
+    public const string TabBarPositionLeft = "Left";
+    public const string TabBarPositionRight = "Right";
+
     public const string EnterBehaviorCtrlEnterSaves = "CtrlEnterSaves";
     public const string EnterBehaviorEnterSaves = "EnterSaves";
 
@@ -67,6 +71,13 @@ public static class QuickCaptureOptionKinds
 
     public static string NormalizeTabStyle(string? style) =>
         style == TabStylePivot ? TabStylePivot : TabStyleButton;
+
+    public static string NormalizeTabBarPosition(string? position) => position switch
+    {
+        TabBarPositionLeft => TabBarPositionLeft,
+        TabBarPositionRight => TabBarPositionRight,
+        _ => TabBarPositionTop
+    };
 
     public static string NormalizeEnterBehavior(string? behavior) =>
         string.Equals(

@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "إضافة",
+  "DingTalkGroupDocs.Manual.Name": "اسم المستند",
+  "DingTalkGroupDocs.Manual.Url": "رابط المستند (http:// أو https://)",
+  "DingTalkGroupDocs.Manual.Group": "أُضيفت يدويًا",
+  "DingTalkGroupDocs.Manual.Invalid": "أدخل اسم المستند ورابط HTTP/HTTPS صالحًا.",
+  "DingTalkGroupDocs.Manual.SignIn": "سجّل الدخول إلى SltBox لاستخدام المفضلة.",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1244,6 +1250,11 @@
   "Settings.Restore.Tooltip": "استعادة الإعدادات الافتراضية دون حذف المحتوى الحالي",
   "Settings.WidgetTabStyle.Pivot": "المؤشر",
   "Settings.WidgetTabStyle.Button": "أزرار مجزأة",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "تحميل الموقع الرسمي",
   "Settings.Download.Description": "قم بتنزيل SltBox من الموقع الرسمي",
   "Settings.Download.CopyTooltip": "انسخ عنوان URL الرسمي للتنزيل",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "تسجيل الدخول",
   "Settings.Account.Register": "إنشاء حساب",
   "Settings.Account.SignOut": "تسجيل الخروج",
+  "Settings.Account.SyncData": "مزامنة البيانات",
+  "Settings.Account.Syncing": "جارٍ مزامنة بيانات الشجرة…",
+  "Settings.Account.SyncSuccess": "اكتملت مزامنة بيانات الشجرة.",
+  "Settings.Account.SyncUnavailable": "تعذر بدء المزامنة. سجّل الدخول ثم أعد المحاولة.",
+  "Settings.Account.SyncError": "تعذرت مزامنة بيانات الشجرة. تحقق من الشبكة ثم أعد المحاولة.",
   "Settings.Account.SignedInAs": "تم تسجيل الدخول باسم {0}",
   "Settings.Account.Working": "جارٍ الاتصال بخدمة الحساب…",
   "Settings.Account.Error.InvalidUsername": "يجب أن يتكون اسم المستخدم من 3 إلى 32 حرفًا أو رقمًا أو شرطة سفلية.",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"قنديل البحر القمري"
+  ,"Aquarium.Item.lion-mane-jellyfish":"قنديل عرف الأسد"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"قنديل أزرق"
+  ,"Aquarium.Item.cannonball-jellyfish":"قنديل كرة المدفع"
+  ,"Aquarium.Item.upside-down-jellyfish":"قنديل مقلوب"
+  ,"Aquarium.Item.flower-hat-jellyfish":"قنديل قبعة الزهرة"
+  ,"Aquarium.Item.sea-nettle":"قنديل القراص البحري"
+  ,"Aquarium.Item.crystal-jellyfish":"قنديل بلوري"
+  ,"Aquarium.Item.comb-jelly":"قنديل مشطي"
+  ,"Aquarium.Item.portuguese-man-o-war":"البارجة البرتغالية"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"الحقيبة"
   ,"Aquarium.Backpack.Aquarium":"مقتنيات الحوض"
+  ,"Aquarium.Backpack.General":"عام"
   ,"Aquarium.Settings.Category":"الفئة"
+  ,"Aquarium.Category.jellyfish":"قناديل البحر"
   ,"Aquarium.Category.fish":"أسماك"
   ,"Aquarium.Store.Group.fish":"أسماك"
   ,"Aquarium.Store.Group.plants":"نباتات وطحالب"

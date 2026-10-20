@@ -93,6 +93,19 @@ public sealed class TreeCounterService : IDisposable
         return true;
     }
 
+    internal bool TryApplyAuthoritativeCloudState(TreeStateDto state, TreeProgress expected)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        lock (_gate)
+        {
+            if (!CloudFieldsEqual(_progress, expected)) return false;
+            ApplyCloudFields(state);
+        }
+        Save();
+        Changed?.Invoke();
+        return true;
+    }
+
     internal void ApplyAuthoritativeCloudState(TreeStateDto state, Action<TreeProgress> preserveLocal)
     {
         ArgumentNullException.ThrowIfNull(state);

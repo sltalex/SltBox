@@ -10,6 +10,7 @@ public sealed class AquariumExpansionTests
     [InlineData("coral")]
     [InlineData("algae")]
     [InlineData("snail")]
+    [InlineData("jellyfish")]
     public void NewCategoriesRemainAvailableForPlacementAndRecall(string category)
     {
         AquariumInventoryItem[] inventory = [new("first", "item", "now"), new("second", "item", "now")];
@@ -53,6 +54,7 @@ public sealed class AquariumExpansionTests
     [InlineData("aquarium-reef-expansion-plan.json", "corals", 20)]
     [InlineData("aquarium-reef-expansion-plan.json", "algae", 20)]
     [InlineData("aquarium-snail-expansion-plan.json", "snails", 20)]
+    [InlineData("aquarium-jellyfish-expansion-plan.json", "jellyfish", 10)]
     public void ExpansionManifestHasDistinctPackagedAndLocalizedArtwork(string manifest, string group, int count)
     {
         string root = RepositoryRoot();
@@ -65,7 +67,15 @@ public sealed class AquariumExpansionTests
             string id = entry.GetProperty("id").GetString()!;
             Assert.True(AquariumArtworkCatalog.TryGetProfile(id, out var profile), id);
             Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, AquariumArtworkCatalog.AssetRelativePath(id))), id);
-            if (group != "fish")
+            if (group == "jellyfish")
+            {
+                Assert.Equal(entry.GetProperty("width").GetDouble(), profile.Width);
+                Assert.Equal(entry.GetProperty("height").GetDouble(), profile.Height);
+                Assert.Equal(entry.GetProperty("speed").GetDouble(), profile.SpeedMultiplier);
+                Assert.True(AquariumSwimDepth.IsSwimming("jellyfish"));
+                Assert.True(AquariumStoreBrowse.Matches(new(id, id, "jellyfish", 100, id), "invertebrates", "jellyfish"));
+            }
+            else if (group != "fish")
             {
                 Assert.Equal(0, profile.SpeedMultiplier);
                 Assert.Equal(1, AquariumArtworkCatalog.VerticalAnchor(id, false));
@@ -81,7 +91,7 @@ public sealed class AquariumExpansionTests
                 Assert.True(strings.RootElement.TryGetProperty(key, out var name), $"{locale}: {key}");
                 Assert.False(string.IsNullOrWhiteSpace(name.GetString()));
             }
-            foreach (string category in new[] { "coral", "algae", "snail" })
+            foreach (string category in new[] { "coral", "algae", "snail", "jellyfish" })
                 Assert.True(strings.RootElement.TryGetProperty("Aquarium.Category." + category, out _));
             foreach (string habitat in AquariumInventoryPresentation.FishHabitats)
                 Assert.True(strings.RootElement.TryGetProperty("Aquarium.Habitat." + habitat, out _));

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "style": "Original natural-history SVG illustrations with species-specific bells, oral arms and tentacles.",
+  "purpose": "Ten visibly distinct, realistic jellyfish SVG illustrations with transparent PNG exports for the aquarium runtime.",
+  "jellyfish": [
+    { "id": "moon-jellyfish", "name": "月亮水母", "en_name": "Moon jellyfish", "scientific_name": "Aurelia aurita", "price": 260, "width": 118, "height": 142, "speed": 0.34 },
+    { "id": "lion-mane-jellyfish", "name": "狮鬃水母", "en_name": "Lion's mane jellyfish", "scientific_name": "Cyanea capillata", "price": 520, "width": 178, "height": 220, "speed": 0.24 },
+    { "id": "blue-blubber-jellyfish", "name": "蓝脂水母", "en_name": "Blue blubber jellyfish", "scientific_name": "Catostylus mosaicus", "price": 330, "width": 138, "height": 154, "speed": 0.31 },
+    { "id": "cannonball-jellyfish", "name": "炮弹水母", "en_name": "Cannonball jellyfish", "scientific_name": "Stomolophus meleagris", "price": 300, "width": 132, "height": 126, "speed": 0.28 },
+    { "id": "upside-down-jellyfish", "name": "倒立水母", "en_name": "Upside-down jellyfish", "scientific_name": "Cassiopea xamachana", "price": 360, "width": 152, "height": 178, "speed": 0.2 },
+    { "id": "flower-hat-jellyfish", "name": "花笠水母", "en_name": "Flower hat jellyfish", "scientific_name": "Olindias formosus", "price": 460, "width": 148, "height": 184, "speed": 0.38 },
+    { "id": "sea-nettle", "name": "海刺水母", "en_name": "Sea nettle", "scientific_name": "Chrysaora quinquecirrha", "price": 390, "width": 142, "height": 190, "speed": 0.32 },
+    { "id": "crystal-jellyfish", "name": "水晶水母", "en_name": "Crystal jellyfish", "scientific_name": "Aequorea victoria", "price": 480, "width": 128, "height": 170, "speed": 0.35 },
+    { "id": "comb-jelly", "name": "栉水母", "en_name": "Comb jelly", "scientific_name": "Mnemiopsis leidyi", "price": 340, "width": 104, "height": 148, "speed": 0.42 },
+    { "id": "portuguese-man-o-war", "name": "僧帽水母", "en_name": "Portuguese man-of-war", "scientific_name": "Physalia physalis", "price": 500, "width": 166, "height": 214, "speed": 0.18 }
+  ]
+}

@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "जोड़ें",
+  "DingTalkGroupDocs.Manual.Name": "दस्तावेज़ का नाम",
+  "DingTalkGroupDocs.Manual.Url": "दस्तावेज़ का URL (http:// या https://)",
+  "DingTalkGroupDocs.Manual.Group": "मैन्युअल रूप से जोड़े गए",
+  "DingTalkGroupDocs.Manual.Invalid": "दस्तावेज़ का नाम और मान्य HTTP/HTTPS URL दर्ज करें।",
+  "DingTalkGroupDocs.Manual.SignIn": "पसंदीदा का उपयोग करने के लिए SltBox में साइन इन करें।",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1244,6 +1250,11 @@
   "Settings.Restore.Tooltip": "मौजूदा सामग्री हटाए बिना डिफ़ॉल्ट सेटिंग वापस लाएँ",
   "Settings.WidgetTabStyle.Pivot": "सूचक",
   "Settings.WidgetTabStyle.Button": "खंडित बटन",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "आधिकारिक वेबसाइट डाउनलोड",
   "Settings.Download.Description": "आधिकारिक वेबसाइट से SltBox डाउनलोड करें",
   "Settings.Download.CopyTooltip": "आधिकारिक डाउनलोड यूआरएल कॉपी करें",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "साइन इन करें",
   "Settings.Account.Register": "पंजीकरण करें",
   "Settings.Account.SignOut": "साइन आउट करें",
+  "Settings.Account.SyncData": "डेटा सिंक करें",
+  "Settings.Account.Syncing": "पेड़ का डेटा सिंक हो रहा है…",
+  "Settings.Account.SyncSuccess": "पेड़ का डेटा सिंक हो गया।",
+  "Settings.Account.SyncUnavailable": "सिंक शुरू नहीं हो सका। साइन इन करके फिर कोशिश करें।",
+  "Settings.Account.SyncError": "पेड़ का डेटा सिंक नहीं हो सका। नेटवर्क जाँचकर फिर कोशिश करें।",
   "Settings.Account.SignedInAs": "{0} के रूप में साइन इन",
   "Settings.Account.Working": "खाता सेवा से कनेक्ट किया जा रहा है…",
   "Settings.Account.Error.InvalidUsername": "उपयोगकर्ता नाम में 3–32 अक्षर, संख्याएँ या अंडरस्कोर होने चाहिए।",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"मून जेलीफ़िश"
+  ,"Aquarium.Item.lion-mane-jellyfish":"लायन मेन जेलीफ़िश"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"ब्लू ब्लबर जेलीफ़िश"
+  ,"Aquarium.Item.cannonball-jellyfish":"कैननबॉल जेलीफ़िश"
+  ,"Aquarium.Item.upside-down-jellyfish":"उल्टी जेलीफ़िश"
+  ,"Aquarium.Item.flower-hat-jellyfish":"फ्लावर हैट जेलीफ़िश"
+  ,"Aquarium.Item.sea-nettle":"सी नेटल"
+  ,"Aquarium.Item.crystal-jellyfish":"क्रिस्टल जेलीफ़िश"
+  ,"Aquarium.Item.comb-jelly":"कॉम्ब जेली"
+  ,"Aquarium.Item.portuguese-man-o-war":"पुर्तगाली मैन-ओ-वॉर"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"बैग"
   ,"Aquarium.Backpack.Aquarium":"एक्वेरियम की वस्तुएँ"
+  ,"Aquarium.Backpack.General":"सामान्य"
   ,"Aquarium.Settings.Category":"श्रेणी"
+  ,"Aquarium.Category.jellyfish":"जेलीफ़िश"
   ,"Aquarium.Category.fish":"मछलियाँ"
   ,"Aquarium.Store.Group.fish":"मछलियाँ"
   ,"Aquarium.Store.Group.plants":"पौधे और शैवाल"

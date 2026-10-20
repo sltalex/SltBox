@@ -134,6 +134,16 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
         PublishTabsIfChanged(before);
     }
 
+    public void SetTabBarPosition(string? position)
+    {
+        ObjectDisposedException.ThrowIf(_stopping, this);
+        QuickCaptureSettingsSlice quickCapture = _settings.Settings.QuickCapture;
+        QuickCaptureTabSettings before = ReadTabsCore(quickCapture);
+        quickCapture.QuickCaptureTabBarPosition =
+            QuickCaptureOptionKinds.NormalizeTabBarPosition(position);
+        PublishTabsIfChanged(before);
+    }
+
     public void ResetTabPreferences(bool scheduleSave = true)
     {
         ObjectDisposedException.ThrowIf(_stopping, this);
@@ -141,6 +151,7 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
         QuickCaptureTabSettings before = ReadTabsCore(quickCapture);
         quickCapture.QuickCaptureDefaultView =
             SettingsService.QuickCaptureDefaultViewRecords;
+        quickCapture.QuickCaptureTabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
         quickCapture.QuickCaptureShowTabBar = true;
         quickCapture.QuickCaptureShowRecordsTab = true;
         quickCapture.QuickCaptureShowPinnedTab = true;
@@ -151,6 +162,8 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
     private static QuickCaptureTabSettings ReadTabsCore(
         QuickCaptureSettingsSlice quickCapture) => new(
             quickCapture.QuickCaptureDefaultView,
+            QuickCaptureOptionKinds.NormalizeTabBarPosition(
+                quickCapture.QuickCaptureTabBarPosition),
             quickCapture.QuickCaptureShowTabBar,
             quickCapture.QuickCaptureShowRecordsTab,
             quickCapture.QuickCaptureShowPinnedTab,

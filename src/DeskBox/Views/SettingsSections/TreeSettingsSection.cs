@@ -121,7 +121,11 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_cloud is not null) _cloud.LeaderboardChanged += OnLeaderboardChanged;
         RenderLabels();
         Refresh();
-        if (_auth?.IsAuthenticated == true && _cloud is not null) _ = _cloud.RefreshLeaderboardAsync();
+        if (_auth?.IsAuthenticated == true && _cloud is not null)
+        {
+            _ = _cloud.RefreshStateAsync();
+            _ = _cloud.RefreshLeaderboardAsync();
+        }
     }
 
     private void TreeSettingsSection_Unloaded(object sender, RoutedEventArgs e)

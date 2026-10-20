@@ -98,6 +98,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
     private bool _showCompletedTab = true;
     private string _defaultFilter = TodoOptionKinds.DefaultFilterAll;
     private string _tabStyle = QuickCaptureOptionKinds.TabStyleButton;
+    private string _tabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
     private bool _showCompletedTasks;
     private bool _showFooterStats;
     private bool _showClearCompletedButton = true;
@@ -348,6 +349,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
     /// </summary>
     public TodoTabSettings Tabs => new(
         DefaultFilter,
+        _tabBarPosition,
         ShowTabBar,
         _showAllTab,
         _showActiveTab,
@@ -379,6 +381,30 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             }
 
             RunWrite(() => _settings.SetTabStyle(style));
+        }
+    }
+
+    public int TabBarPositionIndex
+    {
+        get => _tabBarPosition switch
+        {
+            QuickCaptureOptionKinds.TabBarPositionLeft => 1,
+            QuickCaptureOptionKinds.TabBarPositionRight => 2,
+            _ => 0
+        };
+        set
+        {
+            string position = value switch
+            {
+                1 => QuickCaptureOptionKinds.TabBarPositionLeft,
+                2 => QuickCaptureOptionKinds.TabBarPositionRight,
+                _ => QuickCaptureOptionKinds.TabBarPositionTop
+            };
+            if (_tabBarPosition == position) return;
+            _tabBarPosition = position;
+            OnPropertyChanged(nameof(TabBarPositionIndex));
+            if (!_isSyncingPresentation)
+                RunWrite(() => _settings.SetTabBarPosition(position));
         }
     }
 
@@ -935,6 +961,12 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             LayoutMode = layout.LayoutMode;
             AutoSelectFirstInWideLayout = layout.AutoSelectFirstInWideLayout;
             ShowTabBar = tabs.ShowTabBar;
+            TabBarPositionIndex = tabs.TabBarPosition switch
+            {
+                QuickCaptureOptionKinds.TabBarPositionLeft => 1,
+                QuickCaptureOptionKinds.TabBarPositionRight => 2,
+                _ => 0
+            };
             _showAllTab = tabs.ShowAllTab;
             _showActiveTab = tabs.ShowActiveTab;
             _showTodayTab = tabs.ShowTodayTab;

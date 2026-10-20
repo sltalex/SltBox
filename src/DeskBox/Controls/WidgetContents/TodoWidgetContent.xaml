@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:DeskBox.Controls"
+    xmlns:viewModels="using:DeskBox.ViewModels"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -15,6 +16,7 @@
 
     <UserControl.Resources>
         <x:Double x:Key="TodoDetailActionIconSize">13</x:Double>
+        <controls:VerticalTextConverter x:Key="VerticalTextConverter" />
 
         <!-- Keep WinUI's native CheckBox template and interaction states, but
              replace its accent resources with adaptive neutral brushes. -->
@@ -199,8 +201,36 @@
         </StackPanel>
 
         <Grid x:Name="ListArea" Grid.Row="1" Grid.Column="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <toolkit:Segmented x:Name="TodoLeftSegmented" x:DataType="viewModels:TodoWidgetViewModel" x:SuppressXamlTrimWarnings="True" Grid.Column="0" Width="34" Margin="0,0,4,0" MinWidth="0" MinHeight="{Binding SegmentHeight}" FontSize="{Binding SegmentTextSize}" SelectionChanged="TodoSideSegmented_SelectionChanged" Visibility="{Binding LeftTabBarVisibility}">
+                <toolkit:Segmented.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Vertical" /></ItemsPanelTemplate></toolkit:Segmented.ItemsPanel>
+                <toolkit:SegmentedItem Tag="All" Visibility="{Binding AllTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding AllFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Active" Visibility="{Binding ActiveTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ActiveFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Today" Visibility="{Binding TodayTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding TodayFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="ThisWeek" Visibility="{Binding ThisWeekTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisWeekFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="ThisMonth" Visibility="{Binding ThisMonthTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisMonthFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Important" Visibility="{Binding ImportantTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ImportantFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Meetings"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding MeetingsFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Completed" Visibility="{Binding CompletedTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding CompletedFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+            </toolkit:Segmented>
+            <toolkit:Segmented x:Name="TodoRightSegmented" x:DataType="viewModels:TodoWidgetViewModel" x:SuppressXamlTrimWarnings="True" Grid.Column="2" Width="34" Margin="4,0,0,0" MinWidth="0" MinHeight="{Binding SegmentHeight}" FontSize="{Binding SegmentTextSize}" SelectionChanged="TodoSideSegmented_SelectionChanged" Visibility="{Binding RightTabBarVisibility}">
+                <toolkit:Segmented.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Vertical" /></ItemsPanelTemplate></toolkit:Segmented.ItemsPanel>
+                <toolkit:SegmentedItem Tag="All" Visibility="{Binding AllTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding AllFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Active" Visibility="{Binding ActiveTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ActiveFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Today" Visibility="{Binding TodayTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding TodayFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="ThisWeek" Visibility="{Binding ThisWeekTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisWeekFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="ThisMonth" Visibility="{Binding ThisMonthTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisMonthFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Important" Visibility="{Binding ImportantTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ImportantFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Meetings"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding MeetingsFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+                <toolkit:SegmentedItem Tag="Completed" Visibility="{Binding CompletedTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding CompletedFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+            </toolkit:Segmented>
             <ListView
                 x:Name="TodoListView"
+                Grid.Column="1"
                 AllowDrop="True"
                 CanDragItems="True"
                 CanReorderItems="False"
@@ -425,11 +455,12 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <Canvas x:Name="TodoSelectionOverlay" Background="Transparent" IsHitTestVisible="False">
+            <Canvas x:Name="TodoSelectionOverlay" Grid.Column="1" Background="Transparent" IsHitTestVisible="False">
                 <Border x:Name="TodoSelectionRectangle" Width="0" Height="0" BorderThickness="1" Visibility="Collapsed" />
             </Canvas>
 
             <StackPanel
+                Grid.Column="1"
                 Style="{StaticResource WidgetEmptyStatePanelStyle}"
                 Visibility="{Binding EmptyStateVisibility}">
                 <FontIcon
@@ -457,7 +488,20 @@
             Grid.Row="1"
             Grid.Column="0"
             Visibility="Collapsed">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <toolkit:Segmented x:Name="TodoMeetingLeftSegmented" x:DataType="viewModels:TodoWidgetViewModel" x:SuppressXamlTrimWarnings="True" Grid.Column="0" Width="34" Margin="0,0,4,0" MinWidth="0" MinHeight="{Binding SegmentHeight}" FontSize="{Binding SegmentTextSize}" SelectedIndex="6" SelectionChanged="TodoSideSegmented_SelectionChanged" Visibility="{Binding LeftTabBarVisibility}">
+                <toolkit:Segmented.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Vertical" /></ItemsPanelTemplate></toolkit:Segmented.ItemsPanel>
+                <toolkit:SegmentedItem Tag="All" Visibility="{Binding AllTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding AllFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Active" Visibility="{Binding ActiveTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ActiveFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Today" Visibility="{Binding TodayTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding TodayFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="ThisWeek" Visibility="{Binding ThisWeekTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisWeekFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="ThisMonth" Visibility="{Binding ThisMonthTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisMonthFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Important" Visibility="{Binding ImportantTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ImportantFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Meetings"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding MeetingsFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Completed" Visibility="{Binding CompletedTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding CompletedFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+            </toolkit:Segmented>
+            <toolkit:Segmented x:Name="TodoMeetingRightSegmented" x:DataType="viewModels:TodoWidgetViewModel" x:SuppressXamlTrimWarnings="True" Grid.Column="2" Width="34" Margin="4,0,0,0" MinWidth="0" MinHeight="{Binding SegmentHeight}" FontSize="{Binding SegmentTextSize}" SelectedIndex="6" SelectionChanged="TodoSideSegmented_SelectionChanged" Visibility="{Binding RightTabBarVisibility}">
+                <toolkit:Segmented.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Vertical" /></ItemsPanelTemplate></toolkit:Segmented.ItemsPanel>
+                <toolkit:SegmentedItem Tag="All" Visibility="{Binding AllTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding AllFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Active" Visibility="{Binding ActiveTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ActiveFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Today" Visibility="{Binding TodayTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding TodayFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="ThisWeek" Visibility="{Binding ThisWeekTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisWeekFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="ThisMonth" Visibility="{Binding ThisMonthTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ThisMonthFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Important" Visibility="{Binding ImportantTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding ImportantFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Meetings"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding MeetingsFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem><toolkit:SegmentedItem Tag="Completed" Visibility="{Binding CompletedTabVisibility}"><TextBlock x:SuppressXamlTrimWarnings="True" FontSize="{Binding SegmentTextSize}" Text="{Binding CompletedFilterText, Converter={StaticResource VerticalTextConverter}}" TextAlignment="Center" /></toolkit:SegmentedItem>
+            </toolkit:Segmented>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="MeetingItemsPanel" Spacing="6" />
             </ScrollViewer>
         </Grid>

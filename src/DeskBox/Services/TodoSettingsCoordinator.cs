@@ -153,12 +153,22 @@ public sealed class TodoSettingsCoordinator : ITodoSettings
         SaveTabsIfChanged(todo, before);
     }
 
+    public void SetTabBarPosition(string? position)
+    {
+        ObjectDisposedException.ThrowIf(_stopped, this);
+        TodoSettingsSlice todo = _settings.Settings.Todo;
+        TodoTabSettings before = ReadTabsCore(todo);
+        todo.TodoTabBarPosition = QuickCaptureOptionKinds.NormalizeTabBarPosition(position);
+        SaveTabsIfChanged(todo, before);
+    }
+
     public void ResetTabPreferences(bool scheduleSave = true)
     {
         ObjectDisposedException.ThrowIf(_stopped, this);
         TodoSettingsSlice todo = _settings.Settings.Todo;
         TodoTabSettings before = ReadTabsCore(todo);
         todo.TodoDefaultFilter = SettingsService.TodoDefaultFilterAll;
+        todo.TodoTabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
         todo.TodoShowTabBar = true;
         todo.TodoShowAllTab = true;
         todo.TodoShowActiveTab = false;
@@ -193,6 +203,7 @@ public sealed class TodoSettingsCoordinator : ITodoSettings
 
     private static TodoTabSettings ReadTabsCore(TodoSettingsSlice todo) => new(
         todo.TodoDefaultFilter,
+        QuickCaptureOptionKinds.NormalizeTabBarPosition(todo.TodoTabBarPosition),
         todo.TodoShowTabBar,
         todo.TodoShowAllTab,
         todo.TodoShowActiveTab,

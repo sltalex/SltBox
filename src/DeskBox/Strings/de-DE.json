@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "Hinzufügen",
+  "DingTalkGroupDocs.Manual.Name": "Dokumentname",
+  "DingTalkGroupDocs.Manual.Url": "Dokument-URL (http:// oder https://)",
+  "DingTalkGroupDocs.Manual.Group": "Manuell hinzugefügt",
+  "DingTalkGroupDocs.Manual.Invalid": "Geben Sie einen Dokumentnamen und eine gültige HTTP/HTTPS-URL ein.",
+  "DingTalkGroupDocs.Manual.SignIn": "Melden Sie sich bei SltBox an, um Ihre Favoriten zu verwenden.",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1241,6 +1247,11 @@
   "Settings.Restore.Tooltip": "Standardwerte wiederherstellen, ohne vorhandene Inhalte zu löschen",
   "Settings.WidgetTabStyle.Pivot": "Indikator",
   "Settings.WidgetTabStyle.Button": "Segmentierte Buttons",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "Offizielle Website-Download",
   "Settings.Download.Description": "SltBox von der offiziellen Website herunterladen",
   "Settings.Download.CopyTooltip": "Offizielle Download-URL kopieren",
@@ -2923,6 +2934,11 @@
   "Settings.Account.SignIn": "Anmelden",
   "Settings.Account.Register": "Registrieren",
   "Settings.Account.SignOut": "Abmelden",
+  "Settings.Account.SyncData": "Daten synchronisieren",
+  "Settings.Account.Syncing": "Baumdaten werden synchronisiert …",
+  "Settings.Account.SyncSuccess": "Baumdaten wurden synchronisiert.",
+  "Settings.Account.SyncUnavailable": "Synchronisierung konnte nicht gestartet werden. Bitte anmelden und erneut versuchen.",
+  "Settings.Account.SyncError": "Baumdaten konnten nicht synchronisiert werden. Bitte Netzwerk prüfen und erneut versuchen.",
   "Settings.Account.SignedInAs": "Angemeldet als {0}",
   "Settings.Account.Working": "Verbindung zum Kontodienst wird hergestellt…",
   "Settings.Account.Error.InvalidUsername": "Der Benutzername muss aus 3–32 Buchstaben, Zahlen oder Unterstrichen bestehen.",
@@ -3014,6 +3030,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"Ohrenqualle"
+  ,"Aquarium.Item.lion-mane-jellyfish":"Löwenmähnenqualle"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"Blaue Blubberqualle"
+  ,"Aquarium.Item.cannonball-jellyfish":"Kanonenkugelqualle"
+  ,"Aquarium.Item.upside-down-jellyfish":"Umgedrehte Qualle"
+  ,"Aquarium.Item.flower-hat-jellyfish":"Blumenhutqualle"
+  ,"Aquarium.Item.sea-nettle":"Atlantische Seenessel"
+  ,"Aquarium.Item.crystal-jellyfish":"Kristallqualle"
+  ,"Aquarium.Item.comb-jelly":"Rippenqualle"
+  ,"Aquarium.Item.portuguese-man-o-war":"Portugiesische Galeere"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3180,7 +3206,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"Rucksack"
   ,"Aquarium.Backpack.Aquarium":"Aquariumartikel"
+  ,"Aquarium.Backpack.General":"Allgemein"
   ,"Aquarium.Settings.Category":"Kategorie"
+  ,"Aquarium.Category.jellyfish":"Quallen"
   ,"Aquarium.Category.fish":"Fische"
   ,"Aquarium.Store.Group.fish":"Fische"
   ,"Aquarium.Store.Group.plants":"Pflanzen und Algen"

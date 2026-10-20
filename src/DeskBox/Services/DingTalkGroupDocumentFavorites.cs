@@ -4,26 +4,33 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using DeskBox.Core.Persistence;
+using DeskBox.Contracts;
 
 namespace DeskBox.Services;
 
-/// <summary>Local, DWS-account-scoped stars for indexed group-document links.</summary>
-public sealed class DingTalkGroupDocumentFavorites
+/// <summary>Account-scoped document favorites stored with the user's backup data.</summary>
+public sealed class DingTalkGroupDocumentFavorites : IDisposable
 {
     private const string FilePrefix = "group-document-favorites-";
     private static readonly SemaphoreSlim StoreGate = new(1, 1);
     private readonly IDingTalkDwsClient _dws;
+    private readonly IAuthSession? _auth;
+    private readonly DingTalkAccountService? _account;
     private readonly string _stateDirectory;
     private readonly string? _legacyStateDirectory;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile HashSet<string> _keys = new(StringComparer.Ordinal);
     private volatile DingTalkGroupDocument[] _favoriteDocuments = [];
     private string? _statePath;
+    private string? _ownerKey;
 
     public DingTalkGroupDocumentFavorites(IDingTalkDwsClient dws, string? stateDirectory = null,
-        string? legacyStateDirectory = null)
+        string? legacyStateDirectory = null, IAuthSession? auth = null, DingTalkAccountService? account = null)
     {
         _dws = dws;
+        _auth = auth;
+        _account = account;
+        if (_auth is not null) _auth.SessionChanged += SessionChanged;
         _stateDirectory = stateDirectory ?? Path.Combine(
             DeskBoxDataPathService.Current.DataDirectory, "dingtalk");
         _legacyStateDirectory = legacyStateDirectory ?? (stateDirectory is null
@@ -33,18 +40,48 @@ public sealed class DingTalkGroupDocumentFavorites
 
     public event Action? Changed;
 
+    private bool IsCurrentOwner => _auth is null ||
+        (_auth.IsAuthenticated && _ownerKey == "sltbox:" + _auth.CurrentUser?.Id);
+
+    private void SessionChanged()
+    {
+        if (_auth?.IsAuthenticated == true && _ownerKey == "sltbox:" + _auth.CurrentUser?.Id) return;
+        ClearVisibleState();
+        Changed?.Invoke();
+    }
+
+    public void Dispose()
+    {
+        if (_auth is not null) _auth.SessionChanged -= SessionChanged;
+    }
+
+    public async Task AddManualAsync(string title, string url, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(title) || title.Trim().Length > 255)
+            throw new ArgumentException("A document name of up to 255 characters is required.", nameof(title));
+        if (string.IsNullOrWhiteSpace(url) || url.Length > 4096)
+            throw new ArgumentException("A document URL is required.", nameof(url));
+        _ = DocumentKey(url.Trim());
+        await SetFavoriteAsync(new DingTalkGroupDocument(string.Empty, title.Trim(), url.Trim(),
+            DateTimeOffset.UtcNow, "manual"), true, cancellationToken);
+    }
+
+    internal static string AccountFileName(string userId) => FileName("sltbox:" + userId);
+    private static string FileName(string ownerKey) => FilePrefix + (ownerKey.StartsWith("sltbox:", StringComparison.Ordinal) ? "account-" : "") +
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ownerKey))).ToLowerInvariant() + ".json";
+
     public bool IsFavorite(string url)
     {
         string urlKey = DocumentKey(url);
-        return _keys.Contains(urlKey) || _favoriteDocuments.Any(document => DocumentKey(document.Url) == urlKey);
+        return IsCurrentOwner && (_keys.Contains(urlKey) || _favoriteDocuments.Any(document => DocumentKey(document.Url) == urlKey));
     }
 
     public bool IsFavorite(DingTalkGroupDocument document) =>
-        _keys.Contains(DocumentIdentity(document)) ||
+        IsCurrentOwner && (_keys.Contains(DocumentIdentity(document)) ||
         _keys.Contains(LegacyGroupIdentity(document)) ||
-        _keys.Contains(DocumentKey(document.Url));
+        _keys.Contains(DocumentKey(document.Url)));
 
-    public IReadOnlyList<DingTalkGroupDocument> FavoriteDocuments => _favoriteDocuments;
+    public IReadOnlyList<DingTalkGroupDocument> FavoriteDocuments => IsCurrentOwner ? _favoriteDocuments : [];
 
     internal static string CanonicalKey(string url) => DocumentKey(url);
 
@@ -98,7 +135,7 @@ public sealed class DingTalkGroupDocumentFavorites
         var documents = new Dictionary<string, DingTalkGroupDocument>(StringComparer.Ordinal);
         foreach (DingTalkGroupDocument document in store.Documents ?? [])
             if (TryDocumentKey(document.Url, out string? key) && key is not null && keys.Contains(key))
-                documents[key] = document;
+                documents[DocumentIdentity(document)] = document;
         if (File.Exists(indexPath))
         {
             try
@@ -110,10 +147,14 @@ public sealed class DingTalkGroupDocumentFavorites
                     .ThenByDescending(item => item.LastSeenAt))
                 {
                     if (!TryDocumentKey(document.Url, out string? key) || key is null || !keys.Contains(key)) continue;
-                    if (!documents.TryGetValue(key, out DingTalkGroupDocument? current))
-                        documents[key] = document;
-                    else if (current.Title == "群文档" && document.Title != "群文档")
-                        documents[key] = current with { Title = document.Title };
+                    string identity = DocumentIdentity(document);
+                    if (documents.TryGetValue(identity, out DingTalkGroupDocument? current))
+                    {
+                        if (current.Title == "群文档" && document.Title != "群文档")
+                            documents[identity] = current with { Title = document.Title };
+                    }
+                    else if (!documents.Values.Any(item => DocumentKey(item.Url) == key))
+                        documents[identity] = document;
                 }
             }
             catch (Exception error) when (error is IOException or JsonException) { }
@@ -121,7 +162,7 @@ public sealed class DingTalkGroupDocumentFavorites
 
         bool needsWrite = !File.Exists(destination) || documents.Count != (store.Documents?.Length ?? 0) ||
             documents.Any(pair => !(store.Documents ?? []).Any(item =>
-                TryDocumentKey(item.Url, out string? key) && key == pair.Key && item == pair.Value));
+                TryDocumentKey(item.Url, out _) && DocumentIdentity(item) == pair.Key && item == pair.Value));
         string? json = null;
         if (needsWrite)
         {
@@ -139,7 +180,7 @@ public sealed class DingTalkGroupDocumentFavorites
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            DingTalkDwsAuthStatus status = await GetAuthStatusAsync(cancellationToken);
+            string status = await GetOwnerKeyAsync(cancellationToken);
             await StoreGate.WaitAsync(cancellationToken);
             try { await LoadCoreAsync(status, cancellationToken); }
             finally { StoreGate.Release(); }
@@ -163,7 +204,7 @@ public sealed class DingTalkGroupDocumentFavorites
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            DingTalkDwsAuthStatus status = await GetAuthStatusAsync(cancellationToken);
+            string status = await GetOwnerKeyAsync(cancellationToken);
             await StoreGate.WaitAsync(cancellationToken);
             try
             {
@@ -189,6 +230,7 @@ public sealed class DingTalkGroupDocumentFavorites
                 if (!favorite) documents.Remove(key);
                 if (!changed) return;
                 await SaveCoreAsync(_statePath!, next, documents.Values, cancellationToken);
+                EnsureCurrentOwner(status);
                 _keys = next;
                 _favoriteDocuments = [.. documents.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
             }
@@ -205,13 +247,23 @@ public sealed class DingTalkGroupDocumentFavorites
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            DingTalkDwsAuthStatus status = await GetAuthStatusAsync(cancellationToken);
+            string status = await GetOwnerKeyAsync(cancellationToken);
             await StoreGate.WaitAsync(cancellationToken);
             try
             {
                 await LoadCoreAsync(status, cancellationToken);
                 var next = new HashSet<string>(_keys, StringComparer.Ordinal);
                 var known = _favoriteDocuments.ToDictionary(DocumentIdentity, StringComparer.Ordinal);
+                foreach (DingTalkGroupDocument old in known.Values.ToArray())
+                {
+                    DingTalkGroupDocument repaired = DingTalkGroupDocumentRepair.Repair(old, documents);
+                    if (old == repaired) continue;
+                    next.Remove(DocumentIdentity(old));
+                    known.Remove(DocumentIdentity(old));
+                    next.Add(DocumentIdentity(repaired));
+                    known[DocumentIdentity(repaired)] = repaired;
+                    changed = true;
+                }
                 foreach (DingTalkGroupDocument indexed in documents)
                 {
                     if (!TryDocumentKey(indexed.Url, out string? urlKey) || urlKey is null) continue;
@@ -242,6 +294,7 @@ public sealed class DingTalkGroupDocumentFavorites
                 }
                 if (!changed) return;
                 await SaveCoreAsync(_statePath!, next, known.Values, cancellationToken);
+                EnsureCurrentOwner(status);
                 _keys = next;
                 _favoriteDocuments = [.. known.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
             }
@@ -251,22 +304,16 @@ public sealed class DingTalkGroupDocumentFavorites
         if (changed) Changed?.Invoke();
     }
 
-    private async Task LoadCoreAsync(DingTalkDwsAuthStatus status, CancellationToken cancellationToken)
+    private async Task LoadCoreAsync(string accountKey, CancellationToken cancellationToken)
     {
-        if (!status.Authenticated || !status.TokenValid ||
-            string.IsNullOrWhiteSpace(status.CorpId) || string.IsNullOrWhiteSpace(status.UserId))
-        {
-            ClearVisibleState();
-            throw new DingTalkDwsAuthorizationRequiredException("DWS authorization is required.");
-        }
-
-        string accountKey = $"{status.CorpId.Trim()}\u001f{status.UserId.Trim()}";
         // Never expose the previous account's stars if the next account's
         // local file cannot be read or parsed.
         ClearVisibleState();
-        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(accountKey));
-        string fileName = $"group-document-favorites-{Convert.ToHexString(digest).ToLowerInvariant()}.json";
+        EnsureCurrentOwner(accountKey);
+        string fileName = FileName(accountKey);
         string path = Path.Combine(_stateDirectory, fileName);
+        if (_auth is not null)
+            await MigrateDwsOwnerAsync(path, accountKey, cancellationToken);
         string? legacyPath = _legacyStateDirectory is null ? null : Path.Combine(_legacyStateDirectory, fileName);
         if (legacyPath is not null && File.Exists(legacyPath))
         {
@@ -295,18 +342,83 @@ public sealed class DingTalkGroupDocumentFavorites
                 documents[key] = document;
             }
         }
+        EnsureCurrentOwner(accountKey);
+        _ownerKey = accountKey;
         _keys = urls;
         _favoriteDocuments = [.. documents.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
         _statePath = path;
     }
 
-    private async Task<DingTalkDwsAuthStatus> GetAuthStatusAsync(CancellationToken cancellationToken)
+    private async Task<string> GetOwnerKeyAsync(CancellationToken cancellationToken)
     {
-        try { return await _dws.GetAuthStatusAsync(cancellationToken); }
+        try
+        {
+            if (_auth is not null)
+            {
+                if (!_auth.IsAuthenticated || _auth.CurrentUser is not { } user)
+                    throw new DingTalkDwsAuthorizationRequiredException("Sign in to SltBox to use favorites.");
+                return "sltbox:" + user.Id;
+            }
+            DingTalkDwsAuthStatus status = await _dws.GetAuthStatusAsync(cancellationToken);
+            if (!status.Authenticated || !status.TokenValid ||
+                string.IsNullOrWhiteSpace(status.CorpId) || string.IsNullOrWhiteSpace(status.UserId))
+                throw new DingTalkDwsAuthorizationRequiredException("DWS authorization is required.");
+            return $"{status.CorpId.Trim()}\u001f{status.UserId.Trim()}";
+        }
         catch
         {
             ClearVisibleState();
             throw;
+        }
+    }
+
+    private void EnsureCurrentOwner(string key)
+    {
+        if (_auth is not null && (!_auth.IsAuthenticated || key != "sltbox:" + _auth.CurrentUser?.Id))
+            throw new DingTalkDwsAuthorizationRequiredException("The signed-in account changed.");
+    }
+
+    private async Task MigrateDwsOwnerAsync(string path, string owner, CancellationToken cancellationToken)
+    {
+        if (_account is null) return;
+        bool HasLegacy(string? directory) => directory is not null && Directory.Exists(directory) &&
+            Directory.EnumerateFiles(directory, FilePrefix + "*.json").Any(file =>
+                Path.GetFileName(file).Length == FilePrefix.Length + 64 + 5);
+        if (!HasLegacy(_stateDirectory) && !HasLegacy(_legacyStateDirectory)) return;
+        try
+        {
+            var identity = await _account.GetAsync(cancellationToken);
+            EnsureCurrentOwner(owner);
+            if (identity is null) return;
+            var status = await _dws.GetAuthStatusAsync(cancellationToken);
+            EnsureCurrentOwner(owner);
+            if (!status.Authenticated || !status.TokenValid || status.CorpId != identity.CorpId ||
+                status.UserId != identity.DingtalkUserId) return;
+            string name = FileName($"{status.CorpId.Trim()}\u001f{status.UserId.Trim()}");
+            string source = Path.Combine(_stateDirectory, name);
+            if (_legacyStateDirectory is not null && File.Exists(Path.Combine(_legacyStateDirectory, name)))
+                MigrateLegacyFile(Path.Combine(_legacyStateDirectory, name), source,
+                    Path.Combine(_legacyStateDirectory, name.Replace(FilePrefix, "group-documents-")));
+            if (File.Exists(source))
+            {
+                var context = DingTalkGroupDocumentFavoritesJsonContext.Default.DingTalkGroupDocumentFavoritesStore;
+                var legacy = DeserializeStore(await File.ReadAllTextAsync(source, cancellationToken), context);
+                var current = File.Exists(path)
+                    ? DeserializeStore(await File.ReadAllTextAsync(path, cancellationToken), context) : null;
+                var merged = new DingTalkGroupDocumentFavoritesStore
+                {
+                    DocumentUrls = [.. (current?.DocumentUrls ?? []).Concat(legacy?.DocumentUrls ?? []).Distinct()],
+                    Documents = [.. (current?.Documents ?? []).Concat(legacy?.Documents ?? []).DistinctBy(DocumentIdentity)]
+                };
+                EnsureCurrentOwner(owner);
+                DingTalkFavoritesFileMigration.Commit(source, path, SerializeStore(merged, context));
+            }
+        }
+        catch (Exception error) when (error is IOException or InvalidOperationException or
+            HttpRequestException or System.ComponentModel.Win32Exception or JsonException or TimeoutException or AuthApiException)
+        {
+            // Existing favorites remain available for migration when authorization recovers.
+            App.Log($"[DingTalkGroupDocs] Favorite migration deferred: {error.GetType().Name}");
         }
     }
 
@@ -315,6 +427,7 @@ public sealed class DingTalkGroupDocumentFavorites
         _keys = new HashSet<string>(StringComparer.Ordinal);
         _favoriteDocuments = [];
         _statePath = null;
+        _ownerKey = null;
     }
 
     private static async Task SaveCoreAsync(string path, HashSet<string> urls,
@@ -341,7 +454,7 @@ public sealed class DingTalkGroupDocumentFavorites
     private static string DocumentKey(string url)
     {
         if (TryDocumentKey(url, out string? key) && key is not null) return key;
-        throw new ArgumentException("A DingTalk document URL is required.", nameof(url));
+        throw new ArgumentException("An HTTP or HTTPS document URL is required.", nameof(url));
     }
 
     private static string DocumentIdentity(DingTalkGroupDocument document)
@@ -355,16 +468,17 @@ public sealed class DingTalkGroupDocumentFavorites
     private static string LegacyGroupIdentity(DingTalkGroupDocument document) =>
         $"name:{document.GroupName.Trim().ToUpperInvariant()}\u001f{DocumentKey(document.Url)}";
 
-    private static bool IsLegacyUrlKey(string key) => key.StartsWith("https://", StringComparison.Ordinal);
+    private static bool IsLegacyUrlKey(string key) => key.StartsWith("https://", StringComparison.Ordinal) || key.StartsWith("http://", StringComparison.Ordinal);
 
     private static bool TryDocumentKey(string? url, out string? key)
     {
         key = null;
         if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
-            uri.Scheme != Uri.UriSchemeHttps ||
-            !string.Equals(uri.Host, "alidocs.dingtalk.com", StringComparison.OrdinalIgnoreCase))
+            (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp) ||
+            string.IsNullOrWhiteSpace(uri.Host) || !string.IsNullOrEmpty(uri.UserInfo))
             return false;
-        key = uri.GetLeftPart(UriPartial.Path);
+        key = string.Equals(uri.Host, "alidocs.dingtalk.com", StringComparison.OrdinalIgnoreCase)
+            ? uri.GetLeftPart(UriPartial.Path) : uri.AbsoluteUri;
         return true;
     }
 }

@@ -37,7 +37,16 @@ An additional 60 cartoon SVG originals and transparent PNG exports depict
 use GPL-3.0-or-later and contain no external imagery or resources. Inventories
 are in `docs/design/aquarium-reef-expansion-plan.json` and
 `docs/design/aquarium-snail-expansion-plan.json`; reproduce with categories
-`corals`, `algae`, and `snails`. In total the collection ships 340 SVG/PNG pairs.
+`corals`, `algae`, and `snails`.
+
+An additional 10 natural-history SVG originals and transparent PNG exports depict
+distinct gelatinous species listed in `docs/design/aquarium-jellyfish-expansion-plan.json`.
+They are original SltBox vector artwork under GPL-3.0-or-later and contain no
+external imagery or resources. The SVGs are hand-authored masters; reproduce their PNG exports with
+`scripts/generate-aquarium-svg-assets.py --category jellyfish` or validate the
+standalone sources with `scripts/aquarium_svg/jellyfish.py`.
+
+In total the collection ships 350 SVG/PNG pairs.
 Fish habitat groups are browsing labels, not biological cohabitation guidance.
 
 ## Aquarium card-pack artwork

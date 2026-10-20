@@ -21,11 +21,8 @@ internal sealed record AquariumDepthMotionPlan(
 internal static class AquariumDepthMotionPlanner
 {
     private const int RouteCount = 4;
-    private const double TurnSeconds = .08;
-    private const double ExitSeconds = 2;
+    private const double TurnSeconds = .72;
     private const double OutsideSeconds = 1;
-    private const double EnterSeconds = 2;
-    private const double TransitionSeconds = TurnSeconds + ExitSeconds + OutsideSeconds + EnterSeconds;
 
     internal static AquariumDepthMotionPlan Build(AquariumFishMotionPlan swim,
         AquariumPlacement placement, double creatureWidth, double sceneWidth, double sceneHeight, int seed,
@@ -37,11 +34,15 @@ internal static class AquariumDepthMotionPlanner
         for (int index = 1; index < layers.Length; index++)
             layers[index] = NextLayer(random, layers[index - 1]);
 
-        double total = RouteCount * (swim.DurationSeconds + TransitionSeconds);
         double initialScale = AquariumSwimDepth.ScaleFactor(placement.Layer);
         float initialFacing = swim.Facing[0].Value;
         double outsideX = initialFacing >= 0 ? -creatureWidth * 3 : sceneWidth + creatureWidth * 3;
         float outsideOffsetX = (float)(outsideX - placement.X * sceneWidth);
+        // Crossing the edge is ordinary swimming, not a fixed-duration transition.
+        // Longer distances take longer, for every size and species of creature.
+        double crossingSeconds = Math.Abs(outsideOffsetX) / AquariumFishMotionPlanner.CruiseSpeed(swim.SpeedMultiplier);
+        double transitionSeconds = TurnSeconds + crossingSeconds * 2 + OutsideSeconds;
+        double total = RouteCount * (swim.DurationSeconds + transitionSeconds);
         float initialRelativeScale = (float)(AquariumSwimDepth.ScaleFactor(layers[0]) / initialScale);
         var path = new List<(double Time, Vector3 Value)>();
         var horizontal = new List<(double Time, float Value)>();
@@ -52,7 +53,7 @@ internal static class AquariumDepthMotionPlanner
         {
             int layer = layers[route];
             int nextLayer = layers[route + 1];
-            double routeStart = route * (swim.DurationSeconds + TransitionSeconds);
+            double routeStart = route * (swim.DurationSeconds + transitionSeconds);
             double routeEnd = routeStart + swim.DurationSeconds;
             double routeY = CenterY(layer, placement);
             double nextY = CenterY(nextLayer, placement);
@@ -67,20 +68,18 @@ internal static class AquariumDepthMotionPlanner
                 // The preceding transition already owns the shared boundary frame.
                 if (route > 0 && frame.Progress == 0) continue;
                 double y = Math.Clamp(routeY + frame.Value.Y / sceneHeight, minY, maxY);
-                double x = Math.Clamp(placement.X * sceneWidth + frame.Value.X,
-                    creatureWidth / 2, sceneWidth - creatureWidth / 2);
                 path.Add((routeStart + frame.Progress * swim.DurationSeconds,
-                    new Vector3((float)(x - placement.X * sceneWidth),
+                    new Vector3(frame.Value.X,
                         (float)((y - placement.Y) * sceneHeight), 0)));
             }
             foreach (var frame in swim.Facing)
                 horizontal.Add((routeStart + frame.Progress * swim.DurationSeconds, frame.Value * scale));
 
             double exitStart = routeEnd + TurnSeconds;
-            double exitEnd = exitStart + ExitSeconds;
+            double exitEnd = exitStart + crossingSeconds;
             double switchTime = exitEnd + OutsideSeconds / 2;
             double enterStart = exitEnd + OutsideSeconds;
-            double enterEnd = enterStart + EnterSeconds;
+            double enterEnd = enterStart + crossingSeconds;
             path.Add((exitStart, new Vector3(0, offsetY, 0)));
             horizontal.Add((exitStart, -initialFacing * scale));
             path.Add((exitEnd, new Vector3(outsideOffsetX, offsetY, 0)));

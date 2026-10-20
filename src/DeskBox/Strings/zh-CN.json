@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "添加",
+  "DingTalkGroupDocs.Manual.Name": "文档名字",
+  "DingTalkGroupDocs.Manual.Url": "文档地址（http:// 或 https://）",
+  "DingTalkGroupDocs.Manual.Group": "手动添加",
+  "DingTalkGroupDocs.Manual.Invalid": "请输入文档名字和有效的 HTTP/HTTPS 文档地址。",
+  "DingTalkGroupDocs.Manual.SignIn": "请先登录 SltBox，再添加或查看账号收藏。",
   "Settings.Admin.BackupReady": "已完成",
   "Settings.Admin.BackupUploading": "上传中",
   "Settings.Admin.Participating": "参与排行",
@@ -1275,6 +1281,11 @@
   "Widget.MapFolder.ConflictRootHint": "此文件夹与收纳文件夹重叠，已为你打开存储设置，可更换收纳位置或选择其他文件夹。",
   "Widget.Error.UnsafeFolderTransfer": "不能将文件夹复制或移动到它自身或它的子文件夹中。",
   "Settings.WidgetTabStyle.Button": "分段按钮",
+  "Settings.TabBarPosition.Title": "分类栏位置",
+  "Settings.TabBarPosition.Description": "设置分类筛选卡片显示在格子的哪个方向",
+  "Settings.TabBarPosition.Top": "顶部",
+  "Settings.TabBarPosition.Left": "左侧",
+  "Settings.TabBarPosition.Right": "右侧",
   "Settings.FileStacks.Custom.Priority": "优先级 {0}",
   "Settings.Feature.ListTextSize.Title": "列表文字大小",
   "Settings.Feature.ListTextSize.Description": "控制功能格子列表中的文字大小",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "登录",
   "Settings.Account.Register": "注册",
   "Settings.Account.SignOut": "退出登录",
+  "Settings.Account.SyncData": "同步数据",
+  "Settings.Account.Syncing": "正在同步种树数据…",
+  "Settings.Account.SyncSuccess": "种树数据已同步。",
+  "Settings.Account.SyncUnavailable": "无法启动同步，请登录后重试。",
+  "Settings.Account.SyncError": "种树数据同步失败，请检查网络后重试。",
   "Settings.Account.SignedInAs": "已登录：{0}",
   "Settings.Account.Working": "正在连接账号服务…",
   "Settings.Account.Error.InvalidUsername": "账号须为 3–32 位字母、数字或下划线。",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"购买"
   ,"Aquarium.Settings.Initializing":"正在初始化"
   ,"Aquarium.Settings.NoSelection":"未选择"
+  ,"Aquarium.Item.moon-jellyfish":"月亮水母"
+  ,"Aquarium.Item.lion-mane-jellyfish":"狮鬃水母"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"蓝脂水母"
+  ,"Aquarium.Item.cannonball-jellyfish":"炮弹水母"
+  ,"Aquarium.Item.upside-down-jellyfish":"倒立水母"
+  ,"Aquarium.Item.flower-hat-jellyfish":"花笠水母"
+  ,"Aquarium.Item.sea-nettle":"海刺水母"
+  ,"Aquarium.Item.crystal-jellyfish":"水晶水母"
+  ,"Aquarium.Item.comb-jelly":"栉水母"
+  ,"Aquarium.Item.portuguese-man-o-war":"僧帽水母"
   ,"Aquarium.Item.clownfish":"小丑鱼"
   ,"Aquarium.Item.blue-tang":"蓝吊鱼"
   ,"Aquarium.Item.butterflyfish":"蝴蝶鱼"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"此版本不会再自动下载或提示；后续更新版本仍会正常提示。"
   ,"Settings.Nav.Backpack":"背包"
   ,"Aquarium.Backpack.Aquarium":"水族馆物品"
+  ,"Aquarium.Backpack.General":"通用"
   ,"Aquarium.Settings.Category":"类别"
+  ,"Aquarium.Category.jellyfish":"水母类"
   ,"Aquarium.Category.fish":"鱼类"
   ,"Aquarium.Store.Group.fish":"鱼类"
   ,"Aquarium.Store.Group.plants":"水草与海藻"

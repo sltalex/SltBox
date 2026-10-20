@@ -393,6 +393,7 @@ public sealed partial class TodoWidgetViewModel
 
         NewTaskPosition = normalizedNewTaskPosition;
         TabStyle = settings.TodoTabStyle;
+        TabBarPosition = settings.TodoTabBarPosition;
         ApplyTabVisibilitySettings(settings);
         ShowCompletedTasks = settings.TodoShowCompletedTasks;
         ShowFooterStats = settings.TodoShowFooterStats;

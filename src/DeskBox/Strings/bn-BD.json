@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "যোগ করুন",
+  "DingTalkGroupDocs.Manual.Name": "নথির নাম",
+  "DingTalkGroupDocs.Manual.Url": "নথির URL (http:// বা https://)",
+  "DingTalkGroupDocs.Manual.Group": "ম্যানুয়ালি যোগ করা",
+  "DingTalkGroupDocs.Manual.Invalid": "নথির নাম এবং একটি বৈধ HTTP/HTTPS URL লিখুন।",
+  "DingTalkGroupDocs.Manual.SignIn": "পছন্দের তালিকা ব্যবহার করতে SltBox-এ সাইন ইন করুন।",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1244,6 +1250,11 @@
   "Settings.Restore.Tooltip": "বর্তমান বিষয় না মুছে ডিফল্ট সেটিংস ফিরিয়ে আনুন",
   "Settings.WidgetTabStyle.Pivot": "নির্দেশক",
   "Settings.WidgetTabStyle.Button": "সেগমেন্টেড বোতাম",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "অফিসিয়াল ওয়েবসাইট ডাউনলোড",
   "Settings.Download.Description": "অফিসিয়াল ওয়েবসাইট থেকে SltBox ডাউনলোড করুন",
   "Settings.Download.CopyTooltip": "অফিসিয়াল ডাউনলোড URL কপি করুন",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "সাইন ইন",
   "Settings.Account.Register": "নিবন্ধন",
   "Settings.Account.SignOut": "সাইন আউট",
+  "Settings.Account.SyncData": "ডেটা সিঙ্ক করুন",
+  "Settings.Account.Syncing": "গাছের ডেটা সিঙ্ক করা হচ্ছে…",
+  "Settings.Account.SyncSuccess": "গাছের ডেটা সিঙ্ক সম্পন্ন হয়েছে।",
+  "Settings.Account.SyncUnavailable": "সিঙ্ক শুরু করা যায়নি। সাইন ইন করে আবার চেষ্টা করুন।",
+  "Settings.Account.SyncError": "গাছের ডেটা সিঙ্ক করা যায়নি। নেটওয়ার্ক পরীক্ষা করে আবার চেষ্টা করুন।",
   "Settings.Account.SignedInAs": "{0} হিসেবে সাইন ইন করা হয়েছে",
   "Settings.Account.Working": "অ্যাকাউন্ট পরিষেবার সাথে সংযোগ করা হচ্ছে…",
   "Settings.Account.Error.InvalidUsername": "ব্যবহারকারীর নাম ৩–৩২টি অক্ষর, সংখ্যা বা আন্ডারস্কোর হতে হবে।",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"চাঁদ জেলিফিশ"
+  ,"Aquarium.Item.lion-mane-jellyfish":"সিংহের কেশর জেলিফিশ"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"নীল জেলিফিশ"
+  ,"Aquarium.Item.cannonball-jellyfish":"কামানের গোলা জেলিফিশ"
+  ,"Aquarium.Item.upside-down-jellyfish":"উল্টো জেলিফিশ"
+  ,"Aquarium.Item.flower-hat-jellyfish":"ফ্লাওয়ার হ্যাট জেলিফিশ"
+  ,"Aquarium.Item.sea-nettle":"সী নেটল"
+  ,"Aquarium.Item.crystal-jellyfish":"ক্রিস্টাল জেলিফিশ"
+  ,"Aquarium.Item.comb-jelly":"কম্ব জেলিফিশ"
+  ,"Aquarium.Item.portuguese-man-o-war":"পর্তুগিজ ম্যান-ও-ওয়ার"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"ব্যাগ"
   ,"Aquarium.Backpack.Aquarium":"অ্যাকোয়ারিয়ামের সামগ্রী"
+  ,"Aquarium.Backpack.General":"সাধারণ"
   ,"Aquarium.Settings.Category":"বিভাগ"
+  ,"Aquarium.Category.jellyfish":"জেলিফিশ"
   ,"Aquarium.Category.fish":"মাছ"
   ,"Aquarium.Store.Group.fish":"মাছ"
   ,"Aquarium.Store.Group.plants":"উদ্ভিদ ও শৈবাল"

@@ -25,6 +25,10 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
     private readonly Button _refresh = new();
     private readonly Button _allTab = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(10, 2, 10, 2) };
     private readonly Button _favoritesTab = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(10, 2, 10, 2) };
+    private readonly Button _addFavorite = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(10, 2, 10, 2) };
+    private readonly StackPanel _addForm = new() { Spacing = 8, Visibility = Visibility.Collapsed };
+    private readonly TextBox _documentName = new() { MaxLength = 255 };
+    private readonly TextBox _documentUrl = new() { MaxLength = 4096 };
     private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 1, Height = 6, Visibility = Visibility.Collapsed };
     private readonly TextBlock _progressText = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.75, Visibility = Visibility.Collapsed };
     private bool _loaded;
@@ -44,7 +48,8 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         _service = service ?? App.Current?.Services.GetService<DingTalkGroupDocumentService>()
             ?? new DingTalkGroupDocumentService(new DingTalkDwsClient());
         _favorites = favorites ?? App.Current?.Services.GetService<DingTalkGroupDocumentFavorites>()
-            ?? new DingTalkGroupDocumentFavorites(new DingTalkDwsClient());
+            ?? new DingTalkGroupDocumentFavorites(new DingTalkDwsClient(),
+                auth: App.Current?.Services.GetService<DeskBox.Contracts.IAuthSession>());
         _sync = App.Current?.Services.GetService<DingTalkGroupDocumentSyncService>();
         _search = new TextBox { PlaceholderText = _localization.T("DingTalkGroupDocs.Search") };
         _groups.Spacing = (double)Application.Current.Resources["SettingsCardSpacing"];
@@ -52,13 +57,38 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         _refresh.Content = _localization.T("DingTalkGroupDocs.Sync.Button");
         _allTab.Content = _localization.T("DingTalkGroupDocs.Tab.All");
         _favoritesTab.Content = _localization.T("DingTalkGroupDocs.Tab.Favorites");
+        _addFavorite.Content = _localization.T("DingTalkGroupDocs.Manual.Add");
+        _documentName.PlaceholderText = _localization.T("DingTalkGroupDocs.Manual.Name");
+        _documentUrl.PlaceholderText = _localization.T("DingTalkGroupDocs.Manual.Url");
+        AutomationProperties.SetName(_documentName, _documentName.PlaceholderText);
+        AutomationProperties.SetName(_documentUrl, _documentUrl.PlaceholderText);
+        _addFavorite.Click += (_, _) =>
+        {
+            _addForm.Visibility = _addForm.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+            if (_addForm.Visibility == Visibility.Visible) _documentName.Focus(FocusState.Programmatic);
+        };
+        _addForm.Children.Add(_documentName);
+        _addForm.Children.Add(_documentUrl);
+        var saveFavorite = new Button { Content = _localization.T("Common.Save") };
+        saveFavorite.Click += async (_, _) => await AddManualFavoriteAsync(saveFavorite);
+        _addForm.Children.Add(saveFavorite);
         _refresh.Click += Refresh_Click;
         _service.ProgressChanged += ProgressChanged;
         _favorites.Changed += FavoritesChanged;
         if (_settings is not null) _settings.SettingsChanged += SettingsChanged;
         _search.TextChanged += Search_TextChanged;
         _allTab.Click += (_, _) => { _showFavorites = false; UpdateTabs(); Render(_service.Documents); };
-        _favoritesTab.Click += (_, _) => { _showFavorites = true; UpdateTabs(); Render(_service.Documents); };
+        _favoritesTab.Click += async (_, _) =>
+        {
+            _showFavorites = true;
+            UpdateTabs();
+            try { await _favorites.LoadAsync(); SetStatus(string.Empty); }
+            catch (DingTalkDwsAuthorizationRequiredException) { SetStatus(_localization.T("DingTalkGroupDocs.Manual.SignIn")); }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or
+                OperationCanceledException or System.ComponentModel.Win32Exception or HttpRequestException)
+            { SetStatus(_localization.T("DingTalkGroupDocs.Favorite.Error")); }
+            Render(_service.Documents);
+        };
         var header = new Grid { ColumnSpacing = 8 };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -70,6 +100,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         var tabs = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
         tabs.Children.Add(_allTab);
         tabs.Children.Add(_favoritesTab);
+        tabs.Children.Add(_addFavorite);
         UpdateTabs();
 
         var root = new StackPanel
@@ -79,6 +110,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         };
         root.Children.Add(header);
         root.Children.Add(tabs);
+        root.Children.Add(_addForm);
         root.Children.Add(_status);
         root.Children.Add(_progress);
         root.Children.Add(_progressText);
@@ -128,12 +160,12 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         SetStatus(_localization.T("DingTalkGroupDocs.Loading"));
         try
         {
+            await _favorites.LoadAsync();
             // The first six-month scan may take a long time. Keep the already
             // loaded local index visible instead of waiting for its state lock.
             IReadOnlyList<DingTalkGroupDocument> documents = _service.IsSyncing
                 ? _service.Documents
                 : await _service.LoadAsync();
-            await _favorites.LoadAsync();
             await _favorites.UpdateDocumentMetadataAsync(documents);
             bool syncUnavailable = false;
             if (!loadOnly)
@@ -218,7 +250,13 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
 
     private void FavoritesChanged() => DispatcherQueue.TryEnqueue(() =>
     {
-        if (!_disposed) Render(_service.Documents);
+        if (!_disposed)
+        {
+            _documentName.Text = string.Empty;
+            _documentUrl.Text = string.Empty;
+            _addForm.Visibility = Visibility.Collapsed;
+            Render(_service.Documents);
+        }
     });
 
     private void SetStatus(string text)
@@ -233,6 +271,8 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         _favoritesTab.FontWeight = _showFavorites ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
         _allTab.Opacity = _showFavorites ? 0.65 : 1;
         _favoritesTab.Opacity = _showFavorites ? 1 : 0.65;
+        _addFavorite.Visibility = _showFavorites ? Visibility.Visible : Visibility.Collapsed;
+        if (!_showFavorites) _addForm.Visibility = Visibility.Collapsed;
     }
 
     private void Render(IReadOnlyList<DingTalkGroupDocument> documents)
@@ -248,7 +288,8 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             .Where(document => string.IsNullOrWhiteSpace(filter) ||
                 document.GroupName.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
                 document.Title.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
-            .GroupBy(document => document.GroupName, StringComparer.CurrentCultureIgnoreCase)
+            .GroupBy(document => document.ConversationId == "manual"
+                ? _localization.T("DingTalkGroupDocs.Manual.Group") : document.GroupName, StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
@@ -367,6 +408,29 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             System.ComponentModel.Win32Exception)
         {
             App.Log($"[DingTalkGroupDocs] Favorite save failed: {ex.GetType().Name}");
+            SetStatus(_localization.T("DingTalkGroupDocs.Favorite.Error"));
+        }
+        finally { button.IsEnabled = true; }
+    }
+
+    private async Task AddManualFavoriteAsync(Button button)
+    {
+        button.IsEnabled = false;
+        try
+        {
+            await _favorites.AddManualAsync(_documentName.Text, _documentUrl.Text);
+            _documentName.Text = _documentUrl.Text = string.Empty;
+            _addForm.Visibility = Visibility.Collapsed;
+            _search.Text = string.Empty;
+            Render(_service.Documents);
+            SetStatus(string.Empty);
+        }
+        catch (ArgumentException) { SetStatus(_localization.T("DingTalkGroupDocs.Manual.Invalid")); }
+        catch (DingTalkDwsAuthorizationRequiredException) { SetStatus(_localization.T("DingTalkGroupDocs.Manual.SignIn")); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or
+            OperationCanceledException or System.ComponentModel.Win32Exception or HttpRequestException)
+        {
+            App.Log($"[DingTalkGroupDocs] Manual favorite save failed: {ex.GetType().Name}");
             SetStatus(_localization.T("DingTalkGroupDocs.Favorite.Error"));
         }
         finally { button.IsEnabled = true; }

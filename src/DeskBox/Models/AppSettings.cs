@@ -201,6 +201,7 @@ public class AppSettings
 
     /// <inheritdoc cref="QuickCaptureSettingsSlice.QuickCaptureTabStyle"/>
     public string QuickCaptureTabStyle { get => QuickCapture.QuickCaptureTabStyle; set => QuickCapture.QuickCaptureTabStyle = value; }
+    public string QuickCaptureTabBarPosition { get => QuickCapture.QuickCaptureTabBarPosition; set => QuickCapture.QuickCaptureTabBarPosition = value; }
 
     /// <inheritdoc cref="QuickCaptureSettingsSlice.QuickCaptureShowTabBar"/>
     public bool QuickCaptureShowTabBar { get => QuickCapture.QuickCaptureShowTabBar; set => QuickCapture.QuickCaptureShowTabBar = value; }
@@ -219,6 +220,7 @@ public class AppSettings
 
     /// <inheritdoc cref="TodoSettingsSlice.TodoTabStyle"/>
     public string TodoTabStyle { get => Todo.TodoTabStyle; set => Todo.TodoTabStyle = value; }
+    public string TodoTabBarPosition { get => Todo.TodoTabBarPosition; set => Todo.TodoTabBarPosition = value; }
 
     /// <inheritdoc cref="TodoSettingsSlice.TodoShowTabBar"/>
     public bool TodoShowTabBar { get => Todo.TodoShowTabBar; set => Todo.TodoShowTabBar = value; }

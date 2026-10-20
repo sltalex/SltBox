@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "Adicionar",
+  "DingTalkGroupDocs.Manual.Name": "Nome do documento",
+  "DingTalkGroupDocs.Manual.Url": "URL do documento (http:// ou https://)",
+  "DingTalkGroupDocs.Manual.Group": "Adicionados manualmente",
+  "DingTalkGroupDocs.Manual.Invalid": "Insira um nome e uma URL HTTP/HTTPS válida.",
+  "DingTalkGroupDocs.Manual.SignIn": "Entre no SltBox para usar seus favoritos.",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1241,6 +1247,11 @@
   "Settings.Restore.Tooltip": "Restaurar os padrões sem excluir o conteúdo existente",
   "Settings.WidgetTabStyle.Pivot": "Indicador",
   "Settings.WidgetTabStyle.Button": "Botões segmentados",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "Download do site oficial",
   "Settings.Download.Description": "Baixe o SltBox do site oficial",
   "Settings.Download.CopyTooltip": "Copiar URL oficial de download",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "Entrar",
   "Settings.Account.Register": "Cadastrar",
   "Settings.Account.SignOut": "Sair",
+  "Settings.Account.SyncData": "Sincronizar dados",
+  "Settings.Account.Syncing": "Sincronizando dados da árvore…",
+  "Settings.Account.SyncSuccess": "Dados da árvore sincronizados.",
+  "Settings.Account.SyncUnavailable": "Não foi possível iniciar a sincronização. Entre na conta e tente novamente.",
+  "Settings.Account.SyncError": "Não foi possível sincronizar os dados da árvore. Verifique a rede e tente novamente.",
   "Settings.Account.SignedInAs": "Conectado como {0}",
   "Settings.Account.Working": "Conectando ao serviço de contas…",
   "Settings.Account.Error.InvalidUsername": "O nome de usuário deve ter de 3 a 32 letras, números ou sublinhados.",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"Água-viva-lua"
+  ,"Aquarium.Item.lion-mane-jellyfish":"Água-viva-juba-de-leão"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"Água-viva-azul"
+  ,"Aquarium.Item.cannonball-jellyfish":"Água-viva-bola-de-canhão"
+  ,"Aquarium.Item.upside-down-jellyfish":"Água-viva-invertida"
+  ,"Aquarium.Item.flower-hat-jellyfish":"Água-viva-chapéu-de-flor"
+  ,"Aquarium.Item.sea-nettle":"Água-viva-de-mar"
+  ,"Aquarium.Item.crystal-jellyfish":"Água-viva-de-cristal"
+  ,"Aquarium.Item.comb-jelly":"Ctenóforo"
+  ,"Aquarium.Item.portuguese-man-o-war":"Caravela-portuguesa"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"Mochila"
   ,"Aquarium.Backpack.Aquarium":"Itens do aquário"
+  ,"Aquarium.Backpack.General":"Geral"
   ,"Aquarium.Settings.Category":"Categoria"
+  ,"Aquarium.Category.jellyfish":"Águas-vivas"
   ,"Aquarium.Category.fish":"Peixes"
   ,"Aquarium.Store.Group.fish":"Peixes"
   ,"Aquarium.Store.Group.plants":"Plantas e algas"

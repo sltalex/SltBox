@@ -11,7 +11,7 @@ public sealed class AquariumArtworkContractTests
     {
         string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Aquarium");
         string[] originals = Directory.GetFiles(Path.Combine(assets, "Svg"), "*.svg");
-        Assert.Equal(340, originals.Length);
+        Assert.Equal(350, originals.Length);
         foreach (string original in originals)
         {
             string key = Path.GetFileNameWithoutExtension(original);

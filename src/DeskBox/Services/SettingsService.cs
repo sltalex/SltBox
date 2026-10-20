@@ -606,6 +606,7 @@ public const int DefaultSearchMaxResults = 100;
         settings.AttachmentStorageMode = AttachmentStorageModeLink;
         settings.QuickCaptureDefaultView = QuickCaptureDefaultViewRecords;
         settings.QuickCaptureTabStyle = WidgetTabStyleButton;
+        settings.QuickCaptureTabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
         settings.QuickCaptureShowTabBar = true;
         settings.QuickCaptureShowRecordsTab = true;
         settings.QuickCaptureShowPinnedTab = true;
@@ -665,6 +666,7 @@ settings.WeatherRefreshIntervalMinutes = 60;
         settings.TodoNewTaskPosition = TodoNewTaskPositionTop;
         settings.TodoDefaultFilter = TodoDefaultFilterAll;
         settings.TodoTabStyle = WidgetTabStyleButton;
+        settings.TodoTabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
         settings.TodoShowTabBar = true;
         settings.TodoShowAllTab = true;
         settings.TodoShowActiveTab = false;
@@ -3084,6 +3086,14 @@ settings.FocusClickedWidgetOnRaise = false;
             changed = true;
         }
 
+        string normalizedTabBarPosition = QuickCaptureOptionKinds.NormalizeTabBarPosition(
+            settings.QuickCaptureTabBarPosition);
+        if (!string.Equals(settings.QuickCaptureTabBarPosition, normalizedTabBarPosition, StringComparison.Ordinal))
+        {
+            settings.QuickCaptureTabBarPosition = normalizedTabBarPosition;
+            changed = true;
+        }
+
         if (!FeatureWidgetSettings.IsEnabled(settings, WidgetKind.QuickCapture))
         {
             if (settings.QuickCaptureClipboardEnabled)
@@ -3203,6 +3213,15 @@ settings.FocusClickedWidgetOnRaise = false;
         if (!string.Equals(settings.TodoTabStyle, normalizedTabStyle, StringComparison.Ordinal))
         {
             settings.TodoTabStyle = normalizedTabStyle;
+            changed = true;
+        }
+
+
+        string normalizedTabBarPosition = QuickCaptureOptionKinds.NormalizeTabBarPosition(
+            settings.TodoTabBarPosition);
+        if (!string.Equals(settings.TodoTabBarPosition, normalizedTabBarPosition, StringComparison.Ordinal))
+        {
+            settings.TodoTabBarPosition = normalizedTabBarPosition;
             changed = true;
         }
 

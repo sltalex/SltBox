@@ -1,9 +1,122 @@
 using DeskBox.Services;
+using DeskBox.Contracts;
+using DeskBox.Core.Persistence;
 
 namespace DeskBox.Tests;
 
 public sealed class DingTalkGroupDocumentFavoritesTests
 {
+    [Fact]
+    public async Task ManualFavoritesBelongToSltBoxAccountAndSurviveBackupRestoreWithoutDws()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"deskbox-favorites-account-{Guid.NewGuid():N}");
+        try
+        {
+            string data = Path.Combine(root, "source", "data");
+            var auth = new FakeAuth();
+            var dws = new FakeDwsClient { TokenValid = false };
+            using var favorites = new DingTalkGroupDocumentFavorites(dws, Path.Combine(data, "dingtalk"), auth: auth);
+            const string url = "https://example.com/document?id=123";
+            await favorites.AddManualAsync("项目说明", url);
+            Assert.Equal(url, Assert.Single(favorites.FavoriteDocuments).Url);
+            auth.Switch("second");
+            Assert.Empty(favorites.FavoriteDocuments);
+            await favorites.LoadAsync();
+            Assert.Empty(favorites.FavoriteDocuments);
+            await favorites.AddManualAsync("第二账号", "https://example.com/second");
+            auth.Switch("first");
+            await favorites.LoadAsync();
+            Assert.Equal("项目说明", Assert.Single(favorites.FavoriteDocuments).Title);
+
+            var catalog = new AccountBackupFileCatalog(data);
+            var files = await catalog.CaptureAsync(ownerUserId: "first");
+            Assert.Single(files);
+            var restoredData = Path.Combine(root, "restored", "data");
+            var restore = new AccountBackupFileCatalog(restoredData);
+            await restore.PrepareRestoreAsync(new AccountBackupSnapshotDownloadDto
+                { Id = new string('a', 32), Files = files }, "first", _ => Task.CompletedTask);
+            Assert.True((await restore.ApplyPendingRestoreAsync()).Applied);
+            using var reopened = new DingTalkGroupDocumentFavorites(dws, Path.Combine(restoredData, "dingtalk"), auth: auth);
+            await reopened.LoadAsync();
+            Assert.Equal("项目说明", Assert.Single(reopened.FavoriteDocuments).Title);
+            Assert.Equal(url, Assert.Single(reopened.FavoriteDocuments).Url);
+            await reopened.SetFavoriteAsync(Assert.Single(reopened.FavoriteDocuments), false);
+            await reopened.LoadAsync();
+            Assert.Empty(reopened.FavoriteDocuments);
+            auth.Switch(null);
+            Assert.Empty(favorites.FavoriteDocuments);
+            await Assert.ThrowsAsync<DingTalkDwsAuthorizationRequiredException>(() => favorites.AddManualAsync("文档", url));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Theory]
+    [InlineData("", "https://example.com/doc")]
+    [InlineData("文档", "javascript:alert(1)")]
+    [InlineData("文档", "file:///C:/private.txt")]
+    [InlineData("文档", "https://user:password@example.com/doc")]
+    public async Task ManualFavoritesRejectInvalidNamesAndUnsafeAddresses(string title, string url)
+    {
+        using var favorites = new DingTalkGroupDocumentFavorites(new FakeDwsClient(), auth: new FakeAuth());
+        await Assert.ThrowsAsync<ArgumentException>(() => favorites.AddManualAsync(title, url));
+    }
+
+    private sealed class FakeAuth : IAuthSession
+    {
+        public event Action? SessionChanged;
+        public AuthUser? CurrentUser { get; private set; } = new("first", "first");
+        public bool IsAuthenticated => CurrentUser is not null;
+        public void Switch(string? id) { CurrentUser = id is null ? null : new(id, id); SessionChanged?.Invoke(); }
+        public Task<AuthUser> RegisterAsync(string username, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<AuthUser> SignInAsync(string username, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SignOutAsync(CancellationToken cancellationToken = default) { Switch(null); return Task.CompletedTask; }
+    }
+
+    [Fact]
+    public async Task LegacyDwsFavoritesMigrateOnlyToMatchingLinkedAccountAndDoNotReappear()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"deskbox-favorites-migration-{Guid.NewGuid():N}");
+        try
+        {
+            var dws = new FakeDwsClient();
+            var old = new DingTalkGroupDocument("同名群", "资料", "https://alidocs.dingtalk.com/i/nodes/shared",
+                DateTimeOffset.UtcNow, "a");
+            using var legacy = new DingTalkGroupDocumentFavorites(dws, root);
+            await legacy.SetFavoriteAsync(old, true);
+            await legacy.SetFavoriteAsync(old with { ConversationId = "b" }, true);
+            var api = new IdentityApi { LinkedUser = "someone-else" };
+            var auth = new FakeAuth();
+            using var current = new DingTalkGroupDocumentFavorites(dws, root, auth: auth, account: new DingTalkAccountService(api));
+            await current.LoadAsync();
+            Assert.Empty(current.FavoriteDocuments);
+            await current.AddManualAsync("手动", "https://example.com/doc");
+            api.LinkedUser = "first-user";
+            await current.LoadAsync();
+            Assert.Equal(3, current.FavoriteDocuments.Count);
+            await current.SetFavoriteAsync(old, false);
+            await current.LoadAsync();
+            Assert.False(current.IsFavorite(old));
+            Assert.True(current.IsFavorite(old with { ConversationId = "b" }));
+            auth.Switch("second");
+            await current.LoadAsync();
+            Assert.Empty(current.FavoriteDocuments);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private sealed class IdentityApi : IAuthenticatedAccountApi
+    {
+        public string LinkedUser { get; set; } = "first-user";
+        public Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativePath,
+            byte[]? jsonBody, string? contentEncoding, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"identity\":{\"corp_id\":\"corp\",\"dingtalk_user_id\":\"" + LinkedUser + "\"}}")
+            });
+    }
+
     [Fact]
     public async Task FavoritingSharedDocumentInOneGroupDoesNotFavoriteSameDocumentInAnotherGroup()
     {

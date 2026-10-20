@@ -36,7 +36,8 @@ internal sealed class AccountBackupFileCatalog
         _shouldFailApply = shouldFailApply;
     }
 
-    internal async Task<AccountBackupFileDto[]> CaptureAsync(CancellationToken cancellationToken = default)
+    internal async Task<AccountBackupFileDto[]> CaptureAsync(CancellationToken cancellationToken = default,
+        string? ownerUserId = null)
     {
         if (!Directory.Exists(_dataDirectory)) return [];
         DingTalkGroupDocumentFavorites.MigrateLegacyFiles(_dataDirectory);
@@ -47,6 +48,8 @@ internal sealed class AccountBackupFileCatalog
             cancellationToken.ThrowIfCancellationRequested();
             string relative = NormalizeRelativePath(path);
             if (!IsEligibleRelativePath(relative)) continue;
+            if (ownerUserId is not null && relative.StartsWith("dingtalk/group-document-favorites-", StringComparison.Ordinal) &&
+                Path.GetFileName(relative) != DingTalkGroupDocumentFavorites.AccountFileName(ownerUserId)) continue;
             byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken);
             if (bytes.Length > MaximumFileBytes || (totalBytes += bytes.Length) > MaximumTotalBytes)
                 throw new InvalidDataException("The account backup exceeds its size limit.");
@@ -72,6 +75,8 @@ internal sealed class AccountBackupFileCatalog
         CancellationToken cancellationToken = default)
     {
         ValidateSnapshot(snapshot);
+        if (snapshot.Files.Any(file => IsOtherAccountFavorite(file.Path, ownerUserId)))
+            throw new InvalidDataException("The backup contains favorites belonging to another account.");
         string stagingDirectory = Path.Combine(_restoreDirectory, "staging", Guid.NewGuid().ToString("N"));
         string stagingData = Path.Combine(stagingDirectory, "data");
         Directory.CreateDirectory(stagingData);
@@ -128,6 +133,7 @@ internal sealed class AccountBackupFileCatalog
             var staged = Directory.EnumerateFiles(stagedData, "*.json", SearchOption.AllDirectories)
                 .Select(path => NormalizeRelativePath(path, stagedData))
                 .Where(IsEligibleRelativePath)
+                .Where(path => !IsOtherAccountFavorite(path, marker.OwnerUserId))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             // A previous process may have stopped between moving the live set
@@ -148,6 +154,7 @@ internal sealed class AccountBackupFileCatalog
             foreach (string livePath in livePaths)
             {
                 string relative = NormalizeRelativePath(livePath);
+                if (IsOtherAccountFavorite(relative, marker.OwnerUserId)) continue;
                 string rollback = SafeDestination(_rollbackDirectory, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(rollback)!);
                 File.Move(livePath, rollback, overwrite: true);
@@ -228,6 +235,10 @@ internal sealed class AccountBackupFileCatalog
                !name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) &&
                !name.Contains(".corrupt-", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool IsOtherAccountFavorite(string path, string ownerId) =>
+        path.Replace('\\', '/').StartsWith("dingtalk/group-document-favorites-account-", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(Path.GetFileName(path), DingTalkGroupDocumentFavorites.AccountFileName(ownerId), StringComparison.OrdinalIgnoreCase);
 
     private void ValidateSnapshot(AccountBackupSnapshotDownloadDto snapshot)
     {

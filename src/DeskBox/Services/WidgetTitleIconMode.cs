@@ -57,7 +57,11 @@ public enum WidgetTitleIconKind
     Glance,
     Tags,
     Search,
-    SystemMonitor
+    SystemMonitor,
+    Tree,
+    Aquarium,
+    DingTalkGroupDocs,
+    Calendar
 }
 
 public static class WidgetTitleIconKindNames
@@ -73,6 +77,10 @@ public static class WidgetTitleIconKindNames
     public const string Tags = nameof(WidgetTitleIconKind.Tags);
     public const string Search = nameof(WidgetTitleIconKind.Search);
     public const string SystemMonitor = nameof(WidgetTitleIconKind.SystemMonitor);
+    public const string Tree = nameof(WidgetTitleIconKind.Tree);
+    public const string Aquarium = nameof(WidgetTitleIconKind.Aquarium);
+    public const string DingTalkGroupDocs = nameof(WidgetTitleIconKind.DingTalkGroupDocs);
+    public const string Calendar = nameof(WidgetTitleIconKind.Calendar);
 
     public static WidgetTitleIconKind NormalizeKind(string? value)
     {
@@ -95,6 +103,10 @@ public static class WidgetTitleIconKindNames
             WidgetTitleIconKind.Tags => Tags,
             WidgetTitleIconKind.Search => Search,
             WidgetTitleIconKind.SystemMonitor => SystemMonitor,
+            WidgetTitleIconKind.Tree => Tree,
+            WidgetTitleIconKind.Aquarium => Aquarium,
+            WidgetTitleIconKind.DingTalkGroupDocs => DingTalkGroupDocs,
+            WidgetTitleIconKind.Calendar => Calendar,
             _ => Default
         };
     }
@@ -117,8 +129,10 @@ public static class WidgetTitleIconKindNames
             WidgetKind.Tags => Tags,
             WidgetKind.Search => Search,
             WidgetKind.SystemMonitor => SystemMonitor,
-            WidgetKind.Tree => Default,
-            WidgetKind.DingTalkGroupDocs => Default,
+            WidgetKind.Tree => Tree,
+            WidgetKind.Aquarium => Aquarium,
+            WidgetKind.DingTalkGroupDocs => DingTalkGroupDocs,
+            WidgetKind.Calendar => Calendar,
             _ => Default
         };
     }
@@ -136,6 +150,10 @@ public static class WidgetTitleIconKindNames
             "\uE8EC" => Tags,
             "\uE721" => Search,
             "\uE9D9" => SystemMonitor,
+            "\uE8F1" => Tree,
+            "\uE81E" => Aquarium,
+            "\uE8A5" => DingTalkGroupDocs,
+            "\uE787" => Calendar,
             _ => Default
         };
     }
@@ -154,6 +172,10 @@ public static class WidgetTitleIconKindNames
             WidgetTitleIconKind.Tags => "WidgetTitleIcon.Label.Tags",
             WidgetTitleIconKind.Search => "WidgetTitleIcon.Label.Search",
             WidgetTitleIconKind.SystemMonitor => "WidgetTitleIcon.Label.SystemMonitor",
+            WidgetTitleIconKind.Tree => "Tree.Title",
+            WidgetTitleIconKind.Aquarium => "Widget.Settings.Aquarium",
+            WidgetTitleIconKind.DingTalkGroupDocs => "Widget.Settings.DingTalkGroupDocs",
+            WidgetTitleIconKind.Calendar => "Calendar.Title",
             _ => "WidgetTitleIcon.Label.Default"
         };
     }
@@ -172,6 +194,10 @@ public static class WidgetTitleIconKindNames
             WidgetTitleIconKind.Tags => "tags",
             WidgetTitleIconKind.Search => "search",
             WidgetTitleIconKind.SystemMonitor => "system-monitor",
+            WidgetTitleIconKind.Tree => "tree",
+            WidgetTitleIconKind.Aquarium => "aquarium",
+            WidgetTitleIconKind.DingTalkGroupDocs => "dingtalk-group-docs",
+            WidgetTitleIconKind.Calendar => "calendar",
             _ => "default"
         };
     }

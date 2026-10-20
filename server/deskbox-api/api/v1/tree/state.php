@@ -11,7 +11,4 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     });
 }
 
-api_run('PUT', static function (PDO $pdo): array {
-    $user = account_authenticated_user($pdo, 'api_clock');
-    return tree_apply_state($pdo, (string)$user['user_id'], api_body(), 'api_clock');
-});
+api_json(['code' => 'endpoint_retired', 'message' => 'Use tree/progress.php.'], 410);

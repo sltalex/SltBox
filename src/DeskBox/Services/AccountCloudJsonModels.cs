@@ -175,6 +175,8 @@ internal sealed class TreeProgressUploadResponse
 {
     [JsonPropertyName("duplicate")]
     public bool Duplicate { get; set; }
+    [JsonPropertyName("state")]
+    public TreeStateDto State { get; set; } = new();
 }
 
 internal sealed class TreeLeaderboardResponse
@@ -222,6 +224,7 @@ internal sealed class TreeCloudState
     public TreeStateSyncRequest? Pending { get; set; }
     public string? ConflictSnapshot { get; set; }
     public bool RefreshRequired { get; set; }
+    public TreeStateDto? Acknowledged { get; set; }
 }
 
 [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

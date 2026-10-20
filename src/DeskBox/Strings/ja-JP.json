@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "追加",
+  "DingTalkGroupDocs.Manual.Name": "文書名",
+  "DingTalkGroupDocs.Manual.Url": "文書のURL（http:// または https://）",
+  "DingTalkGroupDocs.Manual.Group": "手動で追加",
+  "DingTalkGroupDocs.Manual.Invalid": "文書名と有効な HTTP/HTTPS URL を入力してください。",
+  "DingTalkGroupDocs.Manual.SignIn": "お気に入りを利用するには SltBox にログインしてください。",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1241,6 +1247,11 @@
   "Settings.Restore.Tooltip": "既存の内容を削除せずに設定を初期値に戻します",
   "Settings.WidgetTabStyle.Pivot": "インジケーター",
   "Settings.WidgetTabStyle.Button": "セグメントボタン",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "公式サイトダウンロード",
   "Settings.Download.Description": "公式サイトから SltBox をダウンロード",
   "Settings.Download.CopyTooltip": "公式ダウンロードURLをコピー",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "サインイン",
   "Settings.Account.Register": "登録",
   "Settings.Account.SignOut": "サインアウト",
+  "Settings.Account.SyncData": "データを同期",
+  "Settings.Account.Syncing": "木のデータを同期しています…",
+  "Settings.Account.SyncSuccess": "木のデータを同期しました。",
+  "Settings.Account.SyncUnavailable": "同期を開始できませんでした。サインインしてからもう一度お試しください。",
+  "Settings.Account.SyncError": "木のデータを同期できませんでした。ネットワークを確認してもう一度お試しください。",
   "Settings.Account.SignedInAs": "{0} としてサインイン中",
   "Settings.Account.Working": "アカウントサービスに接続しています…",
   "Settings.Account.Error.InvalidUsername": "ユーザー名は3～32文字の英字、数字、またはアンダースコアで入力してください。",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"ミズクラゲ"
+  ,"Aquarium.Item.lion-mane-jellyfish":"ライオンタテガミクラゲ"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"ブルーブラバークラゲ"
+  ,"Aquarium.Item.cannonball-jellyfish":"キャノンボールクラゲ"
+  ,"Aquarium.Item.upside-down-jellyfish":"サカサクラゲ"
+  ,"Aquarium.Item.flower-hat-jellyfish":"フラワーハットクラゲ"
+  ,"Aquarium.Item.sea-nettle":"アトランティックシーネットル"
+  ,"Aquarium.Item.crystal-jellyfish":"クリスタルクラゲ"
+  ,"Aquarium.Item.comb-jelly":"クシクラゲ"
+  ,"Aquarium.Item.portuguese-man-o-war":"カツオノエボシ"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"バッグ"
   ,"Aquarium.Backpack.Aquarium":"水族館のアイテム"
+  ,"Aquarium.Backpack.General":"一般"
   ,"Aquarium.Settings.Category":"カテゴリー"
+  ,"Aquarium.Category.jellyfish":"クラゲ"
   ,"Aquarium.Category.fish":"魚"
   ,"Aquarium.Store.Group.fish":"魚"
   ,"Aquarium.Store.Group.plants":"水草と海藻"

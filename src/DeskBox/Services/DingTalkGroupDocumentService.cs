@@ -108,7 +108,7 @@ public sealed class DingTalkGroupDocumentService
             string json = await File.ReadAllTextAsync(_statePath, cancellationToken);
             DingTalkGroupDocumentStore? store = JsonSerializer.Deserialize(
                 json, DingTalkGroupDocumentJsonContext.Default.DingTalkGroupDocumentStore);
-            _documents = store?.Documents ?? [];
+            _documents = DingTalkGroupDocumentRepair.Normalize(store?.Documents ?? []);
             LastRefresh = store?.LastRefresh;
             LastSyncStartedAt = store?.LastSyncStartedAt;
             LastSyncCompletedAt = store?.LastSyncCompletedAt ?? store?.LastRefresh;
@@ -122,12 +122,19 @@ public sealed class DingTalkGroupDocumentService
             _pendingWindowEnd = store?.PendingWindowEnd;
             _pendingCursor = store?.PendingCursor;
             _pendingPages = store?.PendingPages ?? 0;
-            _pendingDocuments = store?.PendingDocuments ?? [];
+            _pendingDocuments = DingTalkGroupDocumentRepair.Normalize(store?.PendingDocuments ?? []);
             _titleRetryAfter = store?.TitleRetryAfter is { } retryAfter
                 ? new Dictionary<string, DateTimeOffset>(retryAfter, StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
             SyncIntervalHours = NormalizeInterval(store?.SyncIntervalHours ?? 6);
             await LoadIntervalSettingsAsync(cancellationToken);
+            if (store is not null && (!store.Documents.SequenceEqual(_documents) ||
+                !store.PendingDocuments.SequenceEqual(_pendingDocuments)))
+            {
+                store.Documents = _documents;
+                store.PendingDocuments = _pendingDocuments;
+                await SaveAsync(store, cancellationToken);
+            }
             _stateLoaded = true;
         }
         catch (Exception ex) when (ex is IOException or JsonException)
@@ -534,7 +541,7 @@ public sealed class DingTalkGroupDocumentService
         => left >= right ? left : right;
 
     private static DingTalkGroupDocument[] SortDocuments(
-        Dictionary<string, DingTalkGroupDocument> documents) => documents.Values
+        Dictionary<string, DingTalkGroupDocument> documents) => DingTalkGroupDocumentRepair.Normalize(documents.Values)
         .OrderByDescending(document => document.LastSeenAt)
         .ThenBy(document => document.GroupName, StringComparer.CurrentCultureIgnoreCase)
         .ThenBy(document => document.Title, StringComparer.CurrentCultureIgnoreCase)

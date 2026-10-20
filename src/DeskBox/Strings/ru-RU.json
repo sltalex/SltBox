@@ -1,4 +1,10 @@
 {
+  "DingTalkGroupDocs.Manual.Add": "Добавить",
+  "DingTalkGroupDocs.Manual.Name": "Название документа",
+  "DingTalkGroupDocs.Manual.Url": "Адрес документа (http:// или https://)",
+  "DingTalkGroupDocs.Manual.Group": "Добавлено вручную",
+  "DingTalkGroupDocs.Manual.Invalid": "Введите название и корректный HTTP/HTTPS-адрес.",
+  "DingTalkGroupDocs.Manual.SignIn": "Войдите в SltBox, чтобы использовать избранное.",
   "Settings.Admin.BackupReady": "Ready",
   "Settings.Admin.BackupUploading": "Upload in progress",
   "Settings.Admin.Participating": "Participating",
@@ -1244,6 +1250,11 @@
   "Settings.Restore.Tooltip": "Восстановить настройки без удаления существующих данных",
   "Settings.WidgetTabStyle.Pivot": "Индикатор",
   "Settings.WidgetTabStyle.Button": "Сегментированные кнопки",
+  "Settings.TabBarPosition.Title": "Category bar position",
+  "Settings.TabBarPosition.Description": "Choose where category filters appear in this widget",
+  "Settings.TabBarPosition.Top": "Top",
+  "Settings.TabBarPosition.Left": "Left",
+  "Settings.TabBarPosition.Right": "Right",
   "Settings.Download.Title": "Официальный сайт скачать",
   "Settings.Download.Description": "Скачать SltBox с официального сайта",
   "Settings.Download.CopyTooltip": "Скопируйте официальный URL-адрес загрузки",
@@ -2917,6 +2928,11 @@
   "Settings.Account.SignIn": "Войти",
   "Settings.Account.Register": "Зарегистрироваться",
   "Settings.Account.SignOut": "Выйти",
+  "Settings.Account.SyncData": "Синхронизировать данные",
+  "Settings.Account.Syncing": "Синхронизация данных дерева…",
+  "Settings.Account.SyncSuccess": "Данные дерева синхронизированы.",
+  "Settings.Account.SyncUnavailable": "Не удалось запустить синхронизацию. Войдите в аккаунт и повторите попытку.",
+  "Settings.Account.SyncError": "Не удалось синхронизировать данные дерева. Проверьте подключение к сети и повторите попытку.",
   "Settings.Account.SignedInAs": "Выполнен вход: {0}",
   "Settings.Account.Working": "Подключение к службе учетных записей…",
   "Settings.Account.Error.InvalidUsername": "Имя пользователя должно содержать от 3 до 32 букв, цифр или знаков подчеркивания.",
@@ -3008,6 +3024,16 @@
   ,"Aquarium.Settings.Purchase":"Purchase"
   ,"Aquarium.Settings.Initializing":"Initializing"
   ,"Aquarium.Settings.NoSelection":"Nothing selected"
+  ,"Aquarium.Item.moon-jellyfish":"Ушастая аурелия"
+  ,"Aquarium.Item.lion-mane-jellyfish":"Медуза львиная грива"
+  ,"Aquarium.Item.blue-blubber-jellyfish":"Синяя медуза"
+  ,"Aquarium.Item.cannonball-jellyfish":"Медуза-ядро"
+  ,"Aquarium.Item.upside-down-jellyfish":"Перевёрнутая медуза"
+  ,"Aquarium.Item.flower-hat-jellyfish":"Медуза цветочная шляпа"
+  ,"Aquarium.Item.sea-nettle":"Морская крапива"
+  ,"Aquarium.Item.crystal-jellyfish":"Хрустальная медуза"
+  ,"Aquarium.Item.comb-jelly":"Гребневик"
+  ,"Aquarium.Item.portuguese-man-o-war":"Физалия"
   ,"Aquarium.Item.clownfish":"Clownfish"
   ,"Aquarium.Item.blue-tang":"Blue tang"
   ,"Aquarium.Item.butterflyfish":"Butterflyfish"
@@ -3174,7 +3200,9 @@
   ,"Settings.Update.Detail.Skipped":"This version will no longer be downloaded or prompted automatically. A later version will still be offered."
   ,"Settings.Nav.Backpack":"Рюкзак"
   ,"Aquarium.Backpack.Aquarium":"Предметы аквариума"
+  ,"Aquarium.Backpack.General":"Общее"
   ,"Aquarium.Settings.Category":"Категория"
+  ,"Aquarium.Category.jellyfish":"Медузы"
   ,"Aquarium.Category.fish":"Рыбы"
   ,"Aquarium.Store.Group.fish":"Рыбы"
   ,"Aquarium.Store.Group.plants":"Растения и водоросли"

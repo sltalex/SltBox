@@ -22,6 +22,7 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
     private readonly SettingsService _settings;
     private readonly DeskBoxDataBackupService _localBackup;
     private readonly AccountBackupFileCatalog _catalog;
+    private readonly DingTalkGroupDocumentFavorites? _favorites;
     private readonly Func<DateTimeOffset> _clock;
     private readonly SemaphoreSlim _operation = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
@@ -35,10 +36,11 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
         SettingsService settings,
         DeskBoxDataBackupService localBackup,
         string? dataDirectory = null,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null, DingTalkGroupDocumentFavorites? favorites = null)
     {
         _api = api;
         _auth = auth;
+        _favorites = favorites;
         _settings = settings;
         _localBackup = localBackup;
         _catalog = new AccountBackupFileCatalog(dataDirectory ?? DeskBoxDataPathService.Current.DataDirectory);
@@ -94,6 +96,7 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
     internal async Task<bool> RunIfDueAsync(bool force, CancellationToken cancellationToken = default)
     {
         if (!IsEnabledForCurrentAccount) return false;
+        string ownerId = _auth.CurrentUser!.Id;
         var cloud = _settings.Settings.CloudBackup;
         DateTimeOffset lastSuccess = cloud.AccountCloudBackupLastSuccessUtcTicks > 0
             ? new DateTimeOffset(cloud.AccountCloudBackupLastSuccessUtcTicks, TimeSpan.Zero)
@@ -101,10 +104,20 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
         if (!force && _clock() - lastSuccess < TimeSpan.FromMinutes(Math.Clamp(cloud.CloudBackupIntervalMinutes, 5, 30 * 24 * 60)))
             return false;
         if (!await _operation.WaitAsync(0, cancellationToken)) return false;
+        using var ownerLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        void CheckOwner()
+        {
+            if (!_auth.IsAuthenticated || _auth.CurrentUser?.Id != ownerId) ownerLifetime.Cancel();
+        }
+        _auth.SessionChanged += CheckOwner;
+        cancellationToken = ownerLifetime.Token;
         SetBusy(true);
         try
         {
-            AccountBackupFileDto[] files = await _catalog.CaptureAsync(cancellationToken);
+            CheckOwner();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_favorites is not null) await _favorites.LoadAsync(cancellationToken);
+            AccountBackupFileDto[] files = await _catalog.CaptureAsync(cancellationToken, ownerId);
             var request = new AccountBackupCreateRequest
             {
                 DeviceId = DeviceIdentity.Id,
@@ -195,6 +208,7 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
         }
         finally
         {
+            _auth.SessionChanged -= CheckOwner;
             _operation.Release();
             SetBusy(false);
         }

@@ -35,6 +35,7 @@ namespace DeskBox.Features.Todo;
     nameof(ShowTabBar),
     nameof(ShowWideOptions),
     nameof(TabStyleIndex),
+    nameof(TabBarPositionIndex),
     nameof(TabsSummaryText),
     nameof(ThisWeekDueDay),
     nameof(VisibleDefaultFilterOptions),
