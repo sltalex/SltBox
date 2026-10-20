@@ -57,7 +57,8 @@ public sealed partial class AdminSettingsSection : UserControl
     public AdminSettingsSection()
     {
         BuildShell();
-        ConfigureCard(_overviewCard, "Settings.Admin.Overview", new StackPanel { Spacing = 12, Children = { _status, _overview, _overviewMetrics } });
+        _root.Children.Add(_status);
+        ConfigureCard(_overviewCard, "Settings.Admin.Overview", new StackPanel { Spacing = 12, Children = { _overview, _overviewMetrics } });
         _root.Children.Add(_overviewCard);
 
         var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
