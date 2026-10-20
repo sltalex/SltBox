@@ -82,6 +82,43 @@ public sealed class FileSurfaceParityContractTests
     }
 
     [Fact]
+    public void UnifiedFileSurface_RoutesInternalIconReorderAtTheItemsView()
+    {
+        string root = FindRepositoryRoot();
+        XDocument document = XDocument.Load(Path.Combine(
+            root,
+            "src/DeskBox/Controls/WidgetContents/FileSurfaceContent.xaml"));
+        string source = File.ReadAllText(Path.Combine(
+            root,
+            "src/DeskBox/Controls/WidgetContents/FileSurfaceContent.xaml.cs"));
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        XElement[] itemViews = document
+            .Descendants()
+            .Where(element => element.Name.LocalName is "GridView" or "ListView")
+            .Where(element => (string?)element.Attribute(x + "Name") is
+                "ItemsGrid" or "ItemsList")
+            .ToArray();
+
+        Assert.Equal(2, itemViews.Length);
+        Assert.All(itemViews, view =>
+        {
+            Assert.Equal("True", (string?)view.Attribute("AllowDrop"));
+            Assert.Equal("ItemsView_DragOver", (string?)view.Attribute("DragOver"));
+            Assert.Equal("ItemsView_Drop", (string?)view.Attribute("Drop"));
+        });
+        Assert.Contains(
+            "if (!IsInternalReorderDrag(e.DataView))",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ApplySurfaceDragOverFeedback(e, allowInternalReorderPreview: true);",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains("Root_Drop(sender, e);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnifiedFileSurface_FolderDropOverridesReorderAndUsesFileTransfer()
     {
         string root = FindRepositoryRoot();

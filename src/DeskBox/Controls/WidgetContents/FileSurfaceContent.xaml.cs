@@ -2652,6 +2652,33 @@ public sealed partial class FileSurfaceContent :
             "unsafe-directory-drop"));
     }
 
+    // Item surfaces intentionally own folder/shortcut drop targets. Ordinary
+    // file tiles do not, however, so a GridView/ListView-level target is
+    // needed to keep an in-widget drag on the reorder path. Without this
+    // explicit route WinUI can hand the gesture directly to the root import
+    // target, making a file icon appear to be dragged out instead of moved.
+    private void ItemsView_DragOver(object sender, DragEventArgs e)
+    {
+        if (!IsInternalReorderDrag(e.DataView))
+        {
+            return;
+        }
+
+        ApplySurfaceDragOverFeedback(e, allowInternalReorderPreview: true);
+    }
+
+    private void ItemsView_Drop(object sender, DragEventArgs e)
+    {
+        if (!IsInternalReorderDrag(e.DataView))
+        {
+            return;
+        }
+
+        // Reuse the single surface-drop transaction so insertion previews,
+        // stack projections, and persistence have exactly one commit path.
+        Root_Drop(sender, e);
+    }
+
     private void Root_DragEnter(object sender, DragEventArgs e)
     {
         _pendingNativeDropInsertionIndex = null;

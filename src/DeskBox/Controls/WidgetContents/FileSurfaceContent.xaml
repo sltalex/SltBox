@@ -667,6 +667,9 @@
             <GridView
                 x:Name="ItemsGrid"
                 Background="Transparent"
+                AllowDrop="True"
+                DragOver="ItemsView_DragOver"
+                Drop="ItemsView_Drop"
                 IsItemClickEnabled="True"
                 ItemClick="Items_ItemClick"
                 ContainerContentChanging="ItemsView_ContainerContentChanging"
@@ -702,6 +705,9 @@
             <ListView
                 x:Name="ItemsList"
                 Background="Transparent"
+                AllowDrop="True"
+                DragOver="ItemsView_DragOver"
+                Drop="ItemsView_Drop"
                 IsItemClickEnabled="True"
                 ItemClick="Items_ItemClick"
                 ContainerContentChanging="ItemsView_ContainerContentChanging"
