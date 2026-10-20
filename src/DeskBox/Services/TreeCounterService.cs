@@ -106,6 +106,20 @@ public sealed class TreeCounterService : IDisposable
         return true;
     }
 
+    /// <summary>Applies a server-confirmed fruit redemption without changing local-only settings.</summary>
+    internal bool ApplyFruitRecycled(long quantity)
+    {
+        if (quantity < 1) return false;
+        lock (_gate)
+        {
+            if (_progress.HarvestedFruit < quantity) return false;
+            _progress.HarvestedFruit -= quantity;
+        }
+        Save();
+        Changed?.Invoke();
+        return true;
+    }
+
     internal void ApplyAuthoritativeCloudState(TreeStateDto state, Action<TreeProgress> preserveLocal)
     {
         ArgumentNullException.ThrowIfNull(state);

@@ -33,7 +33,9 @@ internal sealed record AquariumState(
     long SceneVersion,
     IReadOnlyList<AquariumInventoryItem> Inventory,
     IReadOnlyList<AquariumPlacement> Scene,
-    IReadOnlyList<AquariumWalletEntry> Wallet);
+    IReadOnlyList<AquariumWalletEntry> Wallet,
+    long FruitBackpack = 0,
+    long FruitRecyclePrice = 1);
 
 /// <summary>Explicit JSON contracts keep aquarium requests compatible with the native AOT client.</summary>
 internal static class AquariumJson
@@ -47,7 +49,8 @@ internal static class AquariumJson
         ReadScene(root.GetProperty("scene")),
         Array.AsReadOnly(root.GetProperty("wallet").EnumerateArray().Select(item => new AquariumWalletEntry(
             Id(item, "id"), item.GetProperty("delta").GetInt64(), item.GetProperty("balance").GetInt64(),
-            Text(item, "reason"), OptionalText(item, "item_id"), Text(item, "created_at"))).ToArray()));
+            Text(item, "reason"), OptionalText(item, "item_id"), Text(item, "created_at"))).ToArray()),
+        OptionalLong(root, "fruit_backpack"), OptionalLong(root, "fruit_recycle_price", 1));
 
     internal static IReadOnlyList<AquariumCatalogItem> ReadCatalog(JsonElement items) => Array.AsReadOnly(
         items.EnumerateArray().Select(item => new AquariumCatalogItem(Text(item, "id"), Text(item, "name"),
@@ -181,6 +184,8 @@ internal static class AquariumJson
             writer.WriteEndObject();
         }
         writer.WriteEndArray();
+        writer.WriteNumber("fruit_backpack", state.FruitBackpack);
+        writer.WriteNumber("fruit_recycle_price", state.FruitRecyclePrice);
         writer.WriteEndObject();
     }
 
@@ -206,4 +211,7 @@ internal static class AquariumJson
 
     private static string? OptionalText(JsonElement item, string property) =>
         item.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static long OptionalLong(JsonElement item, string property, long fallback = 0) =>
+        item.TryGetProperty(property, out JsonElement value) && value.TryGetInt64(out long number) ? number : fallback;
 }

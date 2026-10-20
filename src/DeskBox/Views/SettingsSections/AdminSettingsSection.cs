@@ -14,8 +14,8 @@ public sealed partial class AdminSettingsSection : UserControl
 {
     private readonly StackPanel _root = new()
     {
-        Spacing = 12,
-        Margin = new Thickness(16),
+        Spacing = 6,
+        Margin = new Thickness(10, 8, 10, 12),
         HorizontalAlignment = HorizontalAlignment.Stretch,
         MaxWidth = 980
     };
@@ -35,6 +35,9 @@ public sealed partial class AdminSettingsSection : UserControl
     private readonly PasswordBox _password = new();
     private readonly TextBox[] _treeInputs = [new(), new(), new(), new(), new()];
     private readonly TextBox _coinInput = new() { MaxLength = 10 };
+    private readonly TextBox _fruitPriceInput = new() { MaxLength = 10, Width = 120 };
+    private readonly TextBox _fruitPriceReason = new() { MaxLength = 250, Width = 240 };
+    private readonly SettingsCard _fruitRecycleCard = new();
     private IAuthSession? _auth;
     private IAuthenticatedAccountApi? _api;
     private LocalizationService? _localization;
@@ -47,6 +50,7 @@ public sealed partial class AdminSettingsSection : UserControl
     public AdminSettingsSection()
     {
         Content = _root;
+        _root.Children.Add(SectionHeading("Settings.Admin.AccountManagement"));
         ConfigureCard(_overviewCard, "Settings.Admin.Overview", new StackPanel { Spacing = 12, Children = { _status, _overview, _overviewMetrics } });
         _root.Children.Add(_overviewCard);
 
@@ -57,6 +61,22 @@ public sealed partial class AdminSettingsSection : UserControl
         _root.Children.Add(_usersCard);
         ConfigureCard(_detailCard, "Settings.Admin.User", _detail);
         _root.Children.Add(_detailCard);
+        _root.Children.Add(SectionHeading("Settings.Admin.TreeManagement"));
+        _root.Children.Add(new TextBlock { Text = "选择账号后可校正或重置种树状态。", Opacity = .65 });
+        _root.Children.Add(SectionHeading("Settings.Admin.StoreManagement"));
+        _root.Children.Add(new TextBlock { Text = "水族馆商城与账号金币通过账号详情管理。", Opacity = .65 });
+        _root.Children.Add(SectionHeading("Settings.Admin.RecycleFruit"));
+        var recyclePanel = new StackPanel { Spacing = 6 };
+        recyclePanel.Children.Add(new TextBlock { Text = "每个果实回收获得的金币", Opacity = .7 });
+        var recycleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        recycleRow.Children.Add(_fruitPriceInput);
+        recycleRow.Children.Add(ActionButton("Settings.Admin.SaveFruitPrice", async () => await SaveFruitPriceAsync()));
+        recyclePanel.Children.Add(recycleRow);
+        _fruitPriceReason.PlaceholderText = "填写调整原因";
+        recyclePanel.Children.Add(_fruitPriceReason);
+        ConfigureCard(_fruitRecycleCard, "Settings.Admin.RecycleFruit", recyclePanel);
+        _root.Children.Add(_fruitRecycleCard);
+        _root.Children.Add(SectionHeading("Settings.Admin.AquariumManagement"));
         ConfigureCard(_auditCard, "Settings.Admin.Audit", new StackPanel { Spacing = 10, Children = { CreateTableHeader("Time", "Actor", "Target", "Action", "Reason", "Result"), _audit } });
         _root.Children.Add(_auditCard);
     }
@@ -77,6 +97,7 @@ public sealed partial class AdminSettingsSection : UserControl
             ? L("Settings.Admin.User")
             : $"{L("Settings.Admin.User")}: {_targetName}";
         _auditCard.Header = L("Settings.Admin.Audit");
+        _fruitRecycleCard.Header = L("Settings.Admin.RecycleFruit");
         _reason.PlaceholderText = L("Settings.Admin.Reason");
         _search.PlaceholderText = L("Settings.Admin.SearchHint");
         _confirm.PlaceholderText = L("Settings.Admin.ConfirmUsername");
@@ -97,10 +118,38 @@ public sealed partial class AdminSettingsSection : UserControl
                 metrics.GetProperty("backup_bytes").GetInt64(), metrics.GetProperty("tree_participants").GetInt32(),
                 metrics.GetProperty("dingtalk_links").GetInt32());
             RenderOverviewMetrics(metrics);
+            await LoadFruitPriceAsync();
             await LoadUsersCoreAsync();
             await LoadAuditCoreAsync();
             if (_targetId is not null) await LoadDetailCoreAsync(_targetId);
             _status.Text = string.Empty;
+        }
+        catch (Exception error) { _status.Text = error.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task LoadFruitPriceAsync()
+    {
+        using JsonDocument result = await GetAsync("fruit_recycle");
+        _fruitPriceInput.Text = result.RootElement.GetProperty("price_per_fruit").GetInt32().ToString(CultureInfo.CurrentCulture);
+    }
+
+    private async Task SaveFruitPriceAsync()
+    {
+        if (_api is null || _auth?.CurrentUser is not { Role: "admin" } admin) return;
+        if (!long.TryParse(_fruitPriceInput.Text, NumberStyles.None, CultureInfo.InvariantCulture, out long price)
+            || price < 0 || price > int.MaxValue || string.IsNullOrWhiteSpace(_fruitPriceReason.Text))
+        { _status.Text = L("Settings.Admin.InvalidNumber"); return; }
+        _busy = true;
+        try
+        {
+            var request = new AdminMutationRequest { Action = "set_fruit_recycle_price", TargetId = admin.Id,
+                Reason = _fruitPriceReason.Text.Trim(), PricePerFruit = price };
+            using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post, "../admin/index.php", WriteMutation(request), null);
+            await EnsureSuccessAsync(response);
+            _fruitPriceReason.Text = string.Empty;
+            _status.Text = L("Settings.Admin.Success");
+            await LoadFruitPriceAsync();
         }
         catch (Exception error) { _status.Text = error.Message; }
         finally { _busy = false; }
@@ -463,6 +512,9 @@ public sealed partial class AdminSettingsSection : UserControl
         return button;
     }
 
+    private TextBlock SectionHeading(string key) => new() { Text = L(key), FontSize = 18,
+        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 0) };
+
     private string L(string key) => _localization?.T(key) ?? key;
 
     private static byte[] WriteMutation(AdminMutationRequest request)
@@ -486,6 +538,7 @@ public sealed partial class AdminSettingsSection : UserControl
             if (request.FruitTotal is long fruitTotal) writer.WriteNumber("fruit_total", fruitTotal);
             if (request.HarvestedTotal is long harvestedTotal) writer.WriteNumber("harvested_total", harvestedTotal);
             if (request.Coins is long coins) writer.WriteNumber("coins", coins);
+            if (request.PricePerFruit is long price) writer.WriteNumber("price_per_fruit", price);
             writer.WriteEndObject();
         }
         return stream.ToArray();

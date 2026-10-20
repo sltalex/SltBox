@@ -384,12 +384,17 @@ function aquarium_read_state(PDO $pdo, string $userId): array
         $query->execute([':user' => $userId]);
         $profile = $query->fetch(PDO::FETCH_ASSOC);
         $state = ['initialized' => false, 'coins' => 0, 'scene_version' => 0,
-            'inventory' => [], 'scene' => [], 'wallet' => []];
+            'inventory' => [], 'scene' => [], 'wallet' => [], 'fruit_backpack' => 0, 'fruit_recycle_price' => 1];
         if (is_array($profile)) {
             $state['initialized'] = (bool)$profile['initialized'];
             $state['coins'] = (int)$profile['coins'];
             $state['scene_version'] = (int)$profile['scene_version'];
             $state['scene'] = json_decode((string)$profile['scene_json'], true, 16, JSON_THROW_ON_ERROR);
+            $fruit = $pdo->prepare('SELECT harvested_total FROM tree_profiles WHERE user_id = :user');
+            $fruit->execute([':user' => $userId]);
+            $state['fruit_backpack'] = max(0, (int)($fruit->fetchColumn() ?: 0));
+            $price = $pdo->query('SELECT price_per_fruit FROM fruit_recycle_settings WHERE id = 1')->fetchColumn();
+            if ($price !== false) { $state['fruit_recycle_price'] = (int)$price; }
             $inventory = $pdo->prepare('SELECT id, item_id, created_at FROM aquarium_inventory '
                 . 'WHERE user_id = :user ORDER BY created_at, id');
             $inventory->execute([':user' => $userId]);
@@ -423,7 +428,7 @@ function aquarium_mutate(PDO $pdo, string $userId, array $body, callable $clock)
         throw new ApiError('invalid_operation', 'A stable operation identifier is required.', 400);
     }
     $action = aquarium_string($body, 'action');
-    if (!in_array($action, ['initialize', 'buy', 'open_pack', 'save_scene'], true)) {
+    if (!in_array($action, ['initialize', 'buy', 'open_pack', 'save_scene', 'recycle_fruit'], true)) {
         throw new ApiError('invalid_action', 'Unknown aquarium action.', 400);
     }
     $requestHash = hash('sha256', json_encode(aquarium_canonical_body($body), JSON_THROW_ON_ERROR));
@@ -478,6 +483,8 @@ function aquarium_mutate(PDO $pdo, string $userId, array $body, callable $clock)
                     aquarium_buy($pdo, $userId, $operationId, $profile, $body, $now);
                 } elseif ($action === 'open_pack') {
                     $openedItemId = aquarium_open_pack($pdo, $userId, $operationId, $profile, $body, $now);
+                } elseif ($action === 'recycle_fruit') {
+                    aquarium_recycle_fruit($pdo, $userId, $operationId, $profile, $body, $now, $driver);
                 } else {
                     aquarium_save_scene($pdo, $userId, $profile, $body, $now);
                 }
@@ -518,6 +525,30 @@ function aquarium_mutate(PDO $pdo, string $userId, array $body, callable $clock)
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
         throw $error;
     }
+}
+
+function aquarium_recycle_fruit(PDO $pdo, string $userId, string $operationId, array $profile,
+    array $body, DateTimeImmutable $now, string $driver): void
+{
+    $quantity = $body['quantity'] ?? null;
+    if (!is_int($quantity) || $quantity < 1 || $quantity > 1000000000) {
+        throw new ApiError('invalid_quantity', 'A positive fruit quantity is required.', 400);
+    }
+    $price = (int)($pdo->query('SELECT price_per_fruit FROM fruit_recycle_settings WHERE id = 1')->fetchColumn() ?: 0);
+    $tree = $pdo->prepare('SELECT fruit_total, harvested_total FROM tree_profiles WHERE user_id = :user'
+        . ($driver === 'mysql' ? ' FOR UPDATE' : ''));
+    $tree->execute([':user' => $userId]);
+    $state = $tree->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($state) || (int)$state['harvested_total'] < $quantity) {
+        throw new ApiError('insufficient_fruit', 'Not enough fruits in the backpack.', 409);
+    }
+    $coins = (int)$profile['coins'] + ($quantity * $price);
+    if ($coins > 2147483647) { throw new ApiError('coin_limit', 'The aquarium wallet limit was exceeded.', 409); }
+    $pdo->prepare('UPDATE tree_profiles SET fruit_total = fruit_total - :quantity, harvested_total = harvested_total - :quantity, state_version = state_version + 1, updated_at = :now WHERE user_id = :user')
+        ->execute([':quantity' => $quantity, ':now' => auth_sql_time($now), ':user' => $userId]);
+    $pdo->prepare('UPDATE aquarium_profiles SET coins = :coins, updated_at = :now WHERE user_id = :user')
+        ->execute([':coins' => $coins, ':now' => auth_sql_time($now), ':user' => $userId]);
+    aquarium_record_wallet($pdo, $userId, $operationId, $quantity * $price, $coins, 'fruit_recycle', null, $now);
 }
 
 function aquarium_buy(PDO $pdo, string $userId, string $operationId, array $profile, array $body, DateTimeImmutable $now): void

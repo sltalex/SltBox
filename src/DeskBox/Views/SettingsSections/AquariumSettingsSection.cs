@@ -361,7 +361,44 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         if (_externalStore is not { } store) return;
         store.CategoriesHost.Children.Clear();
         store.ItemsHost.Children.Clear();
+        store.RecyclePanel.Children.Clear();
         if (_service is null) return;
+        AquariumState? current = _service.State;
+        var recycle = new Grid { ColumnSpacing = 8, RowSpacing = 4 };
+        recycle.ColumnDefinitions.Add(new ColumnDefinition());
+        recycle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(95) });
+        recycle.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        recycle.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        recycle.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var recycleTitle = new TextBlock { Text = L("Aquarium.Settings.RecycleFruit"), FontSize = 16,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+        Grid.SetColumnSpan(recycleTitle, 3);
+        recycle.Children.Add(recycleTitle);
+        var recycleInfo = new TextBlock { Text = F("Aquarium.Settings.RecycleFruit.Balance", current?.FruitBackpack ?? 0, current?.FruitRecyclePrice ?? 1),
+            Opacity = .75, TextWrapping = TextWrapping.Wrap };
+        Grid.SetRow(recycleInfo, 1); Grid.SetColumn(recycleInfo, 0); recycle.Children.Add(recycleInfo);
+        var quantity = new TextBox { Text = (current?.FruitBackpack ?? 0).ToString(CultureInfo.CurrentCulture), MaxLength = 10,
+            PlaceholderText = L("Aquarium.Settings.RecycleFruit.Quantity") };
+        Grid.SetRow(quantity, 1); Grid.SetColumn(quantity, 1); recycle.Children.Add(quantity);
+        var recycleButton = ActionButton("Aquarium.Settings.RecycleFruit.Action");
+        recycleButton.IsEnabled = CanOperate && (current?.FruitBackpack ?? 0) > 0;
+        Grid.SetRow(recycleButton, 1); Grid.SetColumn(recycleButton, 2); recycle.Children.Add(recycleButton);
+        recycleButton.Click += async (_, _) =>
+        {
+            if (!int.TryParse(quantity.Text, NumberStyles.None, CultureInfo.CurrentCulture, out int amount) || amount < 1)
+            { _noticeKey = "Aquarium.Settings.RecycleFruit.Invalid"; Render(); return; }
+            await RunAsync(async () =>
+            {
+                bool success = await _service.RecycleFruitAsync(amount);
+                if (success)
+                {
+                    TreeCounterService.Instance.ApplyFruitRecycled(amount);
+                    _ = App.Current.TreeCloudSyncService.SyncNowAsync();
+                }
+                _noticeKey = success ? "Aquarium.Settings.RecycleFruit.Success" : ErrorKey();
+            });
+        };
+        store.RecyclePanel.Children.Add(recycle);
         if (!AquariumStoreBrowse.Groups.Any(group => group.Id == _selectedStoreGroup))
         {
             _selectedStoreGroup = AquariumStoreBrowse.Groups[0].Id;

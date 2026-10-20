@@ -103,6 +103,12 @@ internal sealed class AquariumService : IAsyncDisposable
         return MutateAsync("open_pack", null, packInstanceId, null, 0, cancellationToken);
     }
 
+    internal Task<bool> RecycleFruitAsync(int quantity, CancellationToken cancellationToken = default)
+    {
+        if (quantity < 1) throw new ArgumentOutOfRangeException(nameof(quantity));
+        return MutateAsync("recycle_fruit", null, null, null, 0, cancellationToken, quantity);
+    }
+
     internal Task<bool> SaveSceneAsync(IReadOnlyList<AquariumPlacement> scene, long baseSceneVersion,
         CancellationToken cancellationToken = default)
     {
@@ -115,7 +121,7 @@ internal sealed class AquariumService : IAsyncDisposable
     }
 
     private Task<bool> MutateAsync(string action, string? itemId, string? packInstanceId,
-        IReadOnlyList<AquariumPlacement>? scene, long sceneVersion, CancellationToken cancellationToken) => RunAsync(async (identity, version, token) =>
+        IReadOnlyList<AquariumPlacement>? scene, long sceneVersion, CancellationToken cancellationToken, int? fruitQuantity = null) => RunAsync(async (identity, version, token) =>
     {
         if (action == "open_pack") Update(identity, version, token, () => LastOpenedItem = null);
         byte[]? existingPending = null;
@@ -123,7 +129,7 @@ internal sealed class AquariumService : IAsyncDisposable
         if (existingPending is not null)
         {
             // A timed-out purchase may have committed. Recover that exact command before accepting another.
-            if (!MatchesPending(existingPending, action, itemId, packInstanceId, scene, sceneVersion))
+            if (!MatchesPending(existingPending, action, itemId, packInstanceId, scene, sceneVersion, fruitQuantity))
             {
                 Update(identity, version, token, () => ErrorCode = "pending_operation");
                 return false;
@@ -144,6 +150,8 @@ internal sealed class AquariumService : IAsyncDisposable
                 }
                 if (packInstanceId is not null)
                     writer.WriteString("pack_instance_id", packInstanceId);
+                if (fruitQuantity is int quantity)
+                    writer.WriteNumber("quantity", quantity);
                 if (scene is not null)
                 {
                     writer.WriteNumber("base_scene_version", sceneVersion);
@@ -301,13 +309,15 @@ internal sealed class AquariumService : IAsyncDisposable
     }
 
     private static bool MatchesPending(byte[] command, string action, string? itemId, string? packInstanceId,
-        IReadOnlyList<AquariumPlacement>? scene, long sceneVersion)
+        IReadOnlyList<AquariumPlacement>? scene, long sceneVersion, int? fruitQuantity)
     {
         using JsonDocument document = JsonDocument.Parse(command);
         JsonElement pending = document.RootElement;
         if (AquariumJson.Text(pending, "action") != action) return false;
         if (itemId is not null && AquariumJson.Text(pending, "item_id") != itemId) return false;
         if (packInstanceId is not null && AquariumJson.Text(pending, "pack_instance_id") != packInstanceId) return false;
+        if (fruitQuantity is int quantity && (!pending.TryGetProperty("quantity", out JsonElement rawQuantity)
+            || !rawQuantity.TryGetInt32(out int pendingQuantity) || pendingQuantity != quantity)) return false;
         return scene is null || (pending.GetProperty("base_scene_version").GetInt64() == sceneVersion
             && AquariumJson.ReadScene(pending.GetProperty("scene")).SequenceEqual(scene));
     }

@@ -16,6 +16,11 @@ function admin_require(PDO $pdo, string $token, callable $clock): array
 
 function admin_read(PDO $pdo, string $actorId, string $view, array $query, callable $clock): array
 {
+    if ($view === 'fruit_recycle') {
+        $row = $pdo->query('SELECT price_per_fruit, updated_by, updated_at FROM fruit_recycle_settings WHERE id = 1')->fetch(PDO::FETCH_ASSOC);
+        return ['price_per_fruit' => (int)($row['price_per_fruit'] ?? 1), 'updated_by' => $row['updated_by'] ?? null,
+            'updated_at' => $row['updated_at'] ?? null];
+    }
     if ($view === 'overview') {
         $metrics = [
             'users' => 'SELECT COUNT(*) FROM auth_users',
@@ -122,7 +127,7 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         throw new ApiError('invalid_reason', 'A reason of at most 500 bytes is required.', 400);
     }
     $allowed = ['disable', 'enable', 'revoke_session', 'revoke_all_sessions', 'delete_user',
-        'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk', 'set_aquarium_coins'];
+        'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk', 'set_aquarium_coins', 'set_fruit_recycle_price'];
     if (!in_array($action, $allowed, true)) { throw new ApiError('invalid_action', 'Unknown action.', 400); }
     if ($action === 'delete_user') {
         auth_rate_limit($pdo, 'admin_delete', hash('sha256', $actorId), 5, 900, $clock);
@@ -175,6 +180,9 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
             $details['unlinked'] = $delete->rowCount() > 0;
         } elseif ($action === 'set_aquarium_coins') {
             $details = admin_set_aquarium_coins($pdo, $targetId, $body, $now, $driver);
+        } elseif ($action === 'set_fruit_recycle_price') {
+            if ($targetId !== $actorId) { throw new ApiError('invalid_target', 'Recycle price changes must target the administrator.', 400); }
+            $details = admin_set_fruit_recycle_price($pdo, $actorId, $body, $now, $driver);
         } else {
             $details = admin_change_tree($pdo, $targetId, $action, $body, $now, $driver);
         }
@@ -194,6 +202,20 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         }
         throw $error;
     }
+}
+
+function admin_set_fruit_recycle_price(PDO $pdo, string $actorId, array $body,
+    DateTimeImmutable $now, string $driver): array
+{
+    $price = $body['price_per_fruit'] ?? null;
+    if (!is_int($price) || $price < 0 || $price > 2147483647) {
+        throw new ApiError('invalid_price', 'Fruit recycle price is invalid.', 400);
+    }
+    $insert = $driver === 'sqlite'
+        ? 'INSERT INTO fruit_recycle_settings (id, price_per_fruit, updated_by, updated_at) VALUES (1, :price, :actor, :now) ON CONFLICT(id) DO UPDATE SET price_per_fruit = excluded.price_per_fruit, updated_by = excluded.updated_by, updated_at = excluded.updated_at'
+        : 'INSERT INTO fruit_recycle_settings (id, price_per_fruit, updated_by, updated_at) VALUES (1, :price, :actor, :now) ON DUPLICATE KEY UPDATE price_per_fruit = VALUES(price_per_fruit), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)';
+    $pdo->prepare($insert)->execute([':price' => $price, ':actor' => $actorId, ':now' => auth_sql_time($now)]);
+    return ['price_per_fruit' => $price];
 }
 
 function admin_set_aquarium_coins(PDO $pdo, string $userId, array $body,
