@@ -5,6 +5,8 @@ namespace DeskBox.Views;
 
 public sealed partial class SettingsWindow
 {
+    private string? _adminIdentity;
+
     private bool IsVerifiedAdmin => _authSession.IsAuthenticated &&
         _authSession.CurrentUser?.Role == "admin";
 
@@ -23,6 +25,14 @@ public sealed partial class SettingsWindow
     {
         if (_isClosed) return;
         bool isAdmin = IsVerifiedAdmin;
+        string? adminIdentity = isAdmin ? _authSession.CurrentUser?.Id : null;
+        if (!string.Equals(_adminIdentity, adminIdentity, StringComparison.Ordinal) &&
+            _settingsSectionElements.TryGetValue("Admin", out var adminElement) &&
+            adminElement is AdminSettingsSection adminSection)
+        {
+            adminSection.ResetForSession();
+        }
+        _adminIdentity = adminIdentity;
         if (!isAdmin && _currentSettingsSection is ("Admin" or "AquariumSettings" or "Backpack" or "AquariumStore"))
             NavigateToSettingsSection("General");
         if (isAdmin)

@@ -12,6 +12,12 @@ public sealed class AdminSettingsSurfaceTests
         Assert.Contains("SettingsCard _usersCard", source, StringComparison.Ordinal);
         Assert.Contains("SettingsCard _detailCard", source, StringComparison.Ordinal);
         Assert.Contains("CreateTableHeader", source, StringComparison.Ordinal);
+        Assert.Contains("Content = _shell", source, StringComparison.Ordinal);
+        Assert.Contains("Settings.Admin.AccountManagement", source, StringComparison.Ordinal);
+        Assert.Contains("Settings.Admin.TreeManagement", source, StringComparison.Ordinal);
+        Assert.Contains("Settings.Admin.StoreManagement", source, StringComparison.Ordinal);
+        Assert.Contains("Settings.Admin.RecycleFruit", source, StringComparison.Ordinal);
+        Assert.Contains("Settings.Admin.AquariumManagement", source, StringComparison.Ordinal);
         Assert.Contains("HorizontalAlignment = HorizontalAlignment.Stretch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ContentDialog", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Popup", source, StringComparison.Ordinal);
@@ -26,7 +32,7 @@ public sealed class AdminSettingsSurfaceTests
     }
 
     [Fact]
-    public void AdminEditor_UsesOneBoundedColumnAndCompactTables()
+    public void AdminEditor_UsesTwoColumnWorkspaceAndCompactTables()
     {
         string source = File.ReadAllText(TestPaths.FromRepository(
             "src/DeskBox/Views/SettingsSections/AdminSettingsSection.cs"));
@@ -38,7 +44,7 @@ public sealed class AdminSettingsSurfaceTests
         Assert.Contains("AddDetailSection(_detail, accountCard", editor, StringComparison.Ordinal);
         Assert.Contains("AddDetailSection(_detail, treeCard", editor, StringComparison.Ordinal);
         Assert.Contains("AddDetailSection(_detail, coinsCard", editor, StringComparison.Ordinal);
-        Assert.DoesNotContain("Grid.SetColumn(content", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("new GridLength(1, GridUnitType.Star) });\n        _detail.ColumnDefinitions.Add", editor, StringComparison.Ordinal);
+        Assert.Contains("_detail.ColumnDefinitions.Add(new ColumnDefinition", editor, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(content, column)", source, StringComparison.Ordinal);
     }
 }

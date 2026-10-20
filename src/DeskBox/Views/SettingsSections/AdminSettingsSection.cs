@@ -33,7 +33,7 @@ public sealed partial class AdminSettingsSection : UserControl
     private readonly SettingsCard _usersCard = new();
     private readonly SettingsCard _detailCard = new() { Visibility = Visibility.Collapsed };
     private readonly SettingsCard _auditCard = new();
-    private readonly TextBox _search = new() { Width = 220 };
+    private readonly TextBox _search = new();
     private readonly StackPanel _users = new() { Spacing = 5 };
     private readonly Grid _detail = new() { RowSpacing = 10 };
     private readonly StackPanel _audit = new() { Spacing = 5 };
@@ -61,9 +61,14 @@ public sealed partial class AdminSettingsSection : UserControl
         ConfigureCard(_overviewCard, "Settings.Admin.Overview", new StackPanel { Spacing = 12, Children = { _overview, _overviewMetrics } });
         _root.Children.Add(_overviewCard);
 
-        var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var searchRow = new Grid { ColumnSpacing = 8 };
+        searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _search.HorizontalAlignment = HorizontalAlignment.Stretch;
         searchRow.Children.Add(_search);
-        searchRow.Children.Add(ActionButton("Settings.Admin.Search", async () => await LoadUsersAsync()));
+        var searchButton = ActionButton("Settings.Admin.Search", async () => await LoadUsersAsync());
+        Grid.SetColumn(searchButton, 1);
+        searchRow.Children.Add(searchButton);
         ConfigureCard(_usersCard, "Settings.Admin.User", new StackPanel { Spacing = 10, Children = { searchRow, CreateTableHeader(L("Settings.Admin.User"), "Status", "Role", string.Empty), _users } });
         _root.Children.Add(_usersCard);
         ConfigureCard(_detailCard, "Settings.Admin.User", _detail);
@@ -85,6 +90,7 @@ public sealed partial class AdminSettingsSection : UserControl
 
     private void BuildShell()
     {
+        Content = _shell;
         _shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(66) });
         _shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
@@ -116,7 +122,12 @@ public sealed partial class AdminSettingsSection : UserControl
             Padding = new Thickness(12, 18, 12, 14),
             BorderThickness = new Thickness(0, 0, 1, 0),
             BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.LightGray),
-            Child = _adminMenu
+            Child = new ScrollViewer
+            {
+                Content = _adminMenu,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            }
         };
         body.Children.Add(sidebar);
         var content = new ScrollViewer
@@ -180,7 +191,8 @@ public sealed partial class AdminSettingsSection : UserControl
     {
         _selectedSection = section;
         _overviewCard.Visibility = section == "account" ? Visibility.Visible : Visibility.Collapsed;
-        _usersCard.Visibility = section is "account" or "users" ? Visibility.Visible : Visibility.Collapsed;
+        _usersCard.Visibility = section is "account" or "users" or "tree" or "store" or "aquarium"
+            ? Visibility.Visible : Visibility.Collapsed;
         _auditCard.Visibility = section == "audit" ? Visibility.Visible : Visibility.Collapsed;
         _fruitRecycleCard.Visibility = section == "recycle" ? Visibility.Visible : Visibility.Collapsed;
         _detailCard.Visibility = _targetId is not null && section is ("users" or "tree" or "store" or "aquarium")
@@ -233,6 +245,29 @@ public sealed partial class AdminSettingsSection : UserControl
         _search.PlaceholderText = L("Settings.Admin.SearchHint");
         _confirm.PlaceholderText = L("Settings.Admin.ConfirmUsername");
         _password.PlaceholderText = L("Settings.Admin.AdminPassword");
+    }
+
+    public void ResetForSession()
+    {
+        _targetId = null;
+        _targetName = null;
+        _treeVersion = 0;
+        _treeDay = string.Empty;
+        _selectedSection = "account";
+        _status.Text = string.Empty;
+        _search.Text = string.Empty;
+        _reason.Text = string.Empty;
+        _confirm.Text = string.Empty;
+        _password.Password = string.Empty;
+        _fruitPriceInput.Text = string.Empty;
+        _fruitPriceReason.Text = string.Empty;
+        _coinInput.Text = string.Empty;
+        foreach (TextBox input in _treeInputs) input.Text = string.Empty;
+        _detail.Children.Clear();
+        _users.Children.Clear();
+        _audit.Children.Clear();
+        _detailCard.Visibility = Visibility.Collapsed;
+        SelectAdminSection("account");
     }
 
     public async Task RefreshAsync()
@@ -348,7 +383,11 @@ public sealed partial class AdminSettingsSection : UserControl
 
     private void ShowDetailPanel()
     {
-        if (_targetId is null) return;
+        if (_targetId is null || _selectedSection is not ("users" or "tree" or "store" or "aquarium"))
+        {
+            _detailCard.Visibility = Visibility.Collapsed;
+            return;
+        }
         _detailCard.Header = $"{L("Settings.Admin.User")}: {_targetName}";
         _detailCard.Visibility = Visibility.Visible;
     }
@@ -610,10 +649,6 @@ public sealed partial class AdminSettingsSection : UserControl
         _overviewMetrics.Children.Clear();
         _overviewMetrics.ColumnDefinitions.Clear();
         _overviewMetrics.RowDefinitions.Clear();
-        for (int column = 0; column < 4; column++)
-            _overviewMetrics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (int row = 0; row < 2; row++)
-            _overviewMetrics.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         string[] labels = ["Users", "Active", "Sessions", "Backups", "Backup size", "Tree participants", "DingTalk"];
         string[] values = [
             metrics.GetProperty("users").GetInt32().ToString(CultureInfo.CurrentCulture),
@@ -624,6 +659,11 @@ public sealed partial class AdminSettingsSection : UserControl
             metrics.GetProperty("tree_participants").GetInt32().ToString(CultureInfo.CurrentCulture),
             metrics.GetProperty("dingtalk_links").GetInt32().ToString(CultureInfo.CurrentCulture)
         ];
+        const int metricColumns = 2;
+        for (int column = 0; column < metricColumns; column++)
+            _overviewMetrics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (int row = 0; row < (labels.Length + metricColumns - 1) / metricColumns; row++)
+            _overviewMetrics.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         for (int index = 0; index < labels.Length; index++)
         {
             var metric = new Border
@@ -633,10 +673,10 @@ public sealed partial class AdminSettingsSection : UserControl
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(10, 8, 10, 8),
-                Child = new StackPanel { Spacing = 2, Children = { new TextBlock { Text = labels[index], FontSize = 12, Opacity = .68 }, new TextBlock { Text = values[index], FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold } } }
+                Child = new StackPanel { Spacing = 2, Children = { new TextBlock { Text = labels[index], FontSize = 12, Opacity = .68, TextWrapping = TextWrapping.Wrap }, new TextBlock { Text = values[index], FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis } } }
             };
-            Grid.SetColumn(metric, index % 4);
-            Grid.SetRow(metric, index / 4);
+            Grid.SetColumn(metric, index % metricColumns);
+            Grid.SetRow(metric, index / metricColumns);
             _overviewMetrics.Children.Add(metric);
         }
     }
