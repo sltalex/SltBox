@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102001",
+  "version": "2026102002",
   "releaseDate": "2026-10-20",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102001/SltBox_Setup_2026102001_x64.exe",
-  "mirrorUrl": "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026102001_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102002/SltBox_Setup_2026102002_x64.exe",
+  "mirrorUrl": "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026102002_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "aef7fdbb408f782d6ae4eb8f4da21b80ace8d3d2a7080334cb42159f74ab15e3",
-  "size": 103430248,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102001",
+  "sha256": "0b048b51aad75945fa49b11aabd7b34975b92e675c03d60fd7acf3e0622fb544",
+  "size": 103373629,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102002",
   "summary": {
-    "zh-CN": "SltBox 2026102001：优化随记和待办分类栏布局与同步，并保留近期水族馆、钉钉群文档、种树同步和管理员功能更新。",
-    "en-US": "SltBox 2026102001 improves Notes and Todo category-bar layouts and synchronization while retaining the recent aquarium, DingTalk group documents, tree sync, and administrator updates."
+    "zh-CN": "SltBox 2026102002：文件格子支持文件图标拖动手工排序并持久保存，同时保留近期随记、待办、水族馆、钉钉群文档、种树同步和管理员功能更新。",
+    "en-US": "SltBox 2026102002 adds persistent drag-and-drop manual ordering for file tiles while retaining the recent Notes, Todo, aquarium, DingTalk group-document, tree-sync, and administrator updates."
   }
 }
