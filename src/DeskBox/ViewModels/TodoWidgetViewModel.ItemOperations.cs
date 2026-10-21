@@ -31,7 +31,22 @@ public sealed partial class TodoWidgetViewModel
         ApplySettings(updateFilter: true);
         RefreshVisibleItems();
         RefreshCountProperties();
+        _lastObservedLocalDate = CurrentLocalDate;
         IsInitialized = true;
+    }
+
+    internal bool RefreshDateDependentState()
+    {
+        DateTime localDate = CurrentLocalDate;
+        if (_lastObservedLocalDate == localDate)
+        {
+            return false;
+        }
+
+        _lastObservedLocalDate = localDate;
+        RefreshVisibleItems();
+        RefreshCountProperties();
+        return true;
     }
 
     public async Task<TodoItemViewModel?> AddInputAsync()

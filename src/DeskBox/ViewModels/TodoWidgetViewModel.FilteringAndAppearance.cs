@@ -461,20 +461,22 @@ public sealed partial class TodoWidgetViewModel
             value.Offset);
     }
 
-    private static bool IsDueToday(TodoItemViewModel item)
+    private DateTime CurrentLocalDate => _clock().ToLocalTime().Date;
+
+    private bool IsDueToday(TodoItemViewModel item)
     {
         return item.DueDate is { } dueDate &&
-               dueDate.ToLocalTime().Date == DateTimeOffset.Now.Date;
+               dueDate.ToLocalTime().Date == CurrentLocalDate;
     }
 
-    private static bool IsDueThisWeek(TodoItemViewModel item)
+    private bool IsDueThisWeek(TodoItemViewModel item)
     {
         if (item.DueDate is not { } dueDate)
         {
             return false;
         }
 
-        DateTime today = DateTime.Today;
+        DateTime today = CurrentLocalDate;
         int daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
         DateTime weekStart = today.AddDays(-daysSinceMonday);
         DateTime nextWeekStart = weekStart.AddDays(7);
@@ -482,7 +484,7 @@ public sealed partial class TodoWidgetViewModel
         return localDueDate >= weekStart && localDueDate < nextWeekStart;
     }
 
-    private static bool IsDueThisMonth(TodoItemViewModel item)
+    private bool IsDueThisMonth(TodoItemViewModel item)
     {
         if (item.DueDate is not { } dueDate)
         {
@@ -490,7 +492,7 @@ public sealed partial class TodoWidgetViewModel
         }
 
         DateTime localDueDate = dueDate.ToLocalTime().Date;
-        DateTime today = DateTime.Today;
+        DateTime today = CurrentLocalDate;
         return localDueDate.Year == today.Year && localDueDate.Month == today.Month;
     }
 

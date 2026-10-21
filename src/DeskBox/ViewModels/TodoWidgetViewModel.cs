@@ -51,6 +51,8 @@ public sealed partial class TodoWidgetViewModel : ObservableObject, IDisposable
     private readonly LocalizationService _localizationService;
     private readonly WidgetConfig _config;
     private readonly SettingsService? _settingsService;
+    private readonly Func<DateTimeOffset> _clock;
+    private DateTime? _lastObservedLocalDate;
     private TodoFilter _selectedFilter = TodoFilter.All;
     private TodoColorFilter _selectedColorFilter = TodoColorFilter.All;
     private string _inputText = string.Empty;
@@ -89,12 +91,14 @@ public sealed partial class TodoWidgetViewModel : ObservableObject, IDisposable
         TodoWidgetStore store,
         LocalizationService localizationService,
         WidgetConfig config,
-        SettingsService? settingsService = null)
+        SettingsService? settingsService = null,
+        Func<DateTimeOffset>? clock = null)
     {
         _store = store;
         _localizationService = localizationService;
         _config = config;
         _settingsService = settingsService;
+        _clock = clock ?? (() => DateTimeOffset.Now);
         if (_settingsService is not null)
         {
             _textSize = SettingsService.NormalizeTextSize(

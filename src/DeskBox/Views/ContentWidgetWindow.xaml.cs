@@ -49,6 +49,7 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
     private IWidgetFeedbackSource? _feedbackSource;
     private IWidgetHostContextMenuSource? _hostContextMenuSource;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _autoRestoreTimer;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _todoDateRefreshTimer;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _occlusionTimer;
     private bool _occlusionTimerRunning;
     private bool _windowOccluded;
@@ -100,6 +101,7 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
         ConfigureWindowCore();
         ApplyTitleBarLayout();
         SetupEventHandlers();
+        StartTodoDateRefreshTimer();
         
         // ✅ Set initial title
         this.Title = App.Current.LocalizationService.T("Window.ContentWidget.Title");
@@ -387,6 +389,7 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
             contentMode = SettingsService.WidgetCompactContentModeSummary;
         }
 
+        todo.ViewModel.RefreshDateDependentState();
         var nextItem = GetNextCompactTodoItem(todo);
         int overdueCount = todo.ViewModel.Items.Count(item => item.IsOverdue);
         string countSummary = localization.Format(
@@ -1231,6 +1234,42 @@ IsHideAnimationRunning = true;
         }
     }
 
+    private void StartTodoDateRefreshTimer()
+    {
+        if (_config.WidgetKind != WidgetKind.Todo || _todoDateRefreshTimer is not null)
+        {
+            return;
+        }
+
+        _todoDateRefreshTimer = DispatcherQueue.CreateTimer();
+        _todoDateRefreshTimer.Interval = TimeSpan.FromSeconds(30);
+        _todoDateRefreshTimer.IsRepeating = true;
+        _todoDateRefreshTimer.Tick += TodoDateRefreshTimer_Tick;
+        _todoDateRefreshTimer.Start();
+    }
+
+    private void TodoDateRefreshTimer_Tick(
+        Microsoft.UI.Dispatching.DispatcherQueueTimer sender,
+        object args)
+    {
+        if (CurrentContent is TodoWidgetContentAdapter todo)
+        {
+            todo.ViewModel.RefreshDateDependentState();
+        }
+    }
+
+    private void StopTodoDateRefreshTimer()
+    {
+        if (_todoDateRefreshTimer is not { } timer)
+        {
+            return;
+        }
+
+        timer.Stop();
+        timer.Tick -= TodoDateRefreshTimer_Tick;
+        _todoDateRefreshTimer = null;
+    }
+
     internal static bool IsCompactPresentationPropertyRelevant(
         WidgetKind widgetKind,
         string? propertyName)
@@ -1319,6 +1358,7 @@ IsHideAnimationRunning = true;
         {
             IsClosing = true;
             Visible = false;
+            StopTodoDateRefreshTimer();
             _occlusionTimer?.Stop();
             _occlusionTimerRunning = false;
             _occlusionTimer = null;
