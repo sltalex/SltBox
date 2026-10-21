@@ -611,6 +611,35 @@ public sealed class TodoWidgetViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshDateDependentState_UpdatesTodayListAndCountAfterMidnight()
+    {
+        DateTimeOffset now = new DateTimeOffset(
+            DateTime.Today.AddHours(23).AddMinutes(59),
+            TimeZoneInfo.Local.GetUtcOffset(DateTime.Today));
+        var viewModel = CreateViewModel("todo-widget", clock: () => now);
+        await viewModel.InitializeAsync();
+
+        var item = await viewModel.AddItemAsync(
+            "tomorrow",
+            dueDate: new DateTimeOffset(now.Date.AddDays(1).AddHours(9), now.Offset));
+        Assert.NotNull(item);
+
+        viewModel.SelectedFilter = TodoFilter.Today;
+        Assert.Empty(viewModel.VisibleItems);
+        Assert.Equal(0, viewModel.TodayFilterCount);
+
+        var changedProperties = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+        now = now.AddMinutes(2);
+
+        Assert.True(viewModel.RefreshDateDependentState());
+        Assert.Single(viewModel.VisibleItems);
+        Assert.Equal(1, viewModel.TodayFilterCount);
+        Assert.Contains(nameof(TodoWidgetViewModel.TodayFilterCount), changedProperties);
+        Assert.Contains(nameof(TodoWidgetViewModel.TodayFilterText), changedProperties);
+    }
+
+    [Fact]
     public async Task SetDueDateAsync_PreservesTimePrecision()
     {
         var viewModel = CreateViewModel("todo-widget");
@@ -1320,7 +1349,10 @@ public sealed class TodoWidgetViewModelTests : IDisposable
         return new TodoWidgetStore(_widgetsDataRoot, widgetId);
     }
 
-    private TodoWidgetViewModel CreateViewModel(string widgetId, SettingsService? settingsService = null)
+    private TodoWidgetViewModel CreateViewModel(
+        string widgetId,
+        SettingsService? settingsService = null,
+        Func<DateTimeOffset>? clock = null)
     {
         var config = new WidgetConfig
         {
@@ -1335,6 +1367,7 @@ public sealed class TodoWidgetViewModelTests : IDisposable
                 ? TestServices.CreateLocalizationService()
                 : new LocalizationService(settingsService),
             config,
-            settingsService);
+            settingsService,
+            clock);
     }
 }

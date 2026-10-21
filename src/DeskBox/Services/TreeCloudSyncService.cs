@@ -267,6 +267,10 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             File.WriteAllText(conflictPath, state.ConflictSnapshot);
         });
         state.Pending = null;
+        // The cloud snapshot is now the durable baseline. Leaving the old
+        // acknowledgement here would make every later cycle calculate the
+        // same local delta again and repeatedly hit the version conflict.
+        state.Acknowledged = cloud;
         state.StateVersion = cloud.StateVersion;
         state.RefreshRequired = false;
         await SaveStateAsync(path, state, cancellationToken);
@@ -293,7 +297,24 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
     {
         using HttpResponseMessage response = await _api.SendAsync(
             HttpMethod.Get, "../tree/progress.php", null, null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.MethodNotAllowed)
+        {
+            // The first rollout exposed reads through tree/state.php while the
+            // current endpoint also accepts GET. Keep old servers usable while
+            // they are being updated, and only fall back for an explicit 405.
+            using HttpResponseMessage legacy = await _api.SendAsync(
+                HttpMethod.Get, "../tree/state.php", null, null, cancellationToken);
+            await EnsureSuccessAsync(legacy, cancellationToken);
+            return await DeserializeStateAsync(legacy, cancellationToken);
+        }
+
         await EnsureSuccessAsync(response, cancellationToken);
+        return await DeserializeStateAsync(response, cancellationToken);
+    }
+
+    private static async Task<TreeStateDto> DeserializeStateAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
         TreeStateResponse body = await JsonSerializer.DeserializeAsync(
             await response.Content.ReadAsStreamAsync(cancellationToken),
             AccountCloudJsonContext.Default.TreeStateResponse,

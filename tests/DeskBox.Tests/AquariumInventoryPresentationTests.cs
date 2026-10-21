@@ -11,10 +11,17 @@ public sealed class AquariumInventoryPresentationTests
         string path = Path.Combine(FindRepositoryRoot(), "src", "DeskBox", "Views",
             "SettingsSections", "AquariumStoreSection.xaml");
         XNamespace toolkit = "using:CommunityToolkit.WinUI.Controls";
-        XElement card = Assert.Single(XDocument.Load(path).Descendants(toolkit + "SettingsCard"));
-
-        Assert.Equal("Vertical", (string?)card.Attribute("ContentAlignment"));
-        Assert.Equal("Stretch", (string?)card.Attribute("HorizontalContentAlignment"));
+        XElement[] cards = XDocument.Load(path).Descendants(toolkit + "SettingsCard").ToArray();
+        Assert.Equal(2, cards.Length);
+        Assert.All(cards, card =>
+        {
+            Assert.Equal("Vertical", (string?)card.Attribute("ContentAlignment"));
+            Assert.Equal("Stretch", (string?)card.Attribute("HorizontalContentAlignment"));
+        });
+        Assert.Equal("Aquarium.Settings.RecycleFruit",
+            cards[0].Attributes().Single(attribute => attribute.Name.LocalName == "Localized.HeaderKey").Value);
+        Assert.Equal("Aquarium.Settings.Store",
+            cards[1].Attributes().Single(attribute => attribute.Name.LocalName == "Localized.HeaderKey").Value);
     }
 
     [Fact]
@@ -120,6 +127,7 @@ public sealed class AquariumInventoryPresentationTests
         Assert.DoesNotContain("BackpackCategories", backpack, StringComparison.Ordinal);
         Assert.Contains("StoreCategories", store, StringComparison.Ordinal);
         Assert.Contains("StoreItems", store, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RecycleHost\"", store, StringComparison.Ordinal);
         Assert.DoesNotContain("SaveLayout", backpack, StringComparison.Ordinal);
         Assert.DoesNotContain("_walletTab", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("RenderWallet", settings, StringComparison.Ordinal);
