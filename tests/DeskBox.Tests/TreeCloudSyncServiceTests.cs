@@ -11,7 +11,7 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "DeskBoxTreeCloudTests", Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public async Task SyncUploadsFullSnapshotAndAppliesAuthoritativeState()
+    public async Task SyncUploadsPendingDeltaAndAppliesAuthoritativeState()
     {
         var api = new FakeApi
         {
@@ -29,7 +29,7 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         using JsonDocument body = JsonDocument.Parse(Assert.Single(api.Bodies));
         Assert.Equal("POST", api.Methods[1]);
         Assert.Equal(100, body.RootElement.GetProperty("energy_delta").GetInt64());
-        Assert.Equal(10, body.RootElement.GetProperty("today_growth").GetInt64());
+        Assert.Equal(10, body.RootElement.GetProperty("day_growth_delta").GetInt64());
         Assert.Equal(500, applied!.TotalEnergy);
         Assert.Equal(2, applied.FruitInventory);
     }
@@ -38,7 +38,7 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     public async Task FailedUpload_PersistsAndReusesSameOperationId()
     {
         var auth = new FakeAuth("user-1", "Simon");
-        var offlineApi = new FakeApi { Failure = new HttpRequestException("offline") };
+        var offlineApi = new FakeApi { PostFailure = new HttpRequestException("offline") };
         TreeProgress progress = Progress(120, 40, 3, 1);
         await using (var first = new TreeCloudSyncService(offlineApi, auth, () => progress, _root))
             await Assert.ThrowsAsync<HttpRequestException>(() => first.SyncNowAsync());
@@ -78,10 +78,11 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     {
         var auth = new FakeAuth("user-1", "Simon");
         TreeProgress local = Progress(100, 10, 1, 0);
-        var offlineApi = new FakeApi { Failure = new HttpRequestException("offline") };
+        var offlineApi = new FakeApi { PostFailure = new HttpRequestException("offline") };
         await using (var first = new TreeCloudSyncService(offlineApi, auth, () => local, _root,
             () => DateTimeOffset.Parse("2026-10-14T08:00:00Z")))
             await Assert.ThrowsAsync<HttpRequestException>(() => first.SyncNowAsync());
+        string firstOperation = ReadOperation(Assert.Single(offlineApi.Bodies));
 
         local = Progress(150, 60, 1, 0);
         var conflictApi = new FakeApi { State = State(version: 4, energy: 0, growth: 0, stage: 1, fruitEnergy: 0, fruitInventory: 0, harvested: 0) };
@@ -90,6 +91,36 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
             Assert.True(await second.SyncNowAsync());
 
         Assert.Equal(firstOperation, ReadOperation(Assert.Single(conflictApi.Bodies)));
+    }
+
+    [Fact]
+    public async Task VersionConflictPreservesLocalSnapshotAndAdoptsCloudState()
+    {
+        var api = new FakeApi
+        {
+            State = State(version: 1, energy: 10, growth: 1, stage: 1, fruitEnergy: 10, fruitInventory: 0, harvested: 0),
+            ConflictState = State(version: 2, energy: 900, growth: 90, stage: 2, fruitEnergy: 500, fruitInventory: 3, harvested: 4),
+            Conflict = true
+        };
+        var auth = new FakeAuth("user-1", "Simon");
+        TreeProgress local = Progress(100, 10, 1, 0);
+        TreeStateDto? applied = null;
+        await using var service = new TreeCloudSyncService(
+            api, auth, () => local, _root,
+            applyAuthoritativeCloudState: (state, preserve) =>
+            {
+                preserve(local);
+                applied = state;
+            });
+
+        Assert.True(await service.SyncNowAsync());
+
+        Assert.True(service.HasConflict);
+        Assert.Equal(900, applied!.TotalEnergy);
+        Assert.Equal(3, applied.FruitInventory);
+        Assert.Equal(["GET", "POST", "GET"], api.Methods);
+        Assert.Single(api.Bodies);
+        Assert.Single(Directory.GetFiles(_root, "conflict-*.json", SearchOption.AllDirectories));
     }
 
     private static TreeProgress Progress(long energy, long today, long inventory, long harvested, TreeStateDto? state = null) => new()
@@ -131,24 +162,33 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
 
     private sealed class FakeApi : IAuthenticatedAccountApi
     {
-        internal Exception? Failure { get; set; }
+        internal Exception? PostFailure { get; set; }
         internal bool Conflict { get; set; }
         internal TreeStateDto State { get; set; } = new() { Day = "2026-10-14", Stage = 1 };
+        internal TreeStateDto? ConflictState { get; set; }
         internal TreeStateDto? UploadState { get; set; }
         internal List<byte[]> Bodies { get; } = [];
         internal List<string> Methods { get; } = [];
+        private bool _postAttempted;
 
         public Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativePath, byte[]? jsonBody, string? contentEncoding, CancellationToken cancellationToken = default)
         {
             Methods.Add(method.Method);
-            if (jsonBody is not null) Bodies.Add(jsonBody);
-            if (Failure is not null) throw Failure;
-            if (Conflict && method == HttpMethod.Post)
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict));
-            return Response(JsonSerializer.Serialize(new TreeProgressUploadResponse { State = method == HttpMethod.Post ? UploadState ?? State : State }));
+            if (method == HttpMethod.Post)
+            {
+                if (jsonBody is not null) Bodies.Add(jsonBody);
+                _postAttempted = true;
+                if (PostFailure is not null) throw PostFailure;
+                if (Conflict)
+                    return Response(HttpStatusCode.Conflict, "{\"code\":\"state_conflict\",\"message\":\"State version conflict.\"}");
+                return Response(HttpStatusCode.OK, JsonSerializer.Serialize(new TreeProgressUploadResponse { State = UploadState ?? State }));
+            }
+
+            TreeStateDto state = _postAttempted && ConflictState is not null ? ConflictState : State;
+            return Response(HttpStatusCode.OK, JsonSerializer.Serialize(new TreeStateResponse { State = state }));
         }
 
-        private static Task<HttpResponseMessage> Response(string json) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        private static Task<HttpResponseMessage> Response(HttpStatusCode statusCode, string json) => Task.FromResult(new HttpResponseMessage(statusCode)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });

@@ -124,12 +124,26 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             state.Pending = new TreeStateSyncRequest { OperationId = request.OperationId, BaseVersion = cloud.StateVersion };
             await SaveStateAsync(statePath, state, cancellationToken);
             byte[] json = JsonSerializer.SerializeToUtf8Bytes(request, AccountCloudJsonContext.Default.TreeProgressUploadRequest);
-            using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post, "../tree/progress.php", json, null, cancellationToken);
-            await EnsureSuccessAsync(response, cancellationToken);
-            TreeProgressUploadResponse body = await JsonSerializer.DeserializeAsync(
-                await response.Content.ReadAsStreamAsync(cancellationToken),
-                AccountCloudJsonContext.Default.TreeProgressUploadResponse, cancellationToken)
-                ?? throw new InvalidDataException("The tree progress response is empty.");
+            HttpResponseMessage? response = null;
+            try
+            {
+                response = await _api.SendAsync(HttpMethod.Post, "../tree/progress.php", json, null, cancellationToken);
+                await EnsureSuccessAsync(response, cancellationToken);
+            }
+            catch (AuthApiException error) when (error.StatusCode == HttpStatusCode.Conflict || error.Code == "state_conflict")
+            {
+                response?.Dispose();
+                TreeStateDto latest = await ReadStateAsync(cancellationToken);
+                await AdoptCloudAfterConflictAsync(statePath, state, latest, cancellationToken);
+                return true;
+            }
+            if (response is null) throw new InvalidDataException("The tree progress response is empty.");
+            using (response)
+            {
+                TreeProgressUploadResponse body = await JsonSerializer.DeserializeAsync(
+                    await response.Content.ReadAsStreamAsync(cancellationToken),
+                    AccountCloudJsonContext.Default.TreeProgressUploadResponse, cancellationToken)
+                    ?? throw new InvalidDataException("The tree progress response is empty.");
             bool appliedToLocal = _applyAuthoritativeIfUnchanged(body.State, local);
             state.Acknowledged = appliedToLocal ? body.State : ProjectedAcknowledgement(baseline, delta, body.State);
             state.StateVersion = body.State.StateVersion;
@@ -141,6 +155,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             HasConflict = false;
             _ = RefreshLeaderboardAfterUploadAsync();
             return true;
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
@@ -277,7 +292,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
     private async Task<TreeStateDto> ReadStateAsync(CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await _api.SendAsync(
-            HttpMethod.Get, "../tree/state.php", null, null, cancellationToken);
+            HttpMethod.Get, "../tree/progress.php", null, null, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         TreeStateResponse body = await JsonSerializer.DeserializeAsync(
             await response.Content.ReadAsStreamAsync(cancellationToken),

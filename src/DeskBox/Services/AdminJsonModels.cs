@@ -5,6 +5,8 @@ internal sealed class AdminMutationRequest
     public string Action { get; set; } = string.Empty;
     public string TargetId { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
+    public string? Username { get; set; }
+    public string? Status { get; set; }
     public string? SessionId { get; set; }
     public string? SnapshotId { get; set; }
     public string? ConfirmUsername { get; set; }
@@ -17,5 +19,5 @@ internal sealed class AdminMutationRequest
     public long? FruitTotal { get; set; }
     public long? HarvestedTotal { get; set; }
     public long? Coins { get; set; }
-    public long? PricePerFruit { get; set; }
+    public int? PricePerFruit { get; set; }
 }

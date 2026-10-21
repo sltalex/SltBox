@@ -36,6 +36,9 @@ $summary = admin_read($pdo, $adminId, 'overview', [], $clock);
 check($summary['overview']['users'] === 2, 'Summary includes both users.');
 $list = admin_read($pdo, $adminId, 'users', ['q' => 'second'], $clock);
 check(count($list['users']) === 1, 'User search filters results.');
+$paged = admin_read($pdo, $adminId, 'users', ['page' => 2, 'page_size' => 1], $clock);
+check($paged['total'] === 2 && $paged['page'] === 2 && $paged['page_count'] === 2 && count($paged['users']) === 1,
+    'User list returns server-side paging metadata.');
 $detail = admin_read($pdo, $adminId, 'user', ['id' => $memberId], $clock);
 check(count($detail['sessions']) === 1, 'Device sessions are visible.');
 check((int)$pdo->query('SELECT COUNT(*) FROM tree_profiles')->fetchColumn() === 0,
@@ -46,6 +49,14 @@ check(api_is_https(['HTTPS' => 'on']) && api_is_https(['SERVER_PORT' => '443'])
     && !api_is_https(['HTTPS' => 'off', 'SERVER_PORT' => '80']), 'HTTPS detection requires a secure transport.');
 
 $common = ['target_id' => $memberId, 'reason' => 'Test operation'];
+admin_mutate($pdo, $adminId, ['target_id' => $memberId, 'action' => 'update_user',
+    'username' => 'second_user', 'status' => 'active'], $clock);
+check((string)$pdo->query("SELECT username FROM auth_users WHERE id = '{$memberId}'")->fetchColumn() === 'second_user',
+    'A user row can be edited without an operation reason.');
+admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_fruit_recycle_price',
+    'price_per_fruit' => 20], $clock);
+check(admin_read($pdo, $adminId, 'fruit_recycle', [], $clock)['price_per_fruit'] === 20,
+    'A non-negative integer recycle price can be saved without an operation reason.');
 admin_mutate($pdo, $adminId, $common + ['action' => 'disable'], $clock);
 fails('invalid_session', static fn() => auth_me($pdo, $member['session']['access_token'], $clock));
 fails('account_disabled', static fn() => auth_login($pdo, 'second_user', 'secret2', 'device-b', '127.0.0.2', $clock));
@@ -118,6 +129,6 @@ admin_mutate($pdo, $adminId, $common + ['action' => 'delete_user',
     'confirm_username' => 'second_user', 'admin_password' => 'secret1'], $clock);
 check((int)$pdo->query('SELECT COUNT(*) FROM auth_users')->fetchColumn() === 1, 'Account deleted.');
 check((int)$pdo->query("SELECT COUNT(*) FROM auth_sessions WHERE user_id = '{$memberId}'")->fetchColumn() === 0, 'Deleted sessions cascade.');
-check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 17, 'Operations and failures audited.');
+check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 19, 'Operations and failures audited.');
 check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 7, 'Failed operations are audited.');
 echo "admin_service_test: ok\n";

@@ -41,16 +41,24 @@ function admin_read(PDO $pdo, string $actorId, string $view, array $query, calla
     }
     if ($view === 'users') {
         $search = trim((string)($query['q'] ?? ''));
-        $offset = max(0, min(100000, (int)($query['offset'] ?? 0)));
+        $page = max(1, min(100000, (int)($query['page'] ?? 1)));
+        $pageSize = max(1, min(100, (int)($query['page_size'] ?? 20)));
+        $pattern = '%' . strtolower(addcslashes($search, '%_\\')) . '%';
+        $count = $pdo->prepare('SELECT COUNT(*) FROM auth_users WHERE username_normalized LIKE :search');
+        $count->execute([':search' => $pattern]);
+        $total = (int)$count->fetchColumn();
+        $pageCount = max(1, (int)ceil($total / $pageSize));
+        $page = min($page, $pageCount);
+        $offset = ($page - 1) * $pageSize;
         $statement = $pdo->prepare('SELECT u.id, u.username, u.status, u.created_at, '
             . 'CASE WHEN b.user_id = u.id THEN 1 ELSE 0 END AS is_admin '
             . 'FROM auth_users u CROSS JOIN admin_bootstrap b '
-            . 'WHERE u.username_normalized LIKE :search ORDER BY u.created_at, u.id LIMIT 50 OFFSET ' . $offset);
-        $statement->execute([':search' => '%' . strtolower(addcslashes($search, '%_\\')) . '%']);
+            . 'WHERE u.username_normalized LIKE :search ORDER BY u.created_at, u.id LIMIT ' . $pageSize . ' OFFSET ' . $offset);
+        $statement->execute([':search' => $pattern]);
         $users = $statement->fetchAll(PDO::FETCH_ASSOC);
         foreach ($users as &$user) { $user['is_admin'] = (int)$user['is_admin']; }
         unset($user);
-        return ['users' => $users];
+        return ['users' => $users, 'total' => $total, 'page' => $page, 'page_size' => $pageSize, 'page_count' => $pageCount];
     }
     if ($view === 'audit') {
         return ['audit' => $pdo->query('SELECT id, actor_id, target_id, action, reason, result, details_json, created_at '
@@ -123,10 +131,11 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
     $action = data_string($body, 'action');
     $targetId = admin_id($body, 'target_id');
     $reason = data_string($body, 'reason');
-    if ($reason === '' || strlen($reason) > 500) {
-        throw new ApiError('invalid_reason', 'A reason of at most 500 bytes is required.', 400);
+    if (strlen($reason) > 500) {
+        throw new ApiError('invalid_reason', 'The operation note must be at most 500 bytes.', 400);
     }
-    $allowed = ['disable', 'enable', 'revoke_session', 'revoke_all_sessions', 'delete_user',
+    $reason = $reason === '' ? 'admin_ui' : $reason;
+    $allowed = ['disable', 'enable', 'update_user', 'revoke_session', 'revoke_all_sessions', 'delete_user',
         'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk', 'set_aquarium_coins', 'set_fruit_recycle_price'];
     if (!in_array($action, $allowed, true)) { throw new ApiError('invalid_action', 'Unknown action.', 400); }
     if ($action === 'delete_user') {
@@ -146,7 +155,9 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
             throw new ApiError('protected_admin', 'The administrator account is protected.', 403);
         }
         $details = [];
-        if ($action === 'disable' || $action === 'enable') {
+        if ($action === 'update_user') {
+            $details = admin_update_user($pdo, $targetId, $body, $now, $driver);
+        } elseif ($action === 'disable' || $action === 'enable') {
             $status = $action === 'disable' ? 'disabled' : 'active';
             $update = $pdo->prepare('UPDATE auth_users SET status = :status, updated_at = :now WHERE id = :id');
             $update->execute([':status' => $status, ':now' => auth_sql_time($now), ':id' => $targetId]);
@@ -202,6 +213,34 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         }
         throw $error;
     }
+}
+
+function admin_update_user(PDO $pdo, string $userId, array $body,
+    DateTimeImmutable $now, string $driver): array
+{
+    $username = trim((string)($body['username'] ?? ''));
+    $status = (string)($body['status'] ?? '');
+    if (!preg_match('/\A[A-Za-z0-9_]{3,32}\z/D', $username)) {
+        throw new ApiError('invalid_username', 'Username must be 3-32 letters, numbers, or underscores.', 400);
+    }
+    if (!in_array($status, ['active', 'disabled'], true)) {
+        throw new ApiError('invalid_status', 'Account status is invalid.', 400);
+    }
+    $normalized = strtolower($username);
+    $duplicate = $pdo->prepare('SELECT id FROM auth_users WHERE username_normalized = :normalized AND id <> :id LIMIT 1');
+    $duplicate->execute([':normalized' => $normalized, ':id' => $userId]);
+    if ($duplicate->fetchColumn() !== false) {
+        throw new ApiError('username_taken', 'This username is already registered.', 409);
+    }
+    $owner = $pdo->query('SELECT user_id FROM admin_bootstrap WHERE id = 1')->fetchColumn();
+    if ($userId === $owner && $status !== 'active') {
+        throw new ApiError('protected_admin', 'The administrator account is protected.', 403);
+    }
+    $update = $pdo->prepare('UPDATE auth_users SET username = :username, username_normalized = :normalized, status = :status, updated_at = :now WHERE id = :id');
+    $update->execute([':username' => $username, ':normalized' => $normalized, ':status' => $status,
+        ':now' => auth_sql_time($now), ':id' => $userId]);
+    if ($status === 'disabled') { admin_revoke_sessions($pdo, $userId, null, $now); }
+    return ['username' => $username, 'status' => $status];
 }
 
 function admin_set_fruit_recycle_price(PDO $pdo, string $actorId, array $body,

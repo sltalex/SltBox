@@ -3,48 +3,40 @@ namespace DeskBox.Tests;
 public sealed class AdminSettingsSurfaceTests
 {
     [Fact]
-    public void AdminSurface_IsInlineCardAndTableLayoutWithoutRemovedManagers()
+    public void AdminSurface_UsesOverviewUserTableAndFruitRecycleOnly()
     {
         string source = File.ReadAllText(TestPaths.FromRepository(
             "src/DeskBox/Views/SettingsSections/AdminSettingsSection.cs"));
 
         Assert.Contains("SettingsCard _overviewCard", source, StringComparison.Ordinal);
-        Assert.Contains("SettingsCard _usersCard", source, StringComparison.Ordinal);
-        Assert.Contains("SettingsCard _detailCard", source, StringComparison.Ordinal);
+        Assert.Contains("SettingsCard _recycleCard", source, StringComparison.Ordinal);
         Assert.Contains("CreateTableHeader", source, StringComparison.Ordinal);
         Assert.Contains("Content = _shell", source, StringComparison.Ordinal);
         Assert.Contains("Settings.Admin.AccountManagement", source, StringComparison.Ordinal);
-        Assert.Contains("Settings.Admin.TreeManagement", source, StringComparison.Ordinal);
-        Assert.Contains("Settings.Admin.StoreManagement", source, StringComparison.Ordinal);
         Assert.Contains("Settings.Admin.RecycleFruit", source, StringComparison.Ordinal);
-        Assert.Contains("Settings.Admin.AquariumManagement", source, StringComparison.Ordinal);
-        Assert.Contains("HorizontalAlignment = HorizontalAlignment.Stretch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ContentDialog", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Popup", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Flyout", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("revoke_all_sessions", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("revoke_session", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Settings.Admin.Sessions", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("unlink_dingtalk", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Settings.Admin.DingTalk", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Settings.Admin.RefreshAudit", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LoadAuditAsync", source, StringComparison.Ordinal);
+        Assert.Contains("page_size={PageSize}", source, StringComparison.Ordinal);
+        Assert.Contains("ShowEditDialogAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Action = \"update_user\"", source, StringComparison.Ordinal);
+        Assert.Contains("ContentDialog", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Settings.Admin.TreeManagement", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Settings.Admin.StoreManagement", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Settings.Admin.AquariumManagement", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAudit", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Settings.Admin.Reason", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AdminEditor_UsesTwoColumnWorkspaceAndCompactTables()
+    public void FruitRecyclePrice_OnlyValidatesItsNumericInput()
     {
         string source = File.ReadAllText(TestPaths.FromRepository(
             "src/DeskBox/Views/SettingsSections/AdminSettingsSection.cs"));
-        int start = source.IndexOf("private async Task LoadDetailCoreAsync", StringComparison.Ordinal);
-        int end = source.IndexOf("private static T Detach", start, StringComparison.Ordinal);
+        int start = source.IndexOf("private async Task SaveFruitPriceAsync", StringComparison.Ordinal);
+        int end = source.IndexOf("private async Task LoadUsersAsync", start, StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start);
-        string editor = source[start..end];
+        string method = source[start..end];
 
-        Assert.Contains("AddDetailSection(_detail, accountCard", editor, StringComparison.Ordinal);
-        Assert.Contains("AddDetailSection(_detail, treeCard", editor, StringComparison.Ordinal);
-        Assert.Contains("AddDetailSection(_detail, coinsCard", editor, StringComparison.Ordinal);
-        Assert.Contains("_detail.ColumnDefinitions.Add(new ColumnDefinition", editor, StringComparison.Ordinal);
-        Assert.Contains("Grid.SetColumn(content, column)", source, StringComparison.Ordinal);
+        Assert.Contains("int.TryParse", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Reason", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("reason", method, StringComparison.Ordinal);
     }
 }

@@ -33,16 +33,15 @@ public sealed class AdminSettingsPresentationTests
     }
 
     [Fact]
-    public void AccountSettings_OpenInlineWithoutDependingOnAContentDialogComponent()
+    public void AccountSettings_EditUsesAnExplicitModalAndCompactTable()
     {
         string root = FindRepositoryRoot();
         string section = File.ReadAllText(Path.Combine(root,
             "src", "DeskBox", "Views", "SettingsSections", "AdminSettingsSection.cs"));
 
-        Assert.Contains("_detailCard", section, StringComparison.Ordinal);
-        Assert.Contains("ShowDetailPanel", section, StringComparison.Ordinal);
-        Assert.DoesNotContain("ContentDialog", section, StringComparison.Ordinal);
-        Assert.DoesNotContain("ShowDetailDialogAsync", section, StringComparison.Ordinal);
+        Assert.Contains("ShowEditDialogAsync", section, StringComparison.Ordinal);
+        Assert.Contains("new ContentDialog", section, StringComparison.Ordinal);
+        Assert.Contains("CreateTableHeader", section, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
