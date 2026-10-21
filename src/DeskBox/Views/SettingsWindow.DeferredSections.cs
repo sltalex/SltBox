@@ -48,9 +48,9 @@ public sealed partial class SettingsWindow
         if (_settingsSectionElements.TryGetValue("AquariumSettings", out FrameworkElement? aquariumElement) &&
             aquariumElement is AquariumSettingsSection aquarium)
         {
-            aquarium.SetActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "AquariumSettings");
-            aquarium.SetBackpackActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "Backpack");
-            aquarium.SetStoreActive(!_isClosed && IsVisibleToUser && IsVerifiedAdmin && _currentSettingsSection == "AquariumStore");
+            aquarium.SetActive(!_isClosed && IsVisibleToUser && HasAquariumAccess && _currentSettingsSection == "AquariumSettings");
+            aquarium.SetBackpackActive(!_isClosed && IsVisibleToUser && HasAquariumAccess && _currentSettingsSection == "Backpack");
+            aquarium.SetStoreActive(!_isClosed && IsVisibleToUser && HasAquariumAccess && _currentSettingsSection == "AquariumStore");
         }
     }
 
@@ -64,7 +64,7 @@ public sealed partial class SettingsWindow
 
     private FrameworkElement EnsureSettingsSectionCreated(string sectionTag)
     {
-        if (!IsVerifiedAdmin && sectionTag is ("AquariumSettings" or "Backpack" or "AquariumStore"))
+        if (!CanAccessSettingsRoute(sectionTag))
             return EnsureSettingsSectionCreated("General");
         if (sectionTag is "Backpack" or "AquariumStore") EnsureSettingsSectionCreated("AquariumSettings");
         if (_settingsSectionElements.TryGetValue(sectionTag, out FrameworkElement? existing))
@@ -93,19 +93,6 @@ public sealed partial class SettingsWindow
 
         switch (section)
         {
-            case AdminSettingsSection admin:
-                admin.Initialize(_authSession, _localizationService);
-                break;
-            case SearchSettingsSection searchSettings:
-                searchSettings.Configure(_searchSettingsViewModel, _localizationService, _hWnd);
-                break;
-            case TreeSettingsSection treeSettings:
-                treeSettings.Configure(
-                    ViewModel,
-                    _localizationService,
-                    _authSession,
-                    _treeCloudSyncService);
-                break;
             case AquariumSettingsSection aquarium:
                 aquarium.Initialize(_aquariumService, _localizationService,
                     () => _settingsService.Settings.WidgetLayout.AquariumAnimationsEnabled,
@@ -123,6 +110,16 @@ public sealed partial class SettingsWindow
             case AquariumStoreSection store:
                 ((AquariumSettingsSection)_settingsSectionElements["AquariumSettings"])
                     .AttachExternalStore(store);
+                break;
+            case SearchSettingsSection searchSettings:
+                searchSettings.Configure(_searchSettingsViewModel, _localizationService, _hWnd);
+                break;
+            case TreeSettingsSection treeSettings:
+                treeSettings.Configure(
+                    ViewModel,
+                    _localizationService,
+                    _authSession,
+                    _treeCloudSyncService);
                 break;
             case DingTalkGroupDocsSettingsSection groupDocsSettings:
                 groupDocsSettings.Configure(

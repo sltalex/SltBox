@@ -74,11 +74,6 @@ public sealed partial class SettingsWindow
     {
         Title = _localizationService.T("Settings.WindowTitle");
         Localized.RefreshAll(_localizationService);
-        if (_settingsSectionElements.TryGetValue("Admin", out FrameworkElement? adminElement) &&
-            adminElement is DeskBox.Views.SettingsSections.AdminSettingsSection adminSection)
-        {
-            adminSection.RefreshLocalizedContent();
-        }
         if (_settingsSectionElements.TryGetValue("AquariumSettings", out FrameworkElement? aquariumElement) &&
             aquariumElement is DeskBox.Views.SettingsSections.AquariumSettingsSection aquariumSection)
         {
@@ -135,7 +130,7 @@ public sealed partial class SettingsWindow
         try
         {
             var entries = ViewModel.FeatureWidgetEntries
-                .Where(entry => entry.Kind != WidgetKind.Aquarium || IsVerifiedAdmin)
+                .Where(entry => entry.Kind != WidgetKind.Aquarium || HasAquariumAccess)
                 .ToArray();
             bool requiresRebuild = entries.Length != _featureWidgetRows.Count ||
                 entries.Any(entry =>
@@ -455,7 +450,7 @@ public sealed partial class SettingsWindow
 
         if (sender is ToggleSwitch { Tag: WidgetKind kind } toggle)
         {
-            if (kind == WidgetKind.Aquarium && !IsVerifiedAdmin)
+            if (kind == WidgetKind.Aquarium && !HasAquariumAccess)
             {
                 DispatcherQueue.TryEnqueue(RefreshFeatureWidgetList);
                 return;

@@ -108,7 +108,6 @@ public sealed partial class SettingsWindow : Window
             ["Interaction"] = new("Interaction", "Settings.Section.Interaction", null, "Interaction"),
             ["Advanced"] = new("Advanced", "Settings.Section.Advanced", null, "Interaction"),
             ["Maintenance"] = new("Maintenance", "Settings.Section.Maintenance", null, "Maintenance"),
-            ["Admin"] = new("Admin", "Settings.Nav.Admin", null, "Admin"),
             ["About"] = new("About", "Settings.Nav.About", null, "About"),
             ["FileDisplaySettings"] = new("FileDisplaySettings", "Settings.Group.FileLayout.Title", "AppearanceDetail", "AppearanceDetail"),
             ["ManagedStorage"] = new("ManagedStorage", "Settings.ManagedStorage.PageTitle", "AppearanceDetail", "AppearanceDetail"),
@@ -327,7 +326,7 @@ public sealed partial class SettingsWindow : Window
 
         ApplyTitleBarButtonColors();
         ApplyLocalizedText();
-        InitializeAdminNavigation();
+        InitializeAquariumNavigation();
         RefreshManagedStoragePathWarning();
         LogConstructionCheckpoint("localized-content");
         SettingsNavigationView.SelectedItem = GeneralNavItem;
@@ -503,7 +502,8 @@ public sealed partial class SettingsWindow : Window
         _themeService.AppearanceChanged -= OnAppearanceChanged;
         _localizationService.LanguageChanged -= OnLanguageChanged;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-        _authSession.SessionChanged -= OnAdminSessionChanged;
+        _authSession.SessionChanged -= OnAquariumAccessChanged;
+        _aquariumService.Changed -= OnAquariumAccessChanged;
         if (App.Current.GlobalHotkeyService is { } hotkeyService)
         {
             hotkeyService.RegistrationChanged -= OnGlobalHotkeyRegistrationChanged;

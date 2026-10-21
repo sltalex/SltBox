@@ -288,15 +288,6 @@ Text="SltBox" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
-                    x:Name="AdminNavItem"
-                    Tag="Admin"
-                    Visibility="Collapsed"
-                    svc:Localized.Key="Settings.Nav.Admin">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7EF;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem
                     x:Name="AboutNavItem"
                     Tag="About"
                     svc:Localized.Key="Settings.Nav.About">
@@ -3240,9 +3231,6 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                         </toolkit:SettingsCard>
                     </StackPanel>
                 </StackPanel>
-                    </DataTemplate>
-                    <DataTemplate x:Key="AdminSectionTemplate" x:DataType="viewModels:SettingsViewModel">
-                        <sections:AdminSettingsSection x:Name="AdminSection" Visibility="Collapsed" />
                     </DataTemplate>
                     <DataTemplate x:Key="AboutSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <StackPanel

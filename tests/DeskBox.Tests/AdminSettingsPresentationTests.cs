@@ -5,43 +5,31 @@ namespace DeskBox.Tests;
 public sealed class AdminSettingsPresentationTests
 {
     [Fact]
-    public void AdministratorMenu_IsHiddenByDefaultAndPrecedesAbout()
+    public void Settings_DoNotExposeDesktopAdministratorManagement()
     {
         string root = FindRepositoryRoot();
         XDocument document = XDocument.Load(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.xaml"));
         XNamespace ui = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
-        XElement admin = Assert.Single(document.Descendants(ui + "NavigationViewItem")
-            .Where(item => (string?)item.Attribute("Tag") == "Admin"));
-        Assert.Equal("Collapsed", (string?)admin.Attribute("Visibility"));
-        XElement general = Assert.Single(document.Descendants(ui + "NavigationViewItem")
-            .Where(item => (string?)item.Attribute("Tag") == "General"));
-        XElement backpack = Assert.Single(document.Descendants(ui + "NavigationViewItem")
-            .Where(item => (string?)item.Attribute("Tag") == "Backpack"));
-        Assert.Equal("Collapsed", (string?)backpack.Attribute("Visibility"));
-        Assert.Same(backpack, general.ElementsAfterSelf(ui + "NavigationViewItem").First());
-        XElement about = Assert.Single(document.Descendants(ui + "NavigationViewItem")
-            .Where(item => (string?)item.Attribute("Tag") == "About"));
-        Assert.Same(about, admin.ElementsAfterSelf(ui + "NavigationViewItem").First());
 
-        string navigation = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.Navigation.cs"));
-        Assert.Contains("route.Tag == \"Admin\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
-        Assert.Contains("sectionTag == \"Admin\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
-        Assert.Contains("route.Tag == \"Backpack\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
-        Assert.Contains("sectionTag == \"Backpack\" && !IsVerifiedAdmin", navigation, StringComparison.Ordinal);
-        string adminCode = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.Admin.cs"));
-        Assert.Contains("_authSession.IsAuthenticated", adminCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(document.Descendants(ui + "NavigationViewItem"),
+            item => (string?)item.Attribute("Tag") == "Admin");
+        Assert.DoesNotContain(document.Descendants(ui + "DataTemplate"),
+            item => (string?)item.Attribute("Key") == "AdminSectionTemplate");
+
+        string routes = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.xaml.cs"));
+        Assert.DoesNotContain("[\"Admin\"]", routes, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(root, "src", "DeskBox", "Views", "SettingsSections", "AdminSettingsSection.cs")));
+        Assert.False(File.Exists(Path.Combine(root, "src", "DeskBox", "Services", "AdminJsonModels.cs")));
     }
 
     [Fact]
-    public void AccountSettings_EditUsesAnExplicitModalAndCompactTable()
+    public void AquariumSettings_RemainASeparateAccountGatedFeature()
     {
         string root = FindRepositoryRoot();
-        string section = File.ReadAllText(Path.Combine(root,
-            "src", "DeskBox", "Views", "SettingsSections", "AdminSettingsSection.cs"));
-
-        Assert.Contains("ShowEditDialogAsync", section, StringComparison.Ordinal);
-        Assert.Contains("new ContentDialog", section, StringComparison.Ordinal);
-        Assert.Contains("CreateTableHeader", section, StringComparison.Ordinal);
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.xaml"));
+        string routes = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.xaml.cs"));
+        Assert.Contains("AquariumSettingsSectionTemplate", xaml, StringComparison.Ordinal);
+        Assert.Contains("[\"AquariumSettings\"]", routes, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
