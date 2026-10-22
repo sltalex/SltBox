@@ -1046,6 +1046,8 @@
   "Settings.ContentEditor.Group.Description": "নিয়ন্ত্রণ তালিকা সারাংশ এবং মাল্টিলাইন সম্পাদক শর্টকাট",
   "Settings.ContentEditor.PreviewLines.Title": "তালিকায় দেখানো লাইন",
   "Settings.ContentEditor.PreviewLines.Description": "প্রতিটি তালিকা আইটেমের জন্য দেখানো লাইন সীমাবদ্ধ করুন; সম্পূর্ণ বিষয়বস্তু বিস্তারিত পাওয়া যায়",
+  "Settings.ContentEditor.ExpandOnHover.Title": "হোভারে বিষয়বস্তু প্রসারিত করুন",
+  "Settings.ContentEditor.ExpandOnHover.Description": "পয়েন্টার কোনো রেকর্ডের ওপর থাকলে সাময়িকভাবে পুরো লেখা দেখান এবং সরে গেলে তালিকার লাইন সীমা ফিরিয়ে দিন",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 লাইন",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} লাইন",
   "Settings.ContentEditor.EnterBehavior.Title": "কী আচরণ লিখুন",

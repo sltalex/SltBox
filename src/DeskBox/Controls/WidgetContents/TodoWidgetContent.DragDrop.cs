@@ -610,6 +610,7 @@ public sealed partial class TodoWidgetContent
 
         item.PropertyChanged -= TodoItem_PropertyChanged;
         item.PropertyChanged += TodoItem_PropertyChanged;
+        item.SetPointerOver(false);
         SetTodoItemHoverState(sender, false);
         if (sender is Border border)
         {
@@ -628,6 +629,7 @@ public sealed partial class TodoWidgetContent
     {
         if (sender is Border border)
         {
+            (border.DataContext as TodoItemViewModel)?.SetPointerOver(false);
             WidgetSurfaceForegroundScope.ApplyForBackground(border, border.Background);
         }
     }

@@ -264,7 +264,8 @@ public sealed class TodoSettingsCoordinator : ITodoSettings
             SettingsService.NormalizeTextSize(
                 todo.TodoContentTextSize > 0
                     ? todo.TodoContentTextSize
-                    : settings.WidgetShell.TextSize));
+                    : settings.WidgetShell.TextSize),
+            todo.TodoExpandItemOnHover);
     }
 
     public void SetPreviewLineCount(int lineCount)
@@ -275,6 +276,15 @@ public sealed class TodoSettingsCoordinator : ITodoSettings
         TodoSettingsSlice todo = _settings.Settings.Todo;
         if (todo.TodoItemPreviewLineCount == normalized) return;
         todo.TodoItemPreviewLineCount = normalized;
+        _settings.SaveDebounced();
+    }
+
+    public void SetExpandItemOnHover(bool enabled)
+    {
+        ObjectDisposedException.ThrowIf(_stopped, this);
+        TodoSettingsSlice todo = _settings.Settings.Todo;
+        if (todo.TodoExpandItemOnHover == enabled) return;
+        todo.TodoExpandItemOnHover = enabled;
         _settings.SaveDebounced();
     }
 
@@ -289,12 +299,14 @@ public sealed class TodoSettingsCoordinator : ITodoSettings
         ObjectDisposedException.ThrowIf(_stopped, this);
         TodoSettingsSlice todo = _settings.Settings.Todo;
         if (todo.TodoItemPreviewLineCount ==
-            SettingsService.DefaultTodoItemPreviewLineCount)
+                SettingsService.DefaultTodoItemPreviewLineCount &&
+            todo.TodoExpandItemOnHover)
         {
             return;
         }
         todo.TodoItemPreviewLineCount =
             SettingsService.DefaultTodoItemPreviewLineCount;
+        todo.TodoExpandItemOnHover = true;
         if (scheduleSave) _settings.SaveDebounced();
     }
 

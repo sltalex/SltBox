@@ -1043,6 +1043,8 @@
   "Settings.ContentEditor.Group.Description": "Controle os resumos da lista e atalhos do editor multilinha",
   "Settings.ContentEditor.PreviewLines.Title": "Linhas mostradas nas listas",
   "Settings.ContentEditor.PreviewLines.Description": "Limite as linhas mostradas para cada item da lista; o conteúdo completo permanece disponível nos detalhes",
+  "Settings.ContentEditor.ExpandOnHover.Title": "Expandir conteúdo ao passar o mouse",
+  "Settings.ContentEditor.ExpandOnHover.Description": "Mostrar temporariamente todo o texto enquanto o ponteiro estiver sobre um registro e restaurar depois o limite de linhas",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 linha",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} linhas",
   "Settings.ContentEditor.EnterBehavior.Title": "Comportamento da tecla Enter",

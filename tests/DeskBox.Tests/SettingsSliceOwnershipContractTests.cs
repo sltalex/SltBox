@@ -39,7 +39,7 @@ public sealed class SettingsSliceOwnershipContractTests
     [Fact]
     public void EveryFacadeProperty_MapsToExactlyOneSliceProperty()
     {
-        Assert.Equal(252, FacadeProperties.Length);
+        Assert.Equal(254, FacadeProperties.Length);
 
         foreach (PropertyInfo facade in FacadeProperties)
         {
@@ -272,7 +272,7 @@ public sealed class SettingsSliceOwnershipContractTests
         ["src/DeskBox/Services/SearchResultActionService.cs"] = 2,
         ["src/DeskBox/Services/SettingsMigrationService.cs"] = 35,
         ["src/DeskBox/Services/SettingsSearchCatalog.cs"] = 23,
-        ["src/DeskBox/Services/SettingsService.cs"] = 633,
+        ["src/DeskBox/Services/SettingsService.cs"] = 635,
         ["src/DeskBox/Services/FeatureWidgetsSettingsCoordinator.cs"] = 6,
         ["src/DeskBox/Services/TodoCalendarService.cs"] = 1,
         ["src/DeskBox/Controls/WidgetContents/CalendarWidgetContent.cs"] = 8,
@@ -300,7 +300,7 @@ public sealed class SettingsSliceOwnershipContractTests
         ["src/DeskBox/ViewModels/MusicWidgetViewModel.cs"] = 5,
         ["src/DeskBox/ViewModels/QuickCaptureWidgetViewModel.ItemSync.cs"] = 2,
         ["src/DeskBox/ViewModels/QuickCaptureWidgetViewModel.Operations.cs"] = 3,
-        ["src/DeskBox/ViewModels/QuickCaptureWidgetViewModel.SettingsAndRefresh.cs"] = 14,
+        ["src/DeskBox/ViewModels/QuickCaptureWidgetViewModel.SettingsAndRefresh.cs"] = 15,
         ["src/DeskBox/ViewModels/QuickCaptureWidgetViewModel.cs"] = 17,
         ["src/DeskBox/ViewModels/SearchPopupViewModel.cs"] = 13,
         // Batch 29 moved the appearance section writes into
@@ -359,7 +359,7 @@ public sealed class SettingsSliceOwnershipContractTests
         ["src/DeskBox/ViewModels/SettingsViewModel.SettingsSync.cs"] = 7,
         ["src/DeskBox/ViewModels/SettingsViewModel.cs"] = 15,
         ["src/DeskBox/ViewModels/TodoWidgetViewModel.DetailAndAttachments.cs"] = 1,
-        ["src/DeskBox/ViewModels/TodoWidgetViewModel.FilteringAndAppearance.cs"] = 21,
+        ["src/DeskBox/ViewModels/TodoWidgetViewModel.FilteringAndAppearance.cs"] = 22,
         ["src/DeskBox/ViewModels/TodoWidgetViewModel.cs"] = 12,
         ["src/DeskBox/ViewModels/WeatherWidgetViewModel.DataProcessing.cs"] = 21,
         ["src/DeskBox/ViewModels/WeatherWidgetViewModel.RefreshAndLayout.cs"] = 1,

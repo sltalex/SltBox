@@ -196,6 +196,7 @@ public sealed partial class QuickCaptureWidgetViewModel
 
         viewModel.Update(model);
         viewModel.UpdateAppearance(TextSize, IconSize, ContentTextSize);
+        viewModel.UpdatePreviewPresentation(ItemPreviewLineCount, ExpandItemOnHover);
         viewModel.UpdateSearchText(SearchText);
         viewModel.UpdatePinnedSortState(canShowPinnedSortControls, canMoveUp, canMoveDown);
         return viewModel;

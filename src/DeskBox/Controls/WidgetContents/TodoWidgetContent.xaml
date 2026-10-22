@@ -368,7 +368,7 @@
                                         FontSize="{Binding ElementName=TodoListView, Path=DataContext.TextSize}"
                                         LineHeight="{Binding ElementName=TodoListView, Path=DataContext.ItemTextLineHeight}"
                                         LineStackingStrategy="BlockLineHeight"
-                                        MaxLines="{Binding ElementName=TodoListView, Path=DataContext.ItemPreviewLineCount}"
+                                        MaxLines="{Binding PreviewMaxLines}"
                                         Text="{Binding Text}"
                                         TextDecorations="{Binding TextDecorations}"
                                         TextTrimming="CharacterEllipsis"

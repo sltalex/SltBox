@@ -944,6 +944,8 @@
   "Settings.Update.Detail.Timeout": "检查更新超时，可稍后重试或使用官网下载。",
   "Settings.CollapsedStyle.Pill": "胶囊",
   "Settings.ContentEditor.PreviewLines.Description": "限制每条内容在列表中显示的最大行数，详情中仍显示完整内容",
+  "Settings.ContentEditor.ExpandOnHover.Title": "鼠标悬停展开内容",
+  "Settings.ContentEditor.ExpandOnHover.Description": "鼠标移到内容记录上时临时展开全部文字，移开后恢复列表行数",
   "Settings.QuickCapture.ClipboardDiagnosticsNotRecording": "未记录，上次记录 {0}，最近状态：{1}",
   "Todo.Snooze.OneHour": "1 小时后",
   "Settings.WidgetTitleIcon.Description": "控制每个格子标题前的标识样式",

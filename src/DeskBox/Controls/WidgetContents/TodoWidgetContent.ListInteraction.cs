@@ -199,11 +199,19 @@ public sealed partial class TodoWidgetContent
     private void TodoItem_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         SetTodoItemHoverState(sender as DependencyObject, true);
+        if (sender is FrameworkElement { DataContext: TodoItemViewModel item })
+        {
+            item.SetPointerOver(true);
+        }
     }
 
     private void TodoItem_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         SetTodoItemHoverState(sender as DependencyObject, false);
+        if (sender is FrameworkElement { DataContext: TodoItemViewModel item })
+        {
+            item.SetPointerOver(false);
+        }
     }
 
     private void TodoItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)

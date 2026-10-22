@@ -1043,6 +1043,8 @@
   "Settings.ContentEditor.Group.Description": "リストのサマリーと複数行エディターのショートカットを制御します",
   "Settings.ContentEditor.PreviewLines.Title": "リストに表示する行数",
   "Settings.ContentEditor.PreviewLines.Description": "各リストアイテムに表示する行数を制限します。詳細で全内容を確認できます",
+  "Settings.ContentEditor.ExpandOnHover.Title": "ホバーで内容を展開",
+  "Settings.ContentEditor.ExpandOnHover.Description": "ポインターをレコードに合わせている間は全文を表示し、離れるとリストの行数制限に戻します",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 行",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} 行",
   "Settings.ContentEditor.EnterBehavior.Title": "Enter キーの動作",

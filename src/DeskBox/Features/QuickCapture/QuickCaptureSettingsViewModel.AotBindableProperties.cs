@@ -21,6 +21,7 @@ namespace DeskBox.Features.QuickCapture;
     nameof(EditorEnterBehavior),
     nameof(EditorFormat),
     nameof(Enabled),
+    nameof(ExpandItemOnHover),
     nameof(ImageCacheText),
     nameof(ImageClipboardEnabled),
     nameof(ItemPreviewLineCount),

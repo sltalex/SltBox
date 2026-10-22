@@ -21,6 +21,7 @@ namespace DeskBox.Features.Todo;
     nameof(DefaultDueTime),
     nameof(EditorEnterBehavior),
     nameof(Enabled),
+    nameof(ExpandItemOnHover),
     nameof(FooterDisplaySummaryText),
     nameof(ItemPreviewLineCount),
     nameof(LayoutMode),

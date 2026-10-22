@@ -72,6 +72,7 @@ public sealed class QuickCaptureSettingsEditorTests : IDisposable
                 slice.QuickCaptureTabStyle = SettingsService.WidgetTabStylePivot;
                 slice.QuickCaptureShowCreatedTime = false;
                 slice.QuickCaptureItemPreviewLineCount = 6;
+                slice.QuickCaptureExpandItemOnHover = false;
                 slice.QuickCaptureDefaultFormat = QuickCaptureOptionKinds.FormatPlainText;
                 slice.QuickCaptureEditorEnterBehavior =
                     QuickCaptureOptionKinds.EnterBehaviorEnterSaves;
@@ -89,6 +90,7 @@ public sealed class QuickCaptureSettingsEditorTests : IDisposable
         Assert.Equal(0, editor.TabStyleIndex);
         Assert.False(editor.ShowCreatedTime);
         Assert.Equal(6, editor.ItemPreviewLineCount);
+        Assert.False(editor.ExpandItemOnHover);
         Assert.Equal(QuickCaptureOptionKinds.FormatPlainText, editor.EditorFormat);
         Assert.Equal(
             QuickCaptureOptionKinds.EnterBehaviorEnterSaves,
@@ -139,6 +141,7 @@ public sealed class QuickCaptureSettingsEditorTests : IDisposable
         editor.AllowRemoteImages = true;
         editor.ShowCreatedTime = false;
         editor.ItemPreviewLineCount = 4;
+        editor.ExpandItemOnHover = false;
         editor.TabStyleIndex = 0;
         editor.ShowTabBar = false;
         editor.SelectedDefaultView = QuickCaptureOptionKinds.DefaultViewRecent;
@@ -153,6 +156,7 @@ public sealed class QuickCaptureSettingsEditorTests : IDisposable
         Assert.True(slice.QuickCaptureAllowRemoteImages);
         Assert.False(slice.QuickCaptureShowCreatedTime);
         Assert.Equal(4, slice.QuickCaptureItemPreviewLineCount);
+        Assert.False(slice.QuickCaptureExpandItemOnHover);
         Assert.Equal(SettingsService.WidgetTabStylePivot, slice.QuickCaptureTabStyle);
         Assert.False(slice.QuickCaptureShowTabBar);
         // Selecting a hidden default view makes the coordinator reveal it.
@@ -508,7 +512,7 @@ public sealed class QuickCaptureSettingsEditorTests : IDisposable
         Assert.Contains("[WinRT.GeneratedBindableCustomProperty([", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(Enabled)", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(ImageClipboardEnabled)", bridge, StringComparison.Ordinal);
-        Assert.Equal(35, Regex.Matches(bridge, @"nameof\(").Count);
+        Assert.Equal(36, Regex.Matches(bridge, @"nameof\(").Count);
         Assert.DoesNotContain("nameof(ShowRecordsTab)", bridge, StringComparison.Ordinal);
         Assert.Equal(45, Regex.Matches(bindableShell, @"nameof\(").Count);
     }

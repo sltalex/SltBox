@@ -130,6 +130,7 @@ public sealed partial class QuickCaptureWidgetViewModel
         foreach (var item in Items)
         {
             item.UpdateAppearance(TextSize, IconSize, ContentTextSize);
+            item.UpdatePreviewPresentation(ItemPreviewLineCount, ExpandItemOnHover);
             item.UpdateSearchText(SearchText);
         }
     }

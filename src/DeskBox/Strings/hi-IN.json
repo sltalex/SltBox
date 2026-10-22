@@ -1046,6 +1046,8 @@
   "Settings.ContentEditor.Group.Description": "नियंत्रण सूची सारांश और मल्टीलाइन संपादक शॉर्टकट",
   "Settings.ContentEditor.PreviewLines.Title": "सूचियों में दिखाई गई पंक्तियाँ",
   "Settings.ContentEditor.PreviewLines.Description": "प्रत्येक सूची आइटम के लिए दिखाई गई पंक्तियों को सीमित करें; पूरी सामग्री विवरण में उपलब्ध रहती है",
+  "Settings.ContentEditor.ExpandOnHover.Title": "होवर पर सामग्री फैलाएँ",
+  "Settings.ContentEditor.ExpandOnHover.Description": "पॉइंटर के रिकॉर्ड पर रहने तक पूरा पाठ अस्थायी रूप से दिखाएँ और हटने पर सूची की पंक्ति सीमा बहाल करें",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 पंक्ति",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} पंक्तियाँ",
   "Settings.ContentEditor.EnterBehavior.Title": "मुख्य व्यवहार दर्ज करें",

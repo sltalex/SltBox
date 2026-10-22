@@ -404,6 +404,11 @@ public sealed partial class TodoWidgetViewModel
         OnPropertyChanged(nameof(ItemPreviewLineCount));
         OnPropertyChanged(nameof(EditorEnterBehavior));
 
+        foreach (TodoItemViewModel item in Items)
+        {
+            item.UpdatePreviewPresentation(ItemPreviewLineCount, ExpandItemOnHover);
+        }
+
         bool filterChanged = false;
         if (updateFilter)
         {

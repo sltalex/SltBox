@@ -259,7 +259,7 @@ public sealed partial class TodoWidgetViewModel
         Items.Clear();
         foreach (var item in _undoSnapshot.Items.Select(CloneTodoItem))
         {
-            Items.Add(new TodoItemViewModel(item, _localizationService));
+            Items.Add(CreateItemViewModel(item));
         }
 
         _undoSnapshot = null;

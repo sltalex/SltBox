@@ -268,7 +268,7 @@
                                         Spacing="2">
                                         <TextBlock
                                             FontSize="{Binding TextSize}"
-                                            MaxLines="{Binding ElementName=ItemsList, Path=DataContext.ItemPreviewLineCount}"
+                                            MaxLines="{Binding PreviewMaxLines}"
                                             Text="{Binding DisplayText}"
                                             TextTrimming="CharacterEllipsis"
                                             TextWrapping="Wrap"

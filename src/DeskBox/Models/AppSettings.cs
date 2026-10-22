@@ -172,6 +172,9 @@ public class AppSettings
     /// <inheritdoc cref="QuickCaptureSettingsSlice.QuickCaptureItemPreviewLineCount"/>
     public int QuickCaptureItemPreviewLineCount { get => QuickCapture.QuickCaptureItemPreviewLineCount; set => QuickCapture.QuickCaptureItemPreviewLineCount = value; }
 
+    /// <inheritdoc cref="QuickCaptureSettingsSlice.QuickCaptureExpandItemOnHover"/>
+    public bool QuickCaptureExpandItemOnHover { get => QuickCapture.QuickCaptureExpandItemOnHover; set => QuickCapture.QuickCaptureExpandItemOnHover = value; }
+
     /// <inheritdoc cref="QuickCaptureSettingsSlice.QuickCaptureListTextSize"/>
     public double QuickCaptureListTextSize { get => QuickCapture.QuickCaptureListTextSize; set => QuickCapture.QuickCaptureListTextSize = value; }
 
@@ -254,6 +257,9 @@ public class AppSettings
 
     /// <inheritdoc cref="TodoSettingsSlice.TodoItemPreviewLineCount"/>
     public int TodoItemPreviewLineCount { get => Todo.TodoItemPreviewLineCount; set => Todo.TodoItemPreviewLineCount = value; }
+
+    /// <inheritdoc cref="TodoSettingsSlice.TodoExpandItemOnHover"/>
+    public bool TodoExpandItemOnHover { get => Todo.TodoExpandItemOnHover; set => Todo.TodoExpandItemOnHover = value; }
 
     /// <inheritdoc cref="TodoSettingsSlice.TodoListTextSize"/>
     public double TodoListTextSize { get => Todo.TodoListTextSize; set => Todo.TodoListTextSize = value; }

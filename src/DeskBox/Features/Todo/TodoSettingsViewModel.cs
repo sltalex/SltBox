@@ -103,6 +103,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
     private bool _showFooterStats;
     private bool _showClearCompletedButton = true;
     private int _itemPreviewLineCount = TodoOptionKinds.DefaultItemPreviewLineCount;
+    private bool _expandItemOnHover = true;
     private string _newTaskPosition = TodoOptionKinds.NewTaskPositionTop;
     private string _editorEnterBehavior = QuickCaptureOptionKinds.EnterBehaviorCtrlEnterSaves;
     private double _listTextSize;
@@ -484,6 +485,21 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             }
 
             RunWrite(() => _settings.SetPreviewLineCount(value));
+        }
+    }
+
+    public bool ExpandItemOnHover
+    {
+        get => _expandItemOnHover;
+        set
+        {
+            if (!SetProperty(ref _expandItemOnHover, value) ||
+                _isSyncingPresentation)
+            {
+                return;
+            }
+
+            RunWrite(() => _settings.SetExpandItemOnHover(value));
         }
     }
 
@@ -983,6 +999,7 @@ public sealed partial class TodoSettingsViewModel : ObservableObject, IDisposabl
             ShowFooterStats = display.ShowFooterStats;
             ShowClearCompletedButton = display.ShowClearCompletedButton;
             ItemPreviewLineCount = contentDisplay.PreviewLineCount;
+            ExpandItemOnHover = contentDisplay.ExpandItemOnHover;
             NewTaskPosition = input.NewTaskPosition;
             EditorEnterBehavior = input.EditorEnterBehavior;
             ListTextSize = contentDisplay.ListTextSize;

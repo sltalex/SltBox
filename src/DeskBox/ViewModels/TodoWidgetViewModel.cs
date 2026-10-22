@@ -764,6 +764,9 @@ public sealed partial class TodoWidgetViewModel : ObservableObject, IDisposable
         : SettingsService.NormalizeItemPreviewLineCount(
             _settingsService.Settings.TodoItemPreviewLineCount);
 
+    public bool ExpandItemOnHover =>
+        _settingsService?.Settings.Todo.TodoExpandItemOnHover ?? true;
+
     public string EditorEnterBehavior => _settingsService is null
         ? SettingsService.EditorEnterBehaviorCtrlEnterSaves
         : SettingsService.NormalizeEditorEnterBehavior(

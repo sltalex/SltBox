@@ -1046,6 +1046,8 @@
   "Settings.ContentEditor.Group.Description": "Сводки списков управления и ярлыки многострочного редактора",
   "Settings.ContentEditor.PreviewLines.Title": "Линии, показанные в списках",
   "Settings.ContentEditor.PreviewLines.Description": "Ограничьте количество строк, отображаемых для каждого элемента списка; полный контент остается доступным в деталях",
+  "Settings.ContentEditor.ExpandOnHover.Title": "Разворачивать содержимое при наведении",
+  "Settings.ContentEditor.ExpandOnHover.Description": "Временно показывать весь текст, пока указатель находится над записью, а затем восстанавливать ограничение строк",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 строка",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} строк",
   "Settings.ContentEditor.EnterBehavior.Title": "Введите ключевое поведение",

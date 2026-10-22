@@ -677,7 +677,7 @@ public sealed class SettingsCopyAndHierarchyTests
     }
 
     [Fact]
-    public void QuickCapturePreviewLineCount_IsBoundInTheSharedSurfaceHost()
+    public void QuickCapturePreviewLineCount_IsProjectedThroughTheRecordViewModel()
     {
         string root = FindRepositoryRoot();
         string sharedSurface = File.ReadAllText(Path.Combine(
@@ -685,7 +685,7 @@ public sealed class SettingsCopyAndHierarchyTests
             "src/DeskBox/Controls/WidgetContents/QuickCaptureSurfaceContent.xaml"));
 
         Assert.Contains(
-            "MaxLines=\"{Binding ElementName=ItemsList, Path=DataContext.ItemPreviewLineCount}\"",
+            "MaxLines=\"{Binding PreviewMaxLines}\"",
             sharedSurface,
             StringComparison.Ordinal);
         Assert.DoesNotContain(

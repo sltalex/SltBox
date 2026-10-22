@@ -31,7 +31,8 @@ public readonly record struct TodoTabSettings(
 public readonly record struct TodoContentDisplaySettings(
     int PreviewLineCount,
     double ListTextSize,
-    double ContentTextSize);
+    double ContentTextSize,
+    bool ExpandItemOnHover);
 
 public readonly record struct TodoInputSettings(
     string NewTaskPosition,
@@ -68,6 +69,7 @@ public interface ITodoSettings
     void ResetTabPreferences(bool scheduleSave = true);
     TodoContentDisplaySettings ReadContentDisplay();
     void SetPreviewLineCount(int lineCount);
+    void SetExpandItemOnHover(bool enabled);
     void SetListTextSize(double size, bool scheduleSave = true);
     void SetContentTextSize(double size, bool scheduleSave = true);
     void ResetPreviewLineCount(bool scheduleSave = true);

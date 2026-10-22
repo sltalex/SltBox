@@ -21,6 +21,9 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
     private double _iconSize;
     private string _searchText;
     private string? _displayText;
+    private int _previewLineCount = SettingsService.DefaultQuickCaptureItemPreviewLineCount;
+    private bool _expandItemOnHover = true;
+    private bool _isPointerOver;
     private static readonly MarkdownDocumentService s_markdownService = new();
 
     public QuickCaptureItemViewModel(
@@ -206,6 +209,10 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
 
     public double ActionIconSize => Math.Max(10, Math.Round(_iconSize * 0.42));
 
+    public int PreviewMaxLines => _expandItemOnHover && _isPointerOver
+        ? 0
+        : _previewLineCount;
+
     public QuickCaptureItem ToModel() => new()
     {
         Id = _model.Id,
@@ -367,6 +374,31 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
         OnPropertyChanged(nameof(IconSize));
         OnPropertyChanged(nameof(TypeIconSize));
         OnPropertyChanged(nameof(ActionIconSize));
+    }
+
+    internal void UpdatePreviewPresentation(int previewLineCount, bool expandItemOnHover)
+    {
+        int normalizedLineCount = SettingsService.NormalizeItemPreviewLineCount(previewLineCount);
+        if (_previewLineCount == normalizedLineCount &&
+            _expandItemOnHover == expandItemOnHover)
+        {
+            return;
+        }
+
+        _previewLineCount = normalizedLineCount;
+        _expandItemOnHover = expandItemOnHover;
+        OnPropertyChanged(nameof(PreviewMaxLines));
+    }
+
+    internal void SetPointerOver(bool isPointerOver)
+    {
+        if (_isPointerOver == isPointerOver)
+        {
+            return;
+        }
+
+        _isPointerOver = isPointerOver;
+        OnPropertyChanged(nameof(PreviewMaxLines));
     }
 
     public void UpdatePinnedSortState(bool showControls, bool canMoveUp, bool canMoveDown)

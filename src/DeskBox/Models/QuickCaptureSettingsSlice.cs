@@ -23,6 +23,9 @@ public sealed class QuickCaptureSettingsSlice
     /// <summary>Maximum number of text lines shown for each Quick Capture item in the list.</summary>
     public int QuickCaptureItemPreviewLineCount { get; set; } = 3;
 
+    /// <summary>Whether hovering a Quick Capture record temporarily reveals its full text.</summary>
+    public bool QuickCaptureExpandItemOnHover { get; set; } = true;
+
     /// <summary>Text size for Quick Capture list cards. Zero keeps the global appearance size for legacy settings.</summary>
     public double QuickCaptureListTextSize { get; set; }
 

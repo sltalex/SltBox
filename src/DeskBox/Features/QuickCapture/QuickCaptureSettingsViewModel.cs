@@ -84,6 +84,7 @@ public sealed partial class QuickCaptureSettingsViewModel : ObservableObject
     private string _tabBarPosition = QuickCaptureOptionKinds.TabBarPositionTop;
     private bool _showCreatedTime = true;
     private int _itemPreviewLineCount;
+    private bool _expandItemOnHover = true;
     private string _editorFormat = QuickCaptureOptionKinds.FormatMarkdown;
     private string _editorEnterBehavior = QuickCaptureOptionKinds.EnterBehaviorCtrlEnterSaves;
     private string _wideLayout = QuickCaptureOptionKinds.WideLayoutAuto;
@@ -369,6 +370,21 @@ public sealed partial class QuickCaptureSettingsViewModel : ObservableObject
             }
 
             RunWithFailureProjection(() => _settings.SetPreviewLineCount(value));
+        }
+    }
+
+    public bool ExpandItemOnHover
+    {
+        get => _expandItemOnHover;
+        set
+        {
+            if (!SetProperty(ref _expandItemOnHover, value) ||
+                _isSyncingPresentation)
+            {
+                return;
+            }
+
+            RunWithFailureProjection(() => _settings.SetExpandItemOnHover(value));
         }
     }
 
@@ -837,6 +853,7 @@ public sealed partial class QuickCaptureSettingsViewModel : ObservableObject
                 : 1;
             ShowCreatedTime = presentation.ShowCreatedTime;
             ItemPreviewLineCount = presentation.PreviewLineCount;
+            ExpandItemOnHover = presentation.ExpandItemOnHover;
             EditorFormat = editor.DefaultFormat;
             EditorEnterBehavior = editor.EnterBehavior;
             WideLayout = editor.WideLayout;

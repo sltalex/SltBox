@@ -68,6 +68,7 @@ public sealed class TodoSettingsEditorTests : IDisposable
                 slice.TodoShowFooterStats = true;
                 slice.TodoShowClearCompletedButton = false;
                 slice.TodoItemPreviewLineCount = 6;
+                slice.TodoExpandItemOnHover = false;
                 slice.TodoNewTaskPosition = TodoOptionKinds.NewTaskPositionBottom;
                 slice.TodoEditorEnterBehavior =
                     QuickCaptureOptionKinds.EnterBehaviorEnterSaves;
@@ -90,6 +91,7 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.True(editor.ShowFooterStats);
         Assert.False(editor.ShowClearCompletedButton);
         Assert.Equal(6, editor.ItemPreviewLineCount);
+        Assert.False(editor.ExpandItemOnHover);
         Assert.Equal(TodoOptionKinds.NewTaskPositionBottom, editor.NewTaskPosition);
         Assert.Equal(
             QuickCaptureOptionKinds.EnterBehaviorEnterSaves,
@@ -144,6 +146,7 @@ public sealed class TodoSettingsEditorTests : IDisposable
         editor.ShowFooterStats = true;
         editor.ShowClearCompletedButton = false;
         editor.ItemPreviewLineCount = 4;
+        editor.ExpandItemOnHover = false;
         editor.NewTaskPosition = TodoOptionKinds.NewTaskPositionBottom;
         editor.EditorEnterBehavior =
             QuickCaptureOptionKinds.EnterBehaviorEnterSaves;
@@ -160,6 +163,7 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.True(slice.TodoShowFooterStats);
         Assert.False(slice.TodoShowClearCompletedButton);
         Assert.Equal(4, slice.TodoItemPreviewLineCount);
+        Assert.False(slice.TodoExpandItemOnHover);
         Assert.Equal(TodoOptionKinds.NewTaskPositionBottom, slice.TodoNewTaskPosition);
         Assert.Equal(
             QuickCaptureOptionKinds.EnterBehaviorEnterSaves,
@@ -633,7 +637,7 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.Contains("[WinRT.GeneratedBindableCustomProperty([", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(Enabled)", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(DefaultFilter)", bridge, StringComparison.Ordinal);
-        Assert.Equal(33, Regex.Matches(bridge, @"nameof\(").Count);
+        Assert.Equal(34, Regex.Matches(bridge, @"nameof\(").Count);
         Assert.DoesNotContain("nameof(ShowAllTab)", bridge, StringComparison.Ordinal);
         Assert.Equal(45, Regex.Matches(bindableShell, @"nameof\(").Count);
     }

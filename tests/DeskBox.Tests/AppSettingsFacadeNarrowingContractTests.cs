@@ -50,7 +50,7 @@ public sealed class AppSettingsFacadeNarrowingContractTests
         // it drops a field from every file written henceforth. Either change
         // is a disk-schema decision — update this pin consciously alongside
         // the SettingsSliceContractBaselineTests order pin.
-        Assert.Equal(252, Passthroughs.Length);
+        Assert.Equal(254, Passthroughs.Length);
         Assert.Equal(13, SliceAccessors.Length);
     }
 
@@ -69,7 +69,7 @@ public sealed class AppSettingsFacadeNarrowingContractTests
         Assert.True(
             SerializedMemberNames.SetEquals(expected),
             "Serialized member set must equal schemaVersion + the 249 passthrough wire names.");
-        Assert.Equal(253, SerializedMemberNames.Count);
+        Assert.Equal(255, SerializedMemberNames.Count);
     }
 
     [Fact]

@@ -2886,6 +2886,7 @@ public sealed partial class QuickCaptureSurfaceContent :
         }
 
         SetQuickCaptureItemActionButtonsVisible(border, false);
+        (border.DataContext as QuickCaptureItemViewModel)?.SetPointerOver(false);
         ApplyQuickCaptureItemMaterialSurface(
             border,
             border.DataContext as QuickCaptureItemViewModel);
@@ -2915,11 +2916,19 @@ public sealed partial class QuickCaptureSurfaceContent :
     private void QuickCaptureItem_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         SetQuickCaptureItemActionButtonsVisible(sender as DependencyObject, true);
+        if (sender is FrameworkElement { DataContext: QuickCaptureItemViewModel item })
+        {
+            item.SetPointerOver(true);
+        }
     }
 
     private void QuickCaptureItem_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         SetQuickCaptureItemActionButtonsVisible(sender as DependencyObject, false);
+        if (sender is FrameworkElement { DataContext: QuickCaptureItemViewModel item })
+        {
+            item.SetPointerOver(false);
+        }
     }
 
     private static void SetQuickCaptureItemActionButtonsVisible(
@@ -2961,6 +2970,7 @@ public sealed partial class QuickCaptureSurfaceContent :
         FrameworkElement sender,
         DataContextChangedEventArgs args)
     {
+        (args.NewValue as QuickCaptureItemViewModel)?.SetPointerOver(false);
         if (sender is Border border)
         {
             SetQuickCaptureItemActionButtonsVisible(border, false);

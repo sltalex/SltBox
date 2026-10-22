@@ -1066,6 +1066,8 @@
   "Settings.ContentEditor.Group.Description": "Control list summaries and multiline editor shortcuts",
   "Settings.ContentEditor.PreviewLines.Title": "Lines shown in lists",
   "Settings.ContentEditor.PreviewLines.Description": "Limit the lines shown for each list item; full content remains available in details",
+  "Settings.ContentEditor.ExpandOnHover.Title": "Expand content on hover",
+  "Settings.ContentEditor.ExpandOnHover.Description": "Temporarily show all text when the pointer rests on a record; restore the list line limit when it leaves",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 line",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} lines",
   "Settings.ContentEditor.EnterBehavior.Title": "Enter key behavior",

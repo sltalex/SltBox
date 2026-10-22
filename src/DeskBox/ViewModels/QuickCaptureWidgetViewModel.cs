@@ -455,6 +455,9 @@ public sealed partial class QuickCaptureWidgetViewModel : ObservableObject, IDis
     public int ItemPreviewLineCount => SettingsService.NormalizeItemPreviewLineCount(
         _settingsService.Settings.QuickCaptureItemPreviewLineCount);
 
+    public bool ExpandItemOnHover =>
+        _settingsService.Settings.QuickCapture.QuickCaptureExpandItemOnHover;
+
     public string EditorEnterBehavior => SettingsService.NormalizeEditorEnterBehavior(
         _settingsService.Settings.QuickCaptureEditorEnterBehavior);
 

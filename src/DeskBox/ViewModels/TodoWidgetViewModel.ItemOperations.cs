@@ -24,7 +24,7 @@ public sealed partial class TodoWidgetViewModel
                 continue;
             }
 
-            Items.Add(new TodoItemViewModel(item, _localizationService));
+            Items.Add(CreateItemViewModel(item));
         }
 
         NormalizeSortOrders();
@@ -81,7 +81,7 @@ public sealed partial class TodoWidgetViewModel
             UpdatedAt = now,
             SortOrder = 0
         };
-        var viewModel = new TodoItemViewModel(item, _localizationService);
+        var viewModel = CreateItemViewModel(item);
 
         Items.Add(viewModel);
 
@@ -150,7 +150,7 @@ public sealed partial class TodoWidgetViewModel
             {
                 item.Item.GeneratedNextItemId = nextItem.Id;
                 int currentIndex = Items.IndexOf(item);
-                var nextViewModel = new TodoItemViewModel(nextItem, _localizationService);
+                var nextViewModel = CreateItemViewModel(nextItem);
                 Items.Insert(Math.Clamp(currentIndex + 1, 0, Items.Count), nextViewModel);
             }
         }
@@ -173,6 +173,13 @@ public sealed partial class TodoWidgetViewModel
         RefreshCountProperties();
         await SaveAsync();
         return true;
+    }
+
+    private TodoItemViewModel CreateItemViewModel(TodoItem item)
+    {
+        var viewModel = new TodoItemViewModel(item, _localizationService);
+        viewModel.UpdatePreviewPresentation(ItemPreviewLineCount, ExpandItemOnHover);
+        return viewModel;
     }
 
     public async Task<bool> SetImportantAsync(string itemId, bool isImportant)

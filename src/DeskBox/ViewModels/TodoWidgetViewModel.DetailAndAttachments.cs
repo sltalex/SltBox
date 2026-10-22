@@ -74,7 +74,7 @@ public sealed partial class TodoWidgetViewModel
             UpdatedAt = now,
             SortOrder = Items.Count
         };
-        var viewModel = new TodoItemViewModel(item, _localizationService);
+        var viewModel = CreateItemViewModel(item);
         viewModel.BeginEdit();
         IsCreatingDetailItem = true;
         SelectedDetailItem = viewModel;

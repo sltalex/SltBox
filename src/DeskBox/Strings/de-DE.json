@@ -1043,6 +1043,8 @@
   "Settings.ContentEditor.Group.Description": "Listen-Zusammenfassungen und Mehrzeilen-Editor-Tastenkürzel steuern",
   "Settings.ContentEditor.PreviewLines.Title": "In Listen angezeigte Zeilen",
   "Settings.ContentEditor.PreviewLines.Description": "Zeilen pro Listenelement begrenzen; vollständiger Inhalt bleibt in Details verfügbar",
+  "Settings.ContentEditor.ExpandOnHover.Title": "Inhalt beim Zeigen erweitern",
+  "Settings.ContentEditor.ExpandOnHover.Description": "Gesamten Text vorübergehend anzeigen, solange der Zeiger auf einem Eintrag ruht; danach gilt wieder das Zeilenlimit",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 Zeile",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} Zeilen",
   "Settings.ContentEditor.EnterBehavior.Title": "Enter-Tasten-Verhalten",

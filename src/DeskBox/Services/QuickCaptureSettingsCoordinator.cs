@@ -202,7 +202,8 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
             SettingsService.NormalizeWidgetTabStyle(quickCapture.QuickCaptureTabStyle),
             quickCapture.QuickCaptureShowCreatedTime,
             SettingsService.NormalizeItemPreviewLineCount(
-                quickCapture.QuickCaptureItemPreviewLineCount));
+                quickCapture.QuickCaptureItemPreviewLineCount),
+            quickCapture.QuickCaptureExpandItemOnHover);
     }
 
     public void SetTabStyle(string? style)
@@ -233,6 +234,15 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
         PublishPresentationIfChanged(before);
     }
 
+    public void SetExpandItemOnHover(bool enabled)
+    {
+        ObjectDisposedException.ThrowIf(_stopping, this);
+        QuickCaptureSettingsSlice quickCapture = _settings.Settings.QuickCapture;
+        QuickCapturePresentationSettings before = ReadPresentationCore(quickCapture);
+        quickCapture.QuickCaptureExpandItemOnHover = enabled;
+        PublishPresentationIfChanged(before);
+    }
+
     public void ResetPresentationPreferences(bool scheduleSave = true)
     {
         ObjectDisposedException.ThrowIf(_stopping, this);
@@ -242,6 +252,7 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
         quickCapture.QuickCaptureShowCreatedTime = true;
         quickCapture.QuickCaptureItemPreviewLineCount =
             SettingsService.DefaultQuickCaptureItemPreviewLineCount;
+        quickCapture.QuickCaptureExpandItemOnHover = true;
         PublishPresentationIfChanged(before, scheduleSave);
     }
 
@@ -249,7 +260,8 @@ public sealed class QuickCaptureSettingsCoordinator : IQuickCaptureSettings
         QuickCaptureSettingsSlice quickCapture) => new(
             quickCapture.QuickCaptureTabStyle,
             quickCapture.QuickCaptureShowCreatedTime,
-            quickCapture.QuickCaptureItemPreviewLineCount);
+            quickCapture.QuickCaptureItemPreviewLineCount,
+            quickCapture.QuickCaptureExpandItemOnHover);
 
     private void PublishPresentationIfChanged(
         QuickCapturePresentationSettings before, bool scheduleSave = true)

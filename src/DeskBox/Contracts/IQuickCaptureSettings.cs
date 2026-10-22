@@ -15,7 +15,8 @@ public readonly record struct QuickCaptureTabSettings(
 public readonly record struct QuickCapturePresentationSettings(
     string TabStyle,
     bool ShowCreatedTime,
-    int PreviewLineCount);
+    int PreviewLineCount,
+    bool ExpandItemOnHover);
 
 /// <summary>Effective sizes; stored zero inherits the global appearance size.</summary>
 public readonly record struct QuickCaptureTextSizeSettings(
@@ -47,6 +48,7 @@ public interface IQuickCaptureSettings
     void SetTabStyle(string? style);
     void SetShowCreatedTime(bool visible);
     void SetPreviewLineCount(int lineCount);
+    void SetExpandItemOnHover(bool enabled);
     void ResetPresentationPreferences(bool scheduleSave = true);
     int ReadRecentLimit();
     void SetRecentLimit(int limit);

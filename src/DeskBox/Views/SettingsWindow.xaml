@@ -1993,6 +1993,9 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                     <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.ContentEditor.PreviewLines.Description" svc:Localized.HeaderKey="Settings.ContentEditor.PreviewLines.Title">
                                         <ComboBox MinWidth="220" ItemsSource="{Binding AvailablePreviewLineOptions}" controls:SettingsComboBox.Value="{Binding ItemPreviewLineCount, Mode=TwoWay}" />
                                     </toolkit:SettingsCard>
+                                    <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.ContentEditor.ExpandOnHover.Description" svc:Localized.HeaderKey="Settings.ContentEditor.ExpandOnHover.Title">
+                                        <ToggleSwitch MinWidth="0" OffContent="" OnContent="" IsOn="{Binding ExpandItemOnHover, Mode=TwoWay}" />
+                                    </toolkit:SettingsCard>
                                     <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.QuickCapture.Format.Description" svc:Localized.HeaderKey="Settings.QuickCapture.Format.Title">
                                         <ComboBox MinWidth="190" ItemsSource="{Binding AvailableFormatOptions}" controls:SettingsComboBox.Value="{Binding EditorFormat, Mode=TwoWay}" />
                                     </toolkit:SettingsCard>
@@ -2154,6 +2157,9 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                     </toolkit:SettingsCard>
                                     <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.ContentEditor.PreviewLines.Description" svc:Localized.HeaderKey="Settings.ContentEditor.PreviewLines.Title">
                                         <ComboBox MinWidth="220" ItemsSource="{Binding AvailablePreviewLineOptions}" controls:SettingsComboBox.Value="{Binding ItemPreviewLineCount, Mode=TwoWay}" />
+                                    </toolkit:SettingsCard>
+                                    <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.ContentEditor.ExpandOnHover.Description" svc:Localized.HeaderKey="Settings.ContentEditor.ExpandOnHover.Title">
+                                        <ToggleSwitch MinWidth="0" OffContent="" OnContent="" IsOn="{Binding ExpandItemOnHover, Mode=TwoWay}" />
                                     </toolkit:SettingsCard>
                                     <toolkit:SettingsCard HorizontalContentAlignment="Right" svc:Localized.DescriptionKey="Settings.ContentEditor.EnterBehavior.Description" svc:Localized.HeaderKey="Settings.ContentEditor.EnterBehavior.Title">
                                         <ComboBox MinWidth="220" ItemsSource="{Binding AvailableEnterBehaviorOptions}" controls:SettingsComboBox.Value="{Binding EditorEnterBehavior, Mode=TwoWay}" />

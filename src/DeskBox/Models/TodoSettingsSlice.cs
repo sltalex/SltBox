@@ -41,6 +41,9 @@ public sealed class TodoSettingsSlice
     /// <summary>Maximum number of text lines shown for each Todo item in the list.</summary>
     public int TodoItemPreviewLineCount { get; set; } = 2;
 
+    /// <summary>Whether hovering a Todo record temporarily reveals its full text.</summary>
+    public bool TodoExpandItemOnHover { get; set; } = true;
+
     /// <summary>Text size for Todo list cards. Zero keeps the global appearance size for legacy settings.</summary>
     public double TodoListTextSize { get; set; }
 

@@ -29,6 +29,9 @@ public sealed partial class TodoItemViewModel : ObservableObject
     private bool _isRecurringHistoryExpanded;
     private int _recurringHistoryItemCount;
     private bool _isDetailSelected;
+    private int _previewLineCount = SettingsService.DefaultTodoItemPreviewLineCount;
+    private bool _expandItemOnHover = true;
+    private bool _isPointerOver;
 
     public TodoItemViewModel(TodoItem item, LocalizationService? localizationService = null)
     {
@@ -133,6 +136,35 @@ public sealed partial class TodoItemViewModel : ObservableObject
                 _item.Text = value;
             }
         }
+    }
+
+    public int PreviewMaxLines => _expandItemOnHover && _isPointerOver
+        ? 0
+        : _previewLineCount;
+
+    internal void UpdatePreviewPresentation(int previewLineCount, bool expandItemOnHover)
+    {
+        int normalizedLineCount = SettingsService.NormalizeItemPreviewLineCount(previewLineCount);
+        if (_previewLineCount == normalizedLineCount &&
+            _expandItemOnHover == expandItemOnHover)
+        {
+            return;
+        }
+
+        _previewLineCount = normalizedLineCount;
+        _expandItemOnHover = expandItemOnHover;
+        OnPropertyChanged(nameof(PreviewMaxLines));
+    }
+
+    internal void SetPointerOver(bool isPointerOver)
+    {
+        if (_isPointerOver == isPointerOver)
+        {
+            return;
+        }
+
+        _isPointerOver = isPointerOver;
+        OnPropertyChanged(nameof(PreviewMaxLines));
     }
 
     public bool IsCompleted

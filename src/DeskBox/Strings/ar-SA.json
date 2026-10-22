@@ -1046,6 +1046,8 @@
   "Settings.ContentEditor.Group.Description": "ملخصات قائمة التحكم واختصارات المحرر متعدد الأسطر",
   "Settings.ContentEditor.PreviewLines.Title": "الخطوط المعروضة في القوائم",
   "Settings.ContentEditor.PreviewLines.Description": "تحديد الأسطر المعروضة لكل عنصر في القائمة؛ يبقى المحتوى الكامل متاحا في التفاصيل",
+  "Settings.ContentEditor.ExpandOnHover.Title": "توسيع المحتوى عند التمرير",
+  "Settings.ContentEditor.ExpandOnHover.Description": "إظهار النص بالكامل مؤقتا أثناء وجود المؤشر فوق السجل، ثم استعادة حد الأسطر عند مغادرته",
   "Settings.ContentEditor.PreviewLines.Option.Single": "1 سطر",
   "Settings.ContentEditor.PreviewLines.Option.Multiple": "{0} خطوط",
   "Settings.ContentEditor.EnterBehavior.Title": "أدخل السلوك الرئيسي",

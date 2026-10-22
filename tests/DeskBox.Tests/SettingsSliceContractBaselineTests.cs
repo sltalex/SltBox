@@ -45,6 +45,7 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.Equal(30, s.QuickCaptureRecentLimit);
         Assert.True(s.QuickCaptureShowCreatedTime);
         Assert.Equal(3, s.QuickCaptureItemPreviewLineCount);
+        Assert.True(s.QuickCaptureExpandItemOnHover);
         Assert.Equal(0d, s.QuickCaptureListTextSize);
         Assert.Equal(0d, s.QuickCaptureContentTextSize);
         Assert.Equal("CtrlEnterSaves", s.QuickCaptureEditorEnterBehavior);
@@ -72,6 +73,7 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.Equal("All", s.TodoDefaultFilter);
         Assert.False(s.TodoShowCompletedTasks);
         Assert.Equal(2, s.TodoItemPreviewLineCount);
+        Assert.True(s.TodoExpandItemOnHover);
         Assert.Equal(0d, s.TodoListTextSize);
         Assert.Equal(0d, s.TodoContentTextSize);
         Assert.Equal("CtrlEnterSaves", s.TodoEditorEnterBehavior);
@@ -294,6 +296,7 @@ public sealed class SettingsSliceContractBaselineTests
         "quickCaptureRecentLimit",
         "quickCaptureShowCreatedTime",
         "quickCaptureItemPreviewLineCount",
+        "quickCaptureExpandItemOnHover",
         "quickCaptureListTextSize",
         "quickCaptureContentTextSize",
         "quickCaptureEditorEnterBehavior",
@@ -321,6 +324,7 @@ public sealed class SettingsSliceContractBaselineTests
         "todoDefaultFilter",
         "todoShowCompletedTasks",
         "todoItemPreviewLineCount",
+        "todoExpandItemOnHover",
         "todoListTextSize",
         "todoContentTextSize",
         "todoEditorEnterBehavior",
