@@ -57,6 +57,15 @@ admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_fruit_re
     'price_per_fruit' => 20], $clock);
 check(admin_read($pdo, $adminId, 'fruit_recycle', [], $clock)['price_per_fruit'] === 20,
     'A non-negative integer recycle price can be saved without an operation reason.');
+admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_aquarium_card_pack_price',
+    'card_pack_price' => 275], $clock);
+check(admin_read($pdo, $adminId, 'shop', [], $clock)['card_pack_price'] === 275,
+    'A non-negative integer aquarium card pack price can be saved by the web administrator.');
+check(aquarium_catalog($pdo)['items'][array_search(AQUARIUM_CARD_PACK_ID,
+    array_column(aquarium_catalog($pdo)['items'], 'id'), true)]['price'] === 275,
+    'The user-facing aquarium catalog reads the administrator card pack price.');
+admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_aquarium_card_pack_price',
+    'card_pack_price' => 200], $clock);
 admin_mutate($pdo, $adminId, $common + ['action' => 'disable'], $clock);
 fails('invalid_session', static fn() => auth_me($pdo, $member['session']['access_token'], $clock));
 fails('account_disabled', static fn() => auth_login($pdo, 'second_user', 'secret2', 'device-b', '127.0.0.2', $clock));
@@ -129,6 +138,6 @@ admin_mutate($pdo, $adminId, $common + ['action' => 'delete_user',
     'confirm_username' => 'second_user', 'admin_password' => 'secret1'], $clock);
 check((int)$pdo->query('SELECT COUNT(*) FROM auth_users')->fetchColumn() === 1, 'Account deleted.');
 check((int)$pdo->query("SELECT COUNT(*) FROM auth_sessions WHERE user_id = '{$memberId}'")->fetchColumn() === 0, 'Deleted sessions cascade.');
-check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 19, 'Operations and failures audited.');
+check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 21, 'Operations and failures audited.');
 check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 7, 'Failed operations are audited.');
 echo "admin_service_test: ok\n";

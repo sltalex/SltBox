@@ -7,5 +7,5 @@ require_once dirname(__DIR__, 2) . '/_app/aquarium.php';
 
 api_run('GET', static function (PDO $pdo): array {
     admin_require($pdo, api_bearer_token(), 'api_clock');
-    return aquarium_catalog();
+    return aquarium_catalog($pdo);
 });

@@ -14,6 +14,7 @@ if (($argv[1] ?? '') === '--http') {
 
 define('DESKBOX_API_ENTRY', true);
 require dirname(__DIR__) . '/api/_app/bootstrap.php';
+require dirname(__DIR__) . '/api/_app/account_data.php';
 require dirname(__DIR__) . '/api/_app/admin.php';
 require_once dirname(__DIR__) . '/api/_app/aquarium.php';
 
@@ -491,6 +492,20 @@ aquarium_error('pack_not_found', 409, static fn() => aquarium_mutate($pdo, $pack
 aquarium_expect(aquarium_read_state($pdo, $packUserId) === $afterOpen
     && (int)$pdo->query('SELECT COUNT(*) FROM aquarium_operations')->fetchColumn() === $operationsAfterOpen,
     'A distinct operation cannot consume the same pack twice or change the committed reward.');
+
+admin_mutate($pdo, $userId, ['target_id' => $userId, 'action' => 'set_aquarium_card_pack_price',
+    'card_pack_price' => 275], $clock);
+aquarium_expect(aquarium_catalog($pdo)['items'][array_search(AQUARIUM_CARD_PACK_ID,
+    array_column(aquarium_catalog($pdo)['items'], 'id'), true)]['price'] === 275,
+    'The aquarium catalog can be changed without a desktop release.');
+$dynamicPriceUser = auth_register($pdo, 'aquarium_dynamic_price', 'secret6', 'device-price', '127.0.0.7', $clock);
+$dynamicPriceId = $dynamicPriceUser['user']['id'];
+aquarium_mutate($pdo, $dynamicPriceId, aquarium_request('initialize'), $clock);
+$dynamicPurchase = aquarium_mutate($pdo, $dynamicPriceId,
+    aquarium_request('buy', ['catalog_version' => 5, 'item_id' => AQUARIUM_CARD_PACK_ID]), $clock);
+aquarium_expect($dynamicPurchase['coins'] === 725
+    && $dynamicPurchase['wallet'][0]['delta'] === -275,
+    'Aquarium purchases charge the current server-configured card pack price.');
 
 $database = tempnam(sys_get_temp_dir(), 'aquarium-test-');
 if ($database === false) { throw new RuntimeException('Could not create concurrency-test database.'); }

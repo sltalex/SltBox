@@ -7,8 +7,17 @@ const AQUARIUM_CATALOG_VERSION = 8;
 const AQUARIUM_INITIAL_COINS = 1000;
 const AQUARIUM_CARD_PACK_ID = 'aquarium-card-pack';
 
-function aquarium_catalog(): array
+function aquarium_card_pack_price(?PDO $pdo = null): int
 {
+    if ($pdo === null) { return 200; }
+    $price = $pdo->query('SELECT card_pack_price FROM aquarium_catalog_settings WHERE id = 1')->fetchColumn();
+    if ($price !== false) { return max(0, min(2147483647, (int)$price)); }
+    return 200;
+}
+
+function aquarium_catalog(?PDO $pdo = null): array
+{
+    $cardPackPrice = aquarium_card_pack_price($pdo);
     return ['catalog_version' => AQUARIUM_CATALOG_VERSION, 'items' => [
         ['id' => 'clownfish', 'name' => '小丑鱼', 'category' => 'fish', 'price' => 100, 'asset_key' => 'clownfish', 'habitat' => 'marine'],
         ['id' => 'blue-tang', 'name' => '蓝吊鱼', 'category' => 'fish', 'price' => 180, 'asset_key' => 'blue-tang', 'habitat' => 'marine'],
@@ -360,13 +369,13 @@ function aquarium_catalog(): array
         ['id' => 'crystal-jellyfish', 'name' => '水晶水母', 'category' => 'jellyfish', 'price' => 480, 'asset_key' => 'crystal-jellyfish'],
         ['id' => 'comb-jelly', 'name' => '栉水母', 'category' => 'jellyfish', 'price' => 340, 'asset_key' => 'comb-jelly'],
         ['id' => 'portuguese-man-o-war', 'name' => '僧帽水母', 'category' => 'jellyfish', 'price' => 500, 'asset_key' => 'portuguese-man-o-war'],
-        ['id' => AQUARIUM_CARD_PACK_ID, 'name' => '水族卡包', 'category' => 'pack', 'price' => 200, 'asset_key' => 'aquarium-card-pack'],
+        ['id' => AQUARIUM_CARD_PACK_ID, 'name' => '水族卡包', 'category' => 'pack', 'price' => $cardPackPrice, 'asset_key' => 'aquarium-card-pack'],
     ]];
 }
 
-function aquarium_item(string $id): array
+function aquarium_item(string $id, ?PDO $pdo = null): array
 {
-    foreach (aquarium_catalog()['items'] as $item) {
+    foreach (aquarium_catalog($pdo)['items'] as $item) {
         if ($item['id'] === $id) { return $item; }
     }
     throw new ApiError('invalid_item', 'Unknown aquarium item.', 400);
@@ -508,7 +517,7 @@ function aquarium_mutate(PDO $pdo, string $userId, array $body, callable $clock)
                 if (is_string($value) && $value !== '') { $openedItemId = $value; }
             }
             if ($openedItemId !== null) {
-                $openedItem = aquarium_item($openedItemId);
+                $openedItem = aquarium_item($openedItemId, $pdo);
                 // Keep the response distinct from a backpack instance: the
                 // reward is a catalogue item, so clients consume `item_id`.
                 // `opened_item_id` is retained as a compact compatibility
@@ -559,7 +568,7 @@ function aquarium_buy(PDO $pdo, string $userId, string $operationId, array $prof
     if (!in_array($catalogVersion, [2, 3, 4, 5, 6, 7, AQUARIUM_CATALOG_VERSION], true)) {
         throw new ApiError('catalog_conflict', 'The aquarium catalog changed. Refresh the catalog.', 409);
     }
-    $item = aquarium_item(aquarium_string($body, 'item_id'));
+    $item = aquarium_item(aquarium_string($body, 'item_id'), $pdo);
     // Aquarium life is awarded by opening a card pack. Keep the pack itself
     // as the only directly purchasable catalogue item.
     if ($item['category'] !== 'pack' && $catalogVersion === AQUARIUM_CATALOG_VERSION) {
