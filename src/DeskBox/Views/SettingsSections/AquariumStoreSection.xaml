@@ -9,17 +9,17 @@
         <toolkit:SettingsCard
             ContentAlignment="Vertical"
             HorizontalContentAlignment="Stretch"
-            svc:Localized.HeaderKey="Aquarium.Settings.RecycleFruit">
-            <StackPanel x:Name="RecycleHost" Spacing="6" />
-        </toolkit:SettingsCard>
-        <toolkit:SettingsCard
-            ContentAlignment="Vertical"
-            HorizontalContentAlignment="Stretch"
             svc:Localized.HeaderKey="Aquarium.Settings.Store">
             <StackPanel Spacing="8">
                 <StackPanel x:Name="StoreCategories" Orientation="Vertical" Spacing="6" />
                 <StackPanel x:Name="StoreItems" Spacing="10" />
             </StackPanel>
+        </toolkit:SettingsCard>
+        <toolkit:SettingsCard
+            svc:Localized.HeaderKey="Tree.FruitMarket"
+            ContentAlignment="Vertical"
+            HorizontalContentAlignment="Stretch">
+            <sections:FruitMarketSection xmlns:sections="using:DeskBox.Views.SettingsSections" />
         </toolkit:SettingsCard>
         <TextBlock x:Name="StoreStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
     </StackPanel>

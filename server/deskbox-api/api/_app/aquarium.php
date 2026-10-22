@@ -393,7 +393,7 @@ function aquarium_read_state(PDO $pdo, string $userId): array
         $query->execute([':user' => $userId]);
         $profile = $query->fetch(PDO::FETCH_ASSOC);
         $state = ['initialized' => false, 'coins' => 0, 'scene_version' => 0,
-            'inventory' => [], 'scene' => [], 'wallet' => [], 'fruit_backpack' => 0, 'fruit_recycle_price' => 1];
+            'inventory' => [], 'discovered' => [], 'scene' => [], 'wallet' => [], 'fruit_backpack' => 0, 'fruit_recycle_price' => 1];
         if (is_array($profile)) {
             $state['initialized'] = (bool)$profile['initialized'];
             $state['coins'] = (int)$profile['coins'];
@@ -411,6 +411,9 @@ function aquarium_read_state(PDO $pdo, string $userId): array
                 $entry['created_at'] = auth_parse_sql_time($entry['created_at'])->format(DateTimeInterface::ATOM);
                 $state['inventory'][] = $entry;
             }
+            $discovered = $pdo->prepare("SELECT DISTINCT item_id FROM aquarium_wallet_entries WHERE user_id = :user AND item_id IS NOT NULL AND reason IN ('purchase','pack_open') ORDER BY item_id");
+            $discovered->execute([':user' => $userId]);
+            $state['discovered'] = array_map('strval', $discovered->fetchAll(PDO::FETCH_COLUMN));
             $wallet = $pdo->prepare('SELECT id, delta, balance, reason, item_id, created_at FROM aquarium_wallet_entries '
                 . 'WHERE user_id = :user ORDER BY id DESC LIMIT 100');
             $wallet->execute([':user' => $userId]);

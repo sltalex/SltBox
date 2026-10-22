@@ -47,6 +47,7 @@ public sealed partial class BackupSettingsViewModel
     private bool _todoDataEnabled;
     private bool _quickCaptureDataEnabled;
     private bool _widgetStyleEnabled;
+    private bool _dingTalkGroupDocumentsEnabled;
     private int _selectedIntervalMinutes = BackupOptionKinds.DefaultCloudIntervalMinutes;
     private int _selectedRetentionCount = BackupOptionKinds.DefaultCloudRetentionCount;
     private string _dragDropSummaryText = string.Empty;
@@ -134,6 +135,7 @@ public sealed partial class BackupSettingsViewModel
             IncludeTodoData = state.CloudTodoEnabled;
             IncludeQuickCaptureData = state.CloudQuickCaptureEnabled;
             IncludeWidgetStyle = state.CloudWidgetStyleEnabled;
+            IncludeDingTalkGroupDocuments = state.CloudDingTalkGroupDocumentsEnabled;
             SelectedIntervalMinutes = state.CloudIntervalMinutes;
             SelectedRetentionCount = state.CloudRetentionCount;
         }
@@ -451,6 +453,17 @@ public sealed partial class BackupSettingsViewModel
             }
 
             Update(new(CloudWidgetStyleEnabled: value));
+        }
+    }
+
+    public bool IncludeDingTalkGroupDocuments
+    {
+        get => _dingTalkGroupDocumentsEnabled;
+        set
+        {
+            if (!SetProperty(ref _dingTalkGroupDocumentsEnabled, value)) return;
+            if (_isSyncingPresentation) return;
+            Update(new(CloudDingTalkGroupDocumentsEnabled: value));
         }
     }
 

@@ -176,6 +176,7 @@ public partial class App : Application
     internal AccountCloudBackupService AccountCloudBackupService { get; private set; } = null!;
     internal TreeCloudSyncService TreeCloudSyncService { get; private set; } = null!;
     internal AquariumService AquariumService { get; private set; } = null!;
+    internal FruitService FruitService { get; private set; } = null!;
     private string? _aquariumVisibleIdentity;
     internal DingTalkGroupDocumentSyncService DingTalkGroupDocumentSyncService { get; private set; } = null!;
     public DeskBoxAttachmentHealthService AttachmentHealthService { get; private set; } = null!;
@@ -323,6 +324,7 @@ public partial class App : Application
         AccountCloudBackupService = Services.GetRequiredService<AccountCloudBackupService>();
         TreeCloudSyncService = Services.GetRequiredService<TreeCloudSyncService>();
         AquariumService = Services.GetRequiredService<AquariumService>();
+        FruitService = Services.GetRequiredService<FruitService>();
         WidgetRegistry.AquariumAccessResolver = () => AquariumService.IsAvailable;
         DingTalkGroupDocumentSyncService = Services.GetRequiredService<DingTalkGroupDocumentSyncService>();
         _ = LegacySearchIndexCleanupService.TryCleanup();
@@ -1092,6 +1094,7 @@ public partial class App : Application
             RunOptionalStartupStep("account-cloud-backup", AccountCloudBackupService.Start);
             RunOptionalStartupStep("tree-cloud-sync", TreeCloudSyncService.Start);
             RunOptionalStartupStep("aquarium-sync", AquariumService.Start);
+            RunOptionalStartupStep("fruit-catalog-refresh", () => _ = FruitService.RefreshAsync());
             RunOptionalStartupStep("dingtalk-group-documents", DingTalkGroupDocumentSyncService.Start);
 
             if (FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Search))
@@ -4826,6 +4829,7 @@ public partial class App : Application
                 await TreeCloudSyncService.DisposeAsync();
                 AquariumService.Changed -= OnAquariumChanged;
                 await AquariumService.DisposeAsync();
+                await FruitService.DisposeAsync();
                 WidgetRegistry.AquariumAccessResolver = () => false;
                 await AccountCloudBackupService.DisposeAsync();
             }, shutdownGrace),

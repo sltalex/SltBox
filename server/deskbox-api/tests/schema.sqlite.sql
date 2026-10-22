@@ -116,6 +116,14 @@ CREATE TABLE tree_progress_operations (
     FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE dingtalk_group_document_favorites (
+    user_id TEXT PRIMARY KEY,
+    document_urls_json TEXT NOT NULL,
+    documents_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE account_backup_uploads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

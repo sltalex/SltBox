@@ -35,7 +35,8 @@ internal sealed record AquariumState(
     IReadOnlyList<AquariumPlacement> Scene,
     IReadOnlyList<AquariumWalletEntry> Wallet,
     long FruitBackpack = 0,
-    long FruitRecyclePrice = 1);
+    long FruitRecyclePrice = 1,
+    IReadOnlyList<string>? Discovered = null);
 
 /// <summary>Explicit JSON contracts keep aquarium requests compatible with the native AOT client.</summary>
 internal static class AquariumJson
@@ -50,7 +51,10 @@ internal static class AquariumJson
         Array.AsReadOnly(root.GetProperty("wallet").EnumerateArray().Select(item => new AquariumWalletEntry(
             Id(item, "id"), item.GetProperty("delta").GetInt64(), item.GetProperty("balance").GetInt64(),
             Text(item, "reason"), OptionalText(item, "item_id"), Text(item, "created_at"))).ToArray()),
-        OptionalLong(root, "fruit_backpack"), OptionalLong(root, "fruit_recycle_price", 1));
+        OptionalLong(root, "fruit_backpack"), OptionalLong(root, "fruit_recycle_price", 1),
+        root.TryGetProperty("discovered", out JsonElement discovered) && discovered.ValueKind == JsonValueKind.Array
+            ? Array.AsReadOnly(discovered.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray())
+            : null);
 
     internal static IReadOnlyList<AquariumCatalogItem> ReadCatalog(JsonElement items) => Array.AsReadOnly(
         items.EnumerateArray().Select(item => new AquariumCatalogItem(Text(item, "id"), Text(item, "name"),
@@ -186,6 +190,9 @@ internal static class AquariumJson
         writer.WriteEndArray();
         writer.WriteNumber("fruit_backpack", state.FruitBackpack);
         writer.WriteNumber("fruit_recycle_price", state.FruitRecyclePrice);
+        writer.WriteStartArray("discovered");
+        foreach (string id in state.Discovered ?? Array.Empty<string>()) writer.WriteStringValue(id);
+        writer.WriteEndArray();
         writer.WriteEndObject();
     }
 

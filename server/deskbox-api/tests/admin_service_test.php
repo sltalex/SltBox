@@ -53,10 +53,13 @@ admin_mutate($pdo, $adminId, ['target_id' => $memberId, 'action' => 'update_user
     'username' => 'second_user', 'status' => 'active'], $clock);
 check((string)$pdo->query("SELECT username FROM auth_users WHERE id = '{$memberId}'")->fetchColumn() === 'second_user',
     'A user row can be edited without an operation reason.');
-admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_fruit_recycle_price',
-    'price_per_fruit' => 20], $clock);
-check(admin_read($pdo, $adminId, 'fruit_recycle', [], $clock)['price_per_fruit'] === 20,
-    'A non-negative integer recycle price can be saved without an operation reason.');
+try {
+    admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_fruit_recycle_price',
+        'price_per_fruit' => 20], $clock);
+    throw new RuntimeException('Legacy fixed fruit price action must be unavailable.');
+} catch (ApiError $error) {
+    check($error->apiCode === 'invalid_action', 'Legacy fixed fruit price action is removed.');
+}
 admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_aquarium_card_pack_price',
     'card_pack_price' => 275], $clock);
 check(admin_read($pdo, $adminId, 'shop', [], $clock)['card_pack_price'] === 275,
@@ -138,6 +141,6 @@ admin_mutate($pdo, $adminId, $common + ['action' => 'delete_user',
     'confirm_username' => 'second_user', 'admin_password' => 'secret1'], $clock);
 check((int)$pdo->query('SELECT COUNT(*) FROM auth_users')->fetchColumn() === 1, 'Account deleted.');
 check((int)$pdo->query("SELECT COUNT(*) FROM auth_sessions WHERE user_id = '{$memberId}'")->fetchColumn() === 0, 'Deleted sessions cascade.');
-check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 21, 'Operations and failures audited.');
+check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 20, 'Operations and failures audited.');
 check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 7, 'Failed operations are audited.');
 echo "admin_service_test: ok\n";

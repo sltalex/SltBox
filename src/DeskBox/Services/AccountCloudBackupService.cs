@@ -23,6 +23,7 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
     private readonly DeskBoxDataBackupService _localBackup;
     private readonly AccountBackupFileCatalog _catalog;
     private readonly DingTalkGroupDocumentFavorites? _favorites;
+    private readonly FruitService? _fruit;
     private readonly Func<DateTimeOffset> _clock;
     private readonly SemaphoreSlim _operation = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
@@ -36,11 +37,13 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
         SettingsService settings,
         DeskBoxDataBackupService localBackup,
         string? dataDirectory = null,
-        Func<DateTimeOffset>? clock = null, DingTalkGroupDocumentFavorites? favorites = null)
+        Func<DateTimeOffset>? clock = null, DingTalkGroupDocumentFavorites? favorites = null,
+        FruitService? fruit = null)
     {
         _api = api;
         _auth = auth;
         _favorites = favorites;
+        _fruit = fruit;
         _settings = settings;
         _localBackup = localBackup;
         _catalog = new AccountBackupFileCatalog(dataDirectory ?? DeskBoxDataPathService.Current.DataDirectory);
@@ -117,6 +120,8 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
             CheckOwner();
             cancellationToken.ThrowIfCancellationRequested();
             if (_favorites is not null) await _favorites.LoadAsync(cancellationToken);
+            if (_fruit is not null && !await _fruit.RefreshAsync(cancellationToken))
+                throw new InvalidDataException("Fruit account data could not be refreshed before backup.");
             AccountBackupFileDto[] files = await _catalog.CaptureAsync(cancellationToken, ownerId);
             var request = new AccountBackupCreateRequest
             {

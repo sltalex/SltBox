@@ -292,6 +292,8 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
     $growth = data_delta($body, 'day_growth_delta');
     $fruit = data_delta($body, 'fruit_delta');
     $harvested = data_delta($body, 'harvested_delta');
+    $typedFruit = ($body['typed_fruit'] ?? false) === true;
+    if ($typedFruit) fruit_ensure_schema($pdo);
     if ($energy === 0 && $growth === 0 && $fruit === 0 && $harvested === 0) {
         throw new ApiError('empty_operation', 'Progress operation contains no changes.', 400);
     }
@@ -320,6 +322,9 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
             $fruitEnergy = (int)$lockedProfile['fruit_energy'];
             $maturity = 4 * TREE_STAGE_INTERVAL;
             $newFruitEnergy = $fruitEnergy + max(0, $afterEnergy - max($beforeEnergy, $maturity));
+            $spawnCount = intdiv($newFruitEnergy,TREE_FRUIT_COST);
+            if ($typedFruit && ($harvested !== 0 || $fruit !== $spawnCount))
+                throw new ApiError('invalid_fruit_progress','New fruits must match the mature energy gain.',409);
             $newFruitEnergy %= TREE_FRUIT_COST;
             $update = $pdo->prepare(
                 'UPDATE tree_profiles SET total_energy = total_energy + :energy, fruit_total = fruit_total + :fruit, '
@@ -328,6 +333,7 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
             );
             $update->execute([':energy' => $energy, ':fruit' => $fruit, ':harvested' => $harvested,
                 ':fruit_energy' => $newFruitEnergy, ':updated_at' => auth_sql_time($now), ':user_id' => $userId]);
+            if ($typedFruit && $spawnCount>0) fruit_record_spawn($pdo,$userId,$spawnCount,$now);
             if ($growth > 0) {
                 $dailySql = $driver === 'sqlite'
                     ? 'INSERT INTO tree_daily_progress (user_id, progress_day, growth) VALUES (:user_id, :day, :growth) ON CONFLICT(user_id, progress_day) DO UPDATE SET growth = growth + excluded.growth'

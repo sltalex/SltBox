@@ -1,4 +1,4 @@
-﻿namespace DeskBox.Tests;
+namespace DeskBox.Tests;
 
 public sealed class AotStage5B4C3B2B2BContractTests
 {
@@ -180,7 +180,7 @@ public sealed class AotStage5B4C3B2B2BContractTests
                      "stage5B4C3B2B2BRustAbiUnchanged",
                      "stage5B4C3B2B2BScenarioJsonSerializeCallCount",
                      "stage5B4C3B2B2BManagedUiJsonSerializeCallCount",
-                     "stage5B4C3B2B2BExpectedWmc1510Count = 766"
+                     "stage5B4C3B2B2BExpectedWmc1510Count = 768"
                  })
         {
             Assert.Contains(token, audit, StringComparison.Ordinal);

@@ -219,6 +219,12 @@ Text="SltBox" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="FruitEncyclopediaNavItem"
+                    Tag="FruitEncyclopedia"
+                    svc:Localized.Key="Tree.FruitEncyclopedia">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE71D;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
                     Tag="Appearance"
                     svc:Localized.Key="Settings.Nav.Appearance">
                     <NavigationViewItem.Icon>
@@ -2467,6 +2473,12 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                     <DataTemplate x:Key="AquariumStoreSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:AquariumStoreSection x:Name="AquariumStoreSection" Visibility="Collapsed" />
                     </DataTemplate>
+                    <DataTemplate x:Key="FruitEncyclopediaSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <sections:FruitEncyclopediaSection x:Name="FruitEncyclopediaSection" Visibility="Collapsed" />
+                    </DataTemplate>
+                    <DataTemplate x:Key="FruitMarketSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <sections:FruitMarketSection x:Name="FruitMarketSection" Visibility="Collapsed" />
+                    </DataTemplate>
                     <DataTemplate x:Key="DingTalkGroupDocsSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:DingTalkGroupDocsSettingsSection x:Name="DingTalkGroupDocsSettingsSection" Visibility="Collapsed" />
                     </DataTemplate>
@@ -2959,6 +2971,16 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                 <FontIcon Glyph="&#xE790;" />
                             </toolkit:SettingsCard.HeaderIcon>
                             <ToggleSwitch OnContent="" OffContent="" MinWidth="0" IsEnabled="{Binding ActionsEnabled}" IsOn="{Binding IncludeWidgetStyle, Mode=TwoWay}" />
+                        </toolkit:SettingsCard>
+
+                        <toolkit:SettingsCard
+                            HorizontalContentAlignment="Right"
+                            svc:Localized.DescriptionKey="Settings.CloudBackup.Snapshots.Description"
+                            svc:Localized.HeaderKey="Settings.CloudBackup.Snapshots.Title">
+                            <toolkit:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE8A4;" />
+                            </toolkit:SettingsCard.HeaderIcon>
+                            <ToggleSwitch OnContent="" OffContent="" MinWidth="0" IsEnabled="{Binding ActionsEnabled}" IsOn="{Binding IncludeDingTalkGroupDocuments, Mode=TwoWay}" />
                         </toolkit:SettingsCard>
 
                         <toolkit:SettingsCard

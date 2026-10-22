@@ -320,7 +320,7 @@ public sealed class QuickCaptureSettingsCoordinatorTests : IDisposable
         coordinator.SetShowCreatedTime(true);
         coordinator.SetPreviewLineCount(-5);
         Assert.Equal(new(SettingsService.WidgetTabStylePivot, true,
-            SettingsService.MinItemPreviewLineCount), coordinator.ReadPresentation());
+            SettingsService.MinItemPreviewLineCount, true), coordinator.ReadPresentation());
         await settings.FlushPendingSaveAsync();
         var reloaded = new SettingsService(Path.Combine(_root, "settings"));
         await reloaded.LoadAsync();
@@ -335,7 +335,7 @@ public sealed class QuickCaptureSettingsCoordinatorTests : IDisposable
         coordinator.ResetPresentationPreferences(scheduleSave: false);
         Assert.Equal(0, notifications);
         Assert.Equal(new(SettingsService.WidgetTabStyleButton, true,
-            SettingsService.DefaultQuickCaptureItemPreviewLineCount),
+            SettingsService.DefaultQuickCaptureItemPreviewLineCount, true),
             coordinator.ReadPresentation());
         await settings.SaveAsync();
         Assert.Equal(1, notifications);
@@ -371,7 +371,7 @@ public sealed class QuickCaptureSettingsCoordinatorTests : IDisposable
         coordinator.RefreshFromSettings();
 
         Assert.Equal(1, changes);
-        Assert.Equal(new(SettingsService.WidgetTabStylePivot, false, 5),
+        Assert.Equal(new(SettingsService.WidgetTabStylePivot, false, 5, true),
             coordinator.ReadPresentation());
         Assert.Same(sessions[0], clipboard.Current);
         Assert.Equal(refreshes, sessions[0].Refreshes);

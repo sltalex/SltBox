@@ -89,6 +89,15 @@ public sealed class TreeIllustrationTests
         }
     }
 
+    [Fact]
+    public void FruitHitTargetRejectsEmptyCanopyAndSelectsVisibleFruit()
+    {
+        Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 130, 80));
+        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 102, 97));
+        Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 169, 101));
+        Assert.Equal(1, TreeIllustrationLayout.FruitIndexAt(2, 169, 101));
+    }
+
     [Theory]
     [InlineData(5, 1L, 32, 12, true)]
     [InlineData(5, 1L, 228, 150, true)]

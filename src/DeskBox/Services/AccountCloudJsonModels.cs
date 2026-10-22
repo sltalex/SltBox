@@ -109,6 +109,8 @@ internal sealed class TreeProgressUploadRequest
     public long FruitDelta { get; set; }
     [JsonPropertyName("harvested_delta")]
     public long HarvestedDelta { get; set; }
+    [JsonPropertyName("typed_fruit")]
+    public bool TypedFruit { get; set; }
 }
 
 internal sealed class TreeStateSyncRequest
@@ -244,6 +246,7 @@ internal sealed class TreeCloudState
 [JsonSerializable(typeof(TreeProgressUploadResponse))]
 [JsonSerializable(typeof(TreeLeaderboardResponse))]
 [JsonSerializable(typeof(TreeCloudState))]
+[JsonSerializable(typeof(FruitCacheDto))]
 [JsonSerializable(typeof(string[]))]
 internal sealed partial class AccountCloudJsonContext : JsonSerializerContext
 {

@@ -26,6 +26,24 @@ public sealed class AccountBackupFileCatalogTests : IDisposable
     }
 
     [Fact]
+    public async Task FruitStateBackup_StaysScopedToTheSignedInAccount()
+    {
+        const string first = "fruit/fruit-state-account-first.json";
+        const string second = "fruit/fruit-state-account-second.json";
+        Write(first, "{\"ownerUserId\":\"first\",\"inventory\":[]}");
+        Write(second, "{\"ownerUserId\":\"second\",\"inventory\":[]}");
+        var catalog = new AccountBackupFileCatalog(Path.Combine(_root, "data"));
+        AccountBackupFileDto[] files = await catalog.CaptureAsync(ownerUserId: "first");
+        Assert.Contains(files, file => file.Path == first);
+        Assert.DoesNotContain(files, file => file.Path == second);
+        await catalog.PrepareRestoreAsync(Snapshot((first, "{\"ownerUserId\":\"first\",\"inventory\":[{\"fruitId\":\"apple\",\"quantity\":2,\"discovered\":true}]}")),
+            "first", _ => Task.CompletedTask);
+        Assert.True((await catalog.ApplyPendingRestoreAsync()).Applied);
+        Assert.Equal("{\"ownerUserId\":\"second\",\"inventory\":[]}",
+            File.ReadAllText(Path.Combine(_root, "data", second)));
+    }
+
+    [Fact]
     public async Task Capture_IncludesOnlyManagedPrimaryJsonFiles()
     {
         Write("settings.json", "{}");

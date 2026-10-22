@@ -399,6 +399,7 @@ public const int DefaultSearchMaxResults = 100;
                 [nameof(AppSettings.CloudBackupTodoDataEnabled)] = DefaultPreferencePreservationReason.UserChoice,
                 [nameof(AppSettings.CloudBackupQuickCaptureDataEnabled)] = DefaultPreferencePreservationReason.UserChoice,
                 [nameof(AppSettings.CloudBackupWidgetStyleEnabled)] = DefaultPreferencePreservationReason.UserChoice,
+                [nameof(AppSettings.CloudBackupDingTalkGroupDocumentsEnabled)] = DefaultPreferencePreservationReason.UserChoice,
                 [nameof(AppSettings.CloudBackupLastSuccessUtcTicks)] = DefaultPreferencePreservationReason.RuntimeState,
                 [nameof(AppSettings.CloudBackupLastFailureUtcTicks)] = DefaultPreferencePreservationReason.RuntimeState,
                 [nameof(AppSettings.CloudBackupLastUnverifiedUtcTicks)] = DefaultPreferencePreservationReason.RuntimeState,

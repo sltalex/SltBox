@@ -45,12 +45,6 @@
   "Settings.Admin.Save": "保存",
   "Settings.Admin.Cancel": "取消",
   "Settings.Admin.InvalidUsername": "用户名需为 3-32 位字母、数字或下划线。",
-  "Aquarium.Settings.RecycleFruit": "回收水果",
-  "Aquarium.Settings.RecycleFruit.Balance": "可回收：{0} 个 · 当前价格：{1} 金币/个",
-  "Aquarium.Settings.RecycleFruit.Quantity": "数量",
-  "Aquarium.Settings.RecycleFruit.Action": "回收并兑换金币",
-  "Aquarium.Settings.RecycleFruit.Invalid": "请输入有效的回收数量。",
-  "Aquarium.Settings.RecycleFruit.Success": "水果回收成功。",
   "Settings.Nav.Admin": "管理员",
   "Settings.Admin.Search": "搜索",
   "Settings.Admin.SearchHint": "搜索用户名",
@@ -3035,6 +3029,8 @@
   ,"Aquarium.Settings.Discard":"放弃草稿"
   ,"Aquarium.Settings.Reapply":"重新应用"
   ,"Aquarium.Settings.Store":"商城"
+  ,"Tree.FruitEncyclopedia":"果实图鉴"
+  ,"Tree.FruitMarket":"水果市场"
   ,"Aquarium.Settings.Backpack":"背包"
   ,"Aquarium.Settings.Wallet":"钱包"
   ,"Aquarium.Settings.Coins":"余额：{0} 金币"

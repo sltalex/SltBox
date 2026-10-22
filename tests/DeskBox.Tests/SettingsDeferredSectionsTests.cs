@@ -31,7 +31,7 @@ public sealed class SettingsDeferredSectionsTests
             entry.HeaderKey == "Settings.ManagedPath.DesktopShortcut.Title");
         Assert.Contains(SettingsSearchCatalog.Entries, entry =>
             entry.SectionTag == "Backpack" &&
-            entry.HeaderKey == "Aquarium.Backpack.Aquarium");
+            entry.HeaderKey == "Settings.Nav.Backpack");
         Assert.Contains(SettingsSearchCatalog.Entries, entry =>
             entry.SectionTag == "AquariumStore" &&
             entry.HeaderKey == "Aquarium.Settings.Store");

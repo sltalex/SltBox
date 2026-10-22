@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102101",
-  "releaseDate": "2026-10-21",
+  "version": "2026102301",
+  "releaseDate": "2026-10-23",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102101/SltBox_Setup_2026102101_x64.exe",
-  "mirrorUrl": "https://sltbox.2leaves.cn/releases/SltBox_Setup_2026102101_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102301/SltBox_Setup_2026102301_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102301_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
   "sha256": "db2b91c2395c6734bab0074ca251de7f7e5d194069469fbd88bfe0d45a0baee6",
   "size": 103350688,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102101",
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102301",
   "summary": {
-    "zh-CN": "SltBox 2026102101：管理员管理迁移到 Web 后台，种树同步改为服务端增量累加并修复跨设备基线，水族馆商城与回收布局及待办跨午夜刷新得到改进。",
-    "en-US": "SltBox 2026102101 moves administrator management to the web portal, uses server-side additive tree sync with safer cross-device baselines, and improves aquarium store/recycling layout and todo date refresh."
+    "zh-CN": "SltBox 2026102301：果实显示改用独立透明 PNG，修复旧图集裁剪偏差，并统一树上、商城和图鉴取图逻辑。",
+    "en-US": "SltBox 2026102301 uses independent transparent fruit PNG assets across the tree, market, and encyclopedia, fixing legacy atlas cropping errors."
   }
 }

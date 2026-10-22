@@ -83,6 +83,37 @@ public sealed class DingTalkGroupDocumentFavorites : IDisposable
 
     public IReadOnlyList<DingTalkGroupDocument> FavoriteDocuments => IsCurrentOwner ? _favoriteDocuments : [];
 
+    /// <summary>Returns the current account's favorite snapshot for account sync.</summary>
+    internal async Task<DingTalkGroupDocumentFavoritesStore> ExportSnapshotAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await LoadAsync(cancellationToken);
+        return new DingTalkGroupDocumentFavoritesStore
+        {
+            DocumentUrls = [.. _keys.Where(IsLegacyUrlKey).Order(StringComparer.Ordinal)],
+            Documents = [.. _favoriteDocuments]
+        };
+    }
+
+    /// <summary>Merges a remote account snapshot without resurrecting invalid URLs.</summary>
+    internal async Task MergeSnapshotAsync(
+        DingTalkGroupDocumentFavoritesStore snapshot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        foreach (string url in snapshot.DocumentUrls ?? [])
+        {
+            try { await SetFavoriteAsync(url, true, cancellationToken); }
+            catch (ArgumentException) { }
+        }
+
+        foreach (DingTalkGroupDocument document in snapshot.Documents ?? [])
+        {
+            try { await SetFavoriteAsync(document, true, cancellationToken); }
+            catch (ArgumentException) { }
+        }
+    }
+
     internal static string CanonicalKey(string url) => DocumentKey(url);
 
     internal static string CanonicalKey(DingTalkGroupDocument document) => DocumentIdentity(document);

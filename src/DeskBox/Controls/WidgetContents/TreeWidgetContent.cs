@@ -46,9 +46,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private volatile bool _disposed;
     private bool _motionRunning;
     private int _refreshQueued;
+    private int _pickInProgress;
     private long _lastCounterRefreshTicks;
     private int _lastStage;
     private long _lastFruitInventory = -1;
+    private string _lastFruitSignature = string.Empty;
     private long _lastHarvested;
 
     public TreeWidgetContent(LocalizationService localization)
@@ -76,11 +78,15 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         {
             TreeProgress state = _counter.Snapshot;
             Windows.Foundation.Point point = args.GetPosition(_treeSurface);
-            if (TreeIllustrationLayout.CanHarvest(state.Stage, state.FruitInventory, point.X, point.Y))
+            FruitService fruitService = App.Current.FruitService;
+            int visible = fruitService.IsAvailable
+                ? fruitService.OnTree.Count
+                : TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory);
+            int index = state.Stage == 5 ? TreeIllustrationLayout.FruitIndexAt(visible, point.X, point.Y) : -1;
+            if (index >= 0)
             {
-                long reward = _counter.Harvest();
-                App.Log($"[Tree] Picked one fruit; credited {reward} fruit(s) to the account backpack.");
-                Refresh();
+                long pendingId = fruitService.IsAvailable ? fruitService.OnTree[index].Id : 0;
+                _ = PickFruitAsync(pendingId);
                 args.Handled = true;
             }
         };
@@ -88,9 +94,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         Loaded += (_, _) =>
         {
             _counter.Changed += CounterChanged;
+            App.Current.FruitService.Changed += FruitChanged;
             if (_visible && !_disposed) { _timer.Start(); Refresh(); }
         };
         Unloaded += (_, _) => { _counter.Changed -= CounterChanged; _timer.Stop(); StopMotion(); };
+        Unloaded += (_, _) => App.Current.FruitService.Changed -= FruitChanged;
         Refresh();
     }
 
@@ -130,10 +138,12 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_treeSurface, _localization.T($"Tree.Stage.{p.Stage}"));
             ConfigureFallingLeaves(p.Stage);
         }
-        if (_lastStage != p.Stage || _lastFruitInventory != p.FruitInventory)
+        string fruitSignature = string.Join(',', App.Current.FruitService.OnTree.Select(x => x.Id));
+        if (_lastStage != p.Stage || _lastFruitInventory != p.FruitInventory || _lastFruitSignature != fruitSignature)
             DrawFruit(p);
         _lastStage = p.Stage;
         _lastFruitInventory = p.FruitInventory;
+        _lastFruitSignature = fruitSignature;
 
         UpdateMotion();
         if (celebrate && _motionRunning)
@@ -158,22 +168,71 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             Interlocked.Exchange(ref _refreshQueued, 0);
     }
 
+    private void FruitChanged()
+    {
+        if (!_disposed && _visible) _uiQueue.TryEnqueue(Refresh);
+    }
+
     private static SvgImageSource Asset(string fileName) => new(new Uri($"ms-appx:///Assets/Tree/{fileName}"));
+
+    private async Task PickFruitAsync(long pendingId)
+    {
+        if (Interlocked.Exchange(ref _pickInProgress, 1) != 0) return;
+        try
+        {
+            var fruitService = App.Current.FruitService;
+            if (fruitService.IsAvailable)
+            {
+                await App.Current.TreeCloudSyncService.SyncNowAsync();
+                if (!await fruitService.RefreshAsync() || !fruitService.OnTree.Any(x => x.Id == pendingId))
+                {
+                    App.Log("[Tree] No account fruit is ready to pick; local tree state was unchanged.");
+                    return;
+                }
+                var picked = await fruitService.PickAsync(pendingId);
+                if (picked.Success)
+                {
+                    App.Log($"[Tree] Picked {picked.FruitId}; credited {picked.Quantity} fruit(s).");
+                    await App.Current.TreeCloudSyncService.SyncNowAsync();
+                }
+                else App.Log("[Tree] Fruit pick was rejected; local tree state was unchanged.");
+            }
+            else
+            {
+                long reward = _counter.Harvest();
+                if (reward > 0) App.Log($"[Tree] Picked one fruit; credited {reward} fruit(s) to the local backpack.");
+            }
+            Refresh();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException)
+        {
+            App.Log($"[Tree] Fruit pick failed: {ex.Message}");
+        }
+        finally { Volatile.Write(ref _pickInProgress, 0); }
+    }
 
     private void DrawFruit(TreeProgress state)
     {
         _fruitLayer.Children.Clear();
         if (state.Stage != 5) return;
-        SvgImageSource fruitSource = Asset("fruit.svg");
-        for (int i = 0; i < TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory); i++)
+        FruitService fruitService = App.Current.FruitService;
+        IReadOnlyList<FruitOnTreeItem> onTree = fruitService.OnTree;
+        int visible = fruitService.IsAvailable
+            ? Math.Min(onTree.Count, TreeIllustrationLayout.MaxVisibleFruit)
+            : TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory);
+        for (int i = 0; i < visible; i++)
         {
             (double x, double y) = TreeIllustrationLayout.FruitPositions[i];
-            var fruit = new Image { Width = 24, Height = 28, Source = fruitSource };
+            ImageSource source = onTree.Count > i
+                ? FruitAssetCatalog.GetImageSource(onTree[i].FruitId)
+                : Asset("fruit.svg");
+            var fruit = new Image { Width = 24, Height = 28, Source = source, Stretch = Stretch.Uniform };
             Canvas.SetLeft(fruit, x);
             Canvas.SetTop(fruit, y);
             _fruitLayer.Children.Add(fruit);
         }
-        long extra = TreeIllustrationLayout.ExtraFruitCount(state.FruitInventory);
+        long extra = TreeIllustrationLayout.ExtraFruitCount(
+            fruitService.IsAvailable ? onTree.Count : state.FruitInventory);
         if (extra > 0)
         {
             // Keep even a very large inventory inside the artwork's view box.
@@ -318,6 +377,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     {
         _disposed = true;
         _counter.Changed -= CounterChanged;
+        App.Current.FruitService.Changed -= FruitChanged;
         _timer.Stop();
         StopMotion();
         _progress.Dispose();

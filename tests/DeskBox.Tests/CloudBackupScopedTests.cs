@@ -58,6 +58,12 @@ public sealed class CloudBackupScopedTests : IDisposable
         Assert.False(CloudBackupDomains.IsInScope(
             CloudBackupDomain.TodoData | CloudBackupDomain.QuickCaptureData,
             "desktop-organization-recovery.json"));
+        Assert.True(CloudBackupDomains.IsInDomain(
+            CloudBackupDomain.FruitData, "fruit/fruit-state-account-user_1.json"));
+        Assert.False(CloudBackupDomains.IsInDomain(
+            CloudBackupDomain.FruitData, "fruit/fruit-state.json"));
+        Assert.False(CloudBackupDomains.IsInDomain(
+            CloudBackupDomain.FruitData, "fruit/fruit-state-account-user_1.json.tmp"));
     }
 
     [Fact]
@@ -75,6 +81,8 @@ public sealed class CloudBackupScopedTests : IDisposable
         Assert.Equal(
             CloudBackupDomain.TodoData,
             CloudBackupDomains.FromManifestNames(["todo-data", "future-domain"]));
+        Assert.Equal(CloudBackupDomain.FruitData,
+            CloudBackupDomains.FromManifestNames(["fruit-data"]));
     }
 
     [Fact]
@@ -108,6 +116,32 @@ public sealed class CloudBackupScopedTests : IDisposable
         JsonObject manifest = await ReadManifestAsync(archive);
         JsonArray domains = Assert.IsType<JsonArray>(manifest["domains"]);
         Assert.Equal("todo-data", Assert.Single(domains)!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task FruitSnapshot_ExportsAndRestoresWithoutReplacingAnotherAccount()
+    {
+        string dataDir = Directory.CreateDirectory(Path.Combine(_appDataRoot, "data")).FullName;
+        string fruitDir = Directory.CreateDirectory(Path.Combine(dataDir, "fruit")).FullName;
+        string alice = Path.Combine(fruitDir, "fruit-state-account-alice.json");
+        string bob = Path.Combine(fruitDir, "fruit-state-account-bob.json");
+        const string aliceSnapshot = "{\"ownerUserId\":\"alice\",\"inventory\":[{\"fruitId\":\"apple\",\"quantity\":2,\"discovered\":true}],\"history\":{},\"onTree\":[]}";
+        await File.WriteAllTextAsync(alice, aliceSnapshot);
+        var service = new DeskBoxDataBackupService(_appDataRoot);
+        string backupPath = await service.ExportScopedBackupAsync(_exportRoot, CloudBackupDomain.FruitData);
+        using (ZipArchive archive = ZipFile.OpenRead(backupPath))
+        {
+            Assert.NotNull(archive.GetEntry("data/fruit/fruit-state-account-alice.json"));
+            Assert.Equal("fruit-data", Assert.Single(Assert.IsType<JsonArray>((await ReadManifestAsync(archive))["domains"]))!.GetValue<string>());
+        }
+        File.Delete(alice);
+        await File.WriteAllTextAsync(bob, "{\"ownerUserId\":\"bob\"}");
+        await service.PrepareScopedRestoreAsync(backupPath, CloudBackupDomain.FruitData);
+        Assert.True(await service.SetPendingRestoreItemReplaceModeAsync(false));
+        DeskBoxRestoreApplyResult result = await service.ApplyPendingRestoreAsync();
+        Assert.True(result.Succeeded, result.ErrorMessage);
+        Assert.Equal(aliceSnapshot, await File.ReadAllTextAsync(alice));
+        Assert.True(File.Exists(bob));
     }
 
     [Fact]

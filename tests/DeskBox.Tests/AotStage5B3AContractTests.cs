@@ -1,4 +1,4 @@
-﻿namespace DeskBox.Tests;
+namespace DeskBox.Tests;
 
 public sealed class AotStage5B3AContractTests
 {
@@ -172,7 +172,7 @@ public sealed class AotStage5B3AContractTests
         Assert.Contains("stage5B3AMissingRunnerPatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B3AUnsafeMutationPatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B3AMissingSmokeScriptPatterns", audit, StringComparison.Ordinal);
-        Assert.Contains("stage5B3AExpectedWmc1510Count = 766", audit, StringComparison.Ordinal);
+        Assert.Contains("stage5B3AExpectedWmc1510Count = 768", audit, StringComparison.Ordinal);
         Assert.Contains("$RequiredAuditProfileVersion = 59", launcher, StringComparison.Ordinal);
         Assert.Contains("$RequiredSummarySchemaVersion = 55", launcher, StringComparison.Ordinal);
         Assert.Contains("Native AOT stage 5B-4C3B2B1", project, StringComparison.Ordinal);

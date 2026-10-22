@@ -54,7 +54,8 @@ public sealed class BackupSettingsCoordinator : IBackupSettings, IDisposable
             CloudBackupSettingsPolicy.NormalizeRetentionCount(cloud.CloudBackupRetentionCount),
             cloud.CloudBackupLastSuccessUtcTicks, cloud.CloudBackupLastFailureUtcTicks,
             cloud.CloudBackupLastUnverifiedUtcTicks,
-            options.Endpoint, options.HasEndpoint);
+            options.Endpoint, options.HasEndpoint,
+            cloud.CloudBackupDingTalkGroupDocumentsEnabled);
     }
 
     public void Update(BackupSettingsChange change)
@@ -101,6 +102,8 @@ public sealed class BackupSettingsCoordinator : IBackupSettings, IDisposable
             { cloud.CloudBackupQuickCaptureDataEnabled = quick; changed = true; }
         if (change.CloudWidgetStyleEnabled is { } style && cloud.CloudBackupWidgetStyleEnabled != style)
             { cloud.CloudBackupWidgetStyleEnabled = style; changed = true; }
+        if (change.CloudDingTalkGroupDocumentsEnabled is { } documents && cloud.CloudBackupDingTalkGroupDocumentsEnabled != documents)
+            { cloud.CloudBackupDingTalkGroupDocumentsEnabled = documents; changed = true; }
         if (change.CloudIntervalMinutes is { } interval)
         {
             int value = CloudBackupSettingsPolicy.NormalizeIntervalMinutes(interval);

@@ -34,6 +34,11 @@ public static class ServiceRegistry
         services.AddSingleton<DingTalkGroupDocumentFavorites>(sp =>
             new DingTalkGroupDocumentFavorites(sp.GetRequiredService<IDingTalkDwsClient>(),
                 auth: sp.GetRequiredService<IAuthSession>(), account: sp.GetRequiredService<DingTalkAccountService>()));
+        services.AddSingleton<DingTalkGroupDocumentFavoritesCloudSyncService>(sp =>
+            new DingTalkGroupDocumentFavoritesCloudSyncService(
+                sp.GetRequiredService<IAuthenticatedAccountApi>(),
+                sp.GetRequiredService<IAuthSession>(),
+                sp.GetRequiredService<DingTalkGroupDocumentFavorites>()));
         services.AddSingleton<DingTalkGroupDocumentSyncService>(sp =>
             new DingTalkGroupDocumentSyncService(
                 sp.GetRequiredService<DingTalkGroupDocumentService>(),
@@ -46,13 +51,24 @@ public static class ServiceRegistry
                 sp.GetRequiredService<IAuthSession>(),
                 sp.GetRequiredService<SettingsService>(),
                 sp.GetRequiredService<DeskBoxDataBackupService>(),
-                favorites: sp.GetRequiredService<DingTalkGroupDocumentFavorites>()));
+                favorites: sp.GetRequiredService<DingTalkGroupDocumentFavorites>(),
+                fruit: sp.GetRequiredService<FruitService>()));
         services.AddSingleton<TreeCloudSyncService>(sp =>
             new TreeCloudSyncService(
                 sp.GetRequiredService<IAuthenticatedAccountApi>(),
-                sp.GetRequiredService<IAuthSession>()));
+                sp.GetRequiredService<IAuthSession>(),
+                syncAdditionalData: async token =>
+                {
+                    bool favorites = await sp.GetRequiredService<DingTalkGroupDocumentFavoritesCloudSyncService>().SyncNowAsync(token);
+                    bool fruits = await sp.GetRequiredService<FruitService>().RefreshAsync(token);
+                    return favorites && fruits;
+                }));
         services.AddSingleton<AquariumService>(sp =>
             new AquariumService(
+                sp.GetRequiredService<IAuthSession>(),
+                sp.GetRequiredService<IAuthenticatedAccountApi>()));
+        services.AddSingleton<FruitService>(sp =>
+            new FruitService(
                 sp.GetRequiredService<IAuthSession>(),
                 sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<CloudBackupService>(sp =>

@@ -1359,6 +1359,10 @@ public sealed partial class DeskBoxDataBackupService
                             await MergeStagedQuickCaptureStoreAsync(
                                 stagedDataDirectory, cancellationToken);
                         }
+                        else if (domain == CloudBackupDomain.FruitData)
+                        {
+                            FruitCacheFileStore.RestoreMissing(stagedDataDirectory, DataDirectory);
+                        }
                     }
 
                     continue;

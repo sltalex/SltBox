@@ -799,6 +799,9 @@ public class AppSettings
     /// <inheritdoc cref="CloudBackupSettingsSlice.CloudBackupWidgetStyleEnabled"/>
     public bool CloudBackupWidgetStyleEnabled { get => CloudBackup.CloudBackupWidgetStyleEnabled; set => CloudBackup.CloudBackupWidgetStyleEnabled = value; }
 
+    /// <inheritdoc cref="CloudBackupSettingsSlice.CloudBackupDingTalkGroupDocumentsEnabled"/>
+    public bool CloudBackupDingTalkGroupDocumentsEnabled { get => CloudBackup.CloudBackupDingTalkGroupDocumentsEnabled; set => CloudBackup.CloudBackupDingTalkGroupDocumentsEnabled = value; }
+
     /// <inheritdoc cref="CloudBackupSettingsSlice.CloudBackupRetentionCount"/>
     public int CloudBackupRetentionCount { get => CloudBackup.CloudBackupRetentionCount; set => CloudBackup.CloudBackupRetentionCount = value; }
 

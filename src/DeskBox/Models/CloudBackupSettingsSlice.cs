@@ -21,13 +21,16 @@ public sealed class CloudBackupSettingsSlice
     public string CloudBackupUsername { get; set; } = string.Empty;
 
     /// <summary>Independent toggle: todo data + its attachments.</summary>
-    public bool CloudBackupTodoDataEnabled { get; set; }
+    public bool CloudBackupTodoDataEnabled { get; set; } = true;
 
     /// <summary>Independent toggle: quick-capture data + its attachments.</summary>
-    public bool CloudBackupQuickCaptureDataEnabled { get; set; }
+    public bool CloudBackupQuickCaptureDataEnabled { get; set; } = true;
 
     /// <summary>Independent toggle: widget style projection (never layout/positions).</summary>
-    public bool CloudBackupWidgetStyleEnabled { get; set; }
+    public bool CloudBackupWidgetStyleEnabled { get; set; } = true;
+
+    /// <summary>Independent toggle: DingTalk group-document favorites.</summary>
+    public bool CloudBackupDingTalkGroupDocumentsEnabled { get; set; } = true;
 
     /// <summary>How many remote snapshots to keep.</summary>
     public int CloudBackupRetentionCount { get; set; } = 5;

@@ -11,7 +11,9 @@ public enum CloudBackupDomain
     None = 0,
     TodoData = 1,
     QuickCaptureData = 2,
-    WidgetStyle = 4
+    WidgetStyle = 4,
+    DingTalkGroupDocuments = 8,
+    FruitData = 16
 }
 
 /// <summary>
@@ -49,7 +51,9 @@ internal static class CloudBackupDomains
     internal static readonly CloudBackupDomain[] FileDomains =
     [
         CloudBackupDomain.TodoData,
-        CloudBackupDomain.QuickCaptureData
+        CloudBackupDomain.QuickCaptureData,
+        CloudBackupDomain.DingTalkGroupDocuments,
+        CloudBackupDomain.FruitData
     ];
 
     internal static bool IsInDomain(CloudBackupDomain domain, string relativePath)
@@ -59,6 +63,8 @@ internal static class CloudBackupDomains
         {
             CloudBackupDomain.TodoData => IsTodoDataPath(normalized),
             CloudBackupDomain.QuickCaptureData => IsQuickCaptureDataPath(normalized),
+            CloudBackupDomain.DingTalkGroupDocuments => IsDingTalkGroupDocumentsPath(normalized),
+            CloudBackupDomain.FruitData => IsFruitDataPath(normalized),
             // WidgetStyle owns no data-directory files.
             _ => false
         };
@@ -87,6 +93,8 @@ internal static class CloudBackupDomains
         CloudBackupDomain.TodoData => "todo-data",
         CloudBackupDomain.QuickCaptureData => "quick-capture-data",
         CloudBackupDomain.WidgetStyle => "widget-style",
+        CloudBackupDomain.DingTalkGroupDocuments => "dingtalk-group-documents",
+        CloudBackupDomain.FruitData => "fruit-data",
         _ => throw new ArgumentOutOfRangeException(nameof(domain), domain, null)
     };
 
@@ -97,6 +105,8 @@ internal static class CloudBackupDomains
             "todo-data" => CloudBackupDomain.TodoData,
             "quick-capture-data" => CloudBackupDomain.QuickCaptureData,
             "widget-style" => CloudBackupDomain.WidgetStyle,
+            "dingtalk-group-documents" => CloudBackupDomain.DingTalkGroupDocuments,
+            "fruit-data" => CloudBackupDomain.FruitData,
             _ => CloudBackupDomain.None
         };
         return domain != CloudBackupDomain.None;
@@ -184,4 +194,22 @@ internal static class CloudBackupDomains
 
     private static bool IsQuickCaptureDataPath(string normalizedPath) =>
         normalizedPath.Equals("quick-capture/quick-capture.json", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDingTalkGroupDocumentsPath(string normalizedPath)
+    {
+        const string prefix = "dingtalk/group-document-favorites-";
+        return normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+            normalizedPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase) &&
+            normalizedPath.Length == prefix.Length + 64 + 5;
+    }
+
+    private static bool IsFruitDataPath(string normalizedPath)
+    {
+        const string prefix = "fruit/fruit-state-account-";
+        if (!normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            !normalizedPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return false;
+        string account = normalizedPath[prefix.Length..^5];
+        return account.Length is >= 1 and <= 64 &&
+            account.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+    }
 }

@@ -18,9 +18,9 @@ public sealed class AquariumInventoryPresentationTests
             Assert.Equal("Vertical", (string?)card.Attribute("ContentAlignment"));
             Assert.Equal("Stretch", (string?)card.Attribute("HorizontalContentAlignment"));
         });
-        Assert.Equal("Aquarium.Settings.RecycleFruit",
-            cards[0].Attributes().Single(attribute => attribute.Name.LocalName == "Localized.HeaderKey").Value);
         Assert.Equal("Aquarium.Settings.Store",
+            cards[0].Attributes().Single(attribute => attribute.Name.LocalName == "Localized.HeaderKey").Value);
+        Assert.Equal("Tree.FruitMarket",
             cards[1].Attributes().Single(attribute => attribute.Name.LocalName == "Localized.HeaderKey").Value);
     }
 
@@ -127,7 +127,7 @@ public sealed class AquariumInventoryPresentationTests
         Assert.DoesNotContain("BackpackCategories", backpack, StringComparison.Ordinal);
         Assert.Contains("StoreCategories", store, StringComparison.Ordinal);
         Assert.Contains("StoreItems", store, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RecycleHost\"", store, StringComparison.Ordinal);
+        Assert.Contains("FruitMarketSection", store, StringComparison.Ordinal);
         Assert.DoesNotContain("SaveLayout", backpack, StringComparison.Ordinal);
         Assert.DoesNotContain("_walletTab", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("RenderWallet", settings, StringComparison.Ordinal);

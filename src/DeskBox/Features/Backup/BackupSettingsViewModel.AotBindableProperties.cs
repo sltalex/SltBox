@@ -34,6 +34,7 @@ namespace DeskBox.Features.Backup;
     nameof(LocalDirectoryDisplayText),
     nameof(LocalFallbackWarningText),
     nameof(IncludeQuickCaptureData),
+    nameof(IncludeDingTalkGroupDocuments),
     nameof(RemotePath),
     nameof(RuntimeDetailText),
     nameof(RuntimeSummaryText),

@@ -73,7 +73,7 @@ public sealed class AquariumExpansionTests
                 Assert.Equal(entry.GetProperty("height").GetDouble(), profile.Height);
                 Assert.Equal(entry.GetProperty("speed").GetDouble(), profile.SpeedMultiplier);
                 Assert.True(AquariumSwimDepth.IsSwimming("jellyfish"));
-                Assert.True(AquariumStoreBrowse.Matches(new(id, id, "jellyfish", 100, id), "invertebrates", "jellyfish"));
+                Assert.False(AquariumStoreBrowse.Matches(new(id, id, "jellyfish", 100, id), "pack", "all"));
             }
             else if (group != "fish")
             {

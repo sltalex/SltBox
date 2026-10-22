@@ -3480,4 +3480,6 @@
   "Settings.Todo.DueDefaults.Day.Saturday": "Saturday",
   "Settings.Todo.DueDefaults.Day.Sunday": "Sunday",
   "Settings.Todo.DueDefaults.Summary": "{0} · through {1}"
+  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitMarket":"Fruit market"
 }

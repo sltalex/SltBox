@@ -39,7 +39,7 @@ public sealed class SettingsSliceOwnershipContractTests
     [Fact]
     public void EveryFacadeProperty_MapsToExactlyOneSliceProperty()
     {
-        Assert.Equal(254, FacadeProperties.Length);
+        Assert.Equal(257, FacadeProperties.Length);
 
         foreach (PropertyInfo facade in FacadeProperties)
         {
@@ -272,7 +272,7 @@ public sealed class SettingsSliceOwnershipContractTests
         ["src/DeskBox/Services/SearchResultActionService.cs"] = 2,
         ["src/DeskBox/Services/SettingsMigrationService.cs"] = 35,
         ["src/DeskBox/Services/SettingsSearchCatalog.cs"] = 23,
-        ["src/DeskBox/Services/SettingsService.cs"] = 635,
+        ["src/DeskBox/Services/SettingsService.cs"] = 643,
         ["src/DeskBox/Services/FeatureWidgetsSettingsCoordinator.cs"] = 6,
         ["src/DeskBox/Services/TodoCalendarService.cs"] = 1,
         ["src/DeskBox/Controls/WidgetContents/CalendarWidgetContent.cs"] = 8,

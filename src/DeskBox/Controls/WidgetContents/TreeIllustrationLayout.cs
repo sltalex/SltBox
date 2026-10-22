@@ -65,6 +65,17 @@ internal static class TreeIllustrationLayout
 
     public static bool CanHarvest(int stage, long inventory, double x, double y) =>
         stage == 5 && inventory > 0 && x is >= 32 and <= 228 && y is >= 12 and <= 150;
+
+    public static int FruitIndexAt(int visibleCount, double x, double y)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y)) return -1;
+        for (int i = Math.Min(visibleCount, MaxVisibleFruit) - 1; i >= 0; i--)
+        {
+            (double left, double top) = FruitPositions[i];
+            if (x >= left && x <= left + 24 && y >= top && y <= top + 28) return i;
+        }
+        return -1;
+    }
 }
 
 internal readonly record struct FallingLeaf(

@@ -56,12 +56,14 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.Equal("Link", s.AttachmentStorageMode);
         Assert.Equal("Records", s.QuickCaptureDefaultView);
         Assert.Equal("Button", s.QuickCaptureTabStyle);
+        Assert.Equal("Top", s.QuickCaptureTabBarPosition);
         Assert.True(s.QuickCaptureShowTabBar);
         Assert.True(s.QuickCaptureShowRecordsTab);
         Assert.True(s.QuickCaptureShowPinnedTab);
         Assert.True(s.QuickCaptureShowRecentTab);
         Assert.Equal("Top", s.TodoNewTaskPosition);
         Assert.Equal("Button", s.TodoTabStyle);
+        Assert.Equal("Top", s.TodoTabBarPosition);
         Assert.True(s.TodoShowTabBar);
         Assert.True(s.TodoShowAllTab);
         Assert.False(s.TodoShowActiveTab);
@@ -234,9 +236,10 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.Equal("", s.CloudBackupServerUrl);
         Assert.Equal("DeskBox/backups", s.CloudBackupRemotePath);
         Assert.Equal("", s.CloudBackupUsername);
-        Assert.False(s.CloudBackupTodoDataEnabled);
-        Assert.False(s.CloudBackupQuickCaptureDataEnabled);
-        Assert.False(s.CloudBackupWidgetStyleEnabled);
+        Assert.True(s.CloudBackupTodoDataEnabled);
+        Assert.True(s.CloudBackupQuickCaptureDataEnabled);
+        Assert.True(s.CloudBackupWidgetStyleEnabled);
+        Assert.True(s.CloudBackupDingTalkGroupDocumentsEnabled);
         Assert.Equal(5, s.CloudBackupRetentionCount);
         Assert.Equal(24 * 60, s.CloudBackupIntervalMinutes);
         Assert.Equal(0L, s.CloudBackupLastSuccessUtcTicks);
@@ -307,12 +310,14 @@ public sealed class SettingsSliceContractBaselineTests
         "attachmentStorageMode",
         "quickCaptureDefaultView",
         "quickCaptureTabStyle",
+        "quickCaptureTabBarPosition",
         "quickCaptureShowTabBar",
         "quickCaptureShowRecordsTab",
         "quickCaptureShowPinnedTab",
         "quickCaptureShowRecentTab",
         "todoNewTaskPosition",
         "todoTabStyle",
+        "todoTabBarPosition",
         "todoShowTabBar",
         "todoShowAllTab",
         "todoShowActiveTab",
@@ -503,6 +508,7 @@ public sealed class SettingsSliceContractBaselineTests
         "cloudBackupTodoDataEnabled",
         "cloudBackupQuickCaptureDataEnabled",
         "cloudBackupWidgetStyleEnabled",
+        "cloudBackupDingTalkGroupDocumentsEnabled",
         "cloudBackupRetentionCount",
         "cloudBackupIntervalMinutes",
         "cloudBackupLastSuccessUtcTicks",

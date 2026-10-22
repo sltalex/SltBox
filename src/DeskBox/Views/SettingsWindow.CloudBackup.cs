@@ -375,6 +375,7 @@ public sealed partial class SettingsWindow
             "todo-data" => "Settings.CloudBackup.TodoData.Title",
             "quick-capture-data" => "Settings.CloudBackup.QuickCaptureData.Title",
             "widget-style" => "Settings.CloudBackup.WidgetStyle.Title",
+            "dingtalk-group-documents" => "Settings.CloudBackup.Snapshots.Title",
             _ => manifestName
         };
         string title = titleKey.StartsWith("Settings.", StringComparison.Ordinal)
@@ -498,6 +499,11 @@ public sealed partial class SettingsWindow
                 IsChecked = true,
                 Content = _localizationService.T("Settings.CloudBackup.WidgetStyle.Title")
             };
+            var dingTalkGroupDocumentsBox = new CheckBox
+            {
+                IsChecked = true,
+                Content = _localizationService.T("Settings.CloudBackup.Snapshots.Title")
+            };
             var domainDialog = new ContentDialog
             {
                 XamlRoot = SettingsRoot.XamlRoot,
@@ -519,7 +525,8 @@ public sealed partial class SettingsWindow
                         },
                         todoBox,
                         quickCaptureBox,
-                        widgetStyleBox
+                        widgetStyleBox,
+                        dingTalkGroupDocumentsBox
                     }
                 }
             };
@@ -532,6 +539,7 @@ public sealed partial class SettingsWindow
                 !_backupRestoreActions.IsCurrentEndpoint(snapshot.Endpoint)) return;
 
             CloudBackupDomain scope = CloudBackupDomain.None;
+            scope |= CloudBackupDomain.FruitData;
             if (todoBox.IsChecked == true)
             {
                 scope |= CloudBackupDomain.TodoData;
@@ -545,6 +553,11 @@ public sealed partial class SettingsWindow
             if (widgetStyleBox.IsChecked == true)
             {
                 scope |= CloudBackupDomain.WidgetStyle;
+            }
+
+            if (dingTalkGroupDocumentsBox.IsChecked == true)
+            {
+                scope |= CloudBackupDomain.DingTalkGroupDocuments;
             }
 
             if (scope == CloudBackupDomain.None)

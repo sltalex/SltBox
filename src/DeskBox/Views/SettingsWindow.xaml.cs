@@ -99,6 +99,8 @@ public sealed partial class SettingsWindow : Window
             ["General"] = new("General", "Settings.Section.General", null, "General"),
             ["Backpack"] = new("Backpack", "Settings.Nav.Backpack", null, "Backpack"),
             ["AquariumStore"] = new("AquariumStore", "Aquarium.Settings.Store", null, "AquariumStore"),
+            ["FruitMarket"] = new("FruitMarket", "Tree.FruitMarket", null, "FruitMarket"),
+            ["FruitEncyclopedia"] = new("FruitEncyclopedia", "Tree.FruitEncyclopedia", null, "FruitEncyclopedia"),
             ["PerformanceSettings"] = new("PerformanceSettings", "Settings.Performance.Title", "General", "General"),
             ["Appearance"] = new("Appearance", "Settings.Section.Appearance", null, "Appearance"),
             ["CapsuleMode"] = new("CapsuleMode", "Settings.Section.CapsuleMode", null, "CapsuleMode"),

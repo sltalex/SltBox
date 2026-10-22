@@ -35,6 +35,82 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task MatureGrowthMarksOnlyServerDerivedFruitAsTyped()
+    {
+        var api = new FakeApi
+        {
+            State = State(3, 144000, 4000, 5, 0, 0, 0),
+            UploadState = State(4, 147000, 7000, 5, 0, 1, 0)
+        };
+        TreeProgress local = Progress(147000, 7000, 1, 0);
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("fruit-user", "Fruit"),
+            () => local, _root,
+            applyAuthoritativeIfUnchanged: (_, _) => true);
+
+        Assert.True(await service.SyncNowAsync());
+        using JsonDocument request = JsonDocument.Parse(Assert.Single(api.Bodies));
+        Assert.True(request.RootElement.GetProperty("typed_fruit").GetBoolean());
+        Assert.Equal(1, request.RootElement.GetProperty("fruit_delta").GetInt64());
+    }
+
+    [Fact]
+    public async Task PickedFruitAndInputDuringUploadPreserveFruitAndUnsyncedEnergy()
+    {
+        var auth = new FakeAuth("pick-user", "Fruit");
+        TreeProgress local = Progress(144000, 4000, 1, 0);
+        var initialApi = new FakeApi
+        {
+            State = State(1, 144000, 4000, 5, 0, 1, 0)
+        };
+        await using (var initial = new TreeCloudSyncService(initialApi, auth, () => local, _root,
+            applyAuthoritativeIfUnchanged: (state, _) =>
+            {
+                local = Progress(state.TotalEnergy, state.TodayGrowth, state.FruitInventory,
+                    state.HarvestedTotal, state);
+                return true;
+            }))
+            Assert.True(await initial.SyncNowAsync());
+
+        var picked = State(2, 144000, 4000, 5, 0, 0, 3);
+        var afterFirstUpload = State(3, 144100, 4100, 5, 100, 0, 3);
+        var afterSecondUpload = State(4, 144150, 4150, 5, 150, 0, 3);
+        var api = new FakeApi { State = picked, UploadState = afterFirstUpload };
+        api.OnPost = () =>
+        {
+            local = Progress(144150, 4150, 1, 0);
+            api.State = afterFirstUpload;
+            api.UploadState = afterSecondUpload;
+            api.OnPost = null;
+        };
+        local = Progress(144100, 4100, 1, 0);
+        await using var service = new TreeCloudSyncService(api, auth, () => local, _root,
+            applyAuthoritativeIfUnchanged: (state, expected) =>
+            {
+                if (local.TotalEnergy != expected.TotalEnergy) return false;
+                local = Progress(state.TotalEnergy, state.TodayGrowth, state.FruitInventory,
+                    state.HarvestedTotal, state);
+                return true;
+            });
+
+        Assert.True(await service.SyncNowAsync());
+        Assert.Equal(144150, local.TotalEnergy);
+        Assert.Equal(0, local.HarvestedFruit);
+        Assert.True(await service.SyncNowAsync());
+        Assert.Equal(144150, local.TotalEnergy);
+        Assert.Equal(0, local.FruitInventory);
+        Assert.Equal(3, local.HarvestedFruit);
+        Assert.Equal(2, api.Bodies.Count);
+        using JsonDocument first = JsonDocument.Parse(api.Bodies[0]);
+        using JsonDocument second = JsonDocument.Parse(api.Bodies[1]);
+        Assert.Equal(100, first.RootElement.GetProperty("energy_delta").GetInt64());
+        Assert.Equal(50, second.RootElement.GetProperty("energy_delta").GetInt64());
+        Assert.Equal(0, first.RootElement.GetProperty("fruit_delta").GetInt64());
+        Assert.Equal(0, second.RootElement.GetProperty("fruit_delta").GetInt64());
+        Assert.Equal(0, first.RootElement.GetProperty("harvested_delta").GetInt64());
+        Assert.Equal(0, second.RootElement.GetProperty("harvested_delta").GetInt64());
+    }
+
+    [Fact]
     public async Task FailedUpload_PersistsAndReusesSameOperationId()
     {
         var auth = new FakeAuth("user-1", "Simon");
@@ -248,6 +324,7 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         internal TreeStateDto State { get; set; } = new() { Day = "2026-10-14", Stage = 1 };
         internal TreeStateDto? ConflictState { get; set; }
         internal TreeStateDto? UploadState { get; set; }
+        internal Action? OnPost { get; set; }
         internal List<byte[]> Bodies { get; } = [];
         internal List<string> Methods { get; } = [];
         internal List<string> Requests { get; } = [];
@@ -261,10 +338,12 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
             {
                 if (jsonBody is not null) Bodies.Add(jsonBody);
                 _postAttempted = true;
+                TreeStateDto uploadState = UploadState ?? State;
+                OnPost?.Invoke();
                 if (PostFailure is not null) throw PostFailure;
                 if (Conflict)
                     return Response(HttpStatusCode.Conflict, "{\"code\":\"state_conflict\",\"message\":\"State version conflict.\"}");
-                return Response(HttpStatusCode.OK, JsonSerializer.Serialize(new TreeProgressUploadResponse { State = UploadState ?? State }));
+                return Response(HttpStatusCode.OK, JsonSerializer.Serialize(new TreeProgressUploadResponse { State = uploadState }));
             }
 
             if (RejectProgressRead && relativePath == "../tree/progress.php")

@@ -50,6 +50,8 @@ internal sealed class AccountBackupFileCatalog
             if (!IsEligibleRelativePath(relative)) continue;
             if (ownerUserId is not null && relative.StartsWith("dingtalk/group-document-favorites-", StringComparison.Ordinal) &&
                 Path.GetFileName(relative) != DingTalkGroupDocumentFavorites.AccountFileName(ownerUserId)) continue;
+            if (ownerUserId is not null && relative.StartsWith("fruit/fruit-state-account-", StringComparison.OrdinalIgnoreCase) &&
+                !relative.Equals($"fruit/fruit-state-account-{SafeAccountId(ownerUserId)}.json", StringComparison.OrdinalIgnoreCase)) continue;
             byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken);
             if (bytes.Length > MaximumFileBytes || (totalBytes += bytes.Length) > MaximumTotalBytes)
                 throw new InvalidDataException("The account backup exceeds its size limit.");
@@ -75,7 +77,7 @@ internal sealed class AccountBackupFileCatalog
         CancellationToken cancellationToken = default)
     {
         ValidateSnapshot(snapshot);
-        if (snapshot.Files.Any(file => IsOtherAccountFavorite(file.Path, ownerUserId)))
+        if (snapshot.Files.Any(file => IsOtherAccountData(file.Path, ownerUserId)))
             throw new InvalidDataException("The backup contains favorites belonging to another account.");
         string stagingDirectory = Path.Combine(_restoreDirectory, "staging", Guid.NewGuid().ToString("N"));
         string stagingData = Path.Combine(stagingDirectory, "data");
@@ -133,7 +135,7 @@ internal sealed class AccountBackupFileCatalog
             var staged = Directory.EnumerateFiles(stagedData, "*.json", SearchOption.AllDirectories)
                 .Select(path => NormalizeRelativePath(path, stagedData))
                 .Where(IsEligibleRelativePath)
-                .Where(path => !IsOtherAccountFavorite(path, marker.OwnerUserId))
+                .Where(path => !IsOtherAccountData(path, marker.OwnerUserId))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             // A previous process may have stopped between moving the live set
@@ -154,7 +156,7 @@ internal sealed class AccountBackupFileCatalog
             foreach (string livePath in livePaths)
             {
                 string relative = NormalizeRelativePath(livePath);
-                if (IsOtherAccountFavorite(relative, marker.OwnerUserId)) continue;
+                if (IsOtherAccountData(relative, marker.OwnerUserId)) continue;
                 string rollback = SafeDestination(_rollbackDirectory, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(rollback)!);
                 File.Move(livePath, rollback, overwrite: true);
@@ -236,9 +238,14 @@ internal sealed class AccountBackupFileCatalog
                !name.Contains(".corrupt-", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsOtherAccountFavorite(string path, string ownerId) =>
-        path.Replace('\\', '/').StartsWith("dingtalk/group-document-favorites-account-", StringComparison.OrdinalIgnoreCase) &&
-        !string.Equals(Path.GetFileName(path), DingTalkGroupDocumentFavorites.AccountFileName(ownerId), StringComparison.OrdinalIgnoreCase);
+    private static bool IsOtherAccountData(string path, string ownerId)
+    {
+        string normalized = path.Replace('\\', '/');
+        return normalized.StartsWith("dingtalk/group-document-favorites-account-", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(Path.GetFileName(normalized), DingTalkGroupDocumentFavorites.AccountFileName(ownerId), StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("fruit/fruit-state-account-", StringComparison.OrdinalIgnoreCase) &&
+                !normalized.Equals($"fruit/fruit-state-account-{SafeAccountId(ownerId)}.json", StringComparison.OrdinalIgnoreCase);
+    }
 
     private void ValidateSnapshot(AccountBackupSnapshotDownloadDto snapshot)
     {

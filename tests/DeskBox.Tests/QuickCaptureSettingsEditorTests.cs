@@ -512,7 +512,7 @@ public sealed class QuickCaptureSettingsEditorTests : IDisposable
         Assert.Contains("[WinRT.GeneratedBindableCustomProperty([", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(Enabled)", bridge, StringComparison.Ordinal);
         Assert.Contains("nameof(ImageClipboardEnabled)", bridge, StringComparison.Ordinal);
-        Assert.Equal(36, Regex.Matches(bridge, @"nameof\(").Count);
+        Assert.Equal(37, Regex.Matches(bridge, @"nameof\(").Count);
         Assert.DoesNotContain("nameof(ShowRecordsTab)", bridge, StringComparison.Ordinal);
         Assert.Equal(45, Regex.Matches(bindableShell, @"nameof\(").Count);
     }
