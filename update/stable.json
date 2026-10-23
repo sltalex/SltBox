@@ -7,8 +7,8 @@
   "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102301/SltBox_Setup_2026102301_x64.exe",
   "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102301_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "db2b91c2395c6734bab0074ca251de7f7e5d194069469fbd88bfe0d45a0baee6",
-  "size": 103350688,
+  "sha256": "6a91ccae68990792ebb40babf842639932e81bd77362de1bff9bd2d7826e489e",
+  "size": 131233342,
   "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102301",
   "summary": {
     "zh-CN": "SltBox 2026102301：果实显示改用独立透明 PNG，修复旧图集裁剪偏差，并统一树上、商城和图鉴取图逻辑。",
