@@ -44,6 +44,30 @@ public sealed class AccountBackupFileCatalogTests : IDisposable
     }
 
     [Fact]
+    public async Task WildlifeStateBackup_StaysScopedToTheSignedInAccount()
+    {
+        const string first = "wildlife/wildlife-state-account-first.json";
+        const string second = "wildlife/wildlife-state-account-second.json";
+        Write(first, "{\"ownerUserId\":\"first\",\"inventory\":[]}");
+        Write(second, "{\"ownerUserId\":\"second\",\"inventory\":[]}");
+        var catalog = new AccountBackupFileCatalog(Path.Combine(_root, "data"));
+
+        AccountBackupFileDto[] files = await catalog.CaptureAsync(ownerUserId: "first");
+        Assert.Contains(files, file => file.Path == first);
+        Assert.DoesNotContain(files, file => file.Path == second);
+        await Assert.ThrowsAsync<InvalidDataException>(() => catalog.PrepareRestoreAsync(
+            Snapshot((second, "{\"ownerUserId\":\"second\",\"inventory\":[]}")),
+            "first", _ => Task.CompletedTask));
+        await catalog.PrepareRestoreAsync(Snapshot((first,
+            "{\"ownerUserId\":\"first\",\"inventory\":[{\"speciesId\":\"rabbit\",\"quantity\":2,\"discovered\":true}]}")),
+            "first", _ => Task.CompletedTask);
+        Assert.True((await catalog.ApplyPendingRestoreAsync()).Applied);
+        Assert.Contains("\"rabbit\"", File.ReadAllText(Path.Combine(_root, "data", first)));
+        Assert.Equal("{\"ownerUserId\":\"second\",\"inventory\":[]}",
+            File.ReadAllText(Path.Combine(_root, "data", second)));
+    }
+
+    [Fact]
     public async Task Capture_IncludesOnlyManagedPrimaryJsonFiles()
     {
         Write("settings.json", "{}");

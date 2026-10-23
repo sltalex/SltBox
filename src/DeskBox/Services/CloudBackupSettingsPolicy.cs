@@ -95,7 +95,7 @@ internal static class CloudBackupSettingsPolicy
         {
             scope |= CloudBackupDomain.DingTalkGroupDocuments;
         }
-        scope |= CloudBackupDomain.FruitData;
+        scope |= CloudBackupDomain.FruitData | CloudBackupDomain.WildlifeData;
 
         return new CloudBackupOptions(
             Provider: slice.CloudBackupProvider?.Trim().ToLowerInvariant() is { Length: > 0 } provider

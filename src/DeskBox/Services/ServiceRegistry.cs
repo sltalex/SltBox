@@ -52,7 +52,8 @@ public static class ServiceRegistry
                 sp.GetRequiredService<SettingsService>(),
                 sp.GetRequiredService<DeskBoxDataBackupService>(),
                 favorites: sp.GetRequiredService<DingTalkGroupDocumentFavorites>(),
-                fruit: sp.GetRequiredService<FruitService>()));
+                fruit: sp.GetRequiredService<FruitService>(),
+                wildlife: sp.GetRequiredService<WildlifeService>()));
         services.AddSingleton<TreeCloudSyncService>(sp =>
             new TreeCloudSyncService(
                 sp.GetRequiredService<IAuthenticatedAccountApi>(),
@@ -61,7 +62,8 @@ public static class ServiceRegistry
                 {
                     bool favorites = await sp.GetRequiredService<DingTalkGroupDocumentFavoritesCloudSyncService>().SyncNowAsync(token);
                     bool fruits = await sp.GetRequiredService<FruitService>().RefreshAsync(token);
-                    return favorites && fruits;
+                    bool wildlife = await sp.GetRequiredService<WildlifeService>().RefreshAsync(token);
+                    return favorites && fruits && (wildlife || !WildlifeAssetCatalog.HasCompleteAssets);
                 }));
         services.AddSingleton<AquariumService>(sp =>
             new AquariumService(
@@ -69,6 +71,10 @@ public static class ServiceRegistry
                 sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<FruitService>(sp =>
             new FruitService(
+                sp.GetRequiredService<IAuthSession>(),
+                sp.GetRequiredService<IAuthenticatedAccountApi>()));
+        services.AddSingleton<WildlifeService>(sp =>
+            new WildlifeService(
                 sp.GetRequiredService<IAuthSession>(),
                 sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<CloudBackupService>(sp =>

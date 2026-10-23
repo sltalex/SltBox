@@ -75,6 +75,29 @@ public sealed class WeatherResilienceTests : IDisposable
     }
 
     [Fact]
+    public async Task CachedWeather_DoesNotExtendWildlifeWeatherFreshnessOnCacheHits()
+    {
+        var store = CreateStore();
+        DateTimeOffset fetchedAt = DateTimeOffset.UtcNow -
+            WeatherVisualStateService.MaximumAge - TimeSpan.FromMinutes(2);
+        Assert.True(await store.SaveForecastAsync(CreateForecast(fetchedAt)));
+        using var service = new WeatherService(store);
+
+        WeatherData? data = await service.GetWeatherAsync(
+            33.7931,
+            113.1446,
+            "平顶山",
+            cacheDuration: TimeSpan.FromHours(5),
+            dataSource: SettingsService.WeatherDataSourceMsn);
+
+        Assert.NotNull(data);
+        Assert.Equal(fetchedAt, service.ForecastFetchedAtUtc);
+        var visualState = new WeatherVisualStateService();
+        visualState.Publish(data, service.ForecastFetchedAtUtc);
+        Assert.Null(visualState.Snapshot);
+    }
+
+    [Fact]
     public async Task InitializeAsync_RestoresManualCitySnapshotWithoutStartingNetworkRefresh()
     {
         var store = CreateStore();

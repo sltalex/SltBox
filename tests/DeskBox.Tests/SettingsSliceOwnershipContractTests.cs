@@ -39,7 +39,7 @@ public sealed class SettingsSliceOwnershipContractTests
     [Fact]
     public void EveryFacadeProperty_MapsToExactlyOneSliceProperty()
     {
-        Assert.Equal(257, FacadeProperties.Length);
+        Assert.Equal(258, FacadeProperties.Length);
 
         foreach (PropertyInfo facade in FacadeProperties)
         {

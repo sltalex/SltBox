@@ -26,6 +26,23 @@ web_check(is_string($adminSessionId) && strlen($adminSessionId) === 32,
 web_check(web_admin_validate_session($pdo, $administrator['user']['id'], $adminSessionId, $clock)['username'] === 'web_admin',
     'The bootstrap administrator has a valid web management session.');
 
+$_SESSION = ['csrf' => str_repeat('a', 64)];
+$shopResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']],
+    ['csrf' => $_SESSION['csrf'], 'operation' => 'shop_price', 'panel' => 'shop', 'card_pack_price' => '275']);
+web_check($shopResult === 'shop_price' && admin_read($pdo, $administrator['user']['id'], 'shop', [], $clock)['card_pack_price'] === 275,
+    'Saving the web shop price updates the card pack price.');
+$coinsResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']],
+    ['csrf' => $_SESSION['csrf'], 'operation' => 'set_coins', 'target_id' => $member['user']['id'], 'coins' => '125']);
+web_check($coinsResult === 'set_coins'
+    && admin_read($pdo, $administrator['user']['id'], 'user', ['id' => $member['user']['id']], $clock)['aquarium']['coins'] === 125,
+    'Saving coins through web user management updates the selected account.');
+$updateResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']],
+    ['csrf' => $_SESSION['csrf'], 'operation' => 'update_user', 'target_id' => $member['user']['id'],
+        'username' => 'web_member_new', 'status' => 'active']);
+web_check($updateResult === 'update_user'
+    && admin_read($pdo, $administrator['user']['id'], 'user', ['id' => $member['user']['id']], $clock)['user']['username'] === 'web_member_new',
+    'Saving a user through web management updates the selected account.');
+
 $adminPage = file_get_contents(__DIR__ . '/../api/admin/index.php');
 web_check(is_string($adminPage) && str_contains($adminPage, 'fruit_web_asset_url'),
     'The fruit catalogue preview resolves an explicit per-fruit web PNG URL.');

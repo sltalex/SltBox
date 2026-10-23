@@ -25,10 +25,14 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _syncStatus = new() { FontSize = 12, Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
+    private readonly Button _syncButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
+    private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
     private readonly SettingsCard _currentCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly SettingsCard _syncCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly Grid _participationRow;
     private SettingsViewModel? _viewModel;
@@ -38,6 +42,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private bool _updating;
     private int _progressRefreshQueued;
     private int _leaderboardRefreshQueued;
+    private int _syncOperationInProgress;
 
     public event EventHandler<SettingsSectionNavigationRequestedEventArgs>? NavigationRequested;
 
@@ -58,6 +63,23 @@ public sealed partial class TreeSettingsSection : UserControl
         switches.Children.Add(statisticsColumn);
         _switchesCard.Content = switches;
 
+        _syncButton.Click += SyncButton_Click;
+        _repairButton.Click += RepairButton_Click;
+        var syncActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        _syncButton.Content = new TextBlock();
+        _repairButton.Content = new TextBlock();
+        syncActions.Children.Add(_syncButton);
+        syncActions.Children.Add(_repairButton);
+        var syncPanel = new StackPanel { Spacing = 8 };
+        syncPanel.Children.Add(_syncStatus);
+        syncPanel.Children.Add(syncActions);
+        _syncCard.Content = syncPanel;
+
         _loginButton.Click += (_, _) => NavigationRequested?.Invoke(this, new("General"));
         var leaderboardPanel = new StackPanel { Spacing = 10 };
         leaderboardPanel.Children.Add(_leaderboardTitle);
@@ -75,6 +97,7 @@ public sealed partial class TreeSettingsSection : UserControl
         var panel = new StackPanel { Spacing = 10, Margin = new Thickness(24) };
         panel.Children.Add(_currentCard);
         panel.Children.Add(_switchesCard);
+        panel.Children.Add(_syncCard);
         panel.Children.Add(_leaderboardCard);
         Content = panel;
 
@@ -142,6 +165,8 @@ public sealed partial class TreeSettingsSection : UserControl
         _currentCard.Header = _localization.T("Tree.Settings.Card.Current");
         _currentCard.Description = _localization.T("Tree.Settings.Card.Current.Description");
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
+        _syncCard.Header = _localization.T("Tree.Settings.Card.Sync");
+        _syncCard.Description = _localization.T("Tree.Settings.Card.Sync.Description");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _enableLabel.Text = _localization.T("Tree.Settings.Enable");
         _statisticsLabel.Text = _localization.T("Tree.Settings.EnableStatistics");
@@ -149,6 +174,102 @@ public sealed partial class TreeSettingsSection : UserControl
         _statistics.OffContent = _localization.T("Tree.Settings.StatisticsPaused");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
+        if (_syncButton.Content is TextBlock syncText)
+            syncText.Text = _localization.T("Settings.Account.SyncData");
+        if (_repairButton.Content is TextBlock repairText)
+            repairText.Text = _localization.T("Tree.SyncRepair");
+        RefreshSyncActions();
+    }
+
+    private async void SyncButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_cloud is null || Interlocked.Exchange(ref _syncOperationInProgress, 1) != 0) return;
+
+        _syncButton.IsEnabled = false;
+        _repairButton.IsEnabled = false;
+        _syncStatus.Text = _localization?.T("Settings.Account.Syncing") ?? string.Empty;
+        try
+        {
+            bool synchronized = await _cloud.SyncNowAsync();
+            _syncStatus.Text = _localization?.T(
+                !synchronized ? "Settings.Account.SyncUnavailable" :
+                    _cloud.AdditionalDataSynced ? "Settings.Account.SyncSuccess" : "Settings.Account.SyncPartial") ?? string.Empty;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            App.Log($"[TreeCloud] Manual sync failed: {ex.GetType().Name}");
+            _syncStatus.Text = _localization?.T("Settings.Account.SyncError") ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[TreeCloud] Manual sync failed: {ex}");
+            _syncStatus.Text = _localization?.T("Settings.Account.SyncError") ?? string.Empty;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _syncOperationInProgress, 0);
+            RefreshSyncActions();
+        }
+    }
+
+    private async void RepairButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_cloud is null || Interlocked.Exchange(ref _syncOperationInProgress, 1) != 0) return;
+
+        _syncButton.IsEnabled = false;
+        _repairButton.IsEnabled = false;
+        try
+        {
+            int deleted = _cloud.DeleteLocalStateFiles();
+            if (XamlRoot is null)
+            {
+                _syncStatus.Text = _localization?.T("Tree.SyncRepairFailed") ?? string.Empty;
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = _localization?.T("Tree.SyncRepairTitle") ?? string.Empty,
+                Content = new TextBlock
+                {
+                    Text = _localization?.Format("Tree.SyncRepairBody", deleted) ?? string.Empty,
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = _localization?.T("Tree.SyncRepairConfirm") ?? string.Empty,
+                CloseButtonText = _localization?.T("Common.Cancel") ?? string.Empty,
+                DefaultButton = ContentDialogButton.Primary
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            AppRelaunchScheduleResult relaunch = AppRelaunchService.ScheduleAfterCurrentProcessExit();
+            if (!relaunch.Started)
+            {
+                _syncStatus.Text = _localization?.Format(
+                    "Tree.SyncRepairRestartFailed", relaunch.ErrorMessage ?? string.Empty) ?? string.Empty;
+                return;
+            }
+
+            await App.Current.ShutdownForRestartAsync();
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[TreeCloud] Sync repair failed: {ex}");
+            _syncStatus.Text = _localization?.T("Tree.SyncRepairFailed") ?? string.Empty;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _syncOperationInProgress, 0);
+            RefreshSyncActions();
+        }
+    }
+
+    private void RefreshSyncActions()
+    {
+        bool busy = Volatile.Read(ref _syncOperationInProgress) != 0;
+        _syncButton.IsEnabled = !busy && _auth?.IsAuthenticated == true;
+        _repairButton.IsEnabled = !busy;
     }
 
     private static Grid CreateToggleRow(TextBlock label, ToggleSwitch toggle)
@@ -223,6 +344,7 @@ public sealed partial class TreeSettingsSection : UserControl
         try
         {
             bool signedIn = _auth?.IsAuthenticated == true;
+            RefreshSyncActions();
             _participationRow.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
             _leaderboard.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
             _loginButton.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;

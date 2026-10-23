@@ -639,6 +639,6 @@ public sealed class TodoSettingsEditorTests : IDisposable
         Assert.Contains("nameof(DefaultFilter)", bridge, StringComparison.Ordinal);
         Assert.Equal(35, Regex.Matches(bridge, @"nameof\(").Count);
         Assert.DoesNotContain("nameof(ShowAllTab)", bridge, StringComparison.Ordinal);
-        Assert.Equal(45, Regex.Matches(bindableShell, @"nameof\(").Count);
+        Assert.Equal(47, Regex.Matches(bindableShell, @"nameof\(").Count);
     }
 }

@@ -34,6 +34,9 @@ public partial class SettingsViewModel
     public string ViewReleaseNotesButtonText => _localizationService.T("Settings.Update.ViewReleaseNotes");
     public string ManualUpdateDownloadUrl => GetManualUpdateDownloadUrl(_availableUpdateManifest);
     public Visibility UpdateAutoCheckVisibility => Visibility.Visible;
+    public Visibility UpdateAutoUpdateVisibility =>
+        _appUpdateService.DeliveryKind == AppUpdateDeliveryKind.DirectInstaller
+            ? Visibility.Visible : Visibility.Collapsed;
     public Visibility UpdateProgressVisibility => IsDownloadingUpdate ? Visibility.Visible : Visibility.Collapsed;
     public Visibility UpdateProgressTextVisibility => IsDownloadingUpdate ? Visibility.Visible : Visibility.Collapsed;
     public Visibility UpdateReleaseNotesVisibility =>

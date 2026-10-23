@@ -3330,6 +3330,19 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
 
                             <toolkit:SettingsCard
                                 HorizontalContentAlignment="Right"
+                                svc:Localized.DescriptionKey="Settings.Update.AutoUpdateDescription"
+                                svc:Localized.HeaderKey="Settings.Update.AutoUpdate"
+                                Visibility="{Binding UpdateAutoUpdateVisibility}">
+                                <ToggleSwitch
+                                    VerticalAlignment="Center"
+                                    OnContent=""
+                                    OffContent=""
+                                    MinWidth="0"
+                                    IsOn="{Binding AutoUpdateEnabled, Mode=TwoWay}" />
+                            </toolkit:SettingsCard>
+
+                            <toolkit:SettingsCard
+                                HorizontalContentAlignment="Right"
                                 Description="{Binding UpdateStatusText}"
                                 svc:Localized.HeaderKey="Settings.Update.Status">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -3520,7 +3533,6 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
@@ -3540,20 +3552,6 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                         Style="{StaticResource ActionButtonStyle}">
                                         <TextBlock svc:Localized.Key="Settings.Account.SignOut" />
                                     </Button>
-                                    <Button
-                                        x:Name="AccountSyncDataButton"
-                                        Grid.Column="2"
-                                        Click="AccountSyncDataButton_Click"
-                                        Style="{StaticResource ActionButtonStyle}">
-                                        <TextBlock svc:Localized.Key="Settings.Account.SyncData" />
-                                    </Button>
-                                    <TextBlock
-                                        x:Name="AccountSyncStatusText"
-                                        Grid.Row="1"
-                                        Grid.ColumnSpan="3"
-                                        VerticalAlignment="Center"
-                                        Style="{StaticResource SettingDescriptionTextStyle}"
-                                        TextWrapping="Wrap" />
                                 </Grid>
                             </Grid>
                         </toolkit:SettingsCard>

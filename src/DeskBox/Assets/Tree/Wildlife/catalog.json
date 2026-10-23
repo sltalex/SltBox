@@ -1,0 +1,3924 @@
+{
+  "items": [
+    {
+      "id": "butterfly",
+      "name": "蝴蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "honeybee",
+      "name": "蜜蜂",
+      "category": "昆虫",
+      "seasons": [
+        "spring"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "ladybug",
+      "name": "瓢虫",
+      "category": "昆虫",
+      "seasons": [
+        "spring"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "swallow",
+      "name": "燕子",
+      "category": "飞鸟",
+      "seasons": [
+        "spring"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ]
+    },
+    {
+      "id": "dragonfly",
+      "name": "蜻蜓",
+      "category": "昆虫",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "firefly",
+      "name": "萤火虫",
+      "category": "昆虫",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ]
+    },
+    {
+      "id": "frog",
+      "name": "青蛙",
+      "category": "小动物",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "drizzle",
+        "rain"
+      ]
+    },
+    {
+      "id": "cricket",
+      "name": "蟋蟀",
+      "category": "昆虫",
+      "seasons": [
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ]
+    },
+    {
+      "id": "squirrel",
+      "name": "松鼠",
+      "category": "小动物",
+      "seasons": [
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "hedgehog",
+      "name": "刺猬",
+      "category": "小动物",
+      "seasons": [
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "drizzle",
+        "rain"
+      ]
+    },
+    {
+      "id": "bullfinch",
+      "name": "红腹灰雀",
+      "category": "飞鸟",
+      "seasons": [
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "snow"
+      ]
+    },
+    {
+      "id": "fox",
+      "name": "狐狸",
+      "category": "小动物",
+      "seasons": [
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "fog",
+        "snow"
+      ]
+    },
+    {
+      "id": "sparrow",
+      "name": "麻雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "magpie",
+      "name": "喜鹊",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ]
+    },
+    {
+      "id": "owl",
+      "name": "猫头鹰",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ]
+    },
+    {
+      "id": "rabbit",
+      "name": "兔子",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "drizzle",
+        "rain",
+        "snow",
+        "thunderstorm"
+      ],
+      "preferred_weathers": []
+    },
+    {
+      "id": "mantis",
+      "name": "螳螂",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "cicada",
+      "name": "蝉",
+      "category": "昆虫",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "moth",
+      "name": "飞蛾",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ]
+    },
+    {
+      "id": "grasshopper",
+      "name": "蚱蜢",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "robin",
+      "name": "知更鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "kingfisher",
+      "name": "翠鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "woodpecker",
+      "name": "啄木鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ]
+    },
+    {
+      "id": "heron",
+      "name": "苍鹭",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ]
+    },
+    {
+      "id": "crow",
+      "name": "乌鸦",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ]
+    },
+    {
+      "id": "deer",
+      "name": "小鹿",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ]
+    },
+    {
+      "id": "raccoon",
+      "name": "浣熊",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ]
+    },
+    {
+      "id": "turtle",
+      "name": "乌龟",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ]
+    },
+    {
+      "id": "field-mouse",
+      "name": "田鼠",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "snow"
+      ]
+    },
+    {
+      "id": "badger",
+      "name": "獾",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ]
+    },
+    {
+      "id": "otter",
+      "name": "水獭",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ]
+    },
+    {
+      "id": "snail",
+      "name": "蜗牛",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "fog",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ]
+    },
+    {
+      "id": "swallowtail-butterfly",
+      "name": "凤蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "monarch-butterfly",
+      "name": "帝王蝶",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "blue-morpho",
+      "name": "蓝闪蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "cabbage-white",
+      "name": "菜粉蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "peacock-butterfly",
+      "name": "孔雀蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "fritillary",
+      "name": "珍珠蛱蝶",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "skipper",
+      "name": "弄蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "glasswing",
+      "name": "透翅蝶",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "butterfly"
+    },
+    {
+      "id": "bumblebee",
+      "name": "熊蜂",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "bee"
+    },
+    {
+      "id": "carpenter-bee",
+      "name": "木蜂",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "bee"
+    },
+    {
+      "id": "leafcutter-bee",
+      "name": "切叶蜂",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "bee"
+    },
+    {
+      "id": "paper-wasp",
+      "name": "长脚胡蜂",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "bee"
+    },
+    {
+      "id": "hornet",
+      "name": "虎头蜂",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "bee"
+    },
+    {
+      "id": "hoverfly",
+      "name": "食蚜蝇",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "fly"
+    },
+    {
+      "id": "flower-fly",
+      "name": "花蝇",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "fly"
+    },
+    {
+      "id": "stag-beetle",
+      "name": "锹甲",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "rhinoceros-beetle",
+      "name": "独角仙",
+      "category": "昆虫",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "jewel-beetle",
+      "name": "吉丁虫",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "longhorn-beetle",
+      "name": "天牛",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "scarab",
+      "name": "金龟子",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "weevil",
+      "name": "象鼻虫",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "tiger-beetle",
+      "name": "虎甲",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "dung-beetle",
+      "name": "蜣螂",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "click-beetle",
+      "name": "叩头虫",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "beetle"
+    },
+    {
+      "id": "water-beetle",
+      "name": "龙虱",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "waterbug"
+    },
+    {
+      "id": "red-dragonfly",
+      "name": "赤蜻蜓",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "dragonfly"
+    },
+    {
+      "id": "emperor-dragonfly",
+      "name": "王蜻蜓",
+      "category": "昆虫",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "dragonfly"
+    },
+    {
+      "id": "damselfly",
+      "name": "豆娘",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "dragonfly"
+    },
+    {
+      "id": "banded-demoiselle",
+      "name": "带翅豆娘",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "dragonfly"
+    },
+    {
+      "id": "green-darner",
+      "name": "碧伟蜓",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "dragonfly"
+    },
+    {
+      "id": "orchid-mantis",
+      "name": "兰花螳螂",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "mantis"
+    },
+    {
+      "id": "stick-insect",
+      "name": "竹节虫",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "stick"
+    },
+    {
+      "id": "leaf-insect",
+      "name": "叶䗛",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "stick"
+    },
+    {
+      "id": "katydid",
+      "name": "螽斯",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "grasshopper"
+    },
+    {
+      "id": "locust",
+      "name": "蝗虫",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "grasshopper"
+    },
+    {
+      "id": "leafhopper",
+      "name": "叶蝉",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "grasshopper"
+    },
+    {
+      "id": "treehopper",
+      "name": "角蝉",
+      "category": "昆虫",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "grasshopper"
+    },
+    {
+      "id": "mole-cricket",
+      "name": "蝼蛄",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [],
+      "motion": "grasshopper"
+    },
+    {
+      "id": "luna-moth",
+      "name": "月形天蚕蛾",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "moth"
+    },
+    {
+      "id": "hawk-moth",
+      "name": "天蛾",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "moth"
+    },
+    {
+      "id": "silk-moth",
+      "name": "家蚕蛾",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "moth"
+    },
+    {
+      "id": "atlas-moth",
+      "name": "皇蛾",
+      "category": "昆虫",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "moth"
+    },
+    {
+      "id": "emperor-moth",
+      "name": "大孔雀蛾",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "moth"
+    },
+    {
+      "id": "ant",
+      "name": "蚂蚁",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "ant"
+    },
+    {
+      "id": "lacewing",
+      "name": "草蛉",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "fly"
+    },
+    {
+      "id": "mayfly",
+      "name": "蜉蝣",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [],
+      "motion": "fly"
+    },
+    {
+      "id": "water-strider",
+      "name": "水黾",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "waterbug"
+    },
+    {
+      "id": "earwig",
+      "name": "蠼螋",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [],
+      "motion": "beetle"
+    },
+    {
+      "id": "termite",
+      "name": "白蚁",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [],
+      "motion": "ant"
+    },
+    {
+      "id": "scorpionfly",
+      "name": "蝎蛉",
+      "category": "昆虫",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "fly"
+    },
+    {
+      "id": "blue-tit",
+      "name": "蓝山雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "great-tit",
+      "name": "大山雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "goldfinch",
+      "name": "金翅雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "chaffinch",
+      "name": "苍头燕雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "wagtail",
+      "name": "鹡鸰",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "longtail"
+    },
+    {
+      "id": "lark",
+      "name": "云雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "nightingale",
+      "name": "夜莺",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "thrush",
+      "name": "画眉",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "blackbird",
+      "name": "乌鸫",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "canary",
+      "name": "金丝雀",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "hummingbird",
+      "name": "蜂鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "nectar"
+    },
+    {
+      "id": "sunbird",
+      "name": "太阳鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "nectar"
+    },
+    {
+      "id": "hoopoe",
+      "name": "戴胜",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "crested"
+    },
+    {
+      "id": "waxwing",
+      "name": "太平鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "crested"
+    },
+    {
+      "id": "oriole",
+      "name": "黄鹂",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "paradise-flycatcher",
+      "name": "寿带鸟",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "longtail"
+    },
+    {
+      "id": "blue-jay",
+      "name": "蓝松鸦",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "crested"
+    },
+    {
+      "id": "jackdaw",
+      "name": "寒鸦",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "corvid"
+    },
+    {
+      "id": "raven",
+      "name": "渡鸦",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "corvid"
+    },
+    {
+      "id": "rook",
+      "name": "秃鼻乌鸦",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "corvid"
+    },
+    {
+      "id": "kestrel",
+      "name": "红隼",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raptor"
+    },
+    {
+      "id": "peregrine-falcon",
+      "name": "游隼",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raptor"
+    },
+    {
+      "id": "sparrowhawk",
+      "name": "雀鹰",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raptor"
+    },
+    {
+      "id": "buzzard",
+      "name": "鵟",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raptor"
+    },
+    {
+      "id": "eagle",
+      "name": "雕",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raptor"
+    },
+    {
+      "id": "osprey",
+      "name": "鹗",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raptor"
+    },
+    {
+      "id": "barn-owl",
+      "name": "仓鸮",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "owl"
+    },
+    {
+      "id": "little-owl",
+      "name": "小鸮",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "owl"
+    },
+    {
+      "id": "eagle-owl",
+      "name": "雕鸮",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "owl"
+    },
+    {
+      "id": "tawny-owl",
+      "name": "灰林鸮",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "owl"
+    },
+    {
+      "id": "mallard",
+      "name": "绿头鸭",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "duck"
+    },
+    {
+      "id": "mandarin-duck",
+      "name": "鸳鸯",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [],
+      "motion": "duck"
+    },
+    {
+      "id": "teal",
+      "name": "绿翅鸭",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "duck"
+    },
+    {
+      "id": "goose",
+      "name": "雁",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [],
+      "motion": "wader"
+    },
+    {
+      "id": "swan",
+      "name": "天鹅",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [],
+      "motion": "wader"
+    },
+    {
+      "id": "egret",
+      "name": "白鹭",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ],
+      "motion": "wader"
+    },
+    {
+      "id": "ibis",
+      "name": "朱鹮",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ],
+      "motion": "wader"
+    },
+    {
+      "id": "crane",
+      "name": "丹顶鹤",
+      "category": "飞鸟",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [],
+      "motion": "wader"
+    },
+    {
+      "id": "stork",
+      "name": "白鹳",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ],
+      "motion": "wader"
+    },
+    {
+      "id": "coot",
+      "name": "骨顶鸡",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "duck"
+    },
+    {
+      "id": "moorhen",
+      "name": "黑水鸡",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "duck"
+    },
+    {
+      "id": "seagull",
+      "name": "海鸥",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ],
+      "motion": "wader"
+    },
+    {
+      "id": "tern",
+      "name": "燕鸥",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "longtail"
+    },
+    {
+      "id": "sandpiper",
+      "name": "鹬",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ],
+      "motion": "wader"
+    },
+    {
+      "id": "plover",
+      "name": "鸻",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "drizzle"
+      ],
+      "motion": "wader"
+    },
+    {
+      "id": "pigeon",
+      "name": "鸽子",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "dove",
+      "name": "斑鸠",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "songbird"
+    },
+    {
+      "id": "quail",
+      "name": "鹌鹑",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "groundbird"
+    },
+    {
+      "id": "pheasant",
+      "name": "雉鸡",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "groundbird"
+    },
+    {
+      "id": "cuckoo",
+      "name": "杜鹃",
+      "category": "飞鸟",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "longtail"
+    },
+    {
+      "id": "chipmunk",
+      "name": "花栗鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "flying-squirrel",
+      "name": "鼯鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "red-squirrel",
+      "name": "红松鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "hamster",
+      "name": "仓鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "bank-vole",
+      "name": "红背䶄",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "dormouse",
+      "name": "睡鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "jerboa",
+      "name": "跳鼠",
+      "category": "小动物",
+      "seasons": [
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "shrew",
+      "name": "鼩鼱",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "mole",
+      "name": "鼹鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "pika",
+      "name": "鼠兔",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "rabbit"
+    },
+    {
+      "id": "hare",
+      "name": "野兔",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "rabbit"
+    },
+    {
+      "id": "cottontail",
+      "name": "棉尾兔",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "rabbit"
+    },
+    {
+      "id": "snow-hare",
+      "name": "雪兔",
+      "category": "小动物",
+      "seasons": [
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [],
+      "motion": "rabbit"
+    },
+    {
+      "id": "arctic-fox",
+      "name": "北极狐",
+      "category": "小动物",
+      "seasons": [
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [],
+      "motion": "fox"
+    },
+    {
+      "id": "silver-fox",
+      "name": "银狐",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "fox"
+    },
+    {
+      "id": "weasel",
+      "name": "黄鼬",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "stoat",
+      "name": "白鼬",
+      "category": "小动物",
+      "seasons": [
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "ferret",
+      "name": "雪貂",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog",
+        "snow"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "marten",
+      "name": "松貂",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "mink",
+      "name": "水貂",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "skunk",
+      "name": "臭鼬",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "civet",
+      "name": "果子狸",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raccoon"
+    },
+    {
+      "id": "red-panda",
+      "name": "小熊猫",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raccoon"
+    },
+    {
+      "id": "panda",
+      "name": "熊猫",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "autumn"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raccoon"
+    },
+    {
+      "id": "koala",
+      "name": "考拉",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raccoon"
+    },
+    {
+      "id": "opossum",
+      "name": "负鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "raccoon"
+    },
+    {
+      "id": "long-eared-hedgehog",
+      "name": "长耳刺猬",
+      "category": "小动物",
+      "seasons": [
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "hedgehog"
+    },
+    {
+      "id": "porcupine",
+      "name": "豪猪",
+      "category": "小动物",
+      "seasons": [
+        "autumn",
+        "winter"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "hedgehog"
+    },
+    {
+      "id": "beaver",
+      "name": "河狸",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "beaver"
+    },
+    {
+      "id": "muskrat",
+      "name": "麝鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "beaver"
+    },
+    {
+      "id": "water-rat",
+      "name": "水鼠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "rodent"
+    },
+    {
+      "id": "sea-otter",
+      "name": "海獭",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "cloudy"
+      ],
+      "motion": "mustelid"
+    },
+    {
+      "id": "bat",
+      "name": "蝙蝠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "bat"
+    },
+    {
+      "id": "fruit-bat",
+      "name": "果蝠",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "fog"
+      ],
+      "motion": "bat"
+    },
+    {
+      "id": "tenrec",
+      "name": "马岛猬",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "hedgehog"
+    },
+    {
+      "id": "box-turtle",
+      "name": "箱龟",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "turtle"
+    },
+    {
+      "id": "tortoise",
+      "name": "陆龟",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "turtle"
+    },
+    {
+      "id": "gecko",
+      "name": "壁虎",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "lizard"
+    },
+    {
+      "id": "lizard",
+      "name": "蜥蜴",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "lizard"
+    },
+    {
+      "id": "chameleon",
+      "name": "变色龙",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "lizard"
+    },
+    {
+      "id": "salamander",
+      "name": "蝾螈",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [],
+      "motion": "lizard"
+    },
+    {
+      "id": "newt",
+      "name": "水螈",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [],
+      "motion": "lizard"
+    },
+    {
+      "id": "tree-frog",
+      "name": "树蛙",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "frog"
+    },
+    {
+      "id": "toad",
+      "name": "蟾蜍",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "frog"
+    },
+    {
+      "id": "axolotl",
+      "name": "美西螈",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "frog"
+    },
+    {
+      "id": "snake",
+      "name": "游蛇",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "morning",
+        "day"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "snake"
+    },
+    {
+      "id": "grass-snake",
+      "name": "草游蛇",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "periods": [
+        "day",
+        "dusk"
+      ],
+      "weathers": [
+        "clear",
+        "cloudy",
+        "drizzle"
+      ],
+      "preferred_weathers": [
+        "clear"
+      ],
+      "motion": "snake"
+    },
+    {
+      "id": "slug",
+      "name": "蛞蝓",
+      "category": "小动物",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn"
+      ],
+      "periods": [
+        "dusk",
+        "night"
+      ],
+      "weathers": [
+        "cloudy",
+        "drizzle",
+        "rain",
+        "fog"
+      ],
+      "preferred_weathers": [
+        "rain"
+      ],
+      "motion": "snail"
+    }
+  ]
+}

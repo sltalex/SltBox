@@ -54,6 +54,9 @@ public sealed class CoreSettingsSlice
     /// <summary>Whether DeskBox should check for updates in the background.</summary>
     public bool AutoCheckForUpdates { get; set; } = true;
 
+    /// <summary>Whether verified direct-installer updates install without a confirmation prompt.</summary>
+    public bool AutoUpdateEnabled { get; set; }
+
     /// <summary>Last time DeskBox successfully attempted an update check.</summary>
     public DateTimeOffset? LastUpdateCheckAt { get; set; }
 

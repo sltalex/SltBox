@@ -54,7 +54,7 @@ public sealed class AccountSettingsSurfaceTests
             root, "src", "DeskBox", "Views", "SettingsWindow.Account.cs"));
         string startup = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "App.xaml.cs"));
 
-        Assert.Equal(3, Count(handlers, "finally"));
+        Assert.Equal(2, Count(handlers, "finally"));
         Assert.Equal(3, Count(handlers, "AccountPasswordBox.Password = string.Empty;"));
         Assert.Contains("auth-session-restore", startup, StringComparison.Ordinal);
         Assert.Contains("GetRequiredService<IAuthSession>().RestoreAsync()", startup, StringComparison.Ordinal);

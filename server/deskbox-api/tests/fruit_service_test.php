@@ -64,7 +64,7 @@ try {
 }
 fruit_check((int)$pdo->query("SELECT enabled FROM fruit_catalog WHERE id='apple'")->fetchColumn() === 1,
     'A rejected catalog save rolls back the enabled flag.');
-$apple = $catalog['items'][0];
+$apple = $pdo->query("SELECT * FROM fruit_catalog WHERE id='apple'")->fetch(PDO::FETCH_ASSOC);
 $price = fruit_daily_price($pdo, $apple, '2026-10-22');
 fruit_check($price >= 15 && $price <= 20 && $price === fruit_daily_price($pdo, $apple, '2026-10-22'),
     'One stable daily price stays within its configured range.');

@@ -52,6 +52,7 @@ internal sealed class AccountBackupFileCatalog
                 Path.GetFileName(relative) != DingTalkGroupDocumentFavorites.AccountFileName(ownerUserId)) continue;
             if (ownerUserId is not null && relative.StartsWith("fruit/fruit-state-account-", StringComparison.OrdinalIgnoreCase) &&
                 !relative.Equals($"fruit/fruit-state-account-{SafeAccountId(ownerUserId)}.json", StringComparison.OrdinalIgnoreCase)) continue;
+            if (ownerUserId is not null && IsOtherAccountData(relative, ownerUserId)) continue;
             byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken);
             if (bytes.Length > MaximumFileBytes || (totalBytes += bytes.Length) > MaximumTotalBytes)
                 throw new InvalidDataException("The account backup exceeds its size limit.");
@@ -244,7 +245,9 @@ internal sealed class AccountBackupFileCatalog
         return normalized.StartsWith("dingtalk/group-document-favorites-account-", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(Path.GetFileName(normalized), DingTalkGroupDocumentFavorites.AccountFileName(ownerId), StringComparison.OrdinalIgnoreCase)
             || normalized.StartsWith("fruit/fruit-state-account-", StringComparison.OrdinalIgnoreCase) &&
-                !normalized.Equals($"fruit/fruit-state-account-{SafeAccountId(ownerId)}.json", StringComparison.OrdinalIgnoreCase);
+                !normalized.Equals($"fruit/fruit-state-account-{SafeAccountId(ownerId)}.json", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("wildlife/wildlife-state-account-", StringComparison.OrdinalIgnoreCase) &&
+                !normalized.Equals($"wildlife/wildlife-state-account-{SafeAccountId(ownerId)}.json", StringComparison.OrdinalIgnoreCase);
     }
 
     private void ValidateSnapshot(AccountBackupSnapshotDownloadDto snapshot)

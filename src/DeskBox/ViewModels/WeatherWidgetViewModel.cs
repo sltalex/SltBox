@@ -918,13 +918,15 @@ public sealed partial class WeatherWidgetViewModel : ObservableObject, IDisposab
 
             CacheLocationSettings(s);
 
-            if (locationChanged && _isWindowRevealCompleted)
+            if (locationChanged)
             {
+                WeatherVisualStateService.Instance.Clear();
                 _locationInitialized = false;
                 _locationResolvedAtUtc = default;
                 _locationRetryNotBeforeUtc = default;
                 _automaticRefreshNotBeforeUtc = default;
-                _ = RefreshAsync(forceRefresh: true);
+                if (_isWindowRevealCompleted)
+                    _ = RefreshAsync(forceRefresh: true);
             }
         }
     }

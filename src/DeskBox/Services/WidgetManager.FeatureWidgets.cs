@@ -398,7 +398,7 @@ public sealed partial class WidgetManager
     {
         if (!_widgetRegistry.IsAllowedForCurrentUser(kind))
         {
-            throw new InvalidOperationException("This widget requires a verified administrator.");
+            throw new InvalidOperationException("This widget requires an authenticated account.");
         }
 
         if (!IsContentFeatureWidgetKind(kind))

@@ -2529,7 +2529,7 @@ public sealed partial class WidgetManager
 
         if (!_widgetRegistry.IsAllowedForCurrentUser(config.WidgetKind))
         {
-            throw new InvalidOperationException($"Widget kind '{config.WidgetKind}' requires a verified administrator.");
+            throw new InvalidOperationException($"Widget kind '{config.WidgetKind}' requires an authenticated account.");
         }
 
         if (_contentWidgets.TryGetValue(config.Id, out var existing))

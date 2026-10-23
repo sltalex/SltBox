@@ -64,6 +64,12 @@ public sealed class CloudBackupScopedTests : IDisposable
             CloudBackupDomain.FruitData, "fruit/fruit-state.json"));
         Assert.False(CloudBackupDomains.IsInDomain(
             CloudBackupDomain.FruitData, "fruit/fruit-state-account-user_1.json.tmp"));
+        Assert.True(CloudBackupDomains.IsInDomain(
+            CloudBackupDomain.WildlifeData, "wildlife/wildlife-state-account-user_1.json"));
+        Assert.False(CloudBackupDomains.IsInDomain(
+            CloudBackupDomain.WildlifeData, "wildlife/wildlife-state-account-user_1.json.tmp"));
+        Assert.False(CloudBackupDomains.IsInDomain(
+            CloudBackupDomain.WildlifeData, "wildlife/other.json"));
     }
 
     [Fact]
@@ -83,6 +89,8 @@ public sealed class CloudBackupScopedTests : IDisposable
             CloudBackupDomains.FromManifestNames(["todo-data", "future-domain"]));
         Assert.Equal(CloudBackupDomain.FruitData,
             CloudBackupDomains.FromManifestNames(["fruit-data"]));
+        Assert.Equal(CloudBackupDomain.WildlifeData,
+            CloudBackupDomains.FromManifestNames(["wildlife-data"]));
     }
 
     [Fact]
@@ -142,6 +150,66 @@ public sealed class CloudBackupScopedTests : IDisposable
         Assert.True(result.Succeeded, result.ErrorMessage);
         Assert.Equal(aliceSnapshot, await File.ReadAllTextAsync(alice));
         Assert.True(File.Exists(bob));
+    }
+
+    [Fact]
+    public async Task WildlifeSnapshot_ExportsAndMergesLargerCountsAndDiscoveries()
+    {
+        string dataDir = Directory.CreateDirectory(Path.Combine(_appDataRoot, "data")).FullName;
+        string wildlifeDir = Directory.CreateDirectory(Path.Combine(dataDir, "wildlife")).FullName;
+        string alice = Path.Combine(wildlifeDir, "wildlife-state-account-alice.json");
+        string bob = Path.Combine(wildlifeDir, "wildlife-state-account-bob.json");
+        await File.WriteAllTextAsync(alice,
+            "{\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":3,\"Discovered\":true},{\"SpeciesId\":\"owl\",\"Quantity\":0,\"Discovered\":true}]}");
+        var service = new DeskBoxDataBackupService(_appDataRoot);
+        string backupPath = await service.ExportScopedBackupAsync(_exportRoot, CloudBackupDomain.WildlifeData);
+        using (ZipArchive archive = ZipFile.OpenRead(backupPath))
+        {
+            Assert.NotNull(archive.GetEntry("data/wildlife/wildlife-state-account-alice.json"));
+            Assert.Equal("wildlife-data", Assert.Single(Assert.IsType<JsonArray>(
+                (await ReadManifestAsync(archive))["domains"]))!.GetValue<string>());
+        }
+
+        await File.WriteAllTextAsync(alice,
+            "{\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":5,\"Discovered\":true},{\"SpeciesId\":\"butterfly\",\"Quantity\":1,\"Discovered\":true}]}");
+        await File.WriteAllTextAsync(bob,
+            "{\"OwnerUserId\":\"bob\",\"Inventory\":[{\"SpeciesId\":\"fox\",\"Quantity\":2,\"Discovered\":true}]}");
+        await service.PrepareScopedRestoreAsync(backupPath, CloudBackupDomain.WildlifeData);
+        Assert.True(await service.SetPendingRestoreItemReplaceModeAsync(false));
+        DeskBoxRestoreApplyResult result = await service.ApplyPendingRestoreAsync();
+        Assert.True(result.Succeeded, result.ErrorMessage);
+
+        WildlifeCacheDto merged = JsonSerializer.Deserialize(
+            await File.ReadAllTextAsync(alice), WildlifeJsonContext.Default.WildlifeCacheDto)!;
+        Assert.Equal("alice", merged.OwnerUserId);
+        Assert.Equal(5, merged.Inventory.Single(item => item.SpeciesId == "rabbit").Quantity);
+        Assert.Contains(merged.Inventory, item => item.SpeciesId == "owl" && item.Discovered);
+        Assert.Contains(merged.Inventory, item => item.SpeciesId == "butterfly" && item.Quantity == 1);
+        Assert.True(File.Exists(bob));
+    }
+
+    [Theory]
+    [InlineData("{\"OwnerUserId\":null,\"Inventory\":[]}")]
+    [InlineData("{\"OwnerUserId\":\"alice\",\"Inventory\":null}")]
+    [InlineData("{\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":1000000001,\"Discovered\":true}]}")]
+    public async Task WildlifeSnapshot_RejectsInvalidAccountCache(string invalidCache)
+    {
+        string dataDir = Directory.CreateDirectory(Path.Combine(_appDataRoot, "data")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "settings.json"), "{}");
+        string wildlifeDir = Directory.CreateDirectory(Path.Combine(dataDir, "wildlife")).FullName;
+        string alice = Path.Combine(wildlifeDir, "wildlife-state-account-alice.json");
+        await File.WriteAllTextAsync(alice, invalidCache);
+        var service = new DeskBoxDataBackupService(_appDataRoot);
+        string backupPath = await service.ExportScopedBackupAsync(_exportRoot, CloudBackupDomain.WildlifeData);
+        File.Delete(alice);
+
+        await service.PrepareScopedRestoreAsync(backupPath, CloudBackupDomain.WildlifeData);
+        Assert.True(await service.SetPendingRestoreItemReplaceModeAsync(false));
+        DeskBoxRestoreApplyResult result = await service.ApplyPendingRestoreAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Wildlife backup cache owner or entries are invalid.", result.ErrorMessage);
+        Assert.False(File.Exists(alice));
     }
 
     [Fact]

@@ -107,11 +107,11 @@ $admin = auth_register($pdo, 'aquarium_admin', 'secret1', 'device-a', '127.0.0.1
 $member = auth_register($pdo, 'aquarium_member', 'secret2', 'device-b', '127.0.0.2', $clock);
 $userId = $admin['user']['id'];
 $memberId = $member['user']['id'];
-aquarium_expect(admin_require($pdo, $admin['session']['access_token'], $clock)['user_id'] === $userId,
-    'Aquarium uses the server-verified administrator session.');
-aquarium_error('admin_forbidden', 403,
-    static fn() => admin_require($pdo, $member['session']['access_token'], $clock));
-aquarium_error('invalid_session', 401, static fn() => admin_require($pdo, '', $clock));
+aquarium_expect(auth_find_access_session($pdo, $admin['session']['access_token'], $clock())['user_id'] === $userId,
+    'Aquarium accepts an authenticated account session.');
+aquarium_expect(auth_find_access_session($pdo, $member['session']['access_token'], $clock())['user_id'] === $memberId,
+    'Aquarium accepts an ordinary user session.');
+aquarium_error('invalid_session', 401, static fn() => auth_find_access_session($pdo, '', $clock()));
 
 foreach (['catalog', 'state', 'actions'] as $endpoint) {
     [$output, $status] = aquarium_finish_process(aquarium_test_process(['--http', $endpoint]));
@@ -207,6 +207,11 @@ aquarium_expect($state['initialized'] && $state['coins'] === 1000 && count($stat
     'Initialization credits exactly one grant with its ledger entry.');
 aquarium_expect($state['inventory'] === [] && $state['scene'] === [] && $state['scene_version'] === 0,
     'Initial aquarium contains no free inventory or placed items.');
+$memberState = aquarium_mutate($pdo, $memberId, aquarium_request('initialize'), $clock);
+aquarium_expect($memberState['initialized'] && $memberState['coins'] === 1000,
+    'An ordinary user can initialize a separate aquarium.');
+aquarium_expect(aquarium_read_state($pdo, $userId)['coins'] === 1000,
+    'The ordinary user aquarium does not change the administrator aquarium.');
 aquarium_mutate($pdo, $userId, $initialize, $clock);
 $state = aquarium_mutate($pdo, $userId, aquarium_request('initialize'), $clock);
 aquarium_expect($state['coins'] === 1000 && count($state['wallet']) === 1,

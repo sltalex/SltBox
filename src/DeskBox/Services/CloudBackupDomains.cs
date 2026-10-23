@@ -13,7 +13,8 @@ public enum CloudBackupDomain
     QuickCaptureData = 2,
     WidgetStyle = 4,
     DingTalkGroupDocuments = 8,
-    FruitData = 16
+    FruitData = 16,
+    WildlifeData = 32
 }
 
 /// <summary>
@@ -53,7 +54,8 @@ internal static class CloudBackupDomains
         CloudBackupDomain.TodoData,
         CloudBackupDomain.QuickCaptureData,
         CloudBackupDomain.DingTalkGroupDocuments,
-        CloudBackupDomain.FruitData
+        CloudBackupDomain.FruitData,
+        CloudBackupDomain.WildlifeData
     ];
 
     internal static bool IsInDomain(CloudBackupDomain domain, string relativePath)
@@ -65,6 +67,7 @@ internal static class CloudBackupDomains
             CloudBackupDomain.QuickCaptureData => IsQuickCaptureDataPath(normalized),
             CloudBackupDomain.DingTalkGroupDocuments => IsDingTalkGroupDocumentsPath(normalized),
             CloudBackupDomain.FruitData => IsFruitDataPath(normalized),
+            CloudBackupDomain.WildlifeData => IsWildlifeDataPath(normalized),
             // WidgetStyle owns no data-directory files.
             _ => false
         };
@@ -95,6 +98,7 @@ internal static class CloudBackupDomains
         CloudBackupDomain.WidgetStyle => "widget-style",
         CloudBackupDomain.DingTalkGroupDocuments => "dingtalk-group-documents",
         CloudBackupDomain.FruitData => "fruit-data",
+        CloudBackupDomain.WildlifeData => "wildlife-data",
         _ => throw new ArgumentOutOfRangeException(nameof(domain), domain, null)
     };
 
@@ -107,6 +111,7 @@ internal static class CloudBackupDomains
             "widget-style" => CloudBackupDomain.WidgetStyle,
             "dingtalk-group-documents" => CloudBackupDomain.DingTalkGroupDocuments,
             "fruit-data" => CloudBackupDomain.FruitData,
+            "wildlife-data" => CloudBackupDomain.WildlifeData,
             _ => CloudBackupDomain.None
         };
         return domain != CloudBackupDomain.None;
@@ -206,6 +211,16 @@ internal static class CloudBackupDomains
     private static bool IsFruitDataPath(string normalizedPath)
     {
         const string prefix = "fruit/fruit-state-account-";
+        if (!normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            !normalizedPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return false;
+        string account = normalizedPath[prefix.Length..^5];
+        return account.Length is >= 1 and <= 64 &&
+            account.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+    }
+
+    private static bool IsWildlifeDataPath(string normalizedPath)
+    {
+        const string prefix = "wildlife/wildlife-state-account-";
         if (!normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
             !normalizedPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return false;
         string account = normalizedPath[prefix.Length..^5];

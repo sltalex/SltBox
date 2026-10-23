@@ -119,6 +119,12 @@
   "Tree.Title": "पेड़ उगाएँ",
   "WidgetContent.Tree.StatusLabel": "उपलब्ध",
   "WidgetContent.Tree.StatusDescription": "टाइप किए गए पाठ को पढ़े बिना कीस्ट्रोक से पेड़ उगाएँ",
+"Tree.SyncRepair": "Repair tree sync",
+"Tree.SyncRepairTitle": "Repair tree sync",
+"Tree.SyncRepairBody": "Repair is complete. The app will restart shortly. Try the sync button again after it restarts. Deleted {0} local sync state file(s).",
+"Tree.SyncRepairConfirm": "Restart now",
+"Tree.SyncRepairFailed": "Repair failed. Please try again later.",
+"Tree.SyncRepairRestartFailed": "Could not schedule the restart: {0}",
   "Tree.Settings.NextStageProgress": "Next stage: {0:0.00}% ({1:N0} energy remaining)",
   "Tree.Settings.NextStageComplete": "Next stage: highest stage reached (100%)",
   "Tree.Settings.TotalGrowthProgress": "Total growth: {1:0.00}% ({0:N0} energy)",
@@ -1265,9 +1271,11 @@
   "Settings.Update.Title": "ऐप अपडेट",
   "Settings.Update.Description": "अपडेट जांचें और इंस्टॉल करें",
   "Settings.Update.AutoCheck": "स्वतः जाँच",
+  "Settings.Update.AutoUpdate": "स्वतः अपडेट",
   "Settings.Update.Status": "वर्तमान स्थिति",
   "Settings.Update.Details": "विवरण अद्यतन करें",
-  "Settings.Update.AutoCheckDescription": "स्टार्टअप के बाद और हर घंटे जांचें; अपडेट उपलब्ध होने पर ही रिमाइंडर दिखाएं",
+  "Settings.Update.AutoCheckDescription": "शुरू होने के बाद और हर घंटे नए संस्करण जाँचें",
+  "Settings.Update.AutoUpdateDescription": "नए संस्करण अपने आप डाउनलोड और इंस्टॉल करें; डाउनलोड विफल होने पर फिर प्रयास करें और पूरा होने पर ऐप पुनः शुरू करें",
   "Settings.Update.Check": "जांचें",
   "Settings.Update.Download": "डाउनलोड करें",
   "Settings.Update.StoreInstall": "स्टोर से अपडेट करें",
@@ -2933,6 +2941,7 @@
   "Settings.Account.SyncData": "डेटा सिंक करें",
   "Settings.Account.Syncing": "पेड़ का डेटा सिंक हो रहा है…",
   "Settings.Account.SyncSuccess": "पेड़ का डेटा सिंक हो गया।",
+  "Settings.Account.SyncPartial": "पेड़ का डेटा सिंक हो गया, लेकिन खाते का कुछ डेटा नहीं हुआ। कृपया बाद में फिर प्रयास करें।",
   "Settings.Account.SyncUnavailable": "सिंक शुरू नहीं हो सका। साइन इन करके फिर कोशिश करें।",
   "Settings.Account.SyncError": "पेड़ का डेटा सिंक नहीं हो सका। नेटवर्क जाँचकर फिर कोशिश करें।",
   "Settings.Account.SignedInAs": "{0} के रूप में साइन इन",
@@ -2972,6 +2981,8 @@
   "Tree.Settings.Card.Current": "वर्तमान वृद्धि",
   "Tree.Settings.Card.Current.Description": "आज और इस पेड़ के पूरे जीवन की वृद्धि का सरल सारांश।",
   "Tree.Settings.Card.Switches": "पेड़ और आँकड़े सेटिंग्स",
+"Tree.Settings.Card.Sync": "Data sync",
+"Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "वृद्धि प्रगति",
   "Tree.Settings.Card.Leaderboard": "मित्र वन रैंकिंग",
   "Tree.Settings.Card.Leaderboard.Description": "भाग लेने वाले SltBox खातों की सार्वजनिक प्रगति।",
@@ -2985,7 +2996,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "आपकी वर्तमान रैंक: {0}"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
@@ -3017,7 +3028,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"Up to 12 fish and 12 plants, invertebrates or decorations"
@@ -3480,6 +3491,6 @@
   ,"Settings.Admin.Save":"Save"
   ,"Settings.Admin.Cancel":"Cancel"
   ,"Settings.Admin.InvalidUsername":"Use 3-32 letters, numbers, or underscores for the username."
-  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitEncyclopedia":"Encyclopedia"
   ,"Tree.FruitMarket":"Fruit market"
 }

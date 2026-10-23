@@ -9,6 +9,7 @@ public sealed class UpdatePreferenceService
     private readonly object _gate = new();
     private readonly string _path;
     private string _skippedVersion;
+    private string _automaticInstallAttemptVersion;
 
     public static UpdatePreferenceService Current { get; } = new();
 
@@ -18,7 +19,9 @@ public sealed class UpdatePreferenceService
             ? DeskBoxDataPathService.Current.DataDirectory
             : Path.GetFullPath(dataDirectory);
         _path = Path.Combine(directory, FileName);
-        _skippedVersion = LoadSkippedVersion();
+        UpdatePreferencesFile preferences = LoadPreferences();
+        _skippedVersion = preferences.SkippedVersion?.Trim() ?? string.Empty;
+        _automaticInstallAttemptVersion = preferences.AutomaticInstallAttemptVersion?.Trim() ?? string.Empty;
     }
 
     public string SkippedVersion
@@ -28,6 +31,17 @@ public sealed class UpdatePreferenceService
             lock (_gate)
             {
                 return _skippedVersion;
+            }
+        }
+    }
+
+    public string AutomaticInstallAttemptVersion
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _automaticInstallAttemptVersion;
             }
         }
     }
@@ -48,6 +62,52 @@ public sealed class UpdatePreferenceService
         }
     }
 
+    public bool WasAutomaticInstallAttempted(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return false;
+        lock (_gate)
+        {
+            return string.Equals(
+                _automaticInstallAttemptVersion,
+                version.Trim(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    public void RecordAutomaticInstallAttempt(string version)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(version);
+        lock (_gate)
+        {
+            string previous = _automaticInstallAttemptVersion;
+            _automaticInstallAttemptVersion = version.Trim();
+            try { SaveLocked(); }
+            catch
+            {
+                _automaticInstallAttemptVersion = previous;
+                throw;
+            }
+        }
+    }
+
+    public void ClearAutomaticInstallAttempt(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return;
+        lock (_gate)
+        {
+            if (!string.Equals(_automaticInstallAttemptVersion, version.Trim(),
+                    StringComparison.OrdinalIgnoreCase)) return;
+            string previous = _automaticInstallAttemptVersion;
+            _automaticInstallAttemptVersion = string.Empty;
+            try { SaveLocked(); }
+            catch
+            {
+                _automaticInstallAttemptVersion = previous;
+                throw;
+            }
+        }
+    }
+
     public void Skip(string version)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
@@ -65,11 +125,11 @@ public sealed class UpdatePreferenceService
         }
     }
 
-    private string LoadSkippedVersion()
+    private UpdatePreferencesFile LoadPreferences()
     {
         try
         {
-            UpdatePreferencesFile preferences = Task.Run(() =>
+            return Task.Run(() =>
                 ResilientJsonStore.LoadAsync(
                     _path,
                     static json => JsonSerializer.Deserialize(
@@ -78,14 +138,12 @@ public sealed class UpdatePreferenceService
                         new UpdatePreferencesFile(),
                     static () => new UpdatePreferencesFile(),
                     "UpdatePreferences"))
-                .GetAwaiter()
-                .GetResult();
-            return preferences?.SkippedVersion?.Trim() ?? string.Empty;
+                .GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            App.Log($"[Update] Failed to read skipped-version preference: {ex.Message}");
-            return string.Empty;
+            App.Log($"[Update] Failed to read update preferences: {ex.Message}");
+            return new UpdatePreferencesFile();
         }
     }
 
@@ -98,7 +156,11 @@ public sealed class UpdatePreferenceService
         }
 
         string json = JsonSerializer.Serialize(
-            new UpdatePreferencesFile { SkippedVersion = _skippedVersion },
+            new UpdatePreferencesFile
+            {
+                SkippedVersion = _skippedVersion,
+                AutomaticInstallAttemptVersion = _automaticInstallAttemptVersion
+            },
             UpdatePreferencesJsonContext.Default.UpdatePreferencesFile);
         Task.Run(() => ResilientJsonStore.SaveAsync(_path, json))
             .GetAwaiter()
@@ -109,6 +171,7 @@ public sealed class UpdatePreferenceService
 internal sealed class UpdatePreferencesFile
 {
     public string SkippedVersion { get; set; } = string.Empty;
+    public string AutomaticInstallAttemptVersion { get; set; } = string.Empty;
 }
 
 [JsonSerializable(typeof(UpdatePreferencesFile))]

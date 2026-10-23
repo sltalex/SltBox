@@ -36,6 +36,7 @@ public sealed class WeatherService : IDisposable
     private Task<WeatherCacheState>? _cacheLoadTask;
     private WeatherData? _cachedData;
     private DateTimeOffset _cacheTimestamp;
+    internal DateTimeOffset ForecastFetchedAtUtc => _cacheTimestamp;
     private string _cacheLocationKey = string.Empty;
     private string _cacheSourceKey = string.Empty;
     private bool _isDisposed;
@@ -123,6 +124,7 @@ public sealed class WeatherService : IDisposable
             fixture.LocationName = locationName;
             fixture.IsStale = false;
             fixture.IsFallback = false;
+            _cacheTimestamp = DateTimeOffset.UtcNow;
             return fixture;
         }
 #endif

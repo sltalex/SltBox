@@ -20,7 +20,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
     private readonly AquariumSceneView _preview = new() { IsEditing = true, Width = 420, Height = 300, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
-    private readonly TextBlock _coins = new() { FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _selection = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Grid _packOverlay = new()
     {
@@ -85,6 +84,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private string _selectedStoreGroup = "pack";
     private string _selectedStoreSubcategory = "all";
     private string _selectedBackpackHabitat = "all";
+    private string _selectedExternalBackpackGroup = "general";
     private readonly ComboBox _layer = new() { Width = 125, IsEnabled = false };
 
     public AquariumSettingsSection()
@@ -93,7 +93,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         var top = new Grid { ColumnSpacing = 12 };
         top.ColumnDefinitions.Add(new ColumnDefinition());
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        top.Children.Add(_coins);
         Grid.SetColumn(_refresh, 1);
         top.Children.Add(_refresh);
         root.Children.Add(top);
@@ -239,6 +238,8 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         bool becameActive = active && !_backpackActive;
         _backpackActive = active && !_disposed;
         if (becameActive && !_disposed) _ = RefreshAsync();
+        if (becameActive && !_disposed) _ = App.Current.WildlifeService.RefreshAsync();
+        if (becameActive && !_disposed) _ = App.Current.FruitService.RefreshAsync();
     }
 
     internal void SetStoreActive(bool active)
@@ -275,6 +276,8 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     {
         if (_subscribed || _service is null || _localization is null) return;
         _service.Changed += OnChanged;
+        App.Current.WildlifeService.Changed += OnChanged;
+        App.Current.FruitService.Changed += OnChanged;
         _service.Opened += OnPackOpened;
         _localization.LanguageChanged += OnChanged;
         _subscribed = true;
@@ -284,6 +287,8 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     {
         if (!_subscribed) return;
         if (_service is not null) _service.Changed -= OnChanged;
+        App.Current.WildlifeService.Changed -= OnChanged;
+        App.Current.FruitService.Changed -= OnChanged;
         if (_service is not null) _service.Opened -= OnPackOpened;
         if (_localization is not null) _localization.LanguageChanged -= OnChanged;
         _subscribed = false;
@@ -318,7 +323,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             }
             _hasDraft = true;
         }
-        _coins.Text = F("Aquarium.Settings.Coins", state?.Coins ?? 0);
         foreach (ComboBoxItem item in _layer.Items.OfType<ComboBoxItem>())
             if (item.Tag is int layer)
                 item.Content = LayerLabel(layer);
@@ -466,15 +470,84 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private void RenderExternalBackpack()
     {
         if (_externalBackpack is not { } page) return;
+        page.CoinBalanceLabel.Text = F("Aquarium.Settings.Coins", _service?.State?.Coins ?? 0);
         page.PrimaryCategoriesHost.Children.Clear();
         page.ItemsHost.Children.Clear();
         page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.Aquarium"), false, null,
             page.RequestAquariumSettings));
-        page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.General"), true, null,
-            RenderExternalBackpack));
+        page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.General"),
+            _selectedExternalBackpackGroup == "general", null, () =>
+            { _selectedExternalBackpackGroup = "general"; RenderExternalBackpack(); }));
+        page.PrimaryCategoriesHost.Children.Add(CategoryButton("动物",
+            _selectedExternalBackpackGroup == "wildlife", null, () =>
+            { _selectedExternalBackpackGroup = "wildlife"; RenderExternalBackpack(); }));
+        page.PrimaryCategoriesHost.Children.Add(CategoryButton("果实",
+            _selectedExternalBackpackGroup == "fruit", null, () =>
+            { _selectedExternalBackpackGroup = "fruit"; RenderExternalBackpack(); }));
+        if (_selectedExternalBackpackGroup == "wildlife")
+        {
+            RenderWildlifeBackpack(page.ItemsHost);
+            return;
+        }
+        if (_selectedExternalBackpackGroup == "fruit")
+        {
+            RenderFruitBackpack(page.ItemsHost);
+            return;
+        }
         var owned = AquariumInventoryPresentation.Summarize(_service?.State?.Inventory ?? [], _draft,
             _service?.Catalog ?? []);
         AddBackpackCards(page.ItemsHost, AquariumInventoryPresentation.GeneralItems(owned), showEdit: false);
+    }
+
+    private static void RenderWildlifeBackpack(StackPanel host)
+    {
+        WildlifeService service = App.Current.WildlifeService;
+        var catalog = service.Catalog.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var cards = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalSpacing = 8, VerticalSpacing = 8 };
+        foreach (WildlifeInventoryItem item in service.Inventory.Where(item => item.Quantity > 0))
+        {
+            if (!catalog.TryGetValue(item.SpeciesId, out WildlifeCatalogItem? species)) continue;
+            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+            if (WildlifeAssetCatalog.GetImage(item.SpeciesId) is { } source)
+                content.Children.Add(new Image { Source = source, Width = 54, Height = 54, Stretch = Stretch.Uniform });
+            content.Children.Add(new TextBlock { Text = species.Name, FontSize = 13, TextAlignment = TextAlignment.Center });
+            content.Children.Add(new TextBlock { Text = $"×{item.Quantity}", FontSize = 12, Opacity = .7, TextAlignment = TextAlignment.Center });
+            cards.Children.Add(new Border
+            {
+                Width = 112, MinHeight = 86, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
+                Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], Child = content
+            });
+        }
+        if (cards.Children.Count == 0)
+            host.Children.Add(new TextBlock { Text = "尚未收集动物", Opacity = .7 });
+        else host.Children.Add(cards);
+    }
+
+    private static void RenderFruitBackpack(StackPanel host)
+    {
+        FruitService service = App.Current.FruitService;
+        var catalog = service.Catalog.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var cards = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalSpacing = 8, VerticalSpacing = 8 };
+        foreach (FruitInventoryItem item in service.Inventory.Where(item => item.Quantity > 0))
+        {
+            if (!catalog.TryGetValue(item.FruitId, out FruitCatalogItem? fruit)) continue;
+            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+            content.Children.Add(new Image
+            {
+                Source = FruitAssetCatalog.GetImageSource(item.FruitId), Width = 54, Height = 54,
+                Stretch = Stretch.Uniform
+            });
+            content.Children.Add(new TextBlock { Text = fruit.Name, FontSize = 13, TextAlignment = TextAlignment.Center });
+            content.Children.Add(new TextBlock { Text = $"×{item.Quantity}", FontSize = 12, Opacity = .7, TextAlignment = TextAlignment.Center });
+            cards.Children.Add(new Border
+            {
+                Width = 112, MinHeight = 86, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
+                Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], Child = content
+            });
+        }
+        if (cards.Children.Count == 0)
+            host.Children.Add(new TextBlock { Text = "尚未收集果实", Opacity = .7 });
+        else host.Children.Add(cards);
     }
 
     private void AddBackpackCards(StackPanel host, IReadOnlyList<AquariumOwnedProduct> products, bool showEdit)
@@ -1091,7 +1164,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         _refresh.IsEnabled = !_busy;
         _reapply.Visibility = _conflict ? Visibility.Visible : Visibility.Collapsed;
         _reapply.IsEnabled = CanOperate;
-        string? key = _service?.IsAvailable != true ? "Aquarium.Settings.AdminRequired"
+        string? key = _service?.IsAvailable != true ? "Aquarium.Settings.SignInRequired"
             : _service.IsOffline ? "Aquarium.Settings.Offline"
             : _service.HasPendingOperation ? "Aquarium.Settings.Pending"
             : _conflict ? "Aquarium.Settings.Conflict"
@@ -1114,7 +1187,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     {
         "scene_conflict" => "Aquarium.Settings.Conflict",
         "insufficient_coins" => "Aquarium.Settings.InsufficientCoins",
-        "admin_required" => "Aquarium.Settings.AdminRequired",
+        "sign_in_required" => "Aquarium.Settings.SignInRequired",
         _ => _service?.IsOffline == true ? "Aquarium.Settings.Offline" : "Aquarium.Settings.Error"
     };
 

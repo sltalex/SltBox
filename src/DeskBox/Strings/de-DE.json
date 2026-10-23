@@ -119,6 +119,12 @@
   "Tree.Title": "Baum pflanzen",
   "WidgetContent.Tree.StatusLabel": "Implementiert",
   "WidgetContent.Tree.StatusDescription": "Ein Baum wächst durch Tastendrücke; Eingaben werden nicht gelesen",
+"Tree.SyncRepair": "Repair tree sync",
+"Tree.SyncRepairTitle": "Repair tree sync",
+"Tree.SyncRepairBody": "Repair is complete. The app will restart shortly. Try the sync button again after it restarts. Deleted {0} local sync state file(s).",
+"Tree.SyncRepairConfirm": "Restart now",
+"Tree.SyncRepairFailed": "Repair failed. Please try again later.",
+"Tree.SyncRepairRestartFailed": "Could not schedule the restart: {0}",
   "Tree.Settings.NextStageProgress": "Next stage: {0:0.00}% ({1:N0} energy remaining)",
   "Tree.Settings.NextStageComplete": "Next stage: highest stage reached (100%)",
   "Tree.Settings.TotalGrowthProgress": "Total growth: {1:0.00}% ({0:N0} energy)",
@@ -1262,9 +1268,11 @@
   "Settings.Update.Title": "App-Updates",
   "Settings.Update.Description": "Updates prüfen und installieren",
   "Settings.Update.AutoCheck": "Automatische Prüfung",
+  "Settings.Update.AutoUpdate": "Automatische Updates",
   "Settings.Update.Status": "Aktueller Status",
   "Settings.Update.Details": "Aktualisierungsdetails",
-  "Settings.Update.AutoCheckDescription": "Nach dem Start und danach stündlich prüfen; nur bei einem verfügbaren Update benachrichtigen",
+  "Settings.Update.AutoCheckDescription": "Nach dem Start und danach stündlich auf neue Versionen prüfen",
+  "Settings.Update.AutoUpdateDescription": "Neue Versionen automatisch herunterladen und installieren; fehlgeschlagene Downloads erneut versuchen und danach neu starten",
   "Settings.Update.Check": "Prüfen",
   "Settings.Update.Download": "Download",
   "Settings.Update.StoreInstall": "Aus Store aktualisieren",
@@ -2939,6 +2947,7 @@
   "Settings.Account.SyncData": "Daten synchronisieren",
   "Settings.Account.Syncing": "Baumdaten werden synchronisiert …",
   "Settings.Account.SyncSuccess": "Baumdaten wurden synchronisiert.",
+  "Settings.Account.SyncPartial": "Baumdaten wurden synchronisiert, aber einige Kontodaten nicht. Bitte später erneut versuchen.",
   "Settings.Account.SyncUnavailable": "Synchronisierung konnte nicht gestartet werden. Bitte anmelden und erneut versuchen.",
   "Settings.Account.SyncError": "Baumdaten konnten nicht synchronisiert werden. Bitte Netzwerk prüfen und erneut versuchen.",
   "Settings.Account.SignedInAs": "Angemeldet als {0}",
@@ -2978,6 +2987,8 @@
   "Tree.Settings.Card.Current": "Aktuelles Wachstum",
   "Tree.Settings.Card.Current.Description": "Eine kompakte Übersicht über heute und die gesamte Entwicklung dieses Baums.",
   "Tree.Settings.Card.Switches": "Baum- und Statistikschalter",
+"Tree.Settings.Card.Sync": "Data sync",
+"Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "Wachstumsfortschritt",
   "Tree.Settings.Card.Leaderboard": "Freundeswald-Rangliste",
   "Tree.Settings.Card.Leaderboard.Description": "Öffentlicher Fortschritt teilnehmender SltBox-Konten.",
@@ -2991,7 +3002,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "Ihr aktueller Rang: #{0}"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
@@ -3023,7 +3034,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"Up to 12 fish and 12 plants, invertebrates or decorations"
@@ -3486,6 +3497,6 @@
   ,"Settings.Admin.Save":"Save"
   ,"Settings.Admin.Cancel":"Cancel"
   ,"Settings.Admin.InvalidUsername":"Use 3-32 letters, numbers, or underscores for the username."
-  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitEncyclopedia":"Encyclopedia"
   ,"Tree.FruitMarket":"Fruit market"
 }

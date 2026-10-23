@@ -16,7 +16,7 @@ public sealed class WidgetRegistry
     private readonly IReadOnlyDictionary<WidgetKind, WidgetKindRegistration> _registrations;
     private readonly Func<bool> _isAquariumAvailable;
 
-    // Set by the composition root only after an online-verified session service exists.
+    // Set by the composition root after the account-scoped aquarium service exists.
     internal static Func<bool> AquariumAccessResolver { get; set; } = () => false;
 
     public static WidgetRegistry Default { get; } = CreateDefault();

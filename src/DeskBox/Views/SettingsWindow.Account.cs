@@ -37,31 +37,4 @@ public sealed partial class SettingsWindow
         await ViewModel.SignOutAccountAsync();
     }
 
-    private async void AccountSyncDataButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.IsAccountAuthenticated) return;
-
-        AccountSyncDataButton.IsEnabled = false;
-        AccountSyncStatusText.Text = _localizationService.T("Settings.Account.Syncing");
-        try
-        {
-            bool synchronized = await _treeCloudSyncService.SyncNowAsync();
-            AccountSyncStatusText.Text = _localizationService.T(
-                synchronized ? "Settings.Account.SyncSuccess" : "Settings.Account.SyncUnavailable");
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            App.Log($"[TreeCloud] Manual sync failed: {ex.GetType().Name}");
-            AccountSyncStatusText.Text = _localizationService.T("Settings.Account.SyncError");
-        }
-        catch (Exception ex)
-        {
-            App.Log($"[TreeCloud] Manual sync failed: {ex}");
-            AccountSyncStatusText.Text = _localizationService.T("Settings.Account.SyncError");
-        }
-        finally
-        {
-            AccountSyncDataButton.IsEnabled = ViewModel.IsAccountAuthenticated;
-        }
-    }
 }

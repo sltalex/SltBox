@@ -36,6 +36,7 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.True(s.EnableGlanceImageAutoRotation);
         Assert.True(s.EnableCompactAmbientAnimations);
         Assert.True(s.AutoCheckForUpdates);
+        Assert.False(s.AutoUpdateEnabled);
         Assert.Null(s.LastUpdateCheckAt);
         Assert.False(s.QuickCaptureEnabled);
         Assert.False(s.TodoEnabled);
@@ -290,6 +291,7 @@ public sealed class SettingsSliceContractBaselineTests
         "enableGlanceImageAutoRotation",
         "enableCompactAmbientAnimations",
         "autoCheckForUpdates",
+        "autoUpdateEnabled",
         "lastUpdateCheckAt",
         "quickCaptureEnabled",
         "todoEnabled",

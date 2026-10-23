@@ -119,6 +119,12 @@
   "Tree.Title": "種樹",
   "WidgetContent.Tree.StatusLabel": "已實作",
   "WidgetContent.Tree.StatusDescription": "用按鍵能量培育小樹，不讀取輸入內容",
+"Tree.SyncRepair": "種樹異常修復",
+"Tree.SyncRepairTitle": "修復種樹同步",
+"Tree.SyncRepairBody": "已修復完成，程式即將重新啟動，重新啟動後請重試同步按鈕。已刪除 {0} 個本機同步狀態檔案。",
+"Tree.SyncRepairConfirm": "立即重新啟動",
+"Tree.SyncRepairFailed": "修復失敗，請稍後再試。",
+"Tree.SyncRepairRestartFailed": "無法安排重新啟動：{0}",
   "Tree.Settings.NextStageProgress": "下一階段：{0:0.00}%（尚需 {1:N0} 能量）",
   "Tree.Settings.NextStageComplete": "下一階段：已達到最高階段（100%）",
   "Tree.Settings.TotalGrowthProgress": "總成長進度：{1:0.00}%（累計 {0:N0} 能量）",
@@ -1498,7 +1504,8 @@
   "Widget.Compact.FileDropHint": "放開以新增檔案",
   "Widget.NoCopyableItems": "沒有可複製的項目",
   "Settings.Capsule.HoverResponse.Sensitive": "靈敏",
-  "Settings.Update.AutoCheckDescription": "啟動後檢查，並每小時檢查一次，發現新版本時通知你",
+  "Settings.Update.AutoCheckDescription": "啟動後及每小時檢查一次新版本",
+  "Settings.Update.AutoUpdateDescription": "發現新版本後自動下載並安裝，下載失敗會持續重試；安裝後自動重新啟動",
   "Settings.GlobalHotkey.ChangeTooltip": "更改全域快速鍵",
   "Settings.Weather.TemperatureUnit.Description": "選擇攝氏度或華氏度",
   "Music.Volume.Unavailable": "不可用",
@@ -1539,6 +1546,7 @@
   "QuickCapture.CopyText": "複製圖片文字",
   "Weather.Unit.Fahrenheit": "華氏度",
   "Settings.Update.AutoCheck": "自動檢查",
+  "Settings.Update.AutoUpdate": "自動更新",
   "Settings.Update.Status": "目前狀態",
   "Settings.Update.Details": "更新詳情",
   "Settings.Accent.SystemDescription": "使用 Windows 目前的主題色",
@@ -2933,6 +2941,7 @@
   "Settings.Account.SyncData": "同步資料",
   "Settings.Account.Syncing": "正在同步種樹資料…",
   "Settings.Account.SyncSuccess": "種樹資料已同步。",
+  "Settings.Account.SyncPartial": "種樹資料已同步，但部分帳戶資料未同步，請稍後重試。",
   "Settings.Account.SyncUnavailable": "無法啟動同步，請登入後重試。",
   "Settings.Account.SyncError": "種樹資料同步失敗，請檢查網路後重試。",
   "Settings.Account.SignedInAs": "已登入：{0}",
@@ -2972,6 +2981,8 @@
   "Tree.Settings.Card.Current": "目前成長",
   "Tree.Settings.Card.Current.Description": "輕鬆看看今天和這棵樹一路累積的成長。",
   "Tree.Settings.Card.Switches": "種樹與統計開關",
+"Tree.Settings.Card.Sync": "資料同步",
+"Tree.Settings.Card.Sync.Description": "手動同步種樹資料；如果同步狀態異常，可清理本機狀態後重新啟動。",
   "Tree.Settings.Card.Progress": "成長進度",
   "Tree.Settings.Card.Leaderboard": "好友森林排行榜",
   "Tree.Settings.Card.Leaderboard.Description": "顯示選擇參與排行的 SltBox 使用者種樹進度。",
@@ -2985,7 +2996,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "我目前的排名：第 {0} 名"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"購買後從背包放入；拖動水草、蝦蟹、貝類或裝飾，保存場景後套用到桌面。"
@@ -2995,7 +3006,7 @@
   ,"Aquarium.Settings.Discard":"Discard draft"
   ,"Aquarium.Settings.Reapply":"Reapply"
   ,"Aquarium.Settings.Store":"Store"
-  ,"Tree.FruitEncyclopedia":"果實圖鑑"
+  ,"Tree.FruitEncyclopedia":"圖鑑"
   ,"Tree.FruitMarket":"水果市場"
   ,"Aquarium.Settings.Backpack":"Backpack"
   ,"Aquarium.Settings.Wallet":"Wallet"
@@ -3019,7 +3030,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"最多展示 12 條魚和 12 件水草、蝦蟹、貝類或裝飾"

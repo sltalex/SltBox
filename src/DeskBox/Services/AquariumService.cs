@@ -187,7 +187,7 @@ internal sealed class AquariumService : IAsyncDisposable
         string? identity;
         long version;
         lock (_identityGate) { identity = _identity; version = _identityVersion; }
-        if (identity is null || !IsAvailable) { ErrorCode = "admin_required"; return false; }
+        if (identity is null || !IsAvailable) { ErrorCode = "sign_in_required"; return false; }
         await _gate.WaitAsync(token);
         try
         {
@@ -384,7 +384,7 @@ internal sealed class AquariumService : IAsyncDisposable
     }
 
     private string CachePath(string identity) => Path.Combine(_cacheDirectory, AccountBackupFileCatalog.SafeAccountId(identity) + ".json");
-    private string? VerifiedIdentity() => _auth.IsAuthenticated && _auth.CurrentUser is { Role: "admin" } user ? user.Id : null;
+    private string? VerifiedIdentity() => _auth.IsAuthenticated ? _auth.CurrentUser?.Id : null;
 
     private bool SameIdentity(string identity, long version)
     {
@@ -458,7 +458,7 @@ internal sealed class AquariumService : IAsyncDisposable
 
     private static async Task<AuthApiException> ReadErrorAsync(HttpResponseMessage response, CancellationToken token)
     {
-        string code = response.StatusCode == HttpStatusCode.Forbidden ? "admin_required" : "server_error";
+        string code = response.StatusCode == HttpStatusCode.Forbidden ? "sign_in_required" : "server_error";
         try
         {
             using JsonDocument document = await ReadDocumentAsync(response, token);

@@ -1285,9 +1285,11 @@
   "Settings.Update.Title": "App updates",
   "Settings.Update.Description": "Check and install updates",
   "Settings.Update.AutoCheck": "Auto check",
+  "Settings.Update.AutoUpdate": "Auto update",
   "Settings.Update.Status": "Current status",
   "Settings.Update.Details": "Update details",
-  "Settings.Update.AutoCheckDescription": "Check after startup and every hour; only show a reminder when an update is available",
+  "Settings.Update.AutoCheckDescription": "Check for new versions after startup and every hour",
+  "Settings.Update.AutoUpdateDescription": "Download and install new versions automatically; retry failed downloads until successful, then restart",
   "Settings.Update.Check": "Check",
   "Settings.Update.Download": "Download",
   "Settings.Update.StoreInstall": "Update from Store",
@@ -2946,6 +2948,12 @@
   "Tree.Title": "Grow a tree",
   "WidgetContent.Tree.StatusLabel": "Implemented",
   "WidgetContent.Tree.StatusDescription": "Grow a tree from keypress energy without reading text",
+"Tree.SyncRepair": "Repair tree sync",
+"Tree.SyncRepairTitle": "Repair tree sync",
+"Tree.SyncRepairBody": "Repair is complete. The app will restart shortly. Try the sync button again after it restarts. Deleted {0} local sync state file(s).",
+"Tree.SyncRepairConfirm": "Restart now",
+"Tree.SyncRepairFailed": "Repair failed. Please try again later.",
+"Tree.SyncRepairRestartFailed": "Could not schedule the restart: {0}",
   "SystemMonitor.Cpu": "CPU",
   "SystemMonitor.Memory": "Memory",
   "SystemMonitor.CpuTemperature": "CPU temp",
@@ -2967,6 +2975,7 @@
   "Settings.Account.SyncData": "Sync data",
   "Settings.Account.Syncing": "Syncing tree data…",
   "Settings.Account.SyncSuccess": "Tree data synced.",
+  "Settings.Account.SyncPartial": "Tree data synced, but some account data did not. Please try again later.",
   "Settings.Account.SyncUnavailable": "Sync could not be started. Sign in and try again.",
   "Settings.Account.SyncError": "Tree data could not be synced. Check your network and try again.",
   "Settings.Account.SignedInAs": "Signed in as {0}",
@@ -3006,6 +3015,8 @@
   "Tree.Settings.Card.Current": "Current growth",
   "Tree.Settings.Card.Current.Description": "A friendly summary of today and the lifetime of this tree.",
   "Tree.Settings.Card.Switches": "Tree and statistics switches",
+"Tree.Settings.Card.Sync": "Data sync",
+"Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "Growth progress",
   "Tree.Settings.Card.Leaderboard": "Friends forest leaderboard",
   "Tree.Settings.Card.Leaderboard.Description": "Public progress from participating SltBox accounts.",
@@ -3019,7 +3030,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "Your current rank: #{0}"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
@@ -3051,7 +3062,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"Up to 12 fish and 12 plants, invertebrates or decorations"
@@ -3480,6 +3491,6 @@
   "Settings.Todo.DueDefaults.Day.Saturday": "Saturday",
   "Settings.Todo.DueDefaults.Day.Sunday": "Sunday",
   "Settings.Todo.DueDefaults.Summary": "{0} · through {1}"
-  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitEncyclopedia":"Encyclopedia"
   ,"Tree.FruitMarket":"Fruit market"
 }

@@ -24,6 +24,7 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
     private readonly AccountBackupFileCatalog _catalog;
     private readonly DingTalkGroupDocumentFavorites? _favorites;
     private readonly FruitService? _fruit;
+    private readonly WildlifeService? _wildlife;
     private readonly Func<DateTimeOffset> _clock;
     private readonly SemaphoreSlim _operation = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
@@ -38,12 +39,13 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
         DeskBoxDataBackupService localBackup,
         string? dataDirectory = null,
         Func<DateTimeOffset>? clock = null, DingTalkGroupDocumentFavorites? favorites = null,
-        FruitService? fruit = null)
+        FruitService? fruit = null, WildlifeService? wildlife = null)
     {
         _api = api;
         _auth = auth;
         _favorites = favorites;
         _fruit = fruit;
+        _wildlife = wildlife;
         _settings = settings;
         _localBackup = localBackup;
         _catalog = new AccountBackupFileCatalog(dataDirectory ?? DeskBoxDataPathService.Current.DataDirectory);
@@ -122,6 +124,9 @@ internal sealed class AccountCloudBackupService : IAsyncDisposable
             if (_favorites is not null) await _favorites.LoadAsync(cancellationToken);
             if (_fruit is not null && !await _fruit.RefreshAsync(cancellationToken))
                 throw new InvalidDataException("Fruit account data could not be refreshed before backup.");
+            if (_wildlife is not null && !await _wildlife.RefreshAsync(cancellationToken) &&
+                WildlifeAssetCatalog.HasCompleteAssets)
+                throw new InvalidDataException("Wildlife account data could not be refreshed before backup.");
             AccountBackupFileDto[] files = await _catalog.CaptureAsync(cancellationToken, ownerId);
             var request = new AccountBackupCreateRequest
             {

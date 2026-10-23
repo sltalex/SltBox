@@ -1199,7 +1199,8 @@ public sealed class CloudBackupTransportTests : IDisposable
         Assert.True(options.IsConfigured);
         Assert.Equal(
             CloudBackupDomain.TodoData | CloudBackupDomain.WidgetStyle |
-            CloudBackupDomain.DingTalkGroupDocuments | CloudBackupDomain.FruitData,
+            CloudBackupDomain.DingTalkGroupDocuments | CloudBackupDomain.FruitData |
+            CloudBackupDomain.WildlifeData,
             options.Scope);
         Assert.Equal(5, options.RetentionCount);
         Assert.Equal("DeskBox/backups", options.RemotePath);

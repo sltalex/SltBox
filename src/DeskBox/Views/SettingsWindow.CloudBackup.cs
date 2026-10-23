@@ -539,7 +539,7 @@ public sealed partial class SettingsWindow
                 !_backupRestoreActions.IsCurrentEndpoint(snapshot.Endpoint)) return;
 
             CloudBackupDomain scope = CloudBackupDomain.None;
-            scope |= CloudBackupDomain.FruitData;
+            scope |= CloudBackupDomain.FruitData | CloudBackupDomain.WildlifeData;
             if (todoBox.IsChecked == true)
             {
                 scope |= CloudBackupDomain.TodoData;

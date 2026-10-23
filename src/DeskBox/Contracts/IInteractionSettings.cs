@@ -40,6 +40,7 @@ public static class ShowDesktopBehaviors
 public readonly record struct InteractionSettingsSnapshot(
     bool AutoStart,
     bool AutoCheckForUpdates,
+    bool AutoUpdateEnabled,
     bool DoubleClickToOpen,
     bool FileItemSystemContextMenuEnabled,
     bool ResizeSnapEnabled,
@@ -108,6 +109,7 @@ public interface IInteractionSettings
     // unchanged values skip the redundant save.
     void SetAutoStart(bool value);
     void SetAutoCheckForUpdates(bool value);
+    void SetAutoUpdateEnabled(bool value);
     void SetSilentStartup(bool value);
 
     void SetDoubleClickToOpen(bool value);

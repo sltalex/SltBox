@@ -33,6 +33,21 @@ public sealed class UpdatePreferenceServiceTests : IDisposable
         Assert.False(service.IsSkipped("1.5.7"));
     }
 
+    [Fact]
+    public void AutomaticInstallAttempt_BlocksOnlyThatVersionUntilExplicitlyCleared()
+    {
+        var service = new UpdatePreferenceService(_tempRoot);
+        service.RecordAutomaticInstallAttempt(" 1.5.6 ");
+
+        var reloaded = new UpdatePreferenceService(_tempRoot);
+        Assert.True(reloaded.WasAutomaticInstallAttempted("1.5.6"));
+        Assert.False(reloaded.WasAutomaticInstallAttempted("1.5.7"));
+        Assert.False(reloaded.IsSkipped("1.5.6"));
+
+        reloaded.ClearAutomaticInstallAttempt("1.5.6");
+        Assert.False(new UpdatePreferenceService(_tempRoot).WasAutomaticInstallAttempted("1.5.6"));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

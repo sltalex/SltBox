@@ -6,6 +6,7 @@ public sealed partial class AquariumBackpackSection : UserControl
 {
     internal StackPanel ItemsHost => BackpackItems;
     internal StackPanel PrimaryCategoriesHost => BackpackPrimaryCategories;
+    internal TextBlock CoinBalanceLabel => CoinBalance;
     internal TextBlock StatusLabel => DraftStatus;
     internal event Action? AquariumRequested;
 

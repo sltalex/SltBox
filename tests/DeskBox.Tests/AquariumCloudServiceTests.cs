@@ -180,7 +180,7 @@ public sealed class AquariumCloudServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task OfflineStartupCannotRecoverAdministratorAccessFromCachedAssets()
+    public async Task OfflineStartupCanRecoverOrdinaryAccountFromCachedAssets()
     {
         var api = new FakeApi();
         await using (var service = new AquariumService(new FakeAuth(), api, _root))
@@ -189,9 +189,9 @@ public sealed class AquariumCloudServiceTests : IDisposable
         int requests = api.RequestCount;
         await using var offline = new AquariumService(new FakeAuth(new("admin-1", "Simon", "user")), api, _root);
         Assert.False(await offline.RefreshAsync());
-        Assert.Null(offline.State);
-        Assert.False(offline.IsAvailable);
-        Assert.Equal(requests, api.RequestCount);
+        Assert.NotNull(offline.State);
+        Assert.True(offline.IsAvailable);
+        Assert.Equal(requests + 1, api.RequestCount);
     }
 
     [Fact]

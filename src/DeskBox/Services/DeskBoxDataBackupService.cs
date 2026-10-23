@@ -1342,6 +1342,14 @@ public sealed partial class DeskBoxDataBackupService
                     continue;
                 }
 
+                // Wildlife collections are cumulative. Even a replace-mode
+                // restore must not reduce counts or erase discoveries.
+                if (domain == CloudBackupDomain.WildlifeData)
+                {
+                    WildlifeCacheFileStore.RestoreMerged(stagedDataDirectory, DataDirectory);
+                    continue;
+                }
+
                 if (!marker.ReplaceItemData)
                 {
                     // Additive merge: staged items fold into the live stores

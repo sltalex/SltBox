@@ -49,6 +49,8 @@ public sealed partial class WeatherWidgetViewModel
                 StringComparison.Ordinal);
             _weatherData = forecast.Data;
             ApplyWeatherData(forecast.Data);
+            if (!isStale)
+                WeatherVisualStateService.Instance.Publish(forecast.Data, forecast.FetchedAtUtc);
             HasData = true;
             _automaticRefreshNotBeforeUtc = isStale
                 ? DateTimeOffset.MinValue

@@ -5,6 +5,20 @@ namespace DeskBox.Tests;
 
 public sealed class SettingsMigrationPipelineTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VersionTwelve_PreservesOptInAutoUpdate(bool enabled)
+    {
+        var settings = new AppSettings { SchemaVersion = 11, AutoUpdateEnabled = enabled };
+
+        var (result, migrated) = new SettingsMigrationPipeline().RunMigrationsOnCopy(settings);
+
+        Assert.True(migrated);
+        Assert.Equal(12, result.SchemaVersion);
+        Assert.Equal(enabled, result.AutoUpdateEnabled);
+    }
+
     [Fact]
     public void VersionTwo_ClearsLegacyWheelOverrideForFollowDefaultGroup()
     {

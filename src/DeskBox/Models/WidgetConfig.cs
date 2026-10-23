@@ -247,7 +247,7 @@ public enum WidgetKind
     /// <summary>Read-only DingTalk group document link catalog.</summary>
     DingTalkGroupDocs,
 
-    /// <summary>Administrator-only account aquarium.</summary>
+    /// <summary>Account-scoped aquarium widget.</summary>
     Aquarium,
 
     /// <summary>Legacy value kept only for migrating old settings files.</summary>

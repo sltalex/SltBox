@@ -11,6 +11,26 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "DeskBoxTreeCloudTests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task DeleteLocalStateFiles_RemovesOnlyStateJsonFiles()
+    {
+        Directory.CreateDirectory(_root);
+        string state = Path.Combine(_root, "state-user-1.json");
+        string conflict = Path.Combine(_root, "conflict-user-1.json");
+        string text = Path.Combine(_root, "state-not-json.txt");
+        File.WriteAllText(state, "{}");
+        File.WriteAllText(conflict, "{}");
+        File.WriteAllText(text, "{}");
+
+        await using var service = new TreeCloudSyncService(
+            new FakeApi(), new FakeAuth("user-1", "Simon"), stateDirectory: _root);
+
+        Assert.Equal(1, service.DeleteLocalStateFiles());
+        Assert.False(File.Exists(state));
+        Assert.True(File.Exists(conflict));
+        Assert.True(File.Exists(text));
+    }
+
+    [Fact]
     public async Task SyncUploadsPendingDeltaAndAppliesAuthoritativeState()
     {
         var api = new FakeApi
@@ -32,6 +52,29 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         Assert.Equal(10, body.RootElement.GetProperty("day_growth_delta").GetInt64());
         Assert.Equal(500, applied!.TotalEnergy);
         Assert.Equal(2, applied.FruitInventory);
+    }
+
+    [Fact]
+    public async Task AuxiliarySyncFailureDoesNotTurnTreeSyncIntoFailure()
+    {
+        var api = new FakeApi
+        {
+            State = State(version: 0, energy: 0, growth: 0, stage: 1, fruitEnergy: 0, fruitInventory: 0, harvested: 0)
+        };
+        TreeProgress local = Progress(0, 0, 0, 0);
+        await using var service = new TreeCloudSyncService(
+            api,
+            new FakeAuth("user-1", "Simon"),
+            () => local,
+            _root,
+            syncAdditionalData: async _ =>
+            {
+                await Task.Yield();
+                throw new AuthApiException("method_not_allowed", "Favorites sync failed (405).", HttpStatusCode.MethodNotAllowed);
+            });
+
+        Assert.True(await service.SyncNowAsync());
+        Assert.False(service.AdditionalDataSynced);
     }
 
     [Fact]

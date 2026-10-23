@@ -591,6 +591,7 @@ public const int DefaultSearchMaxResults = 100;
         settings.ShowHoverButtons = true;
         settings.WidgetHoverButtonActions = DefaultWidgetHoverButtonActions;
         settings.AutoCheckForUpdates = true;
+        settings.Core.AutoUpdateEnabled = false;
         settings.SilentStartup = false;
         settings.QuickCaptureClipboardEnabled = false;
         settings.QuickCaptureImageClipboardEnabled = false;

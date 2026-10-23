@@ -58,6 +58,15 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
     internal DateTimeOffset? LastLeaderboardSuccess { get; private set; }
     internal bool IsOffline { get; private set; }
     internal bool HasConflict { get; private set; }
+    internal bool AdditionalDataSynced { get; private set; } = true;
+    internal bool IsAuthenticated => _auth.IsAuthenticated && _auth.CurrentUser is not null;
+
+    internal int DeleteLocalStateFiles()
+    {
+        int deleted = TreeCloudSyncStateFileStore.DeleteStateFiles(_stateDirectory);
+        App.Log($"[TreeCloud] Deleted {deleted} local state file(s) from '{_stateDirectory}'.");
+        return deleted;
+    }
 
     internal void Start()
     {
@@ -175,8 +184,32 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
 
     private async Task<bool> FinishSyncAsync(CancellationToken cancellationToken)
     {
+        AdditionalDataSynced = true;
         if (_syncAdditionalData is null) return true;
-        return await _syncAdditionalData(cancellationToken);
+
+        try
+        {
+            bool completed = await _syncAdditionalData(cancellationToken);
+            if (!completed)
+            {
+                AdditionalDataSynced = false;
+                App.Log("[TreeCloud] Auxiliary sync reported an unsuccessful result; tree progress remains synchronized.");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            AdditionalDataSynced = false;
+            // Auxiliary data (for example DingTalk favorites) is independent of
+            // the tree state. Do not turn a successful tree sync into a failure
+            // when that secondary endpoint is unavailable or out of date.
+            App.Log($"[TreeCloud] Auxiliary sync failed: {ex.GetType().Name}");
+        }
+
+        return true;
     }
 
     private static TreeStateDto InitialBaseline(TreeStateDto cloud) =>

@@ -145,6 +145,9 @@ public class AppSettings
     /// <inheritdoc cref="CoreSettingsSlice.AutoCheckForUpdates"/>
     public bool AutoCheckForUpdates { get => Core.AutoCheckForUpdates; set => Core.AutoCheckForUpdates = value; }
 
+    /// <inheritdoc cref="CoreSettingsSlice.AutoUpdateEnabled"/>
+    public bool AutoUpdateEnabled { get => Core.AutoUpdateEnabled; set => Core.AutoUpdateEnabled = value; }
+
     /// <inheritdoc cref="CoreSettingsSlice.LastUpdateCheckAt"/>
     public DateTimeOffset? LastUpdateCheckAt { get => Core.LastUpdateCheckAt; set => Core.LastUpdateCheckAt = value; }
 

@@ -149,6 +149,7 @@ public sealed class InteractionSettingsCoordinatorTests : IDisposable
         var coordinator = new InteractionSettingsCoordinator(settings);
 
         coordinator.SetAutoCheckForUpdates(false);
+        coordinator.SetAutoUpdateEnabled(true);
         coordinator.SetSilentStartup(true);
         coordinator.SetDoubleClickToOpen(false);
         coordinator.SetFileItemSystemContextMenuEnabled(true);
@@ -167,6 +168,7 @@ public sealed class InteractionSettingsCoordinatorTests : IDisposable
         InteractionSettingsSnapshot snapshot =
             new InteractionSettingsCoordinator(reloaded).ReadAll();
         Assert.False(snapshot.AutoCheckForUpdates);
+        Assert.True(snapshot.AutoUpdateEnabled);
         Assert.True(reloaded.Settings.Core.SilentStartup);
         Assert.False(snapshot.DoubleClickToOpen);
         Assert.True(snapshot.FileItemSystemContextMenuEnabled);

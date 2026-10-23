@@ -119,6 +119,12 @@
   "Tree.Title": "গাছ লাগান",
   "WidgetContent.Tree.StatusLabel": "উপলব্ধ",
   "WidgetContent.Tree.StatusDescription": "লেখা না পড়ে কী চাপার শক্তিতে গাছ বড় করুন",
+"Tree.SyncRepair": "Repair tree sync",
+"Tree.SyncRepairTitle": "Repair tree sync",
+"Tree.SyncRepairBody": "Repair is complete. The app will restart shortly. Try the sync button again after it restarts. Deleted {0} local sync state file(s).",
+"Tree.SyncRepairConfirm": "Restart now",
+"Tree.SyncRepairFailed": "Repair failed. Please try again later.",
+"Tree.SyncRepairRestartFailed": "Could not schedule the restart: {0}",
   "Tree.Settings.NextStageProgress": "Next stage: {0:0.00}% ({1:N0} energy remaining)",
   "Tree.Settings.NextStageComplete": "Next stage: highest stage reached (100%)",
   "Tree.Settings.TotalGrowthProgress": "Total growth: {1:0.00}% ({0:N0} energy)",
@@ -1265,9 +1271,11 @@
   "Settings.Update.Title": "অ্যাপ আপডেট",
   "Settings.Update.Description": "চেক এবং আপডেট ইনস্টল",
   "Settings.Update.AutoCheck": "অটো চেক",
+  "Settings.Update.AutoUpdate": "স্বয়ংক্রিয় আপডেট",
   "Settings.Update.Status": "বর্তমান অবস্থা",
   "Settings.Update.Details": "বিস্তারিত আপডেট করুন",
-  "Settings.Update.AutoCheckDescription": "স্টার্টআপের পরে এবং প্রতি ঘণ্টায় চেক করুন; আপডেট উপলব্ধ হলে শুধুমাত্র অনুস্মারক দেখান৷",
+  "Settings.Update.AutoCheckDescription": "স্টার্টআপের পরে এবং প্রতি ঘণ্টায় নতুন সংস্করণ পরীক্ষা করুন",
+  "Settings.Update.AutoUpdateDescription": "নতুন সংস্করণ স্বয়ংক্রিয়ভাবে ডাউনলোড ও ইনস্টল করুন; ব্যর্থ হলে আবার চেষ্টা করুন এবং শেষে অ্যাপ পুনরায় চালু করুন",
   "Settings.Update.Check": "চেক করুন",
   "Settings.Update.Download": "ডাউনলোড করুন",
   "Settings.Update.StoreInstall": "স্টোর থেকে আপডেট",
@@ -2933,6 +2941,7 @@
   "Settings.Account.SyncData": "ডেটা সিঙ্ক করুন",
   "Settings.Account.Syncing": "গাছের ডেটা সিঙ্ক করা হচ্ছে…",
   "Settings.Account.SyncSuccess": "গাছের ডেটা সিঙ্ক সম্পন্ন হয়েছে।",
+  "Settings.Account.SyncPartial": "গাছের ডেটা সিঙ্ক হয়েছে, কিন্তু অ্যাকাউন্টের কিছু ডেটা হয়নি। পরে আবার চেষ্টা করুন।",
   "Settings.Account.SyncUnavailable": "সিঙ্ক শুরু করা যায়নি। সাইন ইন করে আবার চেষ্টা করুন।",
   "Settings.Account.SyncError": "গাছের ডেটা সিঙ্ক করা যায়নি। নেটওয়ার্ক পরীক্ষা করে আবার চেষ্টা করুন।",
   "Settings.Account.SignedInAs": "{0} হিসেবে সাইন ইন করা হয়েছে",
@@ -2972,6 +2981,8 @@
   "Tree.Settings.Card.Current": "বর্তমান বৃদ্ধি",
   "Tree.Settings.Card.Current.Description": "আজ এবং গাছটির পুরো জীবনের বৃদ্ধির সংক্ষিপ্তসার।",
   "Tree.Settings.Card.Switches": "গাছ ও পরিসংখ্যান সেটিংস",
+"Tree.Settings.Card.Sync": "Data sync",
+"Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "বৃদ্ধির অগ্রগতি",
   "Tree.Settings.Card.Leaderboard": "বন্ধুদের বন র‌্যাঙ্কিং",
   "Tree.Settings.Card.Leaderboard.Description": "অংশগ্রহণকারী SltBox অ্যাকাউন্টগুলোর প্রকাশ্য অগ্রগতি।",
@@ -2985,7 +2996,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "আপনার বর্তমান স্থান: {0}"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
@@ -3017,7 +3028,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"Up to 12 fish and 12 plants, invertebrates or decorations"
@@ -3480,6 +3491,6 @@
   ,"Settings.Admin.Save":"Save"
   ,"Settings.Admin.Cancel":"Cancel"
   ,"Settings.Admin.InvalidUsername":"Use 3-32 letters, numbers, or underscores for the username."
-  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitEncyclopedia":"Encyclopedia"
   ,"Tree.FruitMarket":"Fruit market"
 }

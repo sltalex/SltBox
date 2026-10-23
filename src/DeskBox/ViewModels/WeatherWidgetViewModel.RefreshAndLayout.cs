@@ -100,6 +100,8 @@ public sealed partial class WeatherWidgetViewModel
                 refreshSucceeded = !_weatherData.IsStale;
                 if (refreshSucceeded)
                 {
+                    WeatherVisualStateService.Instance.Publish(
+                        _weatherData, _weatherService.ForecastFetchedAtUtc);
                     RegisterRefreshSuccess(cacheDuration);
                 }
                 else

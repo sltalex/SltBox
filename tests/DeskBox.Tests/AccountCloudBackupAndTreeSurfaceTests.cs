@@ -36,15 +36,18 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
-    public void AccountManualSync_RemainsVisibleInCompactSignedInLayout()
+    public void AccountCard_DoesNotOwnTreeManualSyncAfterMovingItToTreeWidget()
     {
         string xaml = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml"));
         string account = Slice(xaml, "svc:Localized.HeaderKey=\"Settings.Account.Title\"", "svc:Localized.HeaderKey=\"Settings.DingTalk.Title\"");
 
         Assert.Contains("x:Name=\"AccountSignedInActions\"", account, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AccountSyncDataButton\"", account, StringComparison.Ordinal);
-        Assert.Contains("Grid.Column=\"2\"", account, StringComparison.Ordinal);
-        Assert.Contains("Grid.Row=\"1\"", account, StringComparison.Ordinal);
+        Assert.DoesNotContain("AccountSyncDataButton", account, StringComparison.Ordinal);
+        string treeSettings = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+        Assert.Contains("Settings.Account.SyncData", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("Tree.SyncRepair", treeSettings, StringComparison.Ordinal);
+        string treeWidget = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
+        Assert.DoesNotContain("SyncButton_Click", treeWidget, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -152,9 +155,12 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
             "Settings.AccountBackup.Status.LastSuccess", "Settings.AccountBackup.Status.LastFailure",
             "Settings.AccountBackup.Status.Never",
             "Tree.Settings.Card.Current", "Tree.Settings.Card.Switches", "Tree.Settings.Card.Progress",
+            "Tree.Settings.Card.Sync", "Tree.Settings.Card.Sync.Description",
             "Tree.Settings.Card.Leaderboard", "Tree.Settings.Leaderboard.Participate",
             "Tree.Settings.Leaderboard.SignIn", "Tree.Settings.Leaderboard.Offline", "Tree.Settings.Leaderboard.Me",
-            "Tree.Settings.Leaderboard.CurrentRank"
+            "Tree.Settings.Leaderboard.CurrentRank", "Tree.SyncRepair", "Tree.SyncRepairTitle",
+            "Tree.SyncRepairBody", "Tree.SyncRepairConfirm", "Tree.SyncRepairFailed",
+            "Tree.SyncRepairRestartFailed"
         ];
         foreach (string file in Directory.EnumerateFiles(TestPaths.FromRepository("src/DeskBox/Strings"), "*.json"))
         {

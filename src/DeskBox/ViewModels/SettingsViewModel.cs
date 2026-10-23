@@ -138,6 +138,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             ? Visibility.Visible
             : Visibility.Collapsed;
     [ObservableProperty] public partial bool AutoCheckForUpdates { get; set; } = true;
+    [ObservableProperty] public partial bool AutoUpdateEnabled { get; set; }
     [ObservableProperty] public partial bool SilentStartup { get; set; }
     [ObservableProperty] public partial bool ShowHoverButtons { get; set; } = true;
     [ObservableProperty] public partial bool ShowHoverActionLockPosition { get; set; }
@@ -220,6 +221,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         if (StartupService.Current is DirectStartupService directStartup)
             SelectedAutoStartMode = directStartup.Mode.ToString();
         AutoCheckForUpdates = settings.AutoCheckForUpdates;
+        AutoUpdateEnabled = settings.Core.AutoUpdateEnabled;
         SilentStartup = settings.SilentStartup;
         ShowHoverButtons = settings.ShowHoverButtons;
         ApplyHoverButtonActionSelection(settings.WidgetHoverButtonActions);

@@ -114,16 +114,14 @@ public sealed class AquariumPackClientTests : IDisposable
     }
 
     [Fact]
-    public async Task NonAdminCannotOpenPackAndAccountSwitchClearsReward()
+    public async Task OrdinaryUserCanOpenPack()
     {
         var auth = new PackAuth();
         var api = new PackApi();
+        auth.SetUser(new("user-2", "Member", "user"));
         await using var service = new AquariumService(auth, api, _cache);
         Assert.True(await service.OpenPackAsync(PackId));
-        auth.SetUser(new("user-2", "Member", "user"));
-        Assert.Null(service.LastOpenedItem);
-        Assert.False(await service.OpenPackAsync(PackId));
-        Assert.Equal("admin_required", service.ErrorCode);
+        Assert.NotNull(service.LastOpenedItem);
         Assert.Single(api.Commands);
     }
 

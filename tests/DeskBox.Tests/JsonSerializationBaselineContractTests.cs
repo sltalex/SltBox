@@ -64,6 +64,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             ["src/DeskBox/Services/TreeCloudSyncService.cs"] = 9,
             ["src/DeskBox/Services/UpdatePreferenceService.cs"] = 2,
             ["src/DeskBox/Services/WeatherService.cs"] = 5,
+            ["src/DeskBox/Services/WildlifeCacheFileStore.cs"] = 2,
+            ["src/DeskBox/Services/WildlifeService.cs"] = 4,
             ["src/DeskBox/Services/WidgetFileStackSettings.cs"] = 7,
             ["src/DeskBox/Services/WidgetLayoutStore.cs"] = 2,
             // 3: the title-icon asset store's recent-emoji state file
@@ -88,8 +90,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             Assert.Equal(expectedCount, actual[path]);
         }
 
-        Assert.Equal(50, actual.Count);
-        Assert.Equal(130, actual.Values.Sum());
+        Assert.Equal(52, actual.Count);
+        Assert.Equal(136, actual.Values.Sum());
 
         string[] expectedContextOwners =
         [
@@ -135,6 +137,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             "src/DeskBox/Services/WidgetFileStackSettings.cs",
             "src/DeskBox/Services/WidgetLayoutStore.cs",
             "src/DeskBox/Services/WidgetTitleIconAssetStore.cs",
+            "src/DeskBox/Services/WildlifeModels.cs",
             "src/DeskBox/Sync/SyncJsonContext.cs"
         ];
         string[] actualContextOwners = ProductionSourceFiles()
@@ -145,7 +148,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             .Order()
             .ToArray();
 
-        Assert.Equal(43, actualContextOwners.Length);
+        Assert.Equal(44, actualContextOwners.Length);
         Assert.Equal(expectedContextOwners, actualContextOwners);
     }
 

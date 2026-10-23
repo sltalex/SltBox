@@ -21,7 +21,7 @@ public interface ISettingsMigration
 public sealed class SettingsMigrationPipeline
 {
     /// <summary>The current schema version that the application expects.</summary>
-    public const int CurrentSchemaVersion = 11;
+    public const int CurrentSchemaVersion = 12;
 
     private readonly List<ISettingsMigration> _migrations = [];
 
@@ -39,6 +39,7 @@ public sealed class SettingsMigrationPipeline
         _migrations.Add(new Migration_8_To_9());
         _migrations.Add(new Migration_9_To_10());
         _migrations.Add(new Migration_10_To_11());
+        _migrations.Add(new Migration_11_To_12());
     }
 
     /// <summary>
@@ -371,6 +372,21 @@ internal sealed class Migration_10_To_11 : ISettingsMigration
 
     public void Migrate(AppSettings settings)
     {
+    }
+}
+
+/// <summary>
+/// Schema v12 adds opt-in silent automatic updates. Existing profiles must
+/// retain the safe default of asking before installation.
+/// </summary>
+internal sealed class Migration_11_To_12 : ISettingsMigration
+{
+    public int FromVersion => 11;
+
+    public void Migrate(AppSettings settings)
+    {
+        // The missing member deserializes to false. Preserve an explicit true
+        // when a profile was written by a newer build before migration ran.
     }
 }
 

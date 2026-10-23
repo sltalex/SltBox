@@ -1529,7 +1529,8 @@
   "Widget.Compact.FileDropHint": "松开以添加文件",
   "Widget.NoCopyableItems": "没有可复制的项目",
   "Settings.Capsule.HoverResponse.Sensitive": "灵敏",
-  "Settings.Update.AutoCheckDescription": "启动后检查，并每小时检查一次，发现新版本时通知你",
+  "Settings.Update.AutoCheckDescription": "启动后及每小时检查一次新版本",
+  "Settings.Update.AutoUpdateDescription": "发现新版本后自动下载并安装，下载失败会持续重试；安装后自动重启",
   "Settings.GlobalHotkey.ChangeTooltip": "更改全局快捷键",
   "Settings.Weather.TemperatureUnit.Description": "选择摄氏度或华氏度",
   "Music.Volume.Unavailable": "不可用",
@@ -1570,6 +1571,7 @@
   "QuickCapture.CopyText": "复制图片文字",
   "Weather.Unit.Fahrenheit": "华氏度",
   "Settings.Update.AutoCheck": "自动检查",
+  "Settings.Update.AutoUpdate": "自动更新",
   "Settings.Update.Status": "当前状态",
   "Settings.Update.Details": "更新详情",
   "Settings.Accent.SystemDescription": "使用 Windows 当前的主题色",
@@ -2946,6 +2948,12 @@
   "Tree.Title": "种树",
   "WidgetContent.Tree.StatusLabel": "已实现",
   "WidgetContent.Tree.StatusDescription": "按键能量培育小树，不读取输入内容",
+"Tree.SyncRepair": "种树异常修复",
+"Tree.SyncRepairTitle": "修复种树同步",
+"Tree.SyncRepairBody": "已修复完成，程序即将重启，重启后请重试同步按钮。已删除 {0} 个本地同步状态文件。",
+"Tree.SyncRepairConfirm": "立即重启",
+"Tree.SyncRepairFailed": "修复失败，请稍后重试。",
+"Tree.SyncRepairRestartFailed": "无法安排重启：{0}",
   "SystemMonitor.Cpu": "CPU",
   "SystemMonitor.Memory": "内存",
   "SystemMonitor.CpuTemperature": "CPU 温度",
@@ -2967,6 +2975,7 @@
   "Settings.Account.SyncData": "同步数据",
   "Settings.Account.Syncing": "正在同步种树数据…",
   "Settings.Account.SyncSuccess": "种树数据已同步。",
+  "Settings.Account.SyncPartial": "种树数据已同步，但部分账户数据未同步，请稍后重试。",
   "Settings.Account.SyncUnavailable": "无法启动同步，请登录后重试。",
   "Settings.Account.SyncError": "种树数据同步失败，请检查网络后重试。",
   "Settings.Account.SignedInAs": "已登录：{0}",
@@ -3006,6 +3015,8 @@
   "Tree.Settings.Card.Current": "当前成长",
   "Tree.Settings.Card.Current.Description": "轻松看看今天和这棵树一路积累的成长。",
   "Tree.Settings.Card.Switches": "种树与统计开关",
+"Tree.Settings.Card.Sync": "数据同步",
+"Tree.Settings.Card.Sync.Description": "手动同步种树数据；如果同步状态异常，可清理本地状态后重启。",
   "Tree.Settings.Card.Progress": "成长进度",
   "Tree.Settings.Card.Leaderboard": "好友森林排行榜",
   "Tree.Settings.Card.Leaderboard.Description": "展示选择参与排行的 SltBox 用户种树进度。",
@@ -3019,7 +3030,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "我的当前排名：第 {0} 名"
   ,"Aquarium.Title":"水族馆"
   ,"Widget.Settings.Aquarium":"水族馆设置"
-  ,"WidgetContent.Aquarium.StatusLabel":"管理员专用"
+  ,"WidgetContent.Aquarium.StatusLabel":"需要登录"
   ,"WidgetContent.Aquarium.StatusDescription":"海底水族馆"
   ,"Aquarium.Settings.Preview":"场景预览"
   ,"Aquarium.Settings.Hint":"购买后到背包放入；拖动水草、虾蟹、贝类或装饰，点击保存布置后应用到桌面。"
@@ -3029,7 +3040,7 @@
   ,"Aquarium.Settings.Discard":"放弃草稿"
   ,"Aquarium.Settings.Reapply":"重新应用"
   ,"Aquarium.Settings.Store":"商城"
-  ,"Tree.FruitEncyclopedia":"果实图鉴"
+  ,"Tree.FruitEncyclopedia":"图鉴"
   ,"Tree.FruitMarket":"水果市场"
   ,"Aquarium.Settings.Backpack":"背包"
   ,"Aquarium.Settings.Wallet":"钱包"
@@ -3053,7 +3064,7 @@
   ,"Aquarium.Settings.Saved":"布置已保存"
   ,"Aquarium.Settings.Conflict":"云端布景已更新，请重新应用草稿"
   ,"Aquarium.Settings.Offline":"当前离线"
-  ,"Aquarium.Settings.AdminRequired":"仅管理员可用"
+  ,"Aquarium.Settings.SignInRequired":"需要登录"
   ,"Aquarium.Settings.Error":"操作失败"
   ,"Aquarium.Settings.InsufficientCoins":"金币不足"
   ,"Aquarium.Settings.Limit":"最多展示 12 条鱼和 12 件水草、虾蟹、贝类或装饰"

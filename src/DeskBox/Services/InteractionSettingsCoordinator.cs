@@ -39,6 +39,7 @@ public sealed class InteractionSettingsCoordinator : IInteractionSettings
         return new(
             core.AutoStart,
             core.AutoCheckForUpdates,
+            core.AutoUpdateEnabled,
             fileWidget.DoubleClickToOpen,
             fileWidget.FileItemSystemContextMenuEnabled,
             shell.ResizeSnapEnabled,
@@ -78,6 +79,15 @@ public sealed class InteractionSettingsCoordinator : IInteractionSettings
         CoreSettingsSlice core = _settings.Settings.Core;
         if (core.AutoCheckForUpdates == value) return;
         core.AutoCheckForUpdates = value;
+        _settings.SaveDebounced();
+    }
+
+    public void SetAutoUpdateEnabled(bool value)
+    {
+        ThrowIfStopped();
+        CoreSettingsSlice core = _settings.Settings.Core;
+        if (core.AutoUpdateEnabled == value) return;
+        core.AutoUpdateEnabled = value;
         _settings.SaveDebounced();
     }
 

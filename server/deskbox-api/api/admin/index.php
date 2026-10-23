@@ -25,24 +25,6 @@ function admin_page_redirect(string $location = ''): never
     exit;
 }
 
-function admin_page_post_id(array $post, string $key): string
-{
-    $value = isset($post[$key]) && is_string($post[$key]) ? $post[$key] : '';
-    if (!preg_match('/\A[a-f0-9]{32}\z/D', $value)) {
-        throw new ApiError('invalid_target', 'The selected account is invalid.', 400);
-    }
-    return $value;
-}
-
-function admin_page_nonnegative(array $post, string $key, string $code): int
-{
-    $value = isset($post[$key]) && is_string($post[$key]) ? trim($post[$key]) : '';
-    if (!preg_match('/\A(?:0|[1-9][0-9]{0,9})\z/D', $value) || (int)$value > 2147483647) {
-        throw new ApiError($code, 'Please enter a nonnegative whole number.', 400);
-    }
-    return (int)$value;
-}
-
 function admin_page_session_actor(PDO $pdo): array
 {
     return web_admin_validate_session(
@@ -63,49 +45,6 @@ function admin_page_login(PDO $pdo, array $post): void
     session_regenerate_id(true);
     $_SESSION = ['user_id' => $actor['user_id'], 'auth_session_id' => $sessionId];
     web_admin_csrf_token();
-}
-
-function admin_page_mutate(PDO $pdo, array $actor, array $post): string
-{
-    web_admin_require_csrf($post);
-    $operation = isset($post['operation']) && is_string($post['operation']) ? $post['operation'] : '';
-    if ($operation === 'logout') { web_admin_sign_out(); return 'logged_out'; }
-
-    if ($operation === 'fruit_catalog_item') {
-        fruit_admin_update($pdo,$post,api_clock());
-        return 'fruit_catalog_item';
-    }
-
-    $targetId = $operation === 'shop_price'
-        ? $actor['user_id'] : admin_page_post_id($post, 'target_id');
-    $body = ['action' => '', 'target_id' => $targetId, 'reason' => 'web_admin'];
-    if ($operation === 'update_user') {
-        $body += [
-            'action' => 'update_user',
-            'username' => isset($post['username']) && is_string($post['username']) ? $post['username'] : '',
-            'status' => isset($post['status']) && is_string($post['status']) ? $post['status'] : '',
-        ];
-    } elseif ($operation === 'enable' || $operation === 'disable') {
-        $body['action'] = $operation;
-    } elseif ($operation === 'revoke_all') {
-        $body['action'] = 'revoke_all_sessions';
-    } elseif ($operation === 'revoke_session') {
-        $body += ['action' => 'revoke_session', 'session_id' => admin_page_post_id($post, 'session_id')];
-    } elseif ($operation === 'set_coins') {
-        $body += ['action' => 'set_aquarium_coins', 'coins' => admin_page_nonnegative($post, 'coins', 'invalid_coins')];
-    } elseif ($operation === 'delete_user') {
-        $body += [
-            'action' => 'delete_user',
-            'confirm_username' => isset($post['confirm_username']) && is_string($post['confirm_username']) ? $post['confirm_username'] : '',
-            'admin_password' => isset($post['admin_password']) && is_string($post['admin_password']) ? $post['admin_password'] : '',
-        ];
-    } elseif ($operation === 'shop_price') {
-        $body += ['action' => 'set_aquarium_card_pack_price', 'card_pack_price' => admin_page_nonnegative($post, 'card_pack_price', 'invalid_price')];
-    } else {
-        throw new ApiError('invalid_action', 'Unknown management operation.', 400);
-    }
-    admin_mutate($pdo, $actor['user_id'], $body, 'api_clock');
-    return $operation;
 }
 
 web_admin_start_session();

@@ -28,6 +28,9 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private readonly Grid _canopySurface = new() { IsHitTestVisible = false };
     private readonly Image _canopyImage = new() { Stretch = Stretch.Uniform, IsHitTestVisible = false };
     private readonly Canvas _fruitLayer = new() { IsHitTestVisible = false };
+    private readonly Canvas _wildlifeLayer = new() { Width = TreeIllustrationLayout.Width, Height = TreeIllustrationLayout.Height };
+    private readonly Storyboard _wildlifeMotion = new();
+    private string? _renderedEncounterId;
     private readonly Canvas _fallingLeafLayer = new() { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
     private readonly CompositeTransform _treeTransform = new();
     private readonly CompositeTransform _canopyTransform = new();
@@ -40,7 +43,6 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         RepeatBehavior = RepeatBehavior.Forever
     };
     private readonly TextBlock _captureStatus = new() { FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center };
-    private readonly TextBlock _fruitStats = new() { FontSize = 12, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly TreeBubbleProgressBar _progress = new();
     private volatile bool _visible = true;
     private volatile bool _disposed;
@@ -57,6 +59,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     {
         _localization = localization;
         _drawing.Children.Add(new Image { Source = Asset("ground.svg"), Stretch = Stretch.Uniform, IsHitTestVisible = false });
+        _treeTransform.ScaleX = TreeIllustrationLayout.TreeArtworkScale;
+        _treeTransform.ScaleY = TreeIllustrationLayout.TreeArtworkScale;
         _treeSurface.RenderTransform = _treeTransform;
         _canopySurface.RenderTransform = _canopyTransform;
         _canopySurface.Children.Add(_canopyImage);
@@ -64,14 +68,18 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _treeSurface.Children.Add(_treeImage);
         _treeSurface.Children.Add(_canopySurface);
         _drawing.Children.Add(_treeSurface);
+        _drawing.Children.Add(_wildlifeLayer);
         _drawing.Children.Add(_fallingLeafLayer);
+        _drawing.Children.Add(_weatherGroundLayer);
+        _drawing.Children.Add(_weatherSkyLayer);
+        _weatherFrontLayer.RenderTransform = _weatherTransform;
+        _drawing.Children.Add(_weatherFrontLayer);
         ConfigureMotion();
 
         var stack = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch };
         _progress.Margin = new Thickness(16, 8, 16, 4);
         stack.Children.Add(new Viewbox { Child = _drawing, Height = TreeIllustrationLayout.DisplayHeight, Stretch = Stretch.Uniform });
         stack.Children.Add(_captureStatus);
-        stack.Children.Add(_fruitStats);
         stack.Children.Add(_progress);
         Content = stack;
         _treeSurface.Tapped += (_, args) =>
@@ -90,14 +98,26 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
                 args.Handled = true;
             }
         };
-        _timer.Tick += (_, _) => { if (_visible) Refresh(); };
+        _timer.Tick += (_, _) =>
+        {
+            if (!_visible) return;
+            Refresh();
+            _ = RefreshTreeWeatherIfDueAsync();
+            _ = App.Current.WildlifeService.OfferIfDueAsync();
+        };
         Loaded += (_, _) =>
         {
             _counter.Changed += CounterChanged;
             App.Current.FruitService.Changed += FruitChanged;
+            App.Current.WildlifeService.Changed += FruitChanged;
             if (_visible && !_disposed) { _timer.Start(); Refresh(); }
         };
         Unloaded += (_, _) => { _counter.Changed -= CounterChanged; _timer.Stop(); StopMotion(); };
+        Unloaded += (_, _) =>
+        {
+            App.Current.WildlifeService.Changed -= FruitChanged;
+            App.Current.WildlifeService.SetVisible(false);
+        };
         Unloaded += (_, _) => App.Current.FruitService.Changed -= FruitChanged;
         Refresh();
     }
@@ -107,6 +127,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _visible = visible;
         if (visible && IsLoaded && !_disposed) { _timer.Start(); Refresh(); }
         else { _timer.Stop(); StopMotion(); }
+        if (!visible) { App.Current.WildlifeService.SetVisible(false); RenderWildlife(); }
     }
 
     private void Refresh()
@@ -117,9 +138,6 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _lastHarvested = p.HarvestedFruit;
         _captureStatus.Visibility = p.Paused ? Visibility.Visible : Visibility.Collapsed;
         if (p.Paused) _captureStatus.Text = _localization.T("Tree.Settings.StatisticsPaused");
-        _fruitStats.Visibility = p.Stage == 5 ? Visibility.Visible : Visibility.Collapsed;
-        if (p.Stage == 5)
-            _fruitStats.Text = _localization.Format("Tree.FruitStats", p.FruitInventory, p.HarvestedFruit);
         // The desktop tile describes the current growth step.  Showing the
         // all-the-way-to-maturity percentage here made it disagree with the
         // stage wording and made each 36,000-energy stage feel stalled.
@@ -145,6 +163,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _lastFruitInventory = p.FruitInventory;
         _lastFruitSignature = fruitSignature;
 
+        RenderWeatherEffects();
+        RenderWildlife();
         UpdateMotion();
         if (celebrate && _motionRunning)
         {
@@ -350,11 +370,13 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         if (shouldAnimate)
         {
             _sway.Begin();
-            if (_fallingLeaves.Children.Count > 0)
+            if (_fallingLeaves.Children.Count > 0 && !TreeWeatherSceneLayout.SuppressesFallingLeaves(_renderedWeather))
             {
                 _fallingLeafLayer.Visibility = Visibility.Visible;
                 _fallingLeaves.Begin();
             }
+            StartWeatherMotion();
+            if (_wildlifeMotion.Children.Count > 0) _wildlifeMotion.Begin();
             _motionRunning = true;
         }
         else StopMotion();
@@ -366,10 +388,12 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _sway.Stop();
         _celebration.Stop();
         _fallingLeaves.Stop();
+        StopWeatherMotion();
+        _wildlifeMotion.Stop();
         _fallingLeafLayer.Visibility = Visibility.Collapsed;
         _canopyTransform.Rotation = 0;
         _treeTransform.Rotation = 0;
-        _treeTransform.ScaleX = _treeTransform.ScaleY = 1;
+        _treeTransform.ScaleX = _treeTransform.ScaleY = TreeIllustrationLayout.TreeArtworkScale;
         _motionRunning = false;
     }
 
@@ -378,8 +402,10 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _disposed = true;
         _counter.Changed -= CounterChanged;
         App.Current.FruitService.Changed -= FruitChanged;
+        App.Current.WildlifeService.Changed -= FruitChanged;
         _timer.Stop();
         StopMotion();
+        _treeWeatherService.Dispose();
         _progress.Dispose();
     }
 }

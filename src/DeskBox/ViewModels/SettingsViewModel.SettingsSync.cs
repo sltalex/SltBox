@@ -65,6 +65,7 @@ private void OnLanguageChanged()
     {
         var settings = _settingsService.Settings;
         bool wasRestoringDefaults = _isRestoringDefaults;
+        bool previousAutoUpdateEnabled = AutoUpdateEnabled;
 
         _isApplyingSettingsSnapshot = true;
         _isRestoringDefaults = true;
@@ -72,6 +73,7 @@ private void OnLanguageChanged()
         {
             SelectedLanguage = LocalizationService.NormalizeLanguageSetting(settings.Language);
             AutoCheckForUpdates = settings.AutoCheckForUpdates;
+            AutoUpdateEnabled = settings.Core.AutoUpdateEnabled;
             SilentStartup = settings.SilentStartup;
             ShowHoverButtons = settings.ShowHoverButtons;
             ApplyHoverButtonActionSelection(settings.WidgetHoverButtonActions);
@@ -148,6 +150,11 @@ private void OnLanguageChanged()
         {
             _isApplyingSettingsSnapshot = false;
             _isRestoringDefaults = wasRestoringDefaults;
+        }
+
+        if (previousAutoUpdateEnabled != AutoUpdateEnabled && Application.Current is App app)
+        {
+            app.OnAutoUpdatePreferenceChanged(AutoUpdateEnabled);
         }
 
         RefreshSelectionProperties(refreshLocalizedOptions: false);

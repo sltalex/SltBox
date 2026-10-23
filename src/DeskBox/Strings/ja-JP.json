@@ -119,6 +119,12 @@
   "Tree.Title": "木を育てる",
   "WidgetContent.Tree.StatusLabel": "実装済み",
   "WidgetContent.Tree.StatusDescription": "キー入力の回数で木を育てます。入力内容は読み取りません",
+"Tree.SyncRepair": "ツリー同期を修復",
+"Tree.SyncRepairTitle": "ツリー同期の修復",
+"Tree.SyncRepairBody": "修復が完了しました。まもなくアプリを再起動します。再起動後に同期ボタンをもう一度お試しください。ローカル同期状態ファイルを {0} 件削除しました。",
+"Tree.SyncRepairConfirm": "今すぐ再起動",
+"Tree.SyncRepairFailed": "修復に失敗しました。しばらくしてから再試行してください。",
+"Tree.SyncRepairRestartFailed": "再起動を予約できません：{0}",
   "Tree.Settings.NextStageProgress": "Next stage: {0:0.00}% ({1:N0} energy remaining)",
   "Tree.Settings.NextStageComplete": "Next stage: highest stage reached (100%)",
   "Tree.Settings.TotalGrowthProgress": "Total growth: {1:0.00}% ({0:N0} energy)",
@@ -1262,9 +1268,11 @@
   "Settings.Update.Title": "アプリのアップデート",
   "Settings.Update.Description": "更新を確認してインストール",
   "Settings.Update.AutoCheck": "自動チェック",
+  "Settings.Update.AutoUpdate": "自動更新",
   "Settings.Update.Status": "現在の状態",
   "Settings.Update.Details": "更新の詳細",
-  "Settings.Update.AutoCheckDescription": "起動後とその後毎時間チェックし、アップデートが利用可能な場合のみ通知を表示します",
+  "Settings.Update.AutoCheckDescription": "起動後とその後毎時間、新しいバージョンを確認します",
+  "Settings.Update.AutoUpdateDescription": "新しいバージョンを自動でダウンロードしてインストールします。失敗時は再試行し、完了後に再起動します",
   "Settings.Update.Check": "チェック",
   "Settings.Update.Download": "ダウンロード",
   "Settings.Update.StoreInstall": "ストアから更新",
@@ -2933,6 +2941,7 @@
   "Settings.Account.SyncData": "データを同期",
   "Settings.Account.Syncing": "木のデータを同期しています…",
   "Settings.Account.SyncSuccess": "木のデータを同期しました。",
+  "Settings.Account.SyncPartial": "木のデータは同期されましたが、一部のアカウントデータは同期されませんでした。後でもう一度お試しください。",
   "Settings.Account.SyncUnavailable": "同期を開始できませんでした。サインインしてからもう一度お試しください。",
   "Settings.Account.SyncError": "木のデータを同期できませんでした。ネットワークを確認してもう一度お試しください。",
   "Settings.Account.SignedInAs": "{0} としてサインイン中",
@@ -2972,6 +2981,8 @@
   "Tree.Settings.Card.Current": "現在の成長",
   "Tree.Settings.Card.Current.Description": "今日とこの木の累計成長をやさしくまとめます。",
   "Tree.Settings.Card.Switches": "木と統計の設定",
+"Tree.Settings.Card.Sync": "データ同期",
+"Tree.Settings.Card.Sync.Description": "ツリー データを手動で同期します。同期状態に問題がある場合は、ローカル状態を消去して再起動できます。",
   "Tree.Settings.Card.Progress": "成長の進み具合",
   "Tree.Settings.Card.Leaderboard": "友だちの森ランキング",
   "Tree.Settings.Card.Leaderboard.Description": "参加している SltBox アカウントの公開進捗です。",
@@ -2985,7 +2996,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "現在の順位：{0} 位"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
@@ -3017,7 +3028,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"Up to 12 fish and 12 plants, invertebrates or decorations"
@@ -3480,6 +3491,6 @@
   ,"Settings.Admin.Save":"Save"
   ,"Settings.Admin.Cancel":"Cancel"
   ,"Settings.Admin.InvalidUsername":"Use 3-32 letters, numbers, or underscores for the username."
-  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitEncyclopedia":"Encyclopedia"
   ,"Tree.FruitMarket":"Fruit market"
 }

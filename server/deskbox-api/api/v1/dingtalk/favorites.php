@@ -4,18 +4,20 @@ define('DESKBOX_API_ENTRY', true);
 require dirname(__DIR__, 2) . '/_app/bootstrap.php';
 require dirname(__DIR__, 2) . '/_app/account_data.php';
 
-api_run('GET', static function (PDO $pdo): array {
-    $user = account_authenticated_user($pdo, 'api_clock');
-    $statement = $pdo->prepare(
-        'SELECT document_urls_json, documents_json FROM dingtalk_group_document_favorites WHERE user_id = :user_id LIMIT 1'
-    );
-    $statement->execute([':user_id' => (string)$user['user_id']]);
-    $row = $statement->fetch(PDO::FETCH_ASSOC);
-    if (!is_array($row)) {
-        return ['document_urls' => [], 'documents' => []];
-    }
-    return dingtalk_favorites_decode_row($row);
-});
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    api_run('GET', static function (PDO $pdo): array {
+        $user = account_authenticated_user($pdo, 'api_clock');
+        $statement = $pdo->prepare(
+            'SELECT document_urls_json, documents_json FROM dingtalk_group_document_favorites WHERE user_id = :user_id LIMIT 1'
+        );
+        $statement->execute([':user_id' => (string)$user['user_id']]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) {
+            return ['document_urls' => [], 'documents' => []];
+        }
+        return dingtalk_favorites_decode_row($row);
+    });
+}
 
 api_run('PUT', static function (PDO $pdo): array {
     $user = account_authenticated_user($pdo, 'api_clock');
@@ -74,23 +76,27 @@ function dingtalk_favorites_validate_documents(mixed $value): array
     }
     $result = [];
     foreach ($value as $document) {
-        if (!is_array($document) || !isset($document['groupName'], $document['title'], $document['url'], $document['lastSeenAt'])) {
+        if (!is_array($document)) {
             throw new ApiError('invalid_favorites', 'Favorite document data is invalid.', 400);
         }
-        foreach (['groupName', 'title', 'url', 'lastSeenAt'] as $key) {
-            if (!is_string($document[$key]) || strlen($document[$key]) > 4096) {
+        $groupName = $document['group_name'] ?? $document['groupName'] ?? null;
+        $lastSeenAt = $document['last_seen_at'] ?? $document['lastSeenAt'] ?? null;
+        $title = $document['title'] ?? null;
+        $url = $document['url'] ?? null;
+        foreach ([$groupName, $title, $url, $lastSeenAt] as $field) {
+            if (!is_string($field) || strlen($field) > 4096) {
                 throw new ApiError('invalid_favorites', 'Favorite document data is invalid.', 400);
             }
         }
-        if (!preg_match('/\Ahttps?:\/\/[^\s]+\z/i', $document['url'])) {
+        if (!preg_match('/\Ahttps?:\/\/[^\s]+\z/i', $url)) {
             throw new ApiError('invalid_favorites', 'Favorite document URL is invalid.', 400);
         }
-        $conversationId = isset($document['conversationId']) && is_string($document['conversationId'])
-            ? substr($document['conversationId'], 0, 512) : '';
+        $conversationId = $document['conversation_id'] ?? $document['conversationId'] ?? '';
+        $conversationId = is_string($conversationId) ? substr($conversationId, 0, 512) : '';
         $result[] = [
-            'groupName' => $document['groupName'], 'title' => $document['title'],
-            'url' => $document['url'], 'lastSeenAt' => $document['lastSeenAt'],
-            'conversationId' => $conversationId,
+            'group_name' => $groupName, 'title' => $title,
+            'url' => $url, 'last_seen_at' => $lastSeenAt,
+            'conversation_id' => $conversationId,
         ];
     }
     return $result;

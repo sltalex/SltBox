@@ -149,6 +149,8 @@ public partial class App : Application
     private bool _hasUpdateAvailable;
     private bool _updateNotificationShown;
     private int _automaticUpdateDownloadRunning;
+    private int _silentUpdateRunning;
+    private CancellationTokenSource? _silentUpdateCancellationSource;
     private DateTimeOffset _lastSettingsPersistenceNotificationAt = DateTimeOffset.MinValue;
     private string _availableUpdateVersion = string.Empty;
     private int _externalStateRecoveryScheduled;
@@ -177,6 +179,7 @@ public partial class App : Application
     internal TreeCloudSyncService TreeCloudSyncService { get; private set; } = null!;
     internal AquariumService AquariumService { get; private set; } = null!;
     internal FruitService FruitService { get; private set; } = null!;
+    internal WildlifeService WildlifeService { get; private set; } = null!;
     private string? _aquariumVisibleIdentity;
     internal DingTalkGroupDocumentSyncService DingTalkGroupDocumentSyncService { get; private set; } = null!;
     public DeskBoxAttachmentHealthService AttachmentHealthService { get; private set; } = null!;
@@ -325,6 +328,7 @@ public partial class App : Application
         TreeCloudSyncService = Services.GetRequiredService<TreeCloudSyncService>();
         AquariumService = Services.GetRequiredService<AquariumService>();
         FruitService = Services.GetRequiredService<FruitService>();
+        WildlifeService = Services.GetRequiredService<WildlifeService>();
         WidgetRegistry.AquariumAccessResolver = () => AquariumService.IsAvailable;
         DingTalkGroupDocumentSyncService = Services.GetRequiredService<DingTalkGroupDocumentSyncService>();
         _ = LegacySearchIndexCleanupService.TryCleanup();
@@ -1095,6 +1099,7 @@ public partial class App : Application
             RunOptionalStartupStep("tree-cloud-sync", TreeCloudSyncService.Start);
             RunOptionalStartupStep("aquarium-sync", AquariumService.Start);
             RunOptionalStartupStep("fruit-catalog-refresh", () => _ = FruitService.RefreshAsync());
+            RunOptionalStartupStep("wildlife-catalog-refresh", () => _ = WildlifeService.RefreshAsync());
             RunOptionalStartupStep("dingtalk-group-documents", DingTalkGroupDocumentSyncService.Start);
 
             if (FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Search))
@@ -1630,7 +1635,8 @@ public partial class App : Application
             return;
         }
 
-        if (!SettingsService.Settings.AutoCheckForUpdates)
+        if (!SettingsService.Settings.AutoCheckForUpdates &&
+            !SettingsService.Settings.Core.AutoUpdateEnabled)
         {
             return;
         }
@@ -1705,6 +1711,46 @@ public partial class App : Application
         {
             cancellationSource.Dispose();
         }
+    }
+
+    internal void OnAutoUpdatePreferenceChanged(bool enabled)
+    {
+        if (!enabled)
+        {
+            CancelSilentUpdate();
+            if (!SettingsService.Settings.AutoCheckForUpdates)
+            {
+                CancelBackgroundUpdateCheck();
+            }
+            return;
+        }
+
+        string attemptedVersion = UpdatePreferenceService.Current.AutomaticInstallAttemptVersion;
+        if (!string.IsNullOrEmpty(attemptedVersion))
+        {
+            try
+            {
+                UpdatePreferenceService.Current.ClearAutomaticInstallAttempt(attemptedVersion);
+            }
+            catch (Exception ex)
+            {
+                Log($"[Update] Could not clear the previous automatic-install attempt: {ex}");
+                return;
+            }
+        }
+        ScheduleBackgroundUpdateCheck();
+        if (AppUpdateService.LastCheckResult is { IsUpdateAvailable: true, Manifest: { } manifest } &&
+            AppUpdateService.DeliveryKind == AppUpdateDeliveryKind.DirectInstaller &&
+            !UpdatePreferenceService.Current.IsSkipped(manifest.Version))
+        {
+            StartSilentUpdate(manifest);
+        }
+    }
+
+    private void CancelSilentUpdate()
+    {
+        try { _silentUpdateCancellationSource?.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     internal void RefreshQuickCaptureClipboardService(bool captureCurrent = false)
@@ -2351,7 +2397,15 @@ public partial class App : Application
             }
             else if (AppUpdateService.DeliveryKind == AppUpdateDeliveryKind.DirectInstaller)
             {
-                _ = DownloadAvailableUpdateAndPromptAsync(result.Manifest);
+                if (SettingsService.Settings.Core.AutoUpdateEnabled)
+                {
+                    ClearUpdateAvailableReminder();
+                    StartSilentUpdate(result.Manifest);
+                }
+                else
+                {
+                    _ = DownloadAvailableUpdateAndPromptAsync(result.Manifest);
+                }
             }
             else
             {
@@ -2381,15 +2435,7 @@ public partial class App : Application
             }
 
             Log($"[Update] Automatically downloading version {manifest.Version}.");
-            AppUpdateDownloadResult result =
-                string.Equals(
-                    AppUpdateService.DownloadedInstallerVersion,
-                    manifest.Version,
-                    StringComparison.OrdinalIgnoreCase) &&
-                !string.IsNullOrWhiteSpace(AppUpdateService.DownloadedInstallerPath) &&
-                File.Exists(AppUpdateService.DownloadedInstallerPath)
-                    ? AppUpdateDownloadResult.Completed(AppUpdateService.DownloadedInstallerPath)
-                    : await AppUpdateService.DownloadUpdateAsync(manifest);
+            AppUpdateDownloadResult result = await AppUpdateService.DownloadUpdateAsync(manifest);
             if (IsShuttingDown)
             {
                 return;
@@ -2398,7 +2444,7 @@ public partial class App : Application
             if (!result.Success || string.IsNullOrWhiteSpace(result.FilePath))
             {
                 Log($"[Update] Automatic download failed: {result.FailureKind} {result.ErrorMessage}");
-                SetUpdateAvailableReminder(manifest);
+                HandleAutomaticDownloadFailure(manifest);
                 _settingsWindow?.RefreshUpdateStateFromService();
                 return;
             }
@@ -2407,6 +2453,12 @@ public partial class App : Application
             {
                 Log($"[Update] Download finished after version {manifest.Version} was skipped; suppressing prompt.");
                 ClearUpdateAvailableReminder();
+                return;
+            }
+
+            if (SettingsService.Settings.Core.AutoUpdateEnabled)
+            {
+                StartSilentUpdate(manifest);
                 return;
             }
 
@@ -2420,11 +2472,159 @@ public partial class App : Application
         catch (Exception ex)
         {
             Log($"[Update] Automatic download crashed: {ex}");
-            SetUpdateAvailableReminder(manifest);
+            HandleAutomaticDownloadFailure(manifest);
         }
         finally
         {
             Interlocked.Exchange(ref _automaticUpdateDownloadRunning, 0);
+        }
+    }
+
+    private void HandleAutomaticDownloadFailure(AppUpdateManifest manifest)
+    {
+        if (SettingsService.Settings.Core.AutoUpdateEnabled)
+        {
+            StartSilentUpdate(manifest);
+        }
+        else
+        {
+            SetUpdateAvailableReminder(manifest);
+        }
+    }
+
+    private void StartSilentUpdate(AppUpdateManifest manifest)
+    {
+        if (IsShuttingDown || !SettingsService.Settings.Core.AutoUpdateEnabled ||
+            UpdatePreferenceService.Current.IsSkipped(manifest.Version) ||
+            UpdatePreferenceService.Current.WasAutomaticInstallAttempted(manifest.Version) ||
+            Interlocked.CompareExchange(ref _silentUpdateRunning, 1, 0) != 0)
+        {
+            return;
+        }
+
+        var cancellationSource = new CancellationTokenSource();
+        _silentUpdateCancellationSource = cancellationSource;
+        _ = RunSilentUpdateAsync(manifest, cancellationSource);
+    }
+
+    private async Task RunSilentUpdateAsync(
+        AppUpdateManifest manifest,
+        CancellationTokenSource cancellationSource)
+    {
+        CancellationToken token = cancellationSource.Token;
+        try
+        {
+            while (!token.IsCancellationRequested && !IsShuttingDown &&
+                   SettingsService.Settings.Core.AutoUpdateEnabled)
+            {
+                if (AppUpdateService.LastCheckResult is { IsUpdateAvailable: true, Manifest: { } latest } &&
+                    !UpdatePreferenceService.Current.IsSkipped(latest.Version))
+                {
+                    manifest = latest;
+                }
+                if (UpdatePreferenceService.Current.IsSkipped(manifest.Version) ||
+                    UpdatePreferenceService.Current.WasAutomaticInstallAttempted(manifest.Version))
+                {
+                    return;
+                }
+
+                try
+                {
+                    // The service validates the cached installer against the manifest on every
+                    // attempt and resumes partial downloads before trying the mirror.
+                    AppUpdateDownloadResult download = await AppUpdateService.DownloadUpdateAsync(
+                        manifest, cancellationToken: token);
+                    if (token.IsCancellationRequested || IsShuttingDown ||
+                        !SettingsService.Settings.Core.AutoUpdateEnabled ||
+                        UpdatePreferenceService.Current.IsSkipped(manifest.Version))
+                    {
+                        return;
+                    }
+
+                    if (download.Success && !string.IsNullOrWhiteSpace(download.FilePath))
+                    {
+                        if (!await SettingsService.FlushPendingSaveAsync(notifySubscribers: false))
+                        {
+                            Log("[Update] Could not persist settings before the recovery snapshot.");
+                        }
+                        else
+                        {
+                            LocalBackupResult snapshot = await DataBackupService
+                                .CreateAutomaticSnapshotResultAsync(force: true, token);
+                            if (token.IsCancellationRequested || IsShuttingDown ||
+                                !SettingsService.Settings.Core.AutoUpdateEnabled ||
+                                UpdatePreferenceService.Current.IsSkipped(manifest.Version))
+                            {
+                                return;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(snapshot.ArchivePath))
+                            {
+                                // A failed installer must not be relaunched after the old app
+                                // restarts. Download failures remain retryable; installation
+                                // requires a fresh user choice after one automatic attempt.
+                                UpdatePreferenceService.Current.RecordAutomaticInstallAttempt(manifest.Version);
+                                AppUpdateInstallResult install;
+                                try
+                                {
+                                    install = AppUpdateService.StartInstallerHelper(
+                                        download.FilePath, silent: true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    install = AppUpdateInstallResult.Failed(ex.Message);
+                                }
+                                if (install.Success)
+                                {
+                                    Log($"[Update] Verified version {manifest.Version}; installer helper started.");
+                                    await ShutdownForUpdateAsync();
+                                    return;
+                                }
+
+                                Log($"[Update] Silent installer helper failed: {install.ErrorMessage}");
+                                ShowSettings("About");
+                                _settingsWindow?.QueueUpdateInstallResultDialog("failed");
+                                return;
+                            }
+                            else
+                            {
+                                Log($"[Update] Pre-update recovery snapshot failed: {snapshot.Error}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Log($"[Update] Automatic download failed; retrying: {download.FailureKind} {download.ErrorMessage}");
+                    }
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Update] Silent update attempt failed; retrying: {ex}");
+                }
+
+                await Task.Delay(TimeSpan.FromMinutes(1), token);
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        finally
+        {
+            if (ReferenceEquals(_silentUpdateCancellationSource, cancellationSource))
+            {
+                _silentUpdateCancellationSource = null;
+            }
+            cancellationSource.Dispose();
+            Interlocked.Exchange(ref _silentUpdateRunning, 0);
+            if (!IsShuttingDown && SettingsService.Settings.Core.AutoUpdateEnabled &&
+                AppUpdateService.LastCheckResult is { IsUpdateAvailable: true, Manifest: { } latest } &&
+                !UpdatePreferenceService.Current.IsSkipped(latest.Version) &&
+                !UpdatePreferenceService.Current.WasAutomaticInstallAttempted(latest.Version))
+            {
+                StartSilentUpdate(latest);
+            }
         }
     }
 
@@ -2438,6 +2638,7 @@ public partial class App : Application
         }
 
         _updateNotificationShown = false;
+        CancelSilentUpdate();
         ClearUpdateAvailableReminder();
         Log($"[Update] User skipped version {version}.");
     }
@@ -4764,14 +4965,14 @@ public partial class App : Application
         if (WidgetManager is null) return;
 
         // Close any window that belongs to the previous account before a new
-        // administrator can see the aquarium.  This prevents a brief cross-
+        // account can see the aquarium.  This prevents a brief cross-
         // account flash when the service clears its account-scoped cache.
         if (identity is null || previousIdentity is not null)
         {
             WidgetManager.HideAndCloseFeatureWidgetAsync(WidgetKind.Aquarium);
         }
 
-        // A verified administrator who logs back in should regain an enabled
+        // A signed-in account should regain an enabled
         // aquarium without needing to toggle the setting again.
         if (identity is not null && FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Aquarium))
         {
@@ -4789,6 +4990,7 @@ public partial class App : Application
     private async Task<bool> ShutdownCoreAsync()
     {
         Interlocked.Exchange(ref s_shutdownRequested, 1);
+        CancelSilentUpdate();
         TimeSpan shutdownGrace = TimeSpan.FromSeconds(15);
         return await _shutdownSequence.RunAsync(
             ShutdownStep.Sync("background-update-check", CancelBackgroundUpdateCheck),
@@ -4830,6 +5032,7 @@ public partial class App : Application
                 AquariumService.Changed -= OnAquariumChanged;
                 await AquariumService.DisposeAsync();
                 await FruitService.DisposeAsync();
+                await WildlifeService.DisposeAsync();
                 WidgetRegistry.AquariumAccessResolver = () => false;
                 await AccountCloudBackupService.DisposeAsync();
             }, shutdownGrace),

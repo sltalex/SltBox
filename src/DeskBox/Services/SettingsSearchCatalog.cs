@@ -243,6 +243,7 @@ internal static class SettingsSearchCatalog
         new("CompatibilityDiagnosticsSettings", "Settings.RuntimeHealth.Title", "Settings.RuntimeHealth.Description"),
         new("About", "Settings.Update.Title", "Settings.Update.Description"),
         new("About", "Settings.Update.AutoCheck", "Settings.Update.AutoCheckDescription"),
+        new("About", "Settings.Update.AutoUpdate", "Settings.Update.AutoUpdateDescription"),
         new("About", "Settings.Update.Status", null),
         new("About", "Settings.Update.Details", null),
     ];

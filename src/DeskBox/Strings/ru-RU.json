@@ -119,6 +119,12 @@
   "Tree.Title": "Вырастить дерево",
   "WidgetContent.Tree.StatusLabel": "Готово",
   "WidgetContent.Tree.StatusDescription": "Дерево растёт от нажатий клавиш без чтения текста",
+"Tree.SyncRepair": "Repair tree sync",
+"Tree.SyncRepairTitle": "Repair tree sync",
+"Tree.SyncRepairBody": "Repair is complete. The app will restart shortly. Try the sync button again after it restarts. Deleted {0} local sync state file(s).",
+"Tree.SyncRepairConfirm": "Restart now",
+"Tree.SyncRepairFailed": "Repair failed. Please try again later.",
+"Tree.SyncRepairRestartFailed": "Could not schedule the restart: {0}",
   "Tree.Settings.NextStageProgress": "Next stage: {0:0.00}% ({1:N0} energy remaining)",
   "Tree.Settings.NextStageComplete": "Next stage: highest stage reached (100%)",
   "Tree.Settings.TotalGrowthProgress": "Total growth: {1:0.00}% ({0:N0} energy)",
@@ -1265,9 +1271,11 @@
   "Settings.Update.Title": "Обновления приложений",
   "Settings.Update.Description": "Проверьте и установите обновления",
   "Settings.Update.AutoCheck": "Автоматическая проверка",
+  "Settings.Update.AutoUpdate": "Автоматическое обновление",
   "Settings.Update.Status": "Текущий статус",
   "Settings.Update.Details": "Обновить детали",
-  "Settings.Update.AutoCheckDescription": "Проверяйте после запуска и затем каждый час; показывайте напоминание только при наличии обновления.",
+  "Settings.Update.AutoCheckDescription": "Проверяйте наличие новых версий после запуска и затем каждый час",
+  "Settings.Update.AutoUpdateDescription": "Автоматически загружать и устанавливать новые версии; повторять загрузку при сбое и перезапускать приложение после установки",
   "Settings.Update.Check": "Проверить",
   "Settings.Update.Download": "Скачать",
   "Settings.Update.StoreInstall": "Обновление из магазина",
@@ -2933,6 +2941,7 @@
   "Settings.Account.SyncData": "Синхронизировать данные",
   "Settings.Account.Syncing": "Синхронизация данных дерева…",
   "Settings.Account.SyncSuccess": "Данные дерева синхронизированы.",
+  "Settings.Account.SyncPartial": "Данные дерева синхронизированы, но часть данных аккаунта нет. Повторите попытку позже.",
   "Settings.Account.SyncUnavailable": "Не удалось запустить синхронизацию. Войдите в аккаунт и повторите попытку.",
   "Settings.Account.SyncError": "Не удалось синхронизировать данные дерева. Проверьте подключение к сети и повторите попытку.",
   "Settings.Account.SignedInAs": "Выполнен вход: {0}",
@@ -2972,6 +2981,8 @@
   "Tree.Settings.Card.Current": "Текущий рост",
   "Tree.Settings.Card.Current.Description": "Краткая сводка за сегодня и за всё время жизни дерева.",
   "Tree.Settings.Card.Switches": "Дерево и статистика",
+"Tree.Settings.Card.Sync": "Data sync",
+"Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "Прогресс роста",
   "Tree.Settings.Card.Leaderboard": "Рейтинг леса друзей",
   "Tree.Settings.Card.Leaderboard.Description": "Публичный прогресс участвующих аккаунтов SltBox.",
@@ -2985,7 +2996,7 @@
   "Tree.Settings.Leaderboard.CurrentRank": "Ваше текущее место: № {0}"
   ,"Aquarium.Title":"Aquarium"
   ,"Widget.Settings.Aquarium":"Aquarium settings"
-  ,"WidgetContent.Aquarium.StatusLabel":"Administrator only"
+  ,"WidgetContent.Aquarium.StatusLabel":"Sign in required"
   ,"WidgetContent.Aquarium.StatusDescription":"Underwater aquarium"
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
@@ -3017,7 +3028,7 @@
   ,"Aquarium.Settings.Saved":"Scene saved"
   ,"Aquarium.Settings.Conflict":"Cloud scene changed; reapply your draft"
   ,"Aquarium.Settings.Offline":"Offline"
-  ,"Aquarium.Settings.AdminRequired":"Administrator only"
+  ,"Aquarium.Settings.SignInRequired":"Sign in required"
   ,"Aquarium.Settings.Error":"Operation failed"
   ,"Aquarium.Settings.InsufficientCoins":"Not enough coins"
   ,"Aquarium.Settings.Limit":"Up to 12 fish and 12 plants, invertebrates or decorations"
@@ -3480,6 +3491,6 @@
   ,"Settings.Admin.Save":"Save"
   ,"Settings.Admin.Cancel":"Cancel"
   ,"Settings.Admin.InvalidUsername":"Use 3-32 letters, numbers, or underscores for the username."
-  ,"Tree.FruitEncyclopedia":"Fruit encyclopedia"
+  ,"Tree.FruitEncyclopedia":"Encyclopedia"
   ,"Tree.FruitMarket":"Fruit market"
 }

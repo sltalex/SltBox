@@ -6,6 +6,8 @@ internal static class TreeIllustrationLayout
     public const double Width = 260;
     public const double Height = 220;
     public const double DisplayHeight = 110;
+    // Keep the canopy below the weather band without moving the trunk off the ground.
+    public const double TreeArtworkScale = .82;
     public const int MaxVisibleFruit = 12;
     public const double LeafCycleSeconds = 10;
 

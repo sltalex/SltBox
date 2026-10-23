@@ -94,6 +94,20 @@ public partial class SettingsViewModel
         _interactionSettings.SetAutoCheckForUpdates(value);
     }
 
+    partial void OnAutoUpdateEnabledChanged(bool value)
+    {
+        if (_isRestoringDefaults || _isApplyingSettingsSnapshot)
+        {
+            return;
+        }
+
+        _interactionSettings.SetAutoUpdateEnabled(value);
+        if (Application.Current is App app)
+        {
+            app.OnAutoUpdatePreferenceChanged(value);
+        }
+    }
+
     partial void OnSilentStartupChanged(bool value)
     {
         if (_isRestoringDefaults)

@@ -163,9 +163,9 @@ public sealed class AotStage5B4C3B2B1ContractTests
         string rust = Read("native/deskbox-native/src/lib.rs");
 
         Assert.Contains("ProductionInventory_IncludesFruitAndDingTalkCloudSync", baseline, StringComparison.Ordinal);
-        Assert.Contains("Assert.Equal(50, actual.Count)", baseline, StringComparison.Ordinal);
-        Assert.Contains("Assert.Equal(130, actual.Values.Sum())", baseline, StringComparison.Ordinal);
-        Assert.Contains("Assert.Equal(43, actualContextOwners.Length)", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(52, actual.Count)", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(136, actual.Values.Sum())", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(44, actualContextOwners.Length)", baseline, StringComparison.Ordinal);
         Assert.Contains(
             "App.AotTodoNotificationForwardingSmoke.cs\"] = 1",
             baseline,
