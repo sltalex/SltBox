@@ -2,6 +2,42 @@
 declare(strict_types=1);
 
 const FRUIT_MANIFEST_PATH = __DIR__ . '/../../config/fruits.json';
+const FRUIT_WEB_ASSET_PREFIX = '/assets/fruits/';
+
+/**
+ * Returns the reviewed individual-PNG file used by the web catalogue preview.
+ * The mapping deliberately stays outside the mutable database catalogue so a
+ * renamed fruit can never turn into an arbitrary URL or filesystem path.
+ */
+function fruit_web_asset_file(string $fruitId): ?string
+{
+    static $files = null;
+    if ($files === null) {
+        $files = [];
+        try {
+            $manifest = json_decode((string)file_get_contents(FRUIT_MANIFEST_PATH), true, 512, JSON_THROW_ON_ERROR);
+            foreach ($manifest['items'] ?? [] as $item) {
+                if (!is_array($item)) continue;
+                $id = isset($item['id']) && is_string($item['id']) ? $item['id'] : '';
+                $file = isset($item['assetFile']) && is_string($item['assetFile']) ? $item['assetFile'] : '';
+                if (preg_match('/\A[a-z0-9-]{1,80}\z/D', $id) &&
+                    preg_match('/\Afruit_r[0-9]{2}_c[0-9]{2}\.png\z/D', $file)) {
+                    $files[$id] = $file;
+                }
+            }
+        } catch (Throwable) {
+            // The admin page remains usable even if a deployment omitted its
+            // static catalogue mapping; it simply displays the empty preview.
+        }
+    }
+    return $files[$fruitId] ?? null;
+}
+
+function fruit_web_asset_url(string $fruitId): ?string
+{
+    $file = fruit_web_asset_file($fruitId);
+    return $file === null ? null : FRUIT_WEB_ASSET_PREFIX . rawurlencode($file);
+}
 
 function fruit_admin_update(PDO $pdo,array $post,DateTimeImmutable $now): void
 {

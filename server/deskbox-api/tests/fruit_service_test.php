@@ -21,6 +21,31 @@ fruit_ensure_schema($pdo);
 $catalog = fruit_catalog_read($pdo);
 fruit_check(count($catalog['items']) === 112, 'The deduplicated fruit manifest seeds all 112 fruits.');
 fruit_check(count(array_unique(array_column($catalog['items'], 'id'))) === 112, 'Fruit IDs are unique.');
+$clientManifest = json_decode((string)file_get_contents(dirname(__DIR__, 3) . '/src/DeskBox/Assets/Tree/fruits-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+$clientAssetFiles = [];
+foreach ($clientManifest['items'] as $clientItem) {
+    $clientAssetFiles[$clientItem['id']] = basename($clientItem['assetFile']);
+}
+$serverManifest = json_decode((string)file_get_contents(FRUIT_MANIFEST_PATH), true, 512, JSON_THROW_ON_ERROR);
+foreach ($serverManifest['items'] as $serverItem) {
+    fruit_check(isset($clientAssetFiles[$serverItem['id']]) && $serverItem['assetFile'] === $clientAssetFiles[$serverItem['id']],
+        'Every server PNG mapping exactly matches the client manifest for the same fruit ID.');
+}
+$assetFiles = [];
+foreach ($catalog['items'] as $catalogItem) {
+    $assetFile = fruit_web_asset_file((string)$catalogItem['id']);
+    fruit_check(is_string($assetFile) && preg_match('/\Afruit_r[0-9]{2}_c[0-9]{2}\.png\z/D', $assetFile) === 1,
+        'Each catalogue fruit has a safe individual web PNG mapping.');
+    fruit_check(!isset($assetFiles[$assetFile]), 'Each web PNG mapping belongs to only one catalogue fruit.');
+    $assetFiles[$assetFile] = true;
+    fruit_check(is_file(dirname(__DIR__, 3) . '/src/DeskBox/Assets/Tree/Fruits/Source/' . $assetFile),
+        'Each web PNG mapping points to a checked-in client source asset.');
+    fruit_check($assetFile === $clientAssetFiles[$catalogItem['id']],
+        'The web catalogue resolves the exact PNG paired with its client fruit ID.');
+    fruit_check(fruit_web_asset_url((string)$catalogItem['id']) === '/assets/fruits/' . rawurlencode($assetFile),
+        'Web PNG URLs are emitted from the dedicated public asset directory.');
+}
+fruit_check(count($assetFiles) === 112, 'All 112 fruit catalogue entries map to distinct web PNGs.');
 $adminPost = ['fruit_id'=>'apple','fruit_name'=>'苹果','category'=>'常见水果',
     'probability'=>'2.5000','min_price'=>'15','max_price'=>'20','enabled'=>'1'];
 fruit_admin_update($pdo,$adminPost,$clock());

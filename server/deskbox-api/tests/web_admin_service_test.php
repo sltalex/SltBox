@@ -26,6 +26,16 @@ web_check(is_string($adminSessionId) && strlen($adminSessionId) === 32,
 web_check(web_admin_validate_session($pdo, $administrator['user']['id'], $adminSessionId, $clock)['username'] === 'web_admin',
     'The bootstrap administrator has a valid web management session.');
 
+$adminPage = file_get_contents(__DIR__ . '/../api/admin/index.php');
+web_check(is_string($adminPage) && str_contains($adminPage, 'fruit_web_asset_url'),
+    'The fruit catalogue preview resolves an explicit per-fruit web PNG URL.');
+web_check(!str_contains((string)$adminPage, 'fruits-atlas.png') && !str_contains((string)$adminPage, 'background-position'),
+    'The fruit catalogue preview no longer crops the legacy fruit atlas.');
+web_check(str_contains((string)$adminPage, '<img src="<?= admin_page_escape($fruitImageUrl) ?>"') &&
+    str_contains((string)$adminPage, 'width="52" height="60"') &&
+    str_contains((string)$adminPage, 'object-fit:contain'),
+    'The fruit catalogue emits an accessible 52-by-60 individual PNG preview.');
+
 try {
     web_admin_validate_session($pdo, $member['user']['id'], $memberSessionId, $clock);
     throw new RuntimeException('A non-administrator must not reach web management.');
