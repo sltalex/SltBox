@@ -57,10 +57,19 @@ public sealed class TreeIllustrationTests
         double offset = TreeIllustrationLayout.TreeVerticalOffset;
         double canopyTop = pivotY + (6 - pivotY) * TreeIllustrationLayout.TreeArtworkScale + offset;
         double trunkFoot = pivotY + (195 - pivotY) * TreeIllustrationLayout.TreeArtworkScale + offset;
+        XDocument ground = XDocument.Load(AssetPath("ground.svg"));
+        XElement grass = Assert.Single(ground.Descendants(Svg + "ellipse"), element =>
+            (string?)element.Attribute("fill") == "url(#grass)");
+        double centerY = double.Parse((string)grass.Attribute("cy")!, CultureInfo.InvariantCulture) +
+            TreeIllustrationLayout.GroundVerticalOffset;
+        double radiusX = double.Parse((string)grass.Attribute("rx")!, CultureInfo.InvariantCulture);
+        double radiusY = double.Parse((string)grass.Attribute("ry")!, CultureInfo.InvariantCulture);
         Assert.Equal(195 - 6, trunkFoot - canopyTop);
         Assert.InRange(canopyTop, 54, 58);
-        Assert.InRange(trunkFoot, TreeIllustrationLayout.GroundVerticalOffset + 189,
-            TreeIllustrationLayout.GroundVerticalOffset + 216);
+        Assert.InRange(radiusX, 90, 112);
+        Assert.InRange(radiusY, 19, 25);
+        Assert.InRange(trunkFoot, centerY - radiusY / 2, centerY + radiusY / 2);
+        Assert.True(centerY + radiusY <= TreeIllustrationLayout.Height);
         Assert.Equal(.5, TreeIllustrationLayout.DisplayHeight / TreeIllustrationLayout.Height);
 
         string source = File.ReadAllText(TestPaths.FromRepository(

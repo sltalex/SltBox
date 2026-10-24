@@ -10,7 +10,7 @@ internal static class TreeIllustrationLayout
     // Shift the complete illustration down without reducing the tree artwork.
     public const double TreeArtworkScale = 1;
     public const double TreeVerticalOffset = 50;
-    public const double GroundVerticalOffset = 38;
+    public const double GroundVerticalOffset = 49;
     public static bool ShowsStageProgress(int stage) => stage < 5;
     // Visible widths measured from each stage's trunk and canopy SVGs in the
     // shared 260 x 220 coordinate space. Visitors follow the growing tree.

@@ -342,8 +342,8 @@ public sealed partial class TreeWidgetContent
 
     private void AddSnowGround()
     {
-        AddEllipse(_weatherGroundLayer, 55, 179, 151, 25, 235, 239, 248, 252);
-        AddEllipse(_weatherGroundLayer, 69, 190, 124, 15, 190, 217, 232, 240);
+        AddEllipse(_weatherGroundLayer, 34, 169, 192, 40, 235, 239, 248, 252);
+        AddEllipse(_weatherGroundLayer, 55, 190, 150, 18, 190, 217, 232, 240);
     }
 
     private void AddSnowman()
