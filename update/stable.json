@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102401",
-  "releaseDate": "2026-10-24",
+  "version": "2026102402",
+  "releaseDate": "2026-10-25",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102401/SltBox_Setup_2026102401_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102401_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102402/SltBox_Setup_2026102402_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102402_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "f37296053cc21eec0f2b542f279ef052ec7f913af639c83e406bc3df0e341bab",
-  "size": 131378684,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102401",
+  "sha256": "2e71edab425b06c6d95102dade34aea128f46986b7fa24dfa71f353dc81ddaf7",
+  "size": 131387275,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102402",
   "summary": {
-    "zh-CN": "SltBox 2026102401：调整种树满级布局与飞鸟动画，改善动物和果实收集，优化图鉴与果实出售，并新增动物管理及图鉴报表。",
-    "en-US": "SltBox 2026102401 improves tree layout, birds, animal and fruit collection, encyclopedia performance, fruit sales, and catalog administration."
+    "zh-CN": "SltBox 2026102402：扩大并下移种树草地，让树根位于草地中间，同时调整雪地效果。",
+    "en-US": "SltBox 2026102402 enlarges and lowers the tree ground, centers the trunk, and updates the snowy ground effect."
   }
 }
