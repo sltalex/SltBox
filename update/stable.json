@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102301",
-  "releaseDate": "2026-10-23",
+  "version": "2026102302",
+  "releaseDate": "2026-10-24",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102301/SltBox_Setup_2026102301_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102301_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102302/SltBox_Setup_2026102302_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102302_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "6a91ccae68990792ebb40babf842639932e81bd77362de1bff9bd2d7826e489e",
-  "size": 131233342,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102301",
+  "sha256": "5cb43f8c931cb2a146bb61552544d66c09825f34f6b58d080749f79bee676e41",
+  "size": 131436030,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102302",
   "summary": {
-    "zh-CN": "SltBox 2026102301：果实显示改用独立透明 PNG，修复旧图集裁剪偏差，并统一树上、商城和图鉴取图逻辑。",
-    "en-US": "SltBox 2026102301 uses independent transparent fruit PNG assets across the tree, market, and encyclopedia, fixing legacy atlas cropping errors."
+    "zh-CN": "SltBox 2026102302：种树卡片留出天气空间，新增 180 种随季节、天气和时段出现的动物及果实背包分类。",
+    "en-US": "SltBox 2026102302 adds space for weather above the tree, 180 seasonal and weather-aware animals, and a fruit category in the backpack."
   }
 }
