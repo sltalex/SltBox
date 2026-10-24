@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102302",
+  "version": "2026102401",
   "releaseDate": "2026-10-24",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102302/SltBox_Setup_2026102302_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102302_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102401/SltBox_Setup_2026102401_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102401_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "5cb43f8c931cb2a146bb61552544d66c09825f34f6b58d080749f79bee676e41",
-  "size": 131436030,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102302",
+  "sha256": "f37296053cc21eec0f2b542f279ef052ec7f913af639c83e406bc3df0e341bab",
+  "size": 131378684,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102401",
   "summary": {
-    "zh-CN": "SltBox 2026102302：种树卡片留出天气空间，新增 180 种随季节、天气和时段出现的动物及果实背包分类。",
-    "en-US": "SltBox 2026102302 adds space for weather above the tree, 180 seasonal and weather-aware animals, and a fruit category in the backpack."
+    "zh-CN": "SltBox 2026102401：调整种树满级布局与飞鸟动画，改善动物和果实收集，优化图鉴与果实出售，并新增动物管理及图鉴报表。",
+    "en-US": "SltBox 2026102401 improves tree layout, birds, animal and fruit collection, encyclopedia performance, fruit sales, and catalog administration."
   }
 }
