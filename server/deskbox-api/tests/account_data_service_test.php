@@ -108,6 +108,10 @@ data_expect(count($leaderboard['entries']) === 2, 'Leaderboard includes particip
 data_expect($leaderboard['entries'][0]['username'] === 'Alice_Cloud', 'Leaderboard sorts by energy descending.');
 data_expect($leaderboard['entries'][0]['today_growth'] === 45000, 'Daily growth is summed across devices.');
 data_expect($leaderboard['entries'][0]['stage'] === 2, 'Stage is derived from aggregate energy.');
+data_expect($leaderboard['entries'][0]['fruit_inventory'] === 4,
+    'Leaderboard fruit shows the current user unpicked fruit, not the cumulative fruit total.');
+data_expect($leaderboard['entries'][1]['fruit_inventory'] === 0,
+    'Leaderboard uses the same unpicked fruit count for other users.');
 data_expect($leaderboard['current_user']['rank'] === 1, 'Current user actual rank is returned.');
 
 tree_update_profile($pdo, $aliceId, false, $clock);

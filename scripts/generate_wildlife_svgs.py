@@ -13,6 +13,100 @@ from build_wildlife_catalog import added_species
 
 
 INK = "#26383b"
+
+
+def full_body_rabbit(body: str, accent: str, a: int = 0, b: int = 0) -> tuple[str, str]:
+    art = (f'<circle cx="20" cy="86" r="9" fill="{accent}"/>'
+           f'<path d="M85 50 78 {10+a//3}q-1-14 9-12 8 1 9 13l3 25M99 48l5-{36+b//3}q3-13 12-10 8 3 4 15l-8 31" fill="{body}"/>'
+           f'<ellipse cx="57" cy="83" rx="38" ry="27" fill="{body}"/>'
+           f'<path d="M29 99q-11 13-4 17h29q7-4-2-13M79 99q-3 16 5 17h23q6-3-5-11" fill="{accent}"/>'
+           f'<ellipse cx="96" cy="61" rx="20" ry="19" fill="{body}"/>'
+           '<circle cx="103" cy="58" r="3.5" fill="#26383b" stroke="none"/>'
+           '<path d="m114 66 12 4-12 5m-14 1q7 4 13-1" fill="none"/>')
+    silhouette = ('<circle cx="20" cy="86" r="12"/><ellipse cx="57" cy="83" rx="41" ry="31"/>'
+                  '<path d="M79 53 73 6Q72-9 86-8q12 2 13 17l2 21 2-24q2-14 14-11 13 3 9 18l-10 43Z"/>'
+                  '<ellipse cx="98" cy="61" rx="23" ry="22"/>'
+                  '<path d="M25 96v28h31V99m25-2v27h30l-6-22"/>')
+    return art, silhouette
+
+
+def full_body_fox(body: str, accent: str, a: int = 0, b: int = 0) -> tuple[str, str]:
+    art = (f'<path d="M32 83C11 69 1 82 3 112c12-11 27-9 44-15" fill="{accent}"/>'
+           f'<ellipse cx="56" cy="83" rx="38" ry="25" fill="{body}"/>'
+           f'<path d="M29 99 26 121h17l7-16m22-3 2 19h17l-2-22" fill="{body}"/>'
+           f'<path d="m76 53 4-29 16 14 14-16 8 32 9 12-14 19-31-4-14-17Z" fill="{body}"/>'
+           '<path d="m84 72 28 8 15-14-7 23-20 5-20-10Z" fill="#f9e7ca"/>'
+           '<circle cx="103" cy="57" r="3.5" fill="#26383b" stroke="none"/>'
+           '<path d="m124 70 4 5-6 2" fill="#26383b"/>')
+    silhouette = ('<path d="M33 77C8 60-4 80 0 124c14-15 31-13 48-19Z"/>'
+                  '<ellipse cx="55" cy="83" rx="42" ry="29"/>'
+                  '<path d="M22 95v33h26l8-21m11-11 1 32h28l-2-31M69 53l5-42 22 20 19-20 10 40 13 16-18 36H82L64 69Z"/>')
+    return art, silhouette
+
+
+def full_body_raccoon(body: str, accent: str, kind: str = "raccoon") -> tuple[str, str]:
+    if kind == "panda":
+        body, accent = "#f2f0e8", "#3d4a49"
+    elif kind == "red-panda":
+        body, accent = "#d88a50", "#684f43"
+    elif kind == "koala":
+        body, accent = "#9baaa7", "#5c7172"
+    art = (f'<path d="M29 85C8 74 1 88 5 107c10-9 21-4 32-9" fill="{accent}"/>'
+           f'<ellipse cx="57" cy="84" rx="37" ry="26" fill="{body}"/>'
+           f'<path d="M29 102 26 120h18l7-16m24-1 3 17h19l-5-17" fill="{accent}"/>'
+           f'<path d="m82 51-2-20 15 9 17-12 8 25" fill="{body}"/>'
+           f'<ellipse cx="98" cy="62" rx="23" ry="20" fill="{body}"/>'
+           f'<path d="M80 62q17-18 37-3-5 18-21 17-13 0-16-14Z" fill="{accent}"/>'
+           '<circle cx="104" cy="61" r="4" fill="#fff" stroke="none"/>'
+           '<path d="m116 73 12 3-12 6m-11-1 6 3 6-3" fill="none"/>')
+    if kind == "panda":
+        art += '<path d="M39 68q23-10 40 1" fill="none" stroke="#3d4a49" stroke-width="10"/>'
+    if kind in {"raccoon", "red-panda"}:
+        art += '<path d="M7 91 28 97" fill="none" stroke="#f2e5cc" stroke-width="5"/>'
+    silhouette = ('<path d="M32 78C6 67-5 85 2 114l38-8Z"/><ellipse cx="57" cy="84" rx="41" ry="30"/>'
+                  '<path d="M23 96v32h25l8-22m15-10 1 32h30l-6-27M76 53l-3-32 22 11 22-13 9 33Z"/>'
+                  '<ellipse cx="99" cy="62" rx="27" ry="23"/>')
+    return art, silhouette
+
+
+def full_body_rodent(body: str, accent: str, bushy_tail: bool = False,
+                     a: int = 0, b: int = 0) -> tuple[str, str]:
+    tail = (f'<path d="M29 80C10 77 1 60 8 39c7-17 22-7 18 8-3 11-10 14-16 14 12 9 26 9 36 14" fill="{accent}"/>'
+            if bushy_tail else
+            f'<path d="M25 86C5 83 4 65 8 {48-b//3}" fill="none" stroke="{accent}" stroke-width="6"/>')
+    art = (tail + f'<ellipse cx="57" cy="84" rx="{36+a//6}" ry="25" fill="{body}"/>'
+           f'<path d="M30 98 27 119h17l7-15m22-4 4 19h18l-5-18" fill="{body}"/>'
+           f'<circle cx="88" cy="47" r="{10+a//8}" fill="{accent}"/>'
+           f'<circle cx="107" cy="45" r="{9+b//8}" fill="{accent}"/>'
+           f'<ellipse cx="99" cy="65" rx="23" ry="20" fill="{body}"/>'
+           '<circle cx="105" cy="61" r="3" fill="#26383b" stroke="none"/>'
+           '<path d="m117 72 11 4-10 4m-7 4 9 3m-11-2 1 8" fill="none"/>')
+    silhouette_tail = ('<path d="M31 79C5 72-3 47 5 32c14-21 37-4 25 20l-12 8 28 17Z"/>' if bushy_tail else
+                       '<path d="M27 89C0 92-3 57 5 40l12 3C13 63 16 69 33 77Z"/>')
+    silhouette = (silhouette_tail + '<ellipse cx="57" cy="84" rx="40" ry="29"/>'
+                  '<path d="M23 96v32h26l7-23m13-9 1 32h30l-7-25"/>'
+                  '<circle cx="87" cy="46" r="14"/><circle cx="108" cy="45" r="13"/>'
+                  '<ellipse cx="100" cy="65" rx="26" ry="23"/>')
+    return art, silhouette
+
+
+def full_body_frog(body: str, accent: str, a: int = 0) -> tuple[str, str]:
+    art = (f'<path d="M37 92Q17 90 10 113l30-5M75 95q9 19 32 18l-14-18" fill="{accent}"/>'
+           f'<ellipse cx="57" cy="86" rx="{36+a//6}" ry="27" fill="{body}"/>'
+           f'<path d="M78 90q12 18 22 25h20m-78-8-10 13H17" fill="none" stroke="{body}" stroke-width="8"/>'
+           f'<ellipse cx="95" cy="62" rx="25" ry="21" fill="{body}"/>'
+           f'<circle cx="81" cy="43" r="12" fill="{body}"/><circle cx="108" cy="42" r="12" fill="{body}"/>'
+           '<circle cx="84" cy="42" r="6" fill="#fff"/><circle cx="110" cy="41" r="6" fill="#fff"/>'
+           '<circle cx="86" cy="42" r="3" fill="#26383b" stroke="none"/>'
+           '<circle cx="112" cy="41" r="3" fill="#26383b" stroke="none"/>'
+           '<path d="m108 76 10 2m-12 5q7 4 13 0" fill="none"/>')
+    silhouette = ('<path d="M34 78 0 115l40 3 36-9 36 19h16l-24-39Z"/>'
+                  '<ellipse cx="57" cy="86" rx="41" ry="31"/>'
+                  '<ellipse cx="96" cy="63" rx="28" ry="24"/>'
+                  '<circle cx="81" cy="42" r="15"/><circle cx="109" cy="41" r="15"/>')
+    return art, silhouette
+
+
 ART = {
     "butterfly": (
         '<path d="M62 54C49 21 22 19 19 38c-2 11 7 18 24 23-23 0-31 12-24 26 8 16 30 10 43-16" fill="#f49aab"/>'
@@ -56,14 +150,7 @@ ART = {
         '<path d="M48 71c5 21 16 31 28 30 13-1 20-12 21-30-14 7-33 9-49 0Z" fill="#ffeb8b"/>'
         '<path d="M52 39 45 26m24 4 6-16" fill="none"/><circle cx="62" cy="47" r="3" fill="#26383b" stroke="none"/>'
     , '<path d="M63 22C41 9 19 23 24 47c-13 31 2 64 33 67 35 4 54-25 47-58 12-26-16-49-41-34Z"/>'),
-    "frog": (
-        '<path d="M35 75 17 99l23 1m52-25 19 24-23 1" fill="#6dbb75"/>'
-        '<path d="M28 73c0-30 14-44 36-44s36 14 36 44c0 26-16 33-36 33S28 99 28 73Z" fill="#75c982"/>'
-        '<circle cx="44" cy="31" r="15" fill="#75c982"/><circle cx="84" cy="31" r="15" fill="#75c982"/>'
-        '<circle cx="44" cy="31" r="7" fill="#fff"/><circle cx="84" cy="31" r="7" fill="#fff"/>'
-        '<circle cx="45" cy="31" r="3" fill="#26383b" stroke="none"/><circle cx="83" cy="31" r="3" fill="#26383b" stroke="none"/>'
-        '<path d="M47 73c9 9 25 9 34 0" fill="none"/><circle cx="33" cy="67" r="5" fill="#eaa29a" stroke="none"/>'
-    , '<path d="M25 41C15 13 40 3 53 20c7-4 15-4 22 0 13-17 38-7 28 21 18 36 9 77-39 77S7 77 25 41Z"/>'),
+    "frog": full_body_frog("#75c982", "#6dbb75"),
     "cricket": (
         '<path d="M48 31C29 13 20 11 11 11m53 18C67 5 78 2 100 7" fill="none"/>'
         '<path d="M35 69 12 97l18-4 12-13m52-6 24 31-28-10-8-13" fill="none" stroke-width="8"/>'
@@ -71,14 +158,7 @@ ART = {
         '<path d="M55 45c17 1 29 9 39 25m-42 20-4 21m30-22 12 24" fill="none"/>'
         '<circle cx="48" cy="44" r="5" fill="#fff"/><circle cx="49" cy="44" r="2.5" fill="#26383b" stroke="none"/>'
     , '<path d="M39 26 5 5 29 47 7 108l32-12c13 15 40 17 60-3l27 20-20-50C105 34 83 20 65 25L77 0 57 23Z"/>'),
-    "squirrel": (
-        '<path d="M77 89c31 15 48-3 40-26-5-13-18-14-24-7 18-1 18 23-7 18" fill="#ce8650"/>'
-        '<path d="M40 101c-5-23 4-43 25-46 20-3 32 12 28 34-3 18-22 25-53 12Z" fill="#c97945"/>'
-        '<path d="M42 59 36 30l19 11 13-17 8 27" fill="#d88950"/>'
-        '<path d="M43 53c7-12 26-16 39-7 17 12 8 30-11 34-20 4-40-11-28-27Z" fill="#e6a66c"/>'
-        '<path d="M57 94c7-13 17-17 30-12" fill="none"/><circle cx="70" cy="55" r="4" fill="#26383b" stroke="none"/>'
-        '<path d="m42 63-13 5 13 7" fill="#efc39a"/><path d="M39 104h25m16 0h18" fill="none"/>'
-    , '<path d="M33 109C21 84 29 58 40 49L30 16l27 15 19-16 8 28c15 6 17 17 17 27 34-29 39 41 4 46-16 2-32-7-42-8-12 7-25 8-30 1Z"/>'),
+    "squirrel": full_body_rodent("#c97945", "#ce8650", bushy_tail=True),
     "hedgehog": (
         '<path d="M22 83 9 74l15-11-8-17 19 2 1-19 18 8 9-20 14 15 15-13 6 20 18-3-7 21 16 13-17 15-8 20H30Z" fill="#9b765c"/>'
         '<path d="M38 63c9-15 36-20 55-9 13 8 15 27 2 42-11 13-40 15-55 2-11-10-12-23-2-35Z" fill="#ddbd93"/>'
@@ -93,14 +173,7 @@ ART = {
         '<path d="m92 48 20 6-18 8" fill="#343b3d"/><circle cx="79" cy="42" r="3" fill="#fff" stroke="none"/>'
         '<path d="M48 74 27 92m49 6-1 16m12-20 4 20" fill="none"/>'
     , '<path d="M43 31C18 46 16 69 28 84L7 108l39-5c12 15 43 16 58-8 10-16 8-28 2-37l19-8-23-16C82 8 58 14 43 31Z"/>'),
-    "fox": (
-        '<path d="M45 76C24 73 9 85 10 103c18-12 29-4 47-8" fill="#d97940"/>'
-        '<path d="m29 54 4-36 25 19 16-18 20 31" fill="#e48746"/>'
-        '<path d="M29 55c13-14 44-23 65 0l13 22-28 17H49L19 77Z" fill="#e9914d"/>'
-        '<path d="M19 77 49 92h30l28-15-12 23H32Z" fill="#f9e7ca"/>'
-        '<path d="M45 83 43 112m43-29 3 29" fill="none"/><circle cx="49" cy="62" r="4" fill="#26383b" stroke="none"/>'
-        '<circle cx="82" cy="62" r="4" fill="#26383b" stroke="none"/><path d="m62 76 6 5 6-5" fill="#39474a"/>'
-    , '<path d="M29 12 56 35l20-24 25 38 25 30-19 25-15 12H32L5 104 4 83l20-16Z"/>'),
+    "fox": full_body_fox("#e9914d", "#d97940"),
     "sparrow": (
         '<path d="m39 81-27 16 29-4" fill="#8b7463"/>'
         '<path d="M33 53c6-22 27-32 47-25 20 6 29 26 23 47-5 20-22 31-42 26-22-5-34-25-28-48Z" fill="#9f8066"/>'
@@ -124,14 +197,7 @@ ART = {
         '<circle cx="50" cy="56" r="4" fill="#26383b" stroke="none"/><circle cx="78" cy="56" r="4" fill="#26383b" stroke="none"/>'
         '<path d="m64 65-7 9 7 5 7-5Z" fill="#e2a760"/><path d="M47 112v10m34-10v10" fill="none"/>'
     , '<path d="M22 8 50 25 64 12l14 13 28-17-7 38c12 30 9 72-35 78-44-6-47-48-35-78Z"/>'),
-    "rabbit": (
-        '<path d="M43 54 32 8c-4-17 15-22 21-6l13 43M74 48 87 4c6-16 25-10 20 7L91 57" fill="#e9e2d7"/>'
-        '<path d="M47 46 40 9m43 37 13-36" fill="none" stroke="#eeb7b2" stroke-width="8"/>'
-        '<path d="M27 79c0-24 16-41 39-41 24 0 39 18 39 42 0 22-17 37-39 37S27 102 27 79Z" fill="#eee6d8"/>'
-        '<circle cx="102" cy="93" r="13" fill="#fff9ed"/>'
-        '<circle cx="50" cy="72" r="4" fill="#26383b" stroke="none"/><circle cx="80" cy="72" r="4" fill="#26383b" stroke="none"/>'
-        '<path d="m61 84 4 4 4-4m-4 4v8m-9 0c4 5 7 5 9 0 2 5 5 5 9 0" fill="none"/>'
-    , '<path d="M27 72 23 5C24-11 49-11 55 6l11 35L76 6c6-17 31-17 32-1l-7 67c22 40-2 57-37 57S5 112 27 72Z"/>'),
+    "rabbit": full_body_rabbit("#eee6d8", "#fff9ed"),
 }
 
 ART.update({
@@ -202,15 +268,7 @@ ART.update({
         '<path d="M81 36 72 24l15 2m15 9 11-11-1 16" fill="#d9a47a"/>'
         '<circle cx="100" cy="35" r="3" fill="#26383b"/><circle cx="28" cy="59" r="5" fill="#f4d8b6"/>'
     , '<path d="M65 10 61 0l25 18L100 0l17 18-9 17 20 9-19 22-4 58H24l-7-49 14-26 37-8Z"/>'),
-    "raccoon": (
-        '<path d="M89 81c25-7 34 10 20 27l-24-3" fill="#9da6a4"/>'
-        '<path d="M94 88h21m-20 12h18" fill="none" stroke="#5b6769" stroke-width="8"/>'
-        '<path d="M25 69c0-26 16-41 39-41 24 0 40 15 40 41 0 26-17 39-40 39S25 95 25 69Z" fill="#aeb7b0"/>'
-        '<path d="m34 37 5-25 21 16m34 9-5-25-21 16" fill="#8e9994"/>'
-        '<path d="M37 56c14-13 40-15 54 0-1 17-11 25-27 25S38 73 37 56Z" fill="#4e6065"/>'
-        '<circle cx="49" cy="61" r="5" fill="#fff"/><circle cx="79" cy="61" r="5" fill="#fff"/>'
-        '<path d="m58 78 6 5 6-5" fill="#26383b"/><path d="M39 107h21m15 0h22" fill="none"/>'
-    , '<path d="M26 30 33 3l27 17 8-7 21-10 10 28c21 26 12 48 7 57 30-2 28 34-5 34-18 0-27-10-37-10-24 0-45-19-45-44 0-15 2-25 7-38Z"/>'),
+    "raccoon": full_body_raccoon("#aeb7b0", "#5b6769"),
     "turtle": (
         '<path d="M32 78 13 91l20 9m56-22 19 13-20 9M45 94l-7 20m45-20 7 20" fill="#78ad75"/>'
         '<path d="M30 72c0-29 16-47 39-47 22 0 37 18 37 47 0 23-17 32-38 32S30 95 30 72Z" fill="#669b69"/>'
@@ -218,14 +276,7 @@ ART.update({
         '<path d="M99 62c15-9 29 1 23 15-5 11-18 14-27 7" fill="#8dbd85"/>'
         '<circle cx="112" cy="69" r="3" fill="#26383b"/>'
     , '<path d="M26 37C42 7 83 8 104 38l24 16-9 38-22 12 7 24H28l6-24L0 91l19-35Z"/>'),
-    "field-mouse": (
-        '<path d="M90 88c16 13 30 9 31-13" fill="none" stroke="#aa867b" stroke-width="7"/>'
-        '<circle cx="41" cy="36" r="21" fill="#b9aaa0"/><circle cx="87" cy="36" r="21" fill="#b9aaa0"/>'
-        '<circle cx="41" cy="36" r="11" fill="#e6b9b2"/><circle cx="87" cy="36" r="11" fill="#e6b9b2"/>'
-        '<path d="M25 66c0-24 15-37 39-37s39 13 39 37c0 27-17 40-39 40S25 93 25 66Z" fill="#afa096"/>'
-        '<circle cx="49" cy="65" r="4" fill="#26383b"/><circle cx="79" cy="65" r="4" fill="#26383b"/>'
-        '<path d="m59 81 5 5 5-5M39 89l-24-3m74 3 24-3" fill="none"/>'
-    , '<path d="M17 40C9 12 33 0 51 18c8-6 18-6 26 0C95 0 119 12 111 40c17 30 12 64-15 75 25 13 37-7 32-32-1 34-32 48-51 30H51C14 116 3 79 17 40Z"/>'),
+    "field-mouse": full_body_rodent("#afa096", "#aa867b"),
     "badger": (
         '<path d="M16 75c2-25 21-39 49-40 28-1 48 14 48 38 0 27-20 34-50 34S14 99 16 75Z" fill="#8a9290"/>'
         '<path d="M79 39c16-8 34-1 40 15l-8 22-33-11Z" fill="#d5d9cf"/>'
@@ -251,12 +302,12 @@ ART.update({
     , '<path d="M8 70C4 35 28 13 61 14c15 0 26 5 34 16L91 5l16 23L115 5l13 26-11 51 10 34H10Z"/>'),
 })
 
-
 def generated_art(species: dict) -> tuple[str, str]:
     """Small anatomy-led cartoons for the expanded catalogue, never text glyphs.
 
     A stable pair of geometry variations changes the silhouette as well as the
-    palette. The first 32 hand-drawn animals above remain untouched.
+    palette. The early face-forward mammals and frog use the same full-body
+    construction as their expanded families.
     """
     species_id, shape = species["id"], species["motion"]
     seed = 2166136261
@@ -270,7 +321,7 @@ def generated_art(species: dict) -> tuple[str, str]:
     if species["category"] == "飞鸟":
         return generated_bird(shape, a, b, body, accent)
     if species["category"] == "小动物":
-        return generated_small_animal(shape, a, b, body, accent)
+        return generated_small_animal(species_id, shape, a, b, body, accent)
 
     if shape in {"butterfly", "moth"}:
         span, lower = 24 + a, 21 + b
@@ -400,16 +451,9 @@ def generated_bird(shape: str, a: int, b: int, body: str, accent: str) -> tuple[
     return art, silhouette
 
 
-def generated_small_animal(shape: str, a: int, b: int, body: str, accent: str) -> tuple[str, str]:
-    eye = '<circle cx="91" cy="57" r="3" fill="#26383b" stroke="none"/>'
+def generated_small_animal(species_id: str, shape: str, a: int, b: int, body: str, accent: str) -> tuple[str, str]:
     if shape == "rabbit":
-        art = (f'<path d="M63 47 52 {6+a//4}c-5-16 11-20 17-5l10 43M82 45 94 {5+b//4}c6-15 22-10 17 6L99 58" fill="{body}"/>'
-               f'<ellipse cx="63" cy="79" rx="{36+a//6}" ry="32" fill="{body}"/>'
-               '<circle cx="102" cy="91" r="13" fill="#f0e9d7"/>'
-               '<circle cx="50" cy="73" r="3" fill="#26383b"/><circle cx="78" cy="73" r="3" fill="#26383b"/>'
-               '<path d="m60 88 5 4 5-4m-5 4v7" fill="none"/>')
-        silhouette = f'<path d="M23 68 20 {2+a//4}C20-13 49-14 55 7l11 34L78 7c7-20 36-19 36-4l-8 64c27 39-3 60-42 60S-4 107 23 68Z"/>'
-        return art, silhouette
+        return full_body_rabbit(body, accent, a, b)
     if shape == "bat":
         art = (f'<path d="M64 57 6 {26+a}l10 45 17-10 13 19 18-10 18 10 13-19 17 10 10-45Z" fill="{body}"/>'
                f'<path d="m51 51-4-24 16 12 17-12-4 24" fill="{accent}"/>'
@@ -438,14 +482,7 @@ def generated_small_animal(shape: str, a: int, b: int, body: str, accent: str) -
         silhouette = f'<path d="M30 32C49 {3+a//3} 92 5 108 32l20 29-10 47-17 7 3 13H23l3-13-22-6-4-47Z"/>'
         return art, silhouette
     if shape == "frog":
-        art = (f'<path d="M27 82 9 110l30-5m62-23 18 28-30-5" fill="{body}"/>'
-               f'<ellipse cx="64" cy="78" rx="{39+a//6}" ry="34" fill="{body}"/>'
-               f'<circle cx="42" cy="43" r="16" fill="{body}"/><circle cx="86" cy="43" r="16" fill="{body}"/>'
-               '<circle cx="42" cy="43" r="8" fill="#fff"/><circle cx="86" cy="43" r="8" fill="#fff"/>'
-               '<circle cx="44" cy="43" r="3" fill="#26383b"/><circle cx="84" cy="43" r="3" fill="#26383b"/>'
-               '<path d="M46 80q18 16 36 0" fill="none"/>')
-        silhouette = f'<path d="M25 52C6 18 38 {1+a//5} 54 23c7-4 13-4 20 0C90 1 122 18 103 52c24 47 5 70-39 70S1 99 25 52Z"/>'
-        return art, silhouette
+        return full_body_frog(body, accent, a)
     if shape == "snail":
         art = (f'<path d="M89 74 94 29m13 43 11-44" fill="none" stroke="{body}" stroke-width="8"/>'
                '<circle cx="95" cy="26" r="7" fill="#fff"/><circle cx="117" cy="25" r="7" fill="#fff"/>'
@@ -482,31 +519,12 @@ def generated_small_animal(shape: str, a: int, b: int, body: str, accent: str) -
         silhouette = f'<path d="M14 54C35 {33+a//4} 70 40 93 47c33-15 45 25 25 52l9 29H2l12-25L0 88Z"/>'
         return art, silhouette
     if shape == "fox":
-        art = (f'<path d="M39 91C15 75 1 91 6 119c17-15 26-11 48-14" fill="{accent}"/>'
-               f'<path d="m32 54 4-34 23 17 18-18 19 32 21 27-29 20H45L14 78Z" fill="{body}"/>'
-               '<path d="M15 79 47 96h40l30-17-16 29H29Z" fill="#f6e7ca"/>'
-               '<circle cx="50" cy="64" r="3" fill="#26383b"/><circle cx="83" cy="64" r="3" fill="#26383b"/>'
-               '<path d="M46 98 42 122m41-24 6 24" fill="none"/>')
-        silhouette = f'<path d="M26 16 58 35 78 14l22 34 28 31-16 29-11 20H1l8-38L0 75l27-14Z"/>'
-        return art, silhouette
+        return full_body_fox(body, accent, a, b)
     if shape == "raccoon":
-        art = (f'<path d="M85 89c29-4 38 13 20 28l-24-5" fill="{accent}"/>'
-               f'<ellipse cx="63" cy="76" rx="{36+a//5}" ry="36" fill="{body}"/>'
-               '<path d="m37 46 1-27 22 17m31 10-1-27-22 17" fill="' + accent + '"/>'
-               '<path d="M36 62c14-15 42-15 56 0-3 21-15 26-28 26S39 83 36 62Z" fill="#4f6266"/>'
-               '<circle cx="49" cy="65" r="4" fill="#fff"/><circle cx="79" cy="65" r="4" fill="#fff"/>'
-               '<path d="M43 109h18m19 0h19" fill="none"/>')
-        silhouette = f'<path d="M24 46 27 {8+a//4}l31 18 12-9 31-9 3 38c20 25 13 49-4 63 30 3 34 25 4 25-18 0-24-9-39-9C22 127 3 89 24 46Z"/>'
-        return art, silhouette
-    # Rodents: round ears and a long fine tail distinguish them from other mammals.
-    art = (f'<path d="M88 88c23 13 32-2 31-22" fill="none" stroke="{accent}" stroke-width="6"/>'
-           f'<circle cx="43" cy="41" r="{17+a//5}" fill="{body}"/><circle cx="86" cy="41" r="{17+b//5}" fill="{body}"/>'
-           f'<ellipse cx="64" cy="76" rx="{38+a//6}" ry="34" fill="{body}"/>'
-           '<circle cx="50" cy="70" r="3" fill="#26383b"/><circle cx="79" cy="70" r="3" fill="#26383b"/>'
-           '<path d="m59 84 5 5 5-5M38 91l-20-4m72 4 20-4" fill="none"/>')
-    silhouette = f'<path d="M16 45C5 {12+a//3} 36 0 52 23c8-4 16-4 24 0C92 0 123 12 112 45c11 24 8 48-7 63 29 8 32-13 27-29 6 30-22 48-47 39H43C10 118-2 72 16 45Z"/>'
-    return art, silhouette
-
+        return full_body_raccoon(body, accent, species_id)
+    # Squirrels keep a bushy tail; other rodents retain a thin curved tail.
+    bushy = species_id in {"chipmunk", "flying-squirrel", "red-squirrel"}
+    return full_body_rodent(body, accent, bushy_tail=bushy, a=a, b=b)
 
 def render(source: str, silhouette: str | None = None, species: str = "") -> str:
     head = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">'

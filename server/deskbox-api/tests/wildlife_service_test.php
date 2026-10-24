@@ -124,6 +124,13 @@ try {
     wildlife_check($error->apiCode === 'stale_wildlife_weather', 'Stale weather pauses encounters.');
 }
 
+$httpRestoreBody = api_decode_body(json_encode(['owner_user_id' => $user, 'inventory' => [
+    ['species_id' => 'butterfly', 'quantity' => 3, 'discovered' => true],
+]], JSON_THROW_ON_ERROR));
+$httpRestored = wildlife_restore($pdo, $user, $httpRestoreBody, $clock);
+wildlife_check(array_column($httpRestored['inventory'], 'quantity', 'species_id')['butterfly'] === 3,
+    'An HTTP-decoded wildlife backup restores its inventory.');
+
 $restored = wildlife_restore($pdo, $user, ['owner_user_id' => $user, 'inventory' => [
     ['species_id' => 'butterfly', 'quantity' => 3, 'discovered' => true],
     ['species_id' => 'rabbit', 'quantity' => 0, 'discovered' => true],
@@ -141,9 +148,14 @@ wildlife_check($quantities['butterfly'] === 3 && $discoveries['rabbit'],
 $completeInventory = array_map(static fn(array $item): array => [
     'species_id' => $item['id'], 'quantity' => 0, 'discovered' => false,
 ], $catalog);
-wildlife_check(count(wildlife_restore($pdo, $user, [
+$completeRestoreJson = json_encode([
     'owner_user_id' => $user, 'inventory' => $completeInventory,
-], $clock)['inventory']) === 180, 'A complete 180-species backup can be restored.');
+], JSON_THROW_ON_ERROR);
+wildlife_check(strlen($completeRestoreJson) > 8192 && strlen($completeRestoreJson) < 32768,
+    'A complete wildlife backup exceeds the generic request size limit.');
+$completeRestoreBody = api_decode_body($completeRestoreJson, WILDLIFE_RESTORE_MAX_BYTES);
+wildlife_check(count(wildlife_restore($pdo, $user, $completeRestoreBody, $clock)['inventory']) === 180,
+    'A complete HTTP-decoded 180-species backup can be restored.');
 try {
     wildlife_restore($pdo, $user, ['owner_user_id' => 'another-account', 'inventory' => []], $clock);
     throw new RuntimeException('Another account backup was accepted.');

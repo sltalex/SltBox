@@ -78,6 +78,30 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task FruitPickProgressSyncDoesNotWaitForAuxiliaryData()
+    {
+        var api = new FakeApi
+        {
+            State = State(0, 0, 0, 1, 0, 0, 0),
+            UploadState = State(1, 144000, 4000, 5, 0, 1, 0)
+        };
+        int auxiliaryCalls = 0;
+        await using var service = new TreeCloudSyncService(
+            api, new FakeAuth("fruit-pick", "Fruit"), () => Progress(144000, 4000, 1, 0), _root,
+            syncAdditionalData: _ =>
+            {
+                auxiliaryCalls++;
+                return Task.FromResult(true);
+            });
+
+        Assert.True(await service.SyncProgressNowAsync());
+        Assert.Single(api.Bodies);
+        Assert.Equal(0, auxiliaryCalls);
+        Assert.True(await service.SyncNowAsync());
+        Assert.Equal(1, auxiliaryCalls);
+    }
+
+    [Fact]
     public async Task MatureGrowthMarksOnlyServerDerivedFruitAsTyped()
     {
         var api = new FakeApi

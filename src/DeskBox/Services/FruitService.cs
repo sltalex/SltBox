@@ -88,7 +88,26 @@ internal sealed class FruitService : IAsyncDisposable
             new FruitSellRequest(fruitId, quantity, operationId),
             FruitRequestJsonContext.Default.FruitSellRequest));
         using var response = await SendAsync(HttpMethod.Post, "../fruit/sell.php", body, cancellationToken);
-        if (!response.IsSuccessStatusCode) return false;
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorCode = "unknown";
+            try
+            {
+                using JsonDocument error = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+                if (error.RootElement.ValueKind == JsonValueKind.Object &&
+                    error.RootElement.TryGetProperty("code", out JsonElement code) &&
+                    code.ValueKind == JsonValueKind.String)
+                {
+                    string? candidate = code.GetString();
+                    if (candidate is { Length: > 0 and <= 64 } &&
+                        candidate.All(ch => ch is >= 'a' and <= 'z' or '_'))
+                        errorCode = candidate;
+                }
+            }
+            catch (JsonException) { }
+            App.Log($"[Fruit] Sell rejected status={(int)response.StatusCode} code={errorCode}");
+            return false;
+        }
         lock (_stateGate)
         {
             if (_auth.CurrentUser?.Id != ownerId) return false;
@@ -112,6 +131,22 @@ internal sealed class FruitService : IAsyncDisposable
         using var response = await SendAsync(HttpMethod.Post, "../fruit/pick.php", body, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            string errorCode = "unknown";
+            try
+            {
+                using JsonDocument error = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+                if (error.RootElement.ValueKind == JsonValueKind.Object &&
+                    error.RootElement.TryGetProperty("code", out JsonElement code) &&
+                    code.ValueKind == JsonValueKind.String)
+                {
+                    string? candidate = code.GetString();
+                    if (candidate is { Length: > 0 and <= 64 } &&
+                        candidate.All(ch => ch is >= 'a' and <= 'z' or '_'))
+                        errorCode = candidate;
+                }
+            }
+            catch (JsonException) { }
+            App.Log($"[Fruit] Pick rejected status={(int)response.StatusCode} code={errorCode}");
             return (false, string.Empty, 0);
         }
         using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));

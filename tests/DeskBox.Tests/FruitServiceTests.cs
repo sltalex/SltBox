@@ -9,6 +9,29 @@ namespace DeskBox.Tests;
 public sealed class FruitServiceTests
 {
     [Fact]
+    public async Task SaleUsesQuantityFieldExpectedByFruitEndpoint()
+    {
+        var auth = new FakeAuth("fruit-sale-contract");
+        var api = new FakeApi((_, path, body) =>
+        {
+            if (path.EndsWith("sell.php", StringComparison.Ordinal))
+            {
+                using JsonDocument request = JsonDocument.Parse(body!);
+                return request.RootElement.TryGetProperty("quantity", out JsonElement quantity) &&
+                    quantity.TryGetInt32(out int count) && count == 1
+                        ? Response(HttpStatusCode.OK, "{}")
+                        : Response(HttpStatusCode.BadRequest, "{\"code\":\"invalid_fruit_sale\"}");
+            }
+            return path.EndsWith("catalog.php", StringComparison.Ordinal)
+                ? Response(HttpStatusCode.OK, "{\"items\":[]}")
+                : Response(HttpStatusCode.OK, "{\"inventory\":[],\"on_tree\":[]}");
+        });
+        await using var service = new FruitService(auth, api);
+
+        Assert.True(await service.SellAsync("banana", 1));
+    }
+
+    [Fact]
     public async Task FailedSaleAndPickRetryWithTheirOriginalOperationIds()
     {
         var auth = new FakeAuth("fruit-retry");
@@ -71,14 +94,17 @@ public sealed class FruitServiceTests
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class FakeApi(Func<HttpMethod, string, HttpResponseMessage> respond) : IAuthenticatedAccountApi
+    private sealed class FakeApi(Func<HttpMethod, string, byte[]?, HttpResponseMessage> respond) : IAuthenticatedAccountApi
     {
+        internal FakeApi(Func<HttpMethod, string, HttpResponseMessage> respond)
+            : this((method, path, _) => respond(method, path)) { }
+
         internal List<byte[]> Bodies { get; } = [];
         public Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativePath, byte[]? jsonBody,
             string? contentEncoding, CancellationToken cancellationToken = default)
         {
             if (jsonBody is not null) Bodies.Add(jsonBody);
-            return Task.FromResult(respond(method, relativePath));
+            return Task.FromResult(respond(method, relativePath, jsonBody));
         }
     }
 }

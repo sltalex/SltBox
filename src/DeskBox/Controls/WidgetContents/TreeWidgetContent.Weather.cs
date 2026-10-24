@@ -309,7 +309,7 @@ public sealed partial class TreeWidgetContent
         for (int i = 0; i < count; i++)
         {
             double x = 12 + (i * 47) % 236;
-            double y = 8 + (i * 71) % 198;
+            double y = 8 + (i * 71) % (TreeIllustrationLayout.Height - 22);
             for (int copy = 0; copy < 2; copy++)
             {
                 double top = y - copy * TreeIllustrationLayout.Height;
@@ -332,7 +332,7 @@ public sealed partial class TreeWidgetContent
         for (int i = 0; i < 19; i++)
         {
             double x = 12 + (i * 61) % 236;
-            double y = 8 + (i * 83) % 200;
+            double y = 8 + (i * 83) % (TreeIllustrationLayout.Height - 20);
             double size = 3 + i % 3;
             for (int copy = 0; copy < 2; copy++)
                 AddEllipse(_weatherFrontLayer, x, y - copy * TreeIllustrationLayout.Height,

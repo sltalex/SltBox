@@ -40,6 +40,37 @@ public sealed class TreeIllustrationTests
     }
 
     [Theory]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    [InlineData(5, false)]
+    public void StageProgressStopsAtMaturity(int stage, bool visible)
+    {
+        Assert.Equal(visible, TreeIllustrationLayout.ShowsStageProgress(stage));
+    }
+
+    [Fact]
+    public void LowerTreeKeepsNativeSizeAndRootsInsideGround()
+    {
+        double pivotY = TreeIllustrationLayout.ArtworkHeight * .86;
+        double offset = TreeIllustrationLayout.TreeVerticalOffset;
+        double canopyTop = pivotY + (6 - pivotY) * TreeIllustrationLayout.TreeArtworkScale + offset;
+        double trunkFoot = pivotY + (195 - pivotY) * TreeIllustrationLayout.TreeArtworkScale + offset;
+        Assert.Equal(195 - 6, trunkFoot - canopyTop);
+        Assert.InRange(canopyTop, 54, 58);
+        Assert.InRange(trunkFoot, TreeIllustrationLayout.GroundVerticalOffset + 189,
+            TreeIllustrationLayout.GroundVerticalOffset + 216);
+        Assert.Equal(.5, TreeIllustrationLayout.DisplayHeight / TreeIllustrationLayout.Height);
+
+        string source = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
+        Assert.Contains("_treeTransform.TranslateY = TreeIllustrationLayout.TreeVerticalOffset", source);
+        Assert.Contains("_progress.Visibility = TreeIllustrationLayout.ShowsStageProgress(p.Stage)", source);
+        Assert.Contains("_progress.SetAnimationEnabled(shouldAnimate && _progress.Visibility == Visibility.Visible)", source);
+    }
+
+    [Theory]
     [InlineData(int.MinValue, "stage-1.svg")]
     [InlineData(0, "stage-1.svg")]
     [InlineData(1, "stage-1.svg")]
@@ -75,7 +106,8 @@ public sealed class TreeIllustrationTests
     public void EveryFruitSlotIsDistinctAndInsideTheHarvestableCanopy()
     {
         Assert.Equal(260, TreeIllustrationLayout.Width);
-        Assert.Equal(220, TreeIllustrationLayout.Height);
+        Assert.Equal(220, TreeIllustrationLayout.ArtworkHeight);
+        Assert.Equal(260, TreeIllustrationLayout.Height);
         Assert.Equal(12, TreeIllustrationLayout.MaxVisibleFruit);
         Assert.Equal(TreeIllustrationLayout.MaxVisibleFruit, TreeIllustrationLayout.FruitPositions.Count);
         Assert.Equal(TreeIllustrationLayout.FruitPositions.Count, TreeIllustrationLayout.FruitPositions.Distinct().Count());
@@ -84,7 +116,7 @@ public sealed class TreeIllustrationTests
         {
             Assert.True(double.IsFinite(x) && double.IsFinite(y));
             Assert.InRange(x, 0, TreeIllustrationLayout.Width - 24);
-            Assert.InRange(y, 0, TreeIllustrationLayout.Height - 28);
+            Assert.InRange(y, 0, TreeIllustrationLayout.ArtworkHeight - 28);
             Assert.True(TreeIllustrationLayout.CanHarvest(5, 1, x + 12, y + 14));
         }
     }
@@ -94,6 +126,10 @@ public sealed class TreeIllustrationTests
     {
         Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 130, 80));
         Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 102, 97));
+        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 82, 97));
+        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 102, 75));
+        Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 72, 97));
+        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(7, 100, 110));
         Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 169, 101));
         Assert.Equal(1, TreeIllustrationLayout.FruitIndexAt(2, 169, 101));
     }

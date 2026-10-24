@@ -111,6 +111,10 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post): string
         fruit_admin_update($pdo,$post,api_clock());
         return 'fruit_catalog_item';
     }
+    if ($operation === 'wildlife_catalog_item') {
+        wildlife_admin_update($pdo, $post, api_clock());
+        return 'wildlife_catalog_item';
+    }
 
     $targetId = $operation === 'shop_price'
         ? $actor['user_id'] : admin_page_post_id($post, 'target_id');

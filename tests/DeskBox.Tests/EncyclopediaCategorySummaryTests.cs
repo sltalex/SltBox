@@ -1,9 +1,26 @@
 using DeskBox.Services;
+using DeskBox.Views.SettingsSections;
 
 namespace DeskBox.Tests;
 
 public sealed class EncyclopediaCategorySummaryTests
 {
+    [Fact]
+    public void AtlasEntry_DecodesImageOnlyWhenTheCardIsRealized()
+    {
+        int calls = 0;
+        var entry = new AtlasEntry("狐狸", "小动物", "未发现", () =>
+        {
+            calls++;
+            return null;
+        });
+
+        Assert.Equal(0, calls);
+        Assert.Null(entry.Image);
+        Assert.Null(entry.Image);
+        Assert.Equal(1, calls);
+    }
+
     [Fact]
     public void FruitCategories_CountPreviouslyOwnedTypesAfterTheyAreSold()
     {

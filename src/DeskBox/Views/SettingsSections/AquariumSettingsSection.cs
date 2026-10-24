@@ -507,14 +507,20 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         foreach (WildlifeInventoryItem item in service.Inventory.Where(item => item.Quantity > 0))
         {
             if (!catalog.TryGetValue(item.SpeciesId, out WildlifeCatalogItem? species)) continue;
-            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Stretch };
+            var imageHost = new Grid { Height = 54, HorizontalAlignment = HorizontalAlignment.Stretch };
             if (WildlifeAssetCatalog.GetImage(item.SpeciesId) is { } source)
-                content.Children.Add(new Image { Source = source, Width = 54, Height = 54, Stretch = Stretch.Uniform });
+                imageHost.Children.Add(new Image { Source = source, Width = 54, Height = 54,
+                    Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center });
+            imageHost.Children.Add(BackpackQuantityBadge(item.Quantity));
+            content.Children.Add(imageHost);
             content.Children.Add(new TextBlock { Text = species.Name, FontSize = 13, TextAlignment = TextAlignment.Center });
-            content.Children.Add(new TextBlock { Text = $"×{item.Quantity}", FontSize = 12, Opacity = .7, TextAlignment = TextAlignment.Center });
+            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Seasons(species)));
+            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Periods(species)));
+            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Weathers(species)));
             cards.Children.Add(new Border
             {
-                Width = 112, MinHeight = 86, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
+                Width = 172, MinHeight = 176, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
                 Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], Child = content
             });
         }
@@ -531,14 +537,16 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         foreach (FruitInventoryItem item in service.Inventory.Where(item => item.Quantity > 0))
         {
             if (!catalog.TryGetValue(item.FruitId, out FruitCatalogItem? fruit)) continue;
-            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
-            content.Children.Add(new Image
+            var content = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Stretch };
+            var imageHost = new Grid { Height = 54, HorizontalAlignment = HorizontalAlignment.Stretch };
+            imageHost.Children.Add(new Image
             {
                 Source = FruitAssetCatalog.GetImageSource(item.FruitId), Width = 54, Height = 54,
-                Stretch = Stretch.Uniform
+                Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center
             });
+            imageHost.Children.Add(BackpackQuantityBadge(item.Quantity));
+            content.Children.Add(imageHost);
             content.Children.Add(new TextBlock { Text = fruit.Name, FontSize = 13, TextAlignment = TextAlignment.Center });
-            content.Children.Add(new TextBlock { Text = $"×{item.Quantity}", FontSize = 12, Opacity = .7, TextAlignment = TextAlignment.Center });
             cards.Children.Add(new Border
             {
                 Width = 112, MinHeight = 86, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
@@ -549,6 +557,19 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             host.Children.Add(new TextBlock { Text = "尚未收集果实", Opacity = .7 });
         else host.Children.Add(cards);
     }
+
+    private static TextBlock WildlifeConditionText(string text) => new()
+    {
+        Text = text, FontSize = 11, Opacity = .72, TextWrapping = TextWrapping.Wrap
+    };
+
+    private static Border BackpackQuantityBadge(long count) => new()
+    {
+        Background = new SolidColorBrush(Microsoft.UI.Colors.Black),
+        CornerRadius = new CornerRadius(9), Padding = new Thickness(5, 1, 5, 1),
+        HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+        Child = new TextBlock { Text = $"×{count}", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 11 }
+    };
 
     private void AddBackpackCards(StackPanel host, IReadOnlyList<AquariumOwnedProduct> products, bool showEdit)
     {
@@ -637,14 +658,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         var panel = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
         var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
         imageHost.Children.Add(ProductVisual(product, 54, 43));
-        var quantity = new Border
-        {
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Black),
-            CornerRadius = new CornerRadius(9), Padding = new Thickness(5, 1, 5, 1),
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-            Child = new TextBlock { Text = $"×{owned.OwnedCount}", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 11 }
-        };
-        imageHost.Children.Add(quantity);
+        imageHost.Children.Add(BackpackQuantityBadge(owned.OwnedCount));
         if (showEdit && owned.NextToRecall is { } editable && product.Category is not ("fish" or "jellyfish") && !IsCardPack(product.Category))
         {
             var edit = ActionButton("Aquarium.Settings.Edit");

@@ -2,7 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace DeskBox.Services;
 
-internal sealed record WildlifeCatalogItem(string Id, string Name, string Category);
+internal sealed record WildlifeCatalogItem(string Id, string Name, string Category)
+{
+    public IReadOnlyList<string> Seasons { get; init; } = [];
+    public IReadOnlyList<string> Periods { get; init; } = [];
+    public IReadOnlyList<string> Weathers { get; init; } = [];
+}
 internal sealed record WildlifeInventoryItem(string SpeciesId, long Quantity, bool Discovered);
 internal sealed record WildlifeEncounter(string Id, string SpeciesId, DateTimeOffset ExpiresAtUtc);
 

@@ -36,15 +36,21 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
-    public void AccountCard_DoesNotOwnTreeManualSyncAfterMovingItToTreeWidget()
+    public void AccountCard_OwnsManualSyncAndTreeSettingsKeepsRepair()
     {
         string xaml = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml"));
         string account = Slice(xaml, "svc:Localized.HeaderKey=\"Settings.Account.Title\"", "svc:Localized.HeaderKey=\"Settings.DingTalk.Title\"");
 
         Assert.Contains("x:Name=\"AccountSignedInActions\"", account, StringComparison.Ordinal);
-        Assert.DoesNotContain("AccountSyncDataButton", account, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AccountSyncDataButton\"", account, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AccountSyncStatusText\"", account, StringComparison.Ordinal);
+        Assert.Contains("Grid.ColumnSpan=\"3\"", account, StringComparison.Ordinal);
+        string accountHandlers = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.Account.cs"));
+        Assert.Contains("AccountSyncDataButton_Click", accountHandlers, StringComparison.Ordinal);
+        Assert.Contains("_treeCloudSyncService.SyncNowAsync()", accountHandlers, StringComparison.Ordinal);
         string treeSettings = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
-        Assert.Contains("Settings.Account.SyncData", treeSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("Settings.Account.SyncData", treeSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("SyncButton_Click", treeSettings, StringComparison.Ordinal);
         Assert.Contains("Tree.SyncRepair", treeSettings, StringComparison.Ordinal);
         string treeWidget = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
         Assert.DoesNotContain("SyncButton_Click", treeWidget, StringComparison.Ordinal);
@@ -65,6 +71,21 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         Assert.Contains("AddStageCell", source, StringComparison.Ordinal);
         Assert.Contains("LightGreen", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DataGrid", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TreeLeaderboard_DeserializesUnpickedFruitAlongsideCumulativeTotal()
+    {
+        const string json = """
+            {"entries":[{"fruit_total":5,"fruit_inventory":4}],"current_user":{}}
+            """;
+        TreeLeaderboardResponse? response = JsonSerializer.Deserialize(
+            json, AccountCloudJsonContext.Default.TreeLeaderboardResponse);
+
+        Assert.NotNull(response);
+        Assert.Single(response.Entries);
+        Assert.Equal(5, response.Entries[0].FruitTotal);
+        Assert.Equal(4, response.Entries[0].FruitInventory);
     }
 
     [Fact]

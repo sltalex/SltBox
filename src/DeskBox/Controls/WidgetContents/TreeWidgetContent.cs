@@ -20,7 +20,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private readonly Grid _treeSurface = new()
     {
         Width = TreeIllustrationLayout.Width,
-        Height = TreeIllustrationLayout.Height,
+        Height = TreeIllustrationLayout.ArtworkHeight,
+        VerticalAlignment = VerticalAlignment.Top,
         Background = new SolidColorBrush(Colors.Transparent),
         RenderTransformOrigin = new Windows.Foundation.Point(.5, .86)
     };
@@ -28,9 +29,19 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private readonly Grid _canopySurface = new() { IsHitTestVisible = false };
     private readonly Image _canopyImage = new() { Stretch = Stretch.Uniform, IsHitTestVisible = false };
     private readonly Canvas _fruitLayer = new() { IsHitTestVisible = false };
-    private readonly Canvas _wildlifeLayer = new() { Width = TreeIllustrationLayout.Width, Height = TreeIllustrationLayout.Height };
+    private readonly Canvas _fruitPickLayer = new() { IsHitTestVisible = false };
+    private readonly Canvas _wildlifeLayer = new()
+    {
+        Width = TreeIllustrationLayout.Width,
+        Height = TreeIllustrationLayout.Height,
+        Clip = new RectangleGeometry
+        {
+            Rect = new Windows.Foundation.Rect(0, 0, TreeIllustrationLayout.Width, TreeIllustrationLayout.Height)
+        }
+    };
     private readonly Storyboard _wildlifeMotion = new();
     private string? _renderedEncounterId;
+    private int _renderedWildlifeStage;
     private readonly Canvas _fallingLeafLayer = new() { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
     private readonly CompositeTransform _treeTransform = new();
     private readonly CompositeTransform _canopyTransform = new();
@@ -58,20 +69,29 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     public TreeWidgetContent(LocalizationService localization)
     {
         _localization = localization;
-        _drawing.Children.Add(new Image { Source = Asset("ground.svg"), Stretch = Stretch.Uniform, IsHitTestVisible = false });
+        _drawing.Children.Add(new Image
+        {
+            Source = Asset("ground.svg"), Width = TreeIllustrationLayout.Width,
+            Height = TreeIllustrationLayout.ArtworkHeight, Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false,
+            RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.GroundVerticalOffset }
+        });
         _treeTransform.ScaleX = TreeIllustrationLayout.TreeArtworkScale;
         _treeTransform.ScaleY = TreeIllustrationLayout.TreeArtworkScale;
+        _treeTransform.TranslateY = TreeIllustrationLayout.TreeVerticalOffset;
         _treeSurface.RenderTransform = _treeTransform;
         _canopySurface.RenderTransform = _canopyTransform;
         _canopySurface.Children.Add(_canopyImage);
         _canopySurface.Children.Add(_fruitLayer);
+        _canopySurface.Children.Add(_fruitPickLayer);
         _treeSurface.Children.Add(_treeImage);
         _treeSurface.Children.Add(_canopySurface);
+        _drawing.Children.Add(_weatherSkyLayer);
         _drawing.Children.Add(_treeSurface);
         _drawing.Children.Add(_wildlifeLayer);
         _drawing.Children.Add(_fallingLeafLayer);
+        _weatherGroundLayer.RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.GroundVerticalOffset };
         _drawing.Children.Add(_weatherGroundLayer);
-        _drawing.Children.Add(_weatherSkyLayer);
         _weatherFrontLayer.RenderTransform = _weatherTransform;
         _drawing.Children.Add(_weatherFrontLayer);
         ConfigureMotion();
@@ -94,7 +114,10 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             if (index >= 0)
             {
                 long pendingId = fruitService.IsAvailable ? fruitService.OnTree[index].Id : 0;
-                _ = PickFruitAsync(pendingId);
+                ImageSource image = fruitService.IsAvailable
+                    ? FruitAssetCatalog.GetImageSource(fruitService.OnTree[index].FruitId)
+                    : Asset("fruit.svg");
+                _ = PickFruitAsync(pendingId, index, image);
                 args.Handled = true;
             }
         };
@@ -113,6 +136,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             if (_visible && !_disposed) { _timer.Start(); Refresh(); }
         };
         Unloaded += (_, _) => { _counter.Changed -= CounterChanged; _timer.Stop(); StopMotion(); };
+        Unloaded += (_, _) => ClearFruitPickVisuals();
         Unloaded += (_, _) =>
         {
             App.Current.WildlifeService.Changed -= FruitChanged;
@@ -127,7 +151,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _visible = visible;
         if (visible && IsLoaded && !_disposed) { _timer.Start(); Refresh(); }
         else { _timer.Stop(); StopMotion(); }
-        if (!visible) { App.Current.WildlifeService.SetVisible(false); RenderWildlife(); }
+        if (!visible) { ClearFruitPickVisuals(); App.Current.WildlifeService.SetVisible(false); RenderWildlife(); }
     }
 
     private void Refresh()
@@ -136,6 +160,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         TreeProgress p = _counter.Snapshot;
         bool celebrate = _lastStage != 0 && (p.Stage > _lastStage || p.HarvestedFruit > _lastHarvested);
         _lastHarvested = p.HarvestedFruit;
+        _progress.Visibility = TreeIllustrationLayout.ShowsStageProgress(p.Stage)
+            ? Visibility.Visible : Visibility.Collapsed;
         _captureStatus.Visibility = p.Paused ? Visibility.Visible : Visibility.Collapsed;
         if (p.Paused) _captureStatus.Text = _localization.T("Tree.Settings.StatisticsPaused");
         // The desktop tile describes the current growth step.  Showing the
@@ -152,7 +178,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             _treeImage.Source = Asset(TreeIllustrationLayout.StageAssetName(p.Stage));
             _canopyImage.Source = Asset(TreeIllustrationLayout.CanopyAssetName(p.Stage));
             _canopySurface.RenderTransformOrigin = new Windows.Foundation.Point(
-                .5, TreeIllustrationLayout.CanopyPivotY(p.Stage) / TreeIllustrationLayout.Height);
+                .5, TreeIllustrationLayout.CanopyPivotY(p.Stage) / TreeIllustrationLayout.ArtworkHeight);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_treeSurface, _localization.T($"Tree.Stage.{p.Stage}"));
             ConfigureFallingLeaves(p.Stage);
         }
@@ -195,32 +221,41 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
 
     private static SvgImageSource Asset(string fileName) => new(new Uri($"ms-appx:///Assets/Tree/{fileName}"));
 
-    private async Task PickFruitAsync(long pendingId)
+    private async Task PickFruitAsync(long pendingId, int fruitIndex, ImageSource image)
     {
         if (Interlocked.Exchange(ref _pickInProgress, 1) != 0) return;
+        FruitPickVisual? visual = null;
+        bool pickedSuccessfully = false;
         try
         {
+            visual = BeginFruitPickVisual(pendingId, fruitIndex, image);
             var fruitService = App.Current.FruitService;
             if (fruitService.IsAvailable)
             {
-                await App.Current.TreeCloudSyncService.SyncNowAsync();
-                if (!await fruitService.RefreshAsync() || !fruitService.OnTree.Any(x => x.Id == pendingId))
+                if (!await App.Current.TreeCloudSyncService.SyncProgressNowAsync())
                 {
-                    App.Log("[Tree] No account fruit is ready to pick; local tree state was unchanged.");
+                    App.Log("[Tree] Fruit pick needs a successful tree sync; local tree state was unchanged.");
                     return;
                 }
                 var picked = await fruitService.PickAsync(pendingId);
                 if (picked.Success)
                 {
+                    CompleteFruitPickVisual(visual, picked.Quantity);
+                    pickedSuccessfully = true;
                     App.Log($"[Tree] Picked {picked.FruitId}; credited {picked.Quantity} fruit(s).");
-                    await App.Current.TreeCloudSyncService.SyncNowAsync();
+                    await App.Current.TreeCloudSyncService.SyncProgressNowAsync();
                 }
                 else App.Log("[Tree] Fruit pick was rejected; local tree state was unchanged.");
             }
             else
             {
                 long reward = _counter.Harvest();
-                if (reward > 0) App.Log($"[Tree] Picked one fruit; credited {reward} fruit(s) to the local backpack.");
+                if (reward > 0)
+                {
+                    CompleteFruitPickVisual(visual, reward);
+                    pickedSuccessfully = true;
+                    App.Log($"[Tree] Picked one fruit; credited {reward} fruit(s) to the local backpack.");
+                }
             }
             Refresh();
         }
@@ -228,7 +263,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         {
             App.Log($"[Tree] Fruit pick failed: {ex.Message}");
         }
-        finally { Volatile.Write(ref _pickInProgress, 0); }
+        finally
+        {
+            if (!pickedSuccessfully) CancelFruitPickVisual(visual);
+            Volatile.Write(ref _pickInProgress, 0);
+        }
     }
 
     private void DrawFruit(TreeProgress state)
@@ -246,7 +285,10 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             ImageSource source = onTree.Count > i
                 ? FruitAssetCatalog.GetImageSource(onTree[i].FruitId)
                 : Asset("fruit.svg");
-            var fruit = new Image { Width = 24, Height = 28, Source = source, Stretch = Stretch.Uniform };
+            bool picking = _fruitPickVisuals.Any(visual => visual.Index == i ||
+                (fruitService.IsAvailable && onTree[i].Id == visual.PendingId));
+            var fruit = new Image { Width = 24, Height = 28, Source = source, Stretch = Stretch.Uniform,
+                Opacity = picking ? 0 : 1 };
             Canvas.SetLeft(fruit, x);
             Canvas.SetTop(fruit, y);
             _fruitLayer.Children.Add(fruit);
@@ -321,12 +363,13 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
                 RenderTransformOrigin = new Windows.Foundation.Point(.5, .5)
             };
             Canvas.SetLeft(image, leaf.X);
-            Canvas.SetTop(image, leaf.Y);
+            Canvas.SetTop(image, leaf.Y + TreeIllustrationLayout.TreeVerticalOffset);
             _fallingLeafLayer.Children.Add(image);
             double start = leaf.DelaySeconds;
             double middle = start + leaf.DurationSeconds * .5;
             double end = start + leaf.DurationSeconds;
-            double drop = 199 - leaf.Y;
+            double drop = 199 + TreeIllustrationLayout.GroundVerticalOffset -
+                leaf.Y - TreeIllustrationLayout.TreeVerticalOffset;
             AddLeafAnimation(transform, "TranslateY", (0, 0), (start, 0),
                 (middle, drop * .46), (end, drop));
             AddLeafAnimation(transform, "TranslateX", (0, 0), (start, 0),
@@ -365,7 +408,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private void UpdateMotion()
     {
         bool shouldAnimate = !_disposed && _visible && IsLoaded && WindowsCompatibilityService.ShouldAnimate;
-        _progress.SetAnimationEnabled(shouldAnimate);
+        _progress.SetAnimationEnabled(shouldAnimate && _progress.Visibility == Visibility.Visible);
         if (shouldAnimate == _motionRunning) return;
         if (shouldAnimate)
         {
@@ -405,6 +448,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         App.Current.WildlifeService.Changed -= FruitChanged;
         _timer.Stop();
         StopMotion();
+        ClearFruitPickVisuals();
         _treeWeatherService.Dispose();
         _progress.Dispose();
     }

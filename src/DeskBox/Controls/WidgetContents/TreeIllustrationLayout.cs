@@ -4,10 +4,24 @@ namespace DeskBox.Controls.WidgetContents;
 internal static class TreeIllustrationLayout
 {
     public const double Width = 260;
-    public const double Height = 220;
-    public const double DisplayHeight = 110;
-    // Keep the canopy below the weather band without moving the trunk off the ground.
-    public const double TreeArtworkScale = .82;
+    public const double ArtworkHeight = 220;
+    public const double Height = 260;
+    public const double DisplayHeight = 130;
+    // Shift the complete illustration down without reducing the tree artwork.
+    public const double TreeArtworkScale = 1;
+    public const double TreeVerticalOffset = 50;
+    public const double GroundVerticalOffset = 38;
+    public static bool ShowsStageProgress(int stage) => stage < 5;
+    // Visible widths measured from each stage's trunk and canopy SVGs in the
+    // shared 260 x 220 coordinate space. Visitors follow the growing tree.
+    public static double ArtworkWidth(int stage) => Math.Clamp(stage, 1, 5) switch
+    {
+        1 => 96,
+        2 => 118,
+        3 => 127,
+        4 => 167,
+        _ => 198
+    };
     public const int MaxVisibleFruit = 12;
     public const double LeafCycleSeconds = 10;
 
@@ -71,12 +85,20 @@ internal static class TreeIllustrationLayout
     public static int FruitIndexAt(int visibleCount, double x, double y)
     {
         if (!double.IsFinite(x) || !double.IsFinite(y)) return -1;
+        const double padding = 10;
+        int nearest = -1;
+        double nearestDistance = double.PositiveInfinity;
         for (int i = Math.Min(visibleCount, MaxVisibleFruit) - 1; i >= 0; i--)
         {
             (double left, double top) = FruitPositions[i];
-            if (x >= left && x <= left + 24 && y >= top && y <= top + 28) return i;
+            if (x < left - padding || x > left + 24 + padding ||
+                y < top - padding || y > top + 28 + padding) continue;
+            double dx = x - (left + 12);
+            double dy = y - (top + 14);
+            double distance = dx * dx + dy * dy;
+            if (distance < nearestDistance) (nearest, nearestDistance) = (i, distance);
         }
-        return -1;
+        return nearest;
     }
 }
 

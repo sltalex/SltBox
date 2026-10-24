@@ -207,6 +207,8 @@ internal sealed class TreeLeaderboardEntryDto
     public long TotalEnergy { get; set; }
     [JsonPropertyName("fruit_total")]
     public long FruitTotal { get; set; }
+    [JsonPropertyName("fruit_inventory")]
+    public long? FruitInventory { get; set; }
     [JsonPropertyName("is_current_user")]
     public bool IsCurrentUser { get; set; }
 }

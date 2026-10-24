@@ -26,7 +26,6 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _syncStatus = new() { FontSize = 12, Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
-    private readonly Button _syncButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
@@ -63,7 +62,6 @@ public sealed partial class TreeSettingsSection : UserControl
         switches.Children.Add(statisticsColumn);
         _switchesCard.Content = switches;
 
-        _syncButton.Click += SyncButton_Click;
         _repairButton.Click += RepairButton_Click;
         var syncActions = new StackPanel
         {
@@ -71,9 +69,7 @@ public sealed partial class TreeSettingsSection : UserControl
             Spacing = 8,
             HorizontalAlignment = HorizontalAlignment.Left
         };
-        _syncButton.Content = new TextBlock();
         _repairButton.Content = new TextBlock();
-        syncActions.Children.Add(_syncButton);
         syncActions.Children.Add(_repairButton);
         var syncPanel = new StackPanel { Spacing = 8 };
         syncPanel.Children.Add(_syncStatus);
@@ -166,7 +162,7 @@ public sealed partial class TreeSettingsSection : UserControl
         _currentCard.Description = _localization.T("Tree.Settings.Card.Current.Description");
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _syncCard.Header = _localization.T("Tree.Settings.Card.Sync");
-        _syncCard.Description = _localization.T("Tree.Settings.Card.Sync.Description");
+        _syncCard.Description = string.Empty;
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _enableLabel.Text = _localization.T("Tree.Settings.Enable");
         _statisticsLabel.Text = _localization.T("Tree.Settings.EnableStatistics");
@@ -174,49 +170,15 @@ public sealed partial class TreeSettingsSection : UserControl
         _statistics.OffContent = _localization.T("Tree.Settings.StatisticsPaused");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
-        if (_syncButton.Content is TextBlock syncText)
-            syncText.Text = _localization.T("Settings.Account.SyncData");
         if (_repairButton.Content is TextBlock repairText)
             repairText.Text = _localization.T("Tree.SyncRepair");
         RefreshSyncActions();
-    }
-
-    private async void SyncButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_cloud is null || Interlocked.Exchange(ref _syncOperationInProgress, 1) != 0) return;
-
-        _syncButton.IsEnabled = false;
-        _repairButton.IsEnabled = false;
-        _syncStatus.Text = _localization?.T("Settings.Account.Syncing") ?? string.Empty;
-        try
-        {
-            bool synchronized = await _cloud.SyncNowAsync();
-            _syncStatus.Text = _localization?.T(
-                !synchronized ? "Settings.Account.SyncUnavailable" :
-                    _cloud.AdditionalDataSynced ? "Settings.Account.SyncSuccess" : "Settings.Account.SyncPartial") ?? string.Empty;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            App.Log($"[TreeCloud] Manual sync failed: {ex.GetType().Name}");
-            _syncStatus.Text = _localization?.T("Settings.Account.SyncError") ?? string.Empty;
-        }
-        catch (Exception ex)
-        {
-            App.Log($"[TreeCloud] Manual sync failed: {ex}");
-            _syncStatus.Text = _localization?.T("Settings.Account.SyncError") ?? string.Empty;
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _syncOperationInProgress, 0);
-            RefreshSyncActions();
-        }
     }
 
     private async void RepairButton_Click(object sender, RoutedEventArgs e)
     {
         if (_cloud is null || Interlocked.Exchange(ref _syncOperationInProgress, 1) != 0) return;
 
-        _syncButton.IsEnabled = false;
         _repairButton.IsEnabled = false;
         try
         {
@@ -268,7 +230,6 @@ public sealed partial class TreeSettingsSection : UserControl
     private void RefreshSyncActions()
     {
         bool busy = Volatile.Read(ref _syncOperationInProgress) != 0;
-        _syncButton.IsEnabled = !busy && _auth?.IsAuthenticated == true;
         _repairButton.IsEnabled = !busy;
     }
 
@@ -389,7 +350,7 @@ public sealed partial class TreeSettingsSection : UserControl
             AddCell(grid, entry.IsCurrentUser ? _localization.Format("Tree.Settings.Leaderboard.Me", entry.Username) : entry.Username, 1, entry.IsCurrentUser);
             AddStageCell(grid, _localization.Format("Tree.Settings.Leaderboard.Stage", entry.Stage), entry.Stage, 2);
             AddCell(grid, $"+{entry.TodayGrowth:N0}", 3, false);
-            AddCell(grid, $"⚡ {entry.TotalEnergy:N0}  🍎 {entry.FruitTotal:N0}", 4, false);
+            AddCell(grid, $"⚡ {entry.TotalEnergy:N0}  🍎 {entry.FruitInventory ?? entry.FruitTotal:N0}", 4, false);
             _leaderboard.Items.Add(grid);
         }
     }

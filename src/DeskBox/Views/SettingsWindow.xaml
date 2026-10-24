@@ -3533,6 +3533,7 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
@@ -3552,6 +3553,21 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                                         Style="{StaticResource ActionButtonStyle}">
                                         <TextBlock svc:Localized.Key="Settings.Account.SignOut" />
                                     </Button>
+                                    <Button
+                                        x:Name="AccountSyncDataButton"
+                                        Grid.Column="2"
+                                        Click="AccountSyncDataButton_Click"
+                                        IsEnabled="{Binding AccountActionsEnabled}"
+                                        Style="{StaticResource ActionButtonStyle}">
+                                        <TextBlock svc:Localized.Key="Settings.Account.SyncData" />
+                                    </Button>
+                                    <TextBlock
+                                        x:Name="AccountSyncStatusText"
+                                        Grid.Row="1"
+                                        Grid.ColumnSpan="3"
+                                        Style="{StaticResource SettingDescriptionTextStyle}"
+                                        TextWrapping="Wrap"
+                                        Visibility="Collapsed" />
                                 </Grid>
                             </Grid>
                         </toolkit:SettingsCard>

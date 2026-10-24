@@ -14,9 +14,9 @@
             </StackPanel>
             <StackPanel x:Name="AquariumPanel" Spacing="8">
                 <toolkit:WrapPanel x:Name="AquariumCategories" Orientation="Horizontal" HorizontalSpacing="6" VerticalSpacing="6" />
-                <ItemsControl x:Name="AquariumItems">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
+                <GridView x:Name="AquariumItems" Height="400" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></GridView.ItemsPanel>
+                    <GridView.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
                         <Border Width="132" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <StackPanel Spacing="4">
                                 <Image Source="{x:Bind Image}" Width="72" Height="72" Stretch="Uniform" />
@@ -25,14 +25,14 @@
                                 <TextBlock Text="{x:Bind QuantityText}" FontSize="11" Opacity="0.75" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                    </DataTemplate></ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </DataTemplate></GridView.ItemTemplate>
+                </GridView>
             </StackPanel>
             <StackPanel x:Name="FruitPanel" Spacing="8" Visibility="Collapsed">
                 <toolkit:WrapPanel x:Name="FruitCategories" Orientation="Horizontal" HorizontalSpacing="6" VerticalSpacing="6" />
-                <ItemsControl x:Name="FruitItems">
-                <ItemsControl.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
+                <GridView x:Name="FruitItems" Height="400" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></GridView.ItemsPanel>
+                    <GridView.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
                     <Border Width="132" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                         <StackPanel Spacing="4">
                             <Image Source="{x:Bind Image}" Width="72" Height="72" Stretch="Uniform" />
@@ -41,14 +41,14 @@
                             <TextBlock Text="{x:Bind QuantityText}" FontSize="11" Opacity="0.75" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Border>
-                </DataTemplate></ItemsControl.ItemTemplate>
-                </ItemsControl>
+                </DataTemplate></GridView.ItemTemplate>
+                </GridView>
             </StackPanel>
             <StackPanel x:Name="WildlifePanel" Spacing="8" Visibility="Collapsed">
                 <toolkit:WrapPanel x:Name="WildlifeCategories" Orientation="Horizontal" HorizontalSpacing="6" VerticalSpacing="6" />
-                <ItemsControl x:Name="WildlifeItems">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
+                <GridView x:Name="WildlifeItems" Height="400" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></GridView.ItemsPanel>
+                    <GridView.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
                         <Border Width="132" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <StackPanel Spacing="4">
                                 <Image Source="{x:Bind Image}" Width="72" Height="72" Stretch="Uniform" />
@@ -57,8 +57,8 @@
                                 <TextBlock Text="{x:Bind QuantityText}" FontSize="11" Opacity="0.75" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                    </DataTemplate></ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </DataTemplate></GridView.ItemTemplate>
+                </GridView>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

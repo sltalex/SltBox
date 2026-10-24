@@ -6,6 +6,7 @@ namespace DeskBox.Controls.WidgetContents;
 // fruit hit targets unobstructed. Each species has its own recognizable rhythm.
 internal static class WildlifeMotionCatalog
 {
+    private const double VisitorDisplayScale = .82;
     private static WildlifeMotionFrame F(double at, double x = 0, double y = 0,
         double rotation = 0, double scaleX = 1, double scaleY = 1, double opacity = 1) =>
         new(at, x, y, rotation, scaleX, scaleY, opacity);
@@ -112,6 +113,10 @@ internal static class WildlifeMotionCatalog
                 F(.78, -8, 0, 0, 1.05, .96), F(1))
         };
 
+    private static readonly HashSet<string> SkyFlightIds = new(
+        WildlifeAssetCatalog.LocalCatalog.Where(CanFlyAcrossSky).Select(species => species.Id),
+        StringComparer.Ordinal);
+
     static WildlifeMotionCatalog()
     {
         var profiles = (Dictionary<string, WildlifeMotionProfile>)Profiles;
@@ -121,12 +126,45 @@ internal static class WildlifeMotionCatalog
             if (!WildlifeAssetCatalog.MotionCodes.TryGetValue(species.Id, out string? motion)) continue;
             profiles.Add(species.Id, CreateSpeciesMotion(species, motion));
         }
+        foreach (WildlifeCatalogItem species in WildlifeAssetCatalog.LocalCatalog.Where(CanFlyAcrossSky))
+            profiles[species.Id] = CreateSkyFlight(species);
     }
 
-    internal static double VisualSize(string id, string category)
+    internal static bool FliesAcrossSky(string id) => SkyFlightIds.Contains(id);
+
+    private static bool CanFlyAcrossSky(WildlifeCatalogItem species)
     {
+        if (species.Category != "飞鸟" || species.Id is "heron" or "woodpecker") return false;
+        if (!WildlifeAssetCatalog.MotionCodes.TryGetValue(species.Id, out string? motion)) return true;
+        if (motion == "groundbird") return false;
+        return motion != "wader" || species.Id is "goose" or "swan" or "seagull";
+    }
+
+    private static WildlifeMotionProfile CreateSkyFlight(WildlifeCatalogItem species)
+    {
+        uint hash = 2166136261;
+        foreach (char character in species.Id) hash = unchecked((hash ^ character) * 16777619);
+        bool rightward = (hash & 1) == 0;
+        double direction = rightward ? 1 : -1;
+        double center = TreeIllustrationLayout.Width / 2 - 18;
+        double start = rightward ? -42 : TreeIllustrationLayout.Width + 6;
+        double finish = rightward ? TreeIllustrationLayout.Width + 6 : -42;
+        double distance = finish - start;
+        double bob = 2 + hash % 3;
+        double y = 9 + hash % 7;
+        return M(species.Name + "·掠空飞越", center, y, 7.2 + hash % 12 * .22,
+            F(0, start - center, 0, -3 * direction, direction),
+            F(.22, start + distance * .22 - center, -bob, 2 * direction, direction, .82),
+            F(.5, start + distance * .5 - center, bob, -2 * direction, direction, 1.06),
+            F(.78, start + distance * .78 - center, -bob, 2 * direction, direction, .84),
+            F(1, finish - center, 0, -3 * direction, direction));
+    }
+
+    internal static double VisualSize(string id, string category, int treeStage)
+    {
+        double baseSize;
         if (WildlifeAssetCatalog.MotionCodes.TryGetValue(id, out string? motion))
-            return motion switch
+            baseSize = motion switch
             {
                 "ant" or "fly" or "waterbug" or "stick" => 27,
                 "butterfly" or "moth" or "bee" or "dragonfly" => 31,
@@ -134,7 +172,13 @@ internal static class WildlifeMotionCatalog
                 "snail" or "rodent" or "lizard" => 30,
                 _ => category == "昆虫" ? 30 : category == "飞鸟" ? 35 : 37
             };
-        return category == "昆虫" ? 31 : category == "飞鸟" ? 35 : 38;
+        else
+            baseSize = category == "昆虫" ? 31 : category == "飞鸟" ? 35 : 38;
+
+        // The illustration's drawn width changes with growth. A fixed visitor
+        // size makes animals dwarf seedlings even though the canvas is fixed.
+        return baseSize * VisitorDisplayScale *
+            TreeIllustrationLayout.ArtworkWidth(treeStage) / TreeIllustrationLayout.ArtworkWidth(5);
     }
 
     private static WildlifeMotionProfile CreateSpeciesMotion(WildlifeCatalogItem species, string motion)

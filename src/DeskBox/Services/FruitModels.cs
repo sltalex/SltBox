@@ -10,7 +10,7 @@ internal sealed record FruitPricePoint(string Day, int Price);
 internal sealed record FruitOnTreeItem(long Id, string FruitId);
 internal sealed record FruitSellRequest(
     [property: JsonPropertyName("fruit_id")] string FruitId,
-    int Quantity,
+    [property: JsonPropertyName("quantity")] int Quantity,
     [property: JsonPropertyName("operation_id")] string OperationId);
 internal sealed record FruitPickRequest(
     [property: JsonPropertyName("pending_id")] long PendingId,

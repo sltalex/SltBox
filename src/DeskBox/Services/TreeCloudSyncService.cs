@@ -76,7 +76,13 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
         if (_auth.IsAuthenticated) _ = RunCycleSafelyAsync(_lifetime.Token);
     }
 
-    internal async Task<bool> SyncNowAsync(CancellationToken cancellationToken = default)
+    internal Task<bool> SyncNowAsync(CancellationToken cancellationToken = default) =>
+        SyncCoreAsync(syncAdditionalData: true, cancellationToken);
+
+    internal Task<bool> SyncProgressNowAsync(CancellationToken cancellationToken = default) =>
+        SyncCoreAsync(syncAdditionalData: false, cancellationToken);
+
+    private async Task<bool> SyncCoreAsync(bool syncAdditionalData, CancellationToken cancellationToken)
     {
         if (_auth.CurrentUser is not { } user) return false;
         await _gate.WaitAsync(cancellationToken);
@@ -95,7 +101,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 state.StateVersion = cloud.StateVersion;
                 await SaveStateAsync(statePath, state, cancellationToken);
                 IsOffline = false;
-                return await FinishSyncAsync(cancellationToken);
+                return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
             TreeStateDto baseline = state.Acknowledged ?? InitialBaseline(cloud);
             if (IsBehind(local, baseline))
@@ -107,7 +113,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 await SaveStateAsync(statePath, state, cancellationToken);
                 IsOffline = false;
                 HasConflict = false;
-                return await FinishSyncAsync(cancellationToken);
+                return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
             TreeProgressDelta delta = CalculateDelta(local, baseline);
             if (!delta.HasChanges)
@@ -120,7 +126,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 await SaveStateAsync(statePath, state, cancellationToken);
                 IsOffline = false;
                 HasConflict = false;
-                return await FinishSyncAsync(cancellationToken);
+                return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
 
             TreeProgressUploadRequest request = new()
@@ -148,7 +154,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 response?.Dispose();
                 TreeStateDto latest = await ReadStateAsync(cancellationToken);
                 await AdoptCloudAfterConflictAsync(statePath, state, latest, cancellationToken);
-                return await FinishSyncAsync(cancellationToken);
+                return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
             if (response is null) throw new InvalidDataException("The tree progress response is empty.");
             using (response)
@@ -167,7 +173,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             IsOffline = false;
             HasConflict = false;
             _ = RefreshLeaderboardAfterUploadAsync();
-            return await FinishSyncAsync(cancellationToken);
+            return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -182,8 +188,9 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
     internal Task<bool> RefreshStateAsync(CancellationToken cancellationToken = default) => SyncNowAsync(cancellationToken);
 
 
-    private async Task<bool> FinishSyncAsync(CancellationToken cancellationToken)
+    private async Task<bool> FinishSyncAsync(bool syncAdditionalData, CancellationToken cancellationToken)
     {
+        if (!syncAdditionalData) return true;
         AdditionalDataSynced = true;
         if (_syncAdditionalData is null) return true;
 

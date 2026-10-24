@@ -450,7 +450,7 @@ function tree_leaderboard(PDO $pdo, string $currentUserId, string $day): array
 {
     if (!tree_valid_day($day)) { throw new ApiError('invalid_day', 'Leaderboard day is invalid.', 400); }
     $statement = $pdo->prepare(
-        'SELECT p.user_id, u.username, p.stage, COALESCE(d.growth, 0) AS today_growth, p.total_energy, p.fruit_total '
+        'SELECT p.user_id, u.username, p.stage, COALESCE(d.growth, 0) AS today_growth, p.total_energy, p.fruit_total, p.harvested_total '
         . 'FROM tree_profiles p JOIN auth_users u ON u.id = p.user_id '
         . 'LEFT JOIN tree_daily_progress d ON d.user_id = p.user_id AND d.progress_day = :day '
         . 'WHERE p.participation_enabled = 1 ORDER BY p.total_energy DESC, p.updated_at ASC, p.user_id ASC'
@@ -465,6 +465,7 @@ function tree_leaderboard(PDO $pdo, string $currentUserId, string $day): array
             'rank' => $rank, 'account' => (string)$row['user_id'], 'username' => (string)$row['username'],
             'stage' => (int)$row['stage'], 'today_growth' => (int)$row['today_growth'],
             'total_energy' => (int)$row['total_energy'], 'fruit_total' => (int)$row['fruit_total'],
+            'fruit_inventory' => max(0, (int)$row['fruit_total'] - (int)$row['harvested_total']),
             'is_current_user' => (string)$row['user_id'] === $currentUserId,
         ];
         if ($entry['is_current_user']) { $current = ['rank' => $rank, 'participating' => true] + $entry; }
