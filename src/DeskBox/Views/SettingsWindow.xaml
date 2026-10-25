@@ -225,6 +225,12 @@ Text="SltBox" />
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE71D;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="TreeDecorationsNavItem"
+                    Tag="TreeDecorationSettings"
+                    svc:Localized.Key="Tree.Decorations.Title">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE790;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
                     Tag="Appearance"
                     svc:Localized.Key="Settings.Nav.Appearance">
                     <NavigationViewItem.Icon>
@@ -2463,6 +2469,9 @@ svc:Localized.DescriptionKey="Settings.DefaultWidth.Description"
                     </DataTemplate>
                     <DataTemplate x:Key="TreeSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:TreeSettingsSection x:Name="TreeSettingsSection" Visibility="Collapsed" NavigationRequested="SettingsSection_NavigationRequested" />
+                    </DataTemplate>
+                    <DataTemplate x:Key="TreeDecorationSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
+                        <sections:TreeDecorationSettingsSection x:Name="TreeDecorationSettingsSection" Visibility="Collapsed" NavigationRequested="SettingsSection_NavigationRequested" />
                     </DataTemplate>
                     <DataTemplate x:Key="AquariumSettingsSectionTemplate" x:DataType="viewModels:SettingsViewModel">
                         <sections:AquariumSettingsSection x:Name="AquariumSettingsSection" Visibility="Collapsed" />

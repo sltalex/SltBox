@@ -198,3 +198,30 @@ CREATE TABLE aquarium_catalog_settings (
     updated_at TEXT NOT NULL
 );
 INSERT INTO aquarium_catalog_settings (id, card_pack_price, updated_at) VALUES (1, 200, '2026-01-01 00:00:00');
+
+CREATE TABLE tree_decoration_profiles (
+    user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+    shards INTEGER NOT NULL DEFAULT 0 CHECK (shards >= 0),
+    scene_version INTEGER NOT NULL DEFAULT 0,
+    scene_json TEXT NOT NULL DEFAULT '[]',
+    active_theme_id TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE tree_decoration_inventory (
+    user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    acquired_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, item_id)
+);
+
+CREATE TABLE tree_decoration_operations (
+    user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+    operation_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, operation_id)
+);

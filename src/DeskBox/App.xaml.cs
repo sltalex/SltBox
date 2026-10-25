@@ -178,6 +178,7 @@ public partial class App : Application
     internal AccountCloudBackupService AccountCloudBackupService { get; private set; } = null!;
     internal TreeCloudSyncService TreeCloudSyncService { get; private set; } = null!;
     internal AquariumService AquariumService { get; private set; } = null!;
+    internal TreeDecorationService TreeDecorationService { get; private set; } = null!;
     internal FruitService FruitService { get; private set; } = null!;
     internal WildlifeService WildlifeService { get; private set; } = null!;
     private string? _aquariumVisibleIdentity;
@@ -327,6 +328,7 @@ public partial class App : Application
         AccountCloudBackupService = Services.GetRequiredService<AccountCloudBackupService>();
         TreeCloudSyncService = Services.GetRequiredService<TreeCloudSyncService>();
         AquariumService = Services.GetRequiredService<AquariumService>();
+        TreeDecorationService = Services.GetRequiredService<TreeDecorationService>();
         FruitService = Services.GetRequiredService<FruitService>();
         WildlifeService = Services.GetRequiredService<WildlifeService>();
         WidgetRegistry.AquariumAccessResolver = () => AquariumService.IsAvailable;
@@ -1098,6 +1100,7 @@ public partial class App : Application
             RunOptionalStartupStep("account-cloud-backup", AccountCloudBackupService.Start);
             RunOptionalStartupStep("tree-cloud-sync", TreeCloudSyncService.Start);
             RunOptionalStartupStep("aquarium-sync", AquariumService.Start);
+            RunOptionalStartupStep("tree-decoration-sync", TreeDecorationService.Start);
             RunOptionalStartupStep("fruit-catalog-refresh", () => _ = FruitService.RefreshAsync());
             RunOptionalStartupStep("wildlife-catalog-refresh", () => _ = WildlifeService.RefreshAsync());
             RunOptionalStartupStep("dingtalk-group-documents", DingTalkGroupDocumentSyncService.Start);
@@ -3365,6 +3368,7 @@ public partial class App : Application
             Services.GetRequiredService<DingTalkAccountService>(),
             AccountCloudBackupService,
             TreeCloudSyncService,
+            TreeDecorationService,
             DingTalkGroupDocumentSyncService,
             AquariumService);
         _settingsWindow.Closed += SettingsWindow_ClosedForApp;
@@ -5031,6 +5035,7 @@ public partial class App : Application
                 await TreeCloudSyncService.DisposeAsync();
                 AquariumService.Changed -= OnAquariumChanged;
                 await AquariumService.DisposeAsync();
+                await TreeDecorationService.DisposeAsync();
                 await FruitService.DisposeAsync();
                 await WildlifeService.DisposeAsync();
                 WidgetRegistry.AquariumAccessResolver = () => false;

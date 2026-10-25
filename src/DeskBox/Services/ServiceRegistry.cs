@@ -69,6 +69,10 @@ public static class ServiceRegistry
             new AquariumService(
                 sp.GetRequiredService<IAuthSession>(),
                 sp.GetRequiredService<IAuthenticatedAccountApi>()));
+        services.AddSingleton<TreeDecorationService>(sp =>
+            new TreeDecorationService(
+                sp.GetRequiredService<IAuthSession>(),
+                sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<FruitService>(sp =>
             new FruitService(
                 sp.GetRequiredService<IAuthSession>(),

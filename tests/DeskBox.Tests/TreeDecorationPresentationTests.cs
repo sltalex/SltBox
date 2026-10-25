@@ -1,0 +1,90 @@
+using System.Text.Json;
+
+namespace DeskBox.Tests;
+
+public sealed class TreeDecorationPresentationTests
+{
+    [Fact]
+    public void DecorationAssets_ContainUniqueTwentyFourItemSourceAndSilhouettePairs()
+    {
+        string root = TestPaths.FromRepository("src/DeskBox/Assets/Tree/Decorations");
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "catalog.json")));
+        JsonElement[] items = document.RootElement.GetProperty("items").EnumerateArray().ToArray();
+
+        Assert.Equal(24, items.Length);
+        Assert.Equal(24, items.Select(item => item.GetProperty("id").GetString()).Distinct().Count());
+        foreach (JsonElement item in items)
+        {
+            string key = item.GetProperty("assetKey").GetString()!;
+            Assert.True(File.Exists(Path.Combine(root, "Source", key + ".svg")), key);
+            Assert.True(File.Exists(Path.Combine(root, "Blur", key + ".svg")), key);
+        }
+    }
+
+    [Fact]
+    public void ProjectAndSettings_RegisterDecorationAssetsAndIndependentRoute()
+    {
+        string project = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/DeskBox.csproj"));
+        string xaml = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml"));
+        string shell = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml.cs"));
+
+        Assert.Contains("Assets\\Tree\\Decorations\\**\\*.svg", project, StringComparison.Ordinal);
+        Assert.Contains("TreeDecorationSettingsSectionTemplate", xaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"TreeDecorationSettings\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("[\"TreeDecorationSettings\"]", shell, StringComparison.Ordinal);
+        string section = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/TreeDecorationSettingsSection.cs"));
+        Assert.Contains("InitializeAsync", section, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DecorationPage_ShowsOfflineAndErrorsBeforeEmptyStateLoading()
+    {
+        string section = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/TreeDecorationSettingsSection.cs"));
+
+        int offline = section.IndexOf("_service.IsOffline", StringComparison.Ordinal);
+        int error = section.IndexOf("_service.ErrorCode is string errorCode", StringComparison.Ordinal);
+        int loading = section.IndexOf("state is null", offline, StringComparison.Ordinal);
+
+        Assert.True(offline >= 0 && error > offline && loading > error,
+            "Offline and server errors must not be hidden behind the empty-state loading message.");
+    }
+
+    [Fact]
+    public void DesktopTree_HasFiveDecorationLayersBelowRealWeather()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
+        string decorations = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.Decorations.cs"));
+
+        Assert.Contains("_decorationLayers[-2]", source, StringComparison.Ordinal);
+        Assert.Contains("_decorationLayers[-1]", source, StringComparison.Ordinal);
+        Assert.Contains("_decorationLayers[0]", source, StringComparison.Ordinal);
+        Assert.Contains("_decorationLayers[1]", source, StringComparison.Ordinal);
+        Assert.Contains("_decorationLayers[2]", source, StringComparison.Ordinal);
+        Assert.True(source.IndexOf("_decorationLayers[2]", StringComparison.Ordinal) <
+            source.IndexOf("_weatherFrontLayer", StringComparison.Ordinal));
+        Assert.Contains("IsHitTestVisible = false", decorations, StringComparison.Ordinal);
+        Assert.Contains("_renderedDecorationSignature", decorations, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChineseAndEnglishResources_CoverDecorationPageAndEditorActions()
+    {
+        foreach (string culture in new[] { "zh-CN", "en-US" })
+        {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(
+                TestPaths.FromRepository($"src/DeskBox/Strings/{culture}.json")));
+            JsonElement root = document.RootElement;
+            foreach (string key in new[]
+            {
+                "Tree.Decorations.Title", "Tree.Decorations.DrawOne", "Tree.Decorations.DrawTen",
+                "Tree.Decorations.Save", "Tree.Decorations.Undo", "Tree.Decorations.Return",
+                "Tree.Decorations.Scale", "Tree.Decorations.Rotation", "Tree.Decorations.Layer"
+            })
+                Assert.True(root.TryGetProperty(key, out _), $"{culture}: {key}");
+        }
+    }
+}

@@ -121,6 +121,13 @@ public sealed partial class SettingsWindow
                     _authSession,
                     _treeCloudSyncService);
                 break;
+            case TreeDecorationSettingsSection treeDecorations:
+                treeDecorations.Configure(
+                    _treeDecorationService,
+                    _aquariumService,
+                    _localizationService,
+                    _authSession);
+                break;
             case DingTalkGroupDocsSettingsSection groupDocsSettings:
                 groupDocsSettings.Configure(
                     _localizationService,

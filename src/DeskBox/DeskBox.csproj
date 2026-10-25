@@ -291,6 +291,10 @@
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       </Content>
+      <Content Include="Assets\Tree\Decorations\**\*.svg;Assets\Tree\Decorations\catalog.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
     <Content Include="Assets\Aquarium\*.png;Assets\Aquarium\*.svg;Assets\Aquarium\*.md;Assets\Aquarium\Svg\*.svg;Assets\Aquarium\Vector\*.png;Assets\Aquarium\Silhouettes\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

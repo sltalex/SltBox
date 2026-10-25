@@ -101,6 +101,7 @@ public sealed partial class SettingsWindow : Window
             ["AquariumStore"] = new("AquariumStore", "Aquarium.Settings.Store", null, "AquariumStore"),
             ["FruitMarket"] = new("FruitMarket", "Tree.FruitMarket", null, "FruitMarket"),
             ["FruitEncyclopedia"] = new("FruitEncyclopedia", "Tree.FruitEncyclopedia", null, "FruitEncyclopedia"),
+            ["TreeDecorationSettings"] = new("TreeDecorationSettings", "Tree.Decorations.Title", null, "TreeDecorationSettings"),
             ["PerformanceSettings"] = new("PerformanceSettings", "Settings.Performance.Title", "General", "General"),
             ["Appearance"] = new("Appearance", "Settings.Section.Appearance", null, "Appearance"),
             ["CapsuleMode"] = new("CapsuleMode", "Settings.Section.CapsuleMode", null, "CapsuleMode"),
@@ -147,6 +148,7 @@ public sealed partial class SettingsWindow : Window
     private readonly IBackupCommands _backupCommands;
     private readonly AccountCloudBackupService _accountCloudBackupService;
     private readonly TreeCloudSyncService _treeCloudSyncService;
+    private readonly TreeDecorationService _treeDecorationService;
     private readonly AquariumService _aquariumService;
     private readonly DingTalkGroupDocumentSyncService _dingTalkGroupDocumentSyncService;
     private readonly IAuthSession _authSession;
@@ -214,6 +216,7 @@ public sealed partial class SettingsWindow : Window
         DingTalkAccountService dingTalkAccountService,
         AccountCloudBackupService accountCloudBackupService,
         TreeCloudSyncService treeCloudSyncService,
+        TreeDecorationService treeDecorationService,
         DingTalkGroupDocumentSyncService dingTalkGroupDocumentSyncService,
         AquariumService aquariumService)
     {
@@ -236,6 +239,7 @@ public sealed partial class SettingsWindow : Window
         _backupRestoreActions = backupRestoreActions;
         _accountCloudBackupService = accountCloudBackupService;
         _treeCloudSyncService = treeCloudSyncService;
+        _treeDecorationService = treeDecorationService;
         _aquariumService = aquariumService;
         _dingTalkGroupDocumentSyncService = dingTalkGroupDocumentSyncService;
         _authSession = authSession;

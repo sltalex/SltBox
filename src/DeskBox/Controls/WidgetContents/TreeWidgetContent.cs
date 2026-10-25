@@ -69,6 +69,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     public TreeWidgetContent(LocalizationService localization)
     {
         _localization = localization;
+        _drawing.Children.Add(_decorationThemeLayer);
         _drawing.Children.Add(new Image
         {
             Source = Asset("ground.svg"), Width = TreeIllustrationLayout.Width,
@@ -86,12 +87,17 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _canopySurface.Children.Add(_fruitPickLayer);
         _treeSurface.Children.Add(_treeImage);
         _treeSurface.Children.Add(_canopySurface);
-        _drawing.Children.Add(_weatherSkyLayer);
+        _drawing.Children.Add(_decorationLayers[-2]);
+        _drawing.Children.Add(_decorationLayers[-1]);
         _drawing.Children.Add(_treeSurface);
+        _drawing.Children.Add(_decorationLayers[0]);
         _drawing.Children.Add(_wildlifeLayer);
+        _drawing.Children.Add(_decorationLayers[1]);
         _drawing.Children.Add(_fallingLeafLayer);
+        _drawing.Children.Add(_decorationLayers[2]);
         _weatherGroundLayer.RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.GroundVerticalOffset };
         _drawing.Children.Add(_weatherGroundLayer);
+        _drawing.Children.Add(_weatherSkyLayer);
         _weatherFrontLayer.RenderTransform = _weatherTransform;
         _drawing.Children.Add(_weatherFrontLayer);
         ConfigureMotion();
@@ -133,6 +139,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             _counter.Changed += CounterChanged;
             App.Current.FruitService.Changed += FruitChanged;
             App.Current.WildlifeService.Changed += FruitChanged;
+            App.Current.TreeDecorationService.Changed += DecorationChanged;
             if (_visible && !_disposed) { _timer.Start(); Refresh(); }
         };
         Unloaded += (_, _) => { _counter.Changed -= CounterChanged; _timer.Stop(); StopMotion(); };
@@ -143,6 +150,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             App.Current.WildlifeService.SetVisible(false);
         };
         Unloaded += (_, _) => App.Current.FruitService.Changed -= FruitChanged;
+        Unloaded += (_, _) => App.Current.TreeDecorationService.Changed -= DecorationChanged;
         Refresh();
     }
 
@@ -190,6 +198,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _lastFruitSignature = fruitSignature;
 
         RenderWeatherEffects();
+        RenderDecorations(p.Stage);
         RenderWildlife();
         UpdateMotion();
         if (celebrate && _motionRunning)
