@@ -6,6 +6,7 @@
     xmlns:svc="using:DeskBox.Services">
     <StackPanel Spacing="12">
         <TextBlock FontSize="24" FontWeight="SemiBold" svc:Localized.Key="Aquarium.Settings.Store" />
+        <TextBlock x:Name="CoinBalance" FontSize="22" FontWeight="SemiBold" />
         <toolkit:SettingsCard
             ContentAlignment="Vertical"
             HorizontalContentAlignment="Stretch"

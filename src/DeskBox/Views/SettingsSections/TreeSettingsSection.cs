@@ -20,8 +20,6 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TextBlock _enableLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _statisticsLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _status = new() { FontSize = 17, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-    private readonly TextBlock _growthSummary = new() { FontSize = 13, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
@@ -29,7 +27,6 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
-    private readonly SettingsCard _currentCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly SettingsCard _syncCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -48,11 +45,6 @@ public sealed partial class TreeSettingsSection : UserControl
 
     public TreeSettingsSection()
     {
-        var current = new StackPanel { Spacing = 4 };
-        current.Children.Add(_status);
-        current.Children.Add(_growthSummary);
-        _currentCard.Content = current;
-
         var switches = new Grid { ColumnSpacing = 18 };
         switches.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         switches.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -92,11 +84,10 @@ public sealed partial class TreeSettingsSection : UserControl
         _leaderboardCard.Child = leaderboardPanel;
 
         var panel = new StackPanel { Spacing = 10, Margin = new Thickness(24) };
-        panel.Children.Add(_currentCard);
+        panel.Children.Add(_decorations);
         panel.Children.Add(_switchesCard);
         panel.Children.Add(_syncCard);
         panel.Children.Add(_leaderboardCard);
-        panel.Children.Add(_decorations);
         Content = panel;
 
         _decorations.NavigationRequested += (_, args) => NavigationRequested?.Invoke(this, args);
@@ -164,8 +155,6 @@ public sealed partial class TreeSettingsSection : UserControl
     private void RenderLabels()
     {
         if (_localization is null) return;
-        _currentCard.Header = _localization.T("Tree.Settings.Card.Current");
-        _currentCard.Description = _localization.T("Tree.Settings.Card.Current.Description");
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _syncCard.Header = _localization.T("Tree.Settings.Card.Sync");
         _syncCard.Description = string.Empty;
@@ -298,8 +287,6 @@ public sealed partial class TreeSettingsSection : UserControl
             _statistics.IsEnabled = statistics.ToggleEnabled;
             _statistics.IsOn = statistics.ToggleOn;
             _statistics.OffContent = _localization.T(statistics.OffContentKey);
-            _status.Text = _localization.T($"Tree.Stage.{snapshot.Stage}");
-            _growthSummary.Text = _localization.Format("Tree.Settings.Current.Summary", snapshot.TodayKeys, snapshot.TotalEnergy, snapshot.FruitInventory);
         }
         finally { _updating = false; }
     }

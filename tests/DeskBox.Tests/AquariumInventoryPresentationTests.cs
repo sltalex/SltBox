@@ -128,11 +128,15 @@ public sealed class AquariumInventoryPresentationTests
         Assert.DoesNotContain("BackpackCategories", backpack, StringComparison.Ordinal);
         Assert.Contains("StoreCategories", store, StringComparison.Ordinal);
         Assert.Contains("StoreItems", store, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CoinBalance\"", store, StringComparison.Ordinal);
+        Assert.Contains("store.CoinBalanceLabel.Text", settings, StringComparison.Ordinal);
         Assert.Contains("FruitMarketSection", store, StringComparison.Ordinal);
         Assert.DoesNotContain("SaveLayout", backpack, StringComparison.Ordinal);
         Assert.DoesNotContain("_walletTab", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("RenderWallet", settings, StringComparison.Ordinal);
         Assert.Contains("AquariumInventoryPresentation.GeneralItems", settings, StringComparison.Ordinal);
+        Assert.Contains("AddTreePackBackpackCards(cards)", settings, StringComparison.Ordinal);
+        Assert.Contains("BackpackPackCard", settings, StringComparison.Ordinal);
         Assert.Contains("AquariumInventoryPresentation.AquariumItems", settings, StringComparison.Ordinal);
         Assert.Contains("backpack.AquariumRequested += () => NavigateToSettingsSection(\"AquariumSettings\")", navigation,
             StringComparison.Ordinal);
@@ -141,6 +145,18 @@ public sealed class AquariumInventoryPresentationTests
         int storeIndex = settingsShell.IndexOf("Tag=\"AquariumStore\"", StringComparison.Ordinal);
         Assert.True(backpackIndex >= 0 && storeIndex > backpackIndex,
             "The商城 navigation item must be declared below 背包.");
+    }
+
+    [Fact]
+    public void FruitMarket_UsesCompactCardsAndButtons()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src", "DeskBox", "Views",
+            "SettingsSections", "FruitMarketSection.xaml.cs"));
+
+        Assert.Contains("Width = 180, MinHeight = 160", source, StringComparison.Ordinal);
+        Assert.Contains("Content = \"全卖\", Width = 90", source, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText = \"数量\", Width = 48", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Width = 210, MinHeight = 160", source, StringComparison.Ordinal);
     }
 
     [Fact]

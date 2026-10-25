@@ -74,6 +74,23 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
+    public void TreeSettings_PutsDecorationFirstAndLeaderboardLastWithoutCurrentProgressCard()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+
+        Assert.DoesNotContain("_currentCard", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_growthSummary", source, StringComparison.Ordinal);
+        int panel = source.IndexOf("var panel = new StackPanel", StringComparison.Ordinal);
+        int decorations = source.IndexOf("panel.Children.Add(_decorations)", panel, StringComparison.Ordinal);
+        int switches = source.IndexOf("panel.Children.Add(_switchesCard)", panel, StringComparison.Ordinal);
+        int sync = source.IndexOf("panel.Children.Add(_syncCard)", panel, StringComparison.Ordinal);
+        int leaderboard = source.IndexOf("panel.Children.Add(_leaderboardCard)", panel, StringComparison.Ordinal);
+        Assert.True(panel >= 0 && decorations > panel && switches > decorations && sync > switches
+            && leaderboard > sync);
+    }
+
+    [Fact]
     public void TreeLeaderboard_DeserializesUnpickedFruitAlongsideCumulativeTotal()
     {
         const string json = """

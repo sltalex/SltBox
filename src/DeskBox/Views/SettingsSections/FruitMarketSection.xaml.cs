@@ -28,7 +28,7 @@ public sealed partial class FruitMarketSection : UserControl
                 var imageAndActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 imageAndActions.Children.Add(new Image
                 {
-                    Source = FruitAssetCatalog.GetImageSource(fruit.Id), Width = 62, Height = 62,
+                    Source = FruitAssetCatalog.GetImageSource(fruit.Id), Width = 54, Height = 54,
                     Stretch = Stretch.Uniform
                 });
                 var actions = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
@@ -37,11 +37,11 @@ public sealed partial class FruitMarketSection : UserControl
                 {
                     Minimum = 1, Maximum = owned.Quantity, Value = 1, SmallChange = 1,
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
-                    PlaceholderText = "数量", Width = 58, MinWidth = 0
+                    PlaceholderText = "数量", Width = 48, MinWidth = 0
                 };
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(amount, $"{fruit.Name}出售数量");
-                var custom = new Button { Content = "卖", Width = 48, MinWidth = 0, IsEnabled = Service.IsAvailable };
-                var all = new Button { Content = "全卖", Width = 110, MinWidth = 0, IsEnabled = Service.IsAvailable };
+                var custom = new Button { Content = "卖", Width = 38, MinWidth = 0, IsEnabled = Service.IsAvailable };
+                var all = new Button { Content = "全卖", Width = 90, MinWidth = 0, IsEnabled = Service.IsAvailable };
                 async Task SellAsync(int quantity)
                 {
                     all.IsEnabled = custom.IsEnabled = amount.IsEnabled = false;
@@ -74,7 +74,7 @@ public sealed partial class FruitMarketSection : UserControl
                 card.Children.Add(new TextBlock { Text = $"今日 {fruit.CurrentPrice} 金币 · 数量 {owned.Quantity}", FontSize = 11, Opacity = .75, TextWrapping = TextWrapping.Wrap });
                 var history = Service.PriceHistory.TryGetValue(fruit.Id, out var points) ? string.Join("  ", points.TakeLast(7).Select(x => x.Price)) : "暂无历史";
                 card.Children.Add(new TextBlock { Text = $"7日：{history}", FontSize = 10, Opacity = .65, TextWrapping = TextWrapping.Wrap });
-                FruitCards.Children.Add(new Border { Width = 210, MinHeight = 160, Padding = new Thickness(8), CornerRadius = new CornerRadius(10), Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush, Child = card });
+                FruitCards.Children.Add(new Border { Width = 180, MinHeight = 160, Padding = new Thickness(8), CornerRadius = new CornerRadius(10), Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush, Child = card });
             }
             Status.Text = FruitCards.Children.Count == 0 ? "背包中暂无可出售的分类果实。" : "";
         });

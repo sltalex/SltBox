@@ -99,6 +99,7 @@ public sealed class TreeStatisticsStateTests
         Assert.DoesNotContain("_totalGrowthBar", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Tree.Settings.NextStageProgress", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Tree.Settings.TotalGrowthProgress", source, StringComparison.Ordinal);
-        Assert.Contains("_growthSummary", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_growthSummary", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_currentCard", source, StringComparison.Ordinal);
     }
 }

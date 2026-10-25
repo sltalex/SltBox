@@ -380,6 +380,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private void RenderStore()
     {
         if (_externalStore is not { } store) return;
+        store.CoinBalanceLabel.Text = F("Aquarium.Settings.Coins", _service?.State?.Coins ?? 0);
         store.CategoriesHost.Children.Clear();
         store.ItemsHost.Children.Clear();
         if (_service is null) return;
@@ -519,10 +520,23 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         }
         var owned = AquariumInventoryPresentation.Summarize(_service?.State?.Inventory ?? [], _draft,
             _service?.Catalog ?? []);
-        bool hasTreePacks = AddTreePackBackpackCards(page.ItemsHost);
         IReadOnlyList<AquariumOwnedProduct> general = AquariumInventoryPresentation.GeneralItems(owned);
-        if (general.Count > 0) AddBackpackCards(page.ItemsHost, general, showEdit: false);
-        else if (!hasTreePacks) page.ItemsHost.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
+        var cards = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalSpacing = 8,
+            VerticalSpacing = 8
+        };
+        bool hasTreePacks = false;
+        foreach (AquariumOwnedProduct product in general)
+        {
+            cards.Children.Add(BackpackCard(product, showEdit: false));
+            if (product.Product.Id == AquariumService.AquariumCardPackItemId)
+                hasTreePacks = AddTreePackBackpackCards(cards);
+        }
+        if (!hasTreePacks) hasTreePacks = AddTreePackBackpackCards(cards);
+        if (cards.Children.Count > 0) page.ItemsHost.Children.Add(cards);
+        else page.ItemsHost.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
     }
 
     private Border TreePackStoreCard(int drawCount)
@@ -547,28 +561,22 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             F("Aquarium.Settings.Price", price == long.MaxValue ? 0 : price), buy);
     }
 
-    private bool AddTreePackBackpackCards(StackPanel host)
+    private bool AddTreePackBackpackCards(Panel cards)
     {
         if (_treeDecorations?.State?.CardPacks is not { Count: > 0 } packs) return false;
-        var cards = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalSpacing = 8, VerticalSpacing = 8 };
         foreach (IGrouping<int, TreeDecorationCardPack> group in packs.GroupBy(pack => pack.DrawCount).OrderBy(group => group.Key))
         {
             TreeDecorationCardPack next = group.First();
             var open = ActionButton("Tree.Decorations.CardPack.Open");
-            open.FontSize = 11;
-            open.MinHeight = 26;
-            open.Padding = new Thickness(8, 2, 8, 2);
             open.IsEnabled = !_busy && !_packEffectRunning && CanOperate && _treeDecorations.State.Mature;
             open.Click += async (_, _) => await RunAsync(async () =>
             {
                 if (_treeDecorations is null) return;
                 if (!await _treeDecorations.OpenPackAsync(next.Id)) _noticeKey = TreeDecorationErrorKey();
             });
-            cards.Children.Add(SimpleProductCard(TreePackVisual(60, 48),
-                F("Tree.Decorations.CardPack.Name", group.Key),
-                F("Tree.Decorations.CardPack.Owned", group.Count()), open, 146, 150));
+            cards.Children.Add(BackpackPackCard(TreePackVisual(54, 43),
+                F("Tree.Decorations.CardPack.Name", group.Key), group.Count(), open));
         }
-        host.Children.Add(cards);
         return true;
     }
 
@@ -728,11 +736,26 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private Border BackpackCard(AquariumOwnedProduct owned, bool showEdit)
     {
         AquariumCatalogItem product = owned.Product;
+        if (IsCardPack(product.Category))
+        {
+            var open = ActionButton("Aquarium.Settings.CardPack.Open");
+            open.IsEnabled = !_busy && !_packEffectRunning && CanOperate && owned.NextToPlace is not null;
+            open.Click += async (_, _) =>
+            {
+                if (owned.NextToPlace is not { } item || _service is null) return;
+                await RunAsync(async () =>
+                {
+                    bool success = await _service.OpenPackAsync(item.Id);
+                    if (!success) _noticeKey = ErrorKey();
+                });
+            };
+            return BackpackPackCard(ProductVisual(product, 54, 43), ProductName(product), owned.OwnedCount, open);
+        }
         var panel = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
         var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
         imageHost.Children.Add(ProductVisual(product, 54, 43));
         imageHost.Children.Add(BackpackQuantityBadge(owned.OwnedCount));
-        if (showEdit && owned.NextToRecall is { } editable && product.Category is not ("fish" or "jellyfish") && !IsCardPack(product.Category))
+        if (showEdit && owned.NextToRecall is { } editable && product.Category is not ("fish" or "jellyfish"))
         {
             var edit = ActionButton("Aquarium.Settings.Edit");
             edit.FontSize = 11;
@@ -754,41 +777,50 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         });
         panel.Children.Add(new TextBlock
         {
-            Text = IsCardPack(product.Category) ? L("Aquarium.Settings.CardPack.Hint")
-                : $"{L("Aquarium.Settings.Placed")} {owned.PlacedCount}/{owned.OwnedCount}",
+            Text = $"{L("Aquarium.Settings.Placed")} {owned.PlacedCount}/{owned.OwnedCount}",
             FontSize = 11, Opacity = .72, TextAlignment = TextAlignment.Center
         });
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
-        if (IsCardPack(product.Category))
-        {
-            var open = ActionButton("Aquarium.Settings.CardPack.Open");
-            open.FontSize = 11;
-            open.MinHeight = 26;
-            open.Padding = new Thickness(8, 2, 8, 2);
-            open.IsEnabled = !_busy && !_packEffectRunning && CanOperate && owned.NextToPlace is not null;
-            open.Click += async (_, _) =>
-            {
-                if (owned.NextToPlace is not { } item || _service is null) return;
-                await RunAsync(async () =>
-                {
-                    bool success = await _service.OpenPackAsync(item.Id);
-                    if (!success) _noticeKey = ErrorKey();
-                });
-            };
-            actions.Children.Add(open);
-        }
-        else
-        {
-            var place = SmallBackpackAction("Aquarium.Settings.Place", "+");
-            place.IsEnabled = !_busy && _service?.IsAvailable == true && owned.NextToPlace is not null;
-            place.Click += (_, _) => { if (owned.NextToPlace is { } item) TogglePlacement(item, product); };
-            actions.Children.Add(place);
-            var recall = SmallBackpackAction("Aquarium.Settings.Recall", "−");
-            recall.IsEnabled = !_busy && _service?.IsAvailable == true && owned.NextToRecall is not null;
-            recall.Click += (_, _) => { if (owned.NextToRecall is { } item) TogglePlacement(item, product); };
-            actions.Children.Add(recall);
-        }
+        var place = SmallBackpackAction("Aquarium.Settings.Place", "+");
+        place.IsEnabled = !_busy && _service?.IsAvailable == true && owned.NextToPlace is not null;
+        place.Click += (_, _) => { if (owned.NextToPlace is { } item) TogglePlacement(item, product); };
+        actions.Children.Add(place);
+        var recall = SmallBackpackAction("Aquarium.Settings.Recall", "−");
+        recall.IsEnabled = !_busy && _service?.IsAvailable == true && owned.NextToRecall is not null;
+        recall.Click += (_, _) => { if (owned.NextToRecall is { } item) TogglePlacement(item, product); };
+        actions.Children.Add(recall);
         panel.Children.Add(actions);
+        return new Border
+        {
+            Width = 146, Height = 150, Padding = new Thickness(6), CornerRadius = new CornerRadius(10),
+            Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
+            Child = panel
+        };
+    }
+
+    private Border BackpackPackCard(FrameworkElement visual, string nameText, long count, Button open)
+    {
+        var panel = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
+        imageHost.Children.Add(visual);
+        imageHost.Children.Add(BackpackQuantityBadge(count));
+        panel.Children.Add(imageHost);
+        panel.Children.Add(new TextBlock
+        {
+            Text = nameText, FontSize = 12,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, MaxLines = 2
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = L("Aquarium.Settings.CardPack.Hint"), FontSize = 11,
+            Opacity = .72, TextAlignment = TextAlignment.Center
+        });
+        open.FontSize = 11;
+        open.MinHeight = 26;
+        open.Padding = new Thickness(8, 2, 8, 2);
+        open.HorizontalAlignment = HorizontalAlignment.Center;
+        panel.Children.Add(open);
         return new Border
         {
             Width = 146, Height = 150, Padding = new Thickness(6), CornerRadius = new CornerRadius(10),
