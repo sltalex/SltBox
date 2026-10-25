@@ -60,7 +60,9 @@ public sealed class TreeDecorationServiceTests : IDisposable
 
         Assert.False(await service.SaveSceneAsync(draft, null, 0));
         Assert.Equal("scene_conflict", service.ErrorCode);
-        Assert.Equal(draft, service.PendingScene);
+        TreeDecorationPlacement pending = Assert.Single(service.PendingScene!);
+        Assert.False(string.IsNullOrWhiteSpace(pending.PlacementId));
+        Assert.Equal(draft[0] with { PlacementId = pending.PlacementId }, pending);
 
         Assert.True(await service.ClearConflictDraftAsync());
         Assert.Null(service.PendingScene);
@@ -79,6 +81,26 @@ public sealed class TreeDecorationServiceTests : IDisposable
         Assert.Equal("scene_conflict", service.ErrorCode);
         Assert.Equal(7, service.State!.SceneVersion);
         Assert.Equal(1, api.StateRequests);
+    }
+
+    [Fact]
+    public async Task SavingMultipleInstancesPublishesTheAuthoritativeScene()
+    {
+        var api = new FakeApi();
+        await using var service = new TreeDecorationService(new FakeAuth(), api, _root);
+        Assert.True(await service.RefreshAsync());
+        int changed = 0;
+        service.Changed += () => changed++;
+        TreeDecorationPlacement[] placements =
+        [
+            new("first-lantern", "red-lantern", .25, .35, 1, 0, 0),
+            new("second-lantern", "red-lantern", .75, .65, 1, 0, 1)
+        ];
+
+        Assert.True(await service.SaveSceneAsync(placements, null, 0));
+
+        Assert.Equal(placements, service.State!.Placements);
+        Assert.True(changed > 0);
     }
 
     public void Dispose()
@@ -109,6 +131,8 @@ public sealed class TreeDecorationServiceTests : IDisposable
         internal List<byte[]> Commands { get; } = [];
         private long _coins = 1000;
         private bool _packOwned = true;
+        private long _sceneVersion;
+        private string _placements = "[]";
 
         public Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativePath, byte[]? jsonBody,
             string? contentEncoding, CancellationToken cancellationToken = default)
@@ -139,6 +163,11 @@ public sealed class TreeDecorationServiceTests : IDisposable
                 CommittedMutations++;
                 if (action == "buy_pack") _coins -= 1800;
                 if (action == "open_pack") _packOwned = false;
+                if (action == "save_scene")
+                {
+                    _placements = document.RootElement.GetProperty("placements").GetRawText();
+                    _sceneVersion++;
+                }
             }
             string result = action == "open_pack"
                 ? StateJson(",\"draw_results\":[{\"item_id\":\"red-lantern\",\"rarity\":\"common\",\"is_new\":true,\"shards_awarded\":0}]")
@@ -151,10 +180,11 @@ public sealed class TreeDecorationServiceTests : IDisposable
             return Task.FromResult(Response(result));
         }
 
-        private string StateJson(string extra = "", long sceneVersion = 0) => $$"""
-            {"mature":true,"coins":{{_coins}},"shards":0,"scene_version":{{sceneVersion}},
+        private string StateJson(string extra = "", long? sceneVersion = null) => $$"""
+            {"mature":true,"coins":{{_coins}},"shards":0,"scene_version":{{sceneVersion ?? _sceneVersion}},
              "owned_ids":["red-lantern"],"card_packs":{{(_packOwned ? "[{\"id\":\"" + PackId + "\",\"draw_count\":1,\"created_at\":\"now\"}]" : "[]")}},
-             "placements":[],"active_theme_id":null{{extra}}}
+             "inventory":[{"item_id":"red-lantern","quantity":2}],
+             "placements":{{_placements}},"active_theme_id":null{{extra}}}
             """;
 
         private static HttpResponseMessage Response(string json, HttpStatusCode status = HttpStatusCode.OK) => new(status)

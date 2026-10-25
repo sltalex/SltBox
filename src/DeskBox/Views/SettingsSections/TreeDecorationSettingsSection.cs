@@ -26,12 +26,7 @@ public sealed class TreeDecorationSettingsSection : UserControl
     private readonly Slider _rotation = new() { Minimum = -45, Maximum = 45, StepFrequency = 1, Width = 220 };
     private readonly ComboBox _layer = new() { Width = 100, ItemsSource = new object[] { -2, -1, 0, 1, 2 } };
     private readonly TreeDecorationSceneView _scene = new();
-    private readonly WrapPanel _catalog = new()
-    {
-        Orientation = Orientation.Horizontal,
-        HorizontalSpacing = 8,
-        VerticalSpacing = 8
-    };
+    private readonly Grid _catalog = new() { ColumnSpacing = 8, RowSpacing = 8 };
     private readonly Border _editorSurface = new()
     {
         HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -56,6 +51,8 @@ public sealed class TreeDecorationSettingsSection : UserControl
 
     public TreeDecorationSettingsSection()
     {
+        for (int column = 0; column < 4; column++)
+            _catalog.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var root = new StackPanel { Spacing = 10 };
         root.Children.Add(_status);
 
@@ -67,7 +64,7 @@ public sealed class TreeDecorationSettingsSection : UserControl
         _save.Click += async (_, _) => await SaveAsync();
         _return.Click += (_, _) => ReturnSelected();
         _reapply.Click += (_, _) => ReapplyConflictDraft();
-        _scene.SelectedItemChanged += _ => RefreshEditor();
+        _scene.SelectedPlacementChanged += _ => RefreshEditor();
         _scene.SceneEdited += () => { _dirty = true; RefreshEditor(); RefreshActions(); };
         _scale.ValueChanged += (_, _) => ApplyEditorValues();
         _rotation.ValueChanged += (_, _) => ApplyEditorValues();
@@ -221,83 +218,112 @@ public sealed class TreeDecorationSettingsSection : UserControl
     private void RenderCatalog()
     {
         _catalog.Children.Clear();
-        if (_service?.Catalog is not { } catalog || _localization is null) return;
-        HashSet<string> owned = _service.State?.OwnedIds.ToHashSet(StringComparer.Ordinal) ?? [];
-        foreach (TreeDecorationCatalogItem item in catalog.Items)
+        _catalog.RowDefinitions.Clear();
+        if (_service?.Catalog is not { } catalog || _service.State is not { } state ||
+            _localization is null) return;
+        IReadOnlyList<TreeDecorationOwnedProduct> products = TreeDecorationInventoryPresentation.Summarize(
+            state.Inventory, _draft.Placements, catalog.Items);
+        for (int index = 0; index < products.Count; index++)
         {
-            bool hasItem = owned.Contains(item.Id);
+            TreeDecorationOwnedProduct owned = products[index];
+            TreeDecorationCatalogItem item = owned.Product;
+            if (index % 4 == 0)
+                _catalog.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             bool activeTheme = item.Id == _draft.ActiveThemeId;
-            var image = new Image
+            var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
+            imageHost.Children.Add(new Image
             {
-                Width = 82, Height = 82, Stretch = Stretch.Uniform,
-                Source = hasItem ? TreeDecorationAssetCatalog.Source(item.AssetKey) :
-                    TreeDecorationAssetCatalog.Silhouette(item.AssetKey),
-                Opacity = hasItem ? 1 : .58,
+                Width = 54, Height = 43, Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Source = TreeDecorationAssetCatalog.Source(item.AssetKey),
                 IsHitTestVisible = false
-            };
+            });
+            imageHost.Children.Add(BackpackQuantityBadge(owned.OwnedCount));
             string name = _localization.T("Tree.Decorations.Item." + item.Id);
             var nameBlock = new TextBlock
             {
-                Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap
+                Text = name, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxLines = 2
             };
-            var rarity = new TextBlock
-            {
-                Text = _localization.T("Tree.Decorations.Rarity." + item.Rarity),
-                FontSize = 12, Opacity = .72, TextAlignment = TextAlignment.Center
-            };
-            var action = new Button
-            {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Tag = item,
-                Content = hasItem
-                    ? item.Category == "theme"
-                        ? _localization.T(activeTheme ? "Tree.Decorations.DisableTheme" : "Tree.Decorations.EnableTheme")
-                        : _localization.T(_draft.Placements.Any(p => p.ItemId == item.Id)
-                            ? "Tree.Decorations.Placed" : "Tree.Decorations.Place")
-                    : _localization.Format("Tree.Decorations.Redeem", ShardCost(item.Rarity)),
-                IsEnabled = CanMutate() && (!hasItem || item.Category == "theme" ||
-                    !_draft.Placements.Any(p => p.ItemId == item.Id))
-            };
-            action.Click += CatalogAction_Click;
-            var panel = new StackPanel { Spacing = 5 };
-            panel.Children.Add(image);
+            var panel = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
+            panel.Children.Add(imageHost);
             panel.Children.Add(nameBlock);
-            panel.Children.Add(rarity);
-            panel.Children.Add(action);
+            if (item.Category == "theme")
+            {
+                var theme = new Button
+                {
+                    Content = _localization.T(activeTheme
+                        ? "Tree.Decorations.DisableTheme" : "Tree.Decorations.EnableTheme"),
+                    FontSize = 11, MinHeight = 26, Padding = new Thickness(8, 2, 8, 2),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    IsEnabled = CanMutate()
+                };
+                theme.Click += (_, _) =>
+                {
+                    _draft.SetTheme(activeTheme ? null : item.Id);
+                    _dirty = true;
+                    _scene.Render();
+                    Refresh();
+                };
+                panel.Children.Add(theme);
+            }
+            else
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = $"{_localization.T("Aquarium.Settings.Placed")} {owned.PlacedCount}/{owned.OwnedCount}",
+                    FontSize = 11, Opacity = .72, TextAlignment = TextAlignment.Center
+                });
+                var actions = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 4,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                var place = SmallBackpackAction("+");
+                ToolTipService.SetToolTip(place, _localization.T("Aquarium.Settings.Place"));
+                place.IsEnabled = CanMutate() && owned.CanPlace;
+                place.Click += (_, _) =>
+                {
+                    if (!_draft.TryAdd(item.Id, out string placementId)) return;
+                    _dirty = true;
+                    _scene.Select(placementId);
+                    _scene.Render();
+                    Refresh();
+                };
+                actions.Children.Add(place);
+                var recall = SmallBackpackAction("−");
+                ToolTipService.SetToolTip(recall, _localization.T("Aquarium.Settings.Recall"));
+                recall.IsEnabled = CanMutate() && owned.CanRecall;
+                recall.Click += (_, _) => RecallOne(item.Id);
+                actions.Children.Add(recall);
+                panel.Children.Add(actions);
+            }
             var card = new Border
             {
-                Width = 150, MinHeight = 182, Padding = new Thickness(10),
-                Margin = new Thickness(4), CornerRadius = new CornerRadius(8),
+                Width = 146, Height = 150, Padding = new Thickness(6),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                CornerRadius = new CornerRadius(10),
                 Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
                 BorderBrush = activeTheme ? new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue) :
                     Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush,
                 BorderThickness = new Thickness(activeTheme ? 2 : 1), Child = panel
             };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, name);
+            Grid.SetColumn(card, index % 4);
+            Grid.SetRow(card, index / 4);
             _catalog.Children.Add(card);
         }
     }
 
-    private async void CatalogAction_Click(object sender, RoutedEventArgs e)
+    private void RecallOne(string itemId)
     {
-        if (sender is not Button { Tag: TreeDecorationCatalogItem item } || _service is null) return;
-        bool owned = _service.State?.OwnedIds.Contains(item.Id, StringComparer.Ordinal) == true;
-        if (!owned)
-        {
-            await RunAsync(() => _service.RedeemAsync(item.Id));
-            return;
-        }
-        if (item.Category == "theme")
-        {
-            _draft.SetTheme(_draft.ActiveThemeId == item.Id ? null : item.Id);
-            _dirty = true;
-        }
-        else if (_draft.TryAdd(item.Id))
-        {
-            _dirty = true;
-            _scene.Select(item.Id);
-        }
+        TreeDecorationPlacement? selected = _scene.SelectedPlacementId is string selectedId
+            ? _draft.Placements.FirstOrDefault(item => item.PlacementId == selectedId && item.ItemId == itemId)
+            : null;
+        TreeDecorationPlacement? placement = selected ?? _draft.Placements.LastOrDefault(item => item.ItemId == itemId);
+        if (placement is null || !_draft.Remove(placement.PlacementId)) return;
+        _dirty = true;
+        if (placement.PlacementId == _scene.SelectedPlacementId) _scene.Select(null);
         _scene.Render();
         Refresh();
     }
@@ -319,7 +345,7 @@ public sealed class TreeDecorationSettingsSection : UserControl
 
     private void ReturnSelected()
     {
-        if (_scene.SelectedItemId is not string itemId || !_draft.Remove(itemId)) return;
+        if (_scene.SelectedPlacementId is not string placementId || !_draft.Remove(placementId)) return;
         _dirty = true;
         _scene.Select(null);
         _scene.Render();
@@ -338,11 +364,12 @@ public sealed class TreeDecorationSettingsSection : UserControl
 
     private void ApplyEditorValues()
     {
-        if (_updatingEditors || _scene.SelectedItemId is not string itemId ||
+        if (_updatingEditors || _scene.SelectedPlacementId is not string placementId ||
             _layer.SelectedItem is not int layer) return;
-        TreeDecorationPlacement? current = _draft.Placements.FirstOrDefault(item => item.ItemId == itemId);
+        TreeDecorationPlacement? current = _draft.Placements.FirstOrDefault(
+            item => item.PlacementId == placementId);
         if (current is null) return;
-        if (_draft.TryUpdate(itemId, current.X, current.Y, _scale.Value, _rotation.Value, layer))
+        if (_draft.TryUpdate(placementId, current.X, current.Y, _scale.Value, _rotation.Value, layer))
         {
             _dirty = true;
             _scene.Render();
@@ -353,8 +380,8 @@ public sealed class TreeDecorationSettingsSection : UserControl
     private void RefreshEditor()
     {
         if (_localization is null) return;
-        TreeDecorationPlacement? selected = _scene.SelectedItemId is string id
-            ? _draft.Placements.FirstOrDefault(item => item.ItemId == id) : null;
+        TreeDecorationPlacement? selected = _scene.SelectedPlacementId is string id
+            ? _draft.Placements.FirstOrDefault(item => item.PlacementId == id) : null;
         _updatingEditors = true;
         try
         {
@@ -412,11 +439,21 @@ public sealed class TreeDecorationSettingsSection : UserControl
         return row;
     }
 
-    private static long ShardCost(string rarity) => rarity switch
+    private static Border BackpackQuantityBadge(int count) => new()
     {
-        "rare" => 240,
-        "theme" => 800,
-        _ => 80
+        Background = new SolidColorBrush(Microsoft.UI.Colors.Black),
+        CornerRadius = new CornerRadius(9), Padding = new Thickness(5, 1, 5, 1),
+        HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+        Child = new TextBlock
+        {
+            Text = $"×{count}", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontSize = 11
+        }
+    };
+
+    private static Button SmallBackpackAction(string symbol) => new()
+    {
+        Content = symbol, Width = 48, Height = 26, FontSize = 18,
+        Padding = new Thickness(0)
     };
 
     private static string ErrorMessageKey(string code) => code switch

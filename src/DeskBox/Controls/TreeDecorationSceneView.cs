@@ -34,13 +34,13 @@ internal sealed class TreeDecorationSceneView : UserControl
     private IReadOnlyDictionary<string, TreeDecorationCatalogItem> _catalog =
         new Dictionary<string, TreeDecorationCatalogItem>();
     private Func<TreeDecorationCatalogItem, string> _displayName = item => item.Name;
-    private string? _selectedItemId;
-    private string? _dragItemId;
+    private string? _selectedPlacementId;
+    private string? _dragPlacementId;
     private Point _dragOffset;
 
-    internal event Action<string?>? SelectedItemChanged;
+    internal event Action<string?>? SelectedPlacementChanged;
     internal event Action? SceneEdited;
-    internal string? SelectedItemId => _selectedItemId;
+    internal string? SelectedPlacementId => _selectedPlacementId;
 
     internal TreeDecorationSceneView()
     {
@@ -87,16 +87,17 @@ internal sealed class TreeDecorationSceneView : UserControl
         _draft = draft;
         _catalog = catalog.ToDictionary(item => item.Id, StringComparer.Ordinal);
         _displayName = displayName ?? (item => item.Name);
-        if (_selectedItemId is not null && !draft.Placements.Any(item => item.ItemId == _selectedItemId))
-            _selectedItemId = null;
+        if (_selectedPlacementId is not null &&
+            !draft.Placements.Any(item => item.PlacementId == _selectedPlacementId))
+            _selectedPlacementId = null;
         Render();
     }
 
-    internal void Select(string? itemId)
+    internal void Select(string? placementId)
     {
-        _selectedItemId = itemId;
+        _selectedPlacementId = placementId;
         RenderSelection();
-        SelectedItemChanged?.Invoke(itemId);
+        SelectedPlacementChanged?.Invoke(placementId);
     }
 
     internal void Render()
@@ -122,7 +123,7 @@ internal sealed class TreeDecorationSceneView : UserControl
             if (!_catalog.TryGetValue(placement.ItemId, out var item) || item.Category == "theme") continue;
             FrameworkElement visual = CreateVisual(item, placement);
             _layers[placement.Layer].Children.Add(visual);
-            _visuals[item.Id] = visual;
+            _visuals[placement.PlacementId] = visual;
         }
         RenderSelection();
     }
@@ -147,7 +148,7 @@ internal sealed class TreeDecorationSceneView : UserControl
             {
                 ScaleX = placement.Scale, ScaleY = placement.Scale, Rotation = placement.Rotation
             },
-            Tag = item.Id,
+            Tag = placement.PlacementId,
             IsTabStop = true
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(border, _displayName(item));
@@ -156,33 +157,33 @@ internal sealed class TreeDecorationSceneView : UserControl
         border.PointerMoved += Decoration_PointerMoved;
         border.PointerReleased += Decoration_PointerReleased;
         border.PointerCanceled += Decoration_PointerReleased;
-        border.GotFocus += (_, _) => Select(item.Id);
+        border.GotFocus += (_, _) => Select(placement.PlacementId);
         return border;
     }
 
     private void Decoration_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: string itemId } visual || _draft is null) return;
-        TreeDecorationPlacement? placement = _draft.Placements.FirstOrDefault(item => item.ItemId == itemId);
+        if (sender is not FrameworkElement { Tag: string placementId } visual || _draft is null) return;
+        TreeDecorationPlacement? placement = _draft.Placements.FirstOrDefault(item => item.PlacementId == placementId);
         if (placement is null) return;
-        Select(itemId);
+        Select(placementId);
         _draft.BeginContinuousEdit();
         Point point = e.GetCurrentPoint(_scene).Position;
         _dragOffset = new Point(point.X - placement.X * _scene.Width, point.Y - placement.Y * _scene.Height);
-        _dragItemId = itemId;
+        _dragPlacementId = placementId;
         visual.CapturePointer(e.Pointer);
         e.Handled = true;
     }
 
     private void Decoration_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_draft is null || _dragItemId is null || sender is not FrameworkElement visual) return;
+        if (_draft is null || _dragPlacementId is null || sender is not FrameworkElement visual) return;
         Point point = e.GetCurrentPoint(_scene).Position;
         double x = Math.Clamp((point.X - _dragOffset.X) / _scene.Width, 0, 1);
         double y = Math.Clamp((point.Y - _dragOffset.Y) / _scene.Height, 0, 1);
-        if (_draft.MoveWithoutUndo(_dragItemId, x, y))
+        if (_draft.MoveWithoutUndo(_dragPlacementId, x, y))
         {
-            TreeDecorationPlacement placement = _draft.Placements.First(item => item.ItemId == _dragItemId);
+            TreeDecorationPlacement placement = _draft.Placements.First(item => item.PlacementId == _dragPlacementId);
             Position(visual, placement);
         }
         e.Handled = true;
@@ -190,24 +191,25 @@ internal sealed class TreeDecorationSceneView : UserControl
 
     private void Decoration_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (_dragItemId is null) return;
+        if (_dragPlacementId is null) return;
         if (sender is UIElement visual) visual.ReleasePointerCapture(e.Pointer);
-        _dragItemId = null;
+        _dragPlacementId = null;
         SceneEdited?.Invoke();
         e.Handled = true;
     }
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (_draft is null || _selectedItemId is null) return;
-        TreeDecorationPlacement? current = _draft.Placements.FirstOrDefault(item => item.ItemId == _selectedItemId);
+        if (_draft is null || _selectedPlacementId is null) return;
+        TreeDecorationPlacement? current = _draft.Placements.FirstOrDefault(
+            item => item.PlacementId == _selectedPlacementId);
         if (current is null) return;
         double step = e.Key is VirtualKey.Left or VirtualKey.Right ? 1d / TreeIllustrationLayout.Width : 0;
         double stepY = e.Key is VirtualKey.Up or VirtualKey.Down ? 1d / TreeIllustrationLayout.ArtworkHeight : 0;
         double x = current.X + (e.Key == VirtualKey.Right ? step : e.Key == VirtualKey.Left ? -step : 0);
         double y = current.Y + (e.Key == VirtualKey.Down ? stepY : e.Key == VirtualKey.Up ? -stepY : 0);
         if (x == current.X && y == current.Y) return;
-        _draft.TryUpdate(current.ItemId, x, y, current.Scale, current.Rotation, current.Layer);
+        _draft.TryUpdate(current.PlacementId, x, y, current.Scale, current.Rotation, current.Layer);
         Render();
         SceneEdited?.Invoke();
         e.Handled = true;
@@ -215,10 +217,10 @@ internal sealed class TreeDecorationSceneView : UserControl
 
     private void RenderSelection()
     {
-        foreach ((string itemId, FrameworkElement visual) in _visuals)
+        foreach ((string placementId, FrameworkElement visual) in _visuals)
         {
             if (visual is Border border)
-                border.BorderBrush = itemId == _selectedItemId
+                border.BorderBrush = placementId == _selectedPlacementId
                     ? new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue) : null;
         }
     }

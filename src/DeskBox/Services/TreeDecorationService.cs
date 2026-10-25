@@ -88,12 +88,14 @@ internal sealed class TreeDecorationService : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(placements);
         if (baseSceneVersion < 0) throw new ArgumentOutOfRangeException(nameof(baseSceneVersion));
-        if (placements.Count > TreeDecorationPlacementRules.MaximumPlacements ||
-            placements.Any(item => !TreeDecorationPlacementRules.IsValid(item)) ||
-            placements.Select(item => item.ItemId).Distinct(StringComparer.Ordinal).Count() != placements.Count)
+        TreeDecorationPlacement[] normalized = placements.Select(item => string.IsNullOrWhiteSpace(item.PlacementId)
+            ? item with { PlacementId = Guid.NewGuid().ToString("N") } : item).ToArray();
+        if (normalized.Length > TreeDecorationPlacementRules.MaximumPlacements ||
+            normalized.Any(item => !TreeDecorationPlacementRules.IsValid(item)) ||
+            normalized.Select(item => item.PlacementId).Distinct(StringComparer.Ordinal).Count() != normalized.Length)
             throw new ArgumentException("Tree decoration scene is outside the server contract.", nameof(placements));
         return MutateAsync("save_scene", null, null, null,
-            Array.AsReadOnly(placements.ToArray()), activeThemeId, baseSceneVersion, cancellationToken);
+            Array.AsReadOnly(normalized), activeThemeId, baseSceneVersion, cancellationToken);
     }
 
     internal Task<bool> ClearConflictDraftAsync(CancellationToken cancellationToken = default) =>

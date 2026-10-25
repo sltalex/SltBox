@@ -9,6 +9,7 @@ public sealed partial class AquariumBackpackSection : UserControl
     internal TextBlock CoinBalanceLabel => CoinBalance;
     internal TextBlock StatusLabel => DraftStatus;
     internal event Action? AquariumRequested;
+    internal event Action? TreeRequested;
 
     public AquariumBackpackSection()
     {
@@ -16,4 +17,5 @@ public sealed partial class AquariumBackpackSection : UserControl
     }
 
     internal void RequestAquariumSettings() => AquariumRequested?.Invoke();
+    internal void RequestTreeSettings() => TreeRequested?.Invoke();
 }

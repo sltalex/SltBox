@@ -216,6 +216,7 @@ CREATE TABLE tree_decoration_profiles (
 CREATE TABLE tree_decoration_inventory (
     user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
     item_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
     acquired_at TEXT NOT NULL,
     PRIMARY KEY (user_id, item_id)
 );

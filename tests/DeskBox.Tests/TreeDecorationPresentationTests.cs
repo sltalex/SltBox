@@ -15,10 +15,14 @@ public sealed class TreeDecorationPresentationTests
         Assert.DoesNotContain("Tree.Decorations.Ready", section, StringComparison.Ordinal);
         Assert.DoesNotContain("Tree.Decorations.Balance", section, StringComparison.Ordinal);
         Assert.DoesNotContain("Common.Refresh", section, StringComparison.Ordinal);
-        Assert.Contains("private readonly WrapPanel _catalog", section, StringComparison.Ordinal);
+        Assert.Contains("private readonly Grid _catalog", section, StringComparison.Ordinal);
+        Assert.Contains("for (int column = 0; column < 4; column++)", section, StringComparison.Ordinal);
+        Assert.Contains("Width = 146, Height = 150", section, StringComparison.Ordinal);
+        Assert.Contains("BackpackQuantityBadge", section, StringComparison.Ordinal);
         Assert.Contains("var editorFields = new StackPanel { Spacing = 2 }", section, StringComparison.Ordinal);
         Assert.Contains("Height = TreeIllustrationLayout.Height", scene, StringComparison.Ordinal);
         Assert.Contains("VerticalAlignment = VerticalAlignment.Top", scene, StringComparison.Ordinal);
+        Assert.Contains("placement.PlacementId", scene, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -62,6 +66,8 @@ public sealed class TreeDecorationPresentationTests
         Assert.Contains("TreePackStoreCard(1)", aquarium, StringComparison.Ordinal);
         Assert.Contains("TreePackStoreCard(10)", aquarium, StringComparison.Ordinal);
         Assert.Contains("OpenPackAsync(next.Id)", aquarium, StringComparison.Ordinal);
+        Assert.Contains("RenderTreeDecorationBackpack", aquarium, StringComparison.Ordinal);
+        Assert.Contains("TreeDecorationBackpackCard", aquarium, StringComparison.Ordinal);
     }
 
     [Fact]

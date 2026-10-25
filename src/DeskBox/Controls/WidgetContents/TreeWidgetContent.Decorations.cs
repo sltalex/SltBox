@@ -81,6 +81,7 @@ public sealed partial class TreeWidgetContent
             state.SceneVersion.ToString(CultureInfo.InvariantCulture),
             state.ActiveThemeId ?? string.Empty,
             string.Join(';', state.Placements.Select(item => string.Join(',',
+                item.PlacementId,
                 item.ItemId,
                 item.X.ToString("R", CultureInfo.InvariantCulture),
                 item.Y.ToString("R", CultureInfo.InvariantCulture),

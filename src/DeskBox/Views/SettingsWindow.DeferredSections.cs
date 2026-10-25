@@ -104,6 +104,7 @@ public sealed partial class SettingsWindow
                 break;
             case AquariumBackpackSection backpack:
                 backpack.AquariumRequested += () => NavigateToSettingsSection("AquariumSettings");
+                backpack.TreeRequested += () => NavigateToSettingsSection("TreeSettings");
                 ((AquariumSettingsSection)_settingsSectionElements["AquariumSettings"])
                     .AttachExternalBackpack(backpack);
                 break;

@@ -12,12 +12,19 @@ internal sealed record TreeDecorationCatalog(
     IReadOnlyList<TreeDecorationCatalogItem> Items);
 
 internal sealed record TreeDecorationPlacement(
+    string PlacementId,
     string ItemId,
     double X,
     double Y,
     double Scale,
     double Rotation,
-    int Layer);
+    int Layer)
+{
+    internal TreeDecorationPlacement(string itemId, double x, double y, double scale, double rotation, int layer)
+        : this(string.Empty, itemId, x, y, scale, rotation, layer) { }
+}
+
+internal sealed record TreeDecorationInventoryItem(string ItemId, int Quantity);
 
 internal sealed record TreeDecorationCardPack(
     string Id,
@@ -29,16 +36,21 @@ internal sealed record TreeDecorationState(
     long Coins,
     long Shards,
     long SceneVersion,
-    IReadOnlyList<string> OwnedIds,
+    IReadOnlyList<TreeDecorationInventoryItem> Inventory,
     IReadOnlyList<TreeDecorationCardPack> CardPacks,
     IReadOnlyList<TreeDecorationPlacement> Placements,
-    string? ActiveThemeId);
+    string? ActiveThemeId)
+{
+    internal IReadOnlyList<string> OwnedIds => Array.AsReadOnly(Inventory
+        .Where(item => item.Quantity > 0).Select(item => item.ItemId).ToArray());
+}
 
 internal sealed record TreeDecorationDrawResult(
     string ItemId,
     string Rarity,
     bool IsNew,
-    long ShardsAwarded);
+    long ShardsAwarded,
+    int Quantity);
 
 internal static class TreeDecorationPlacementRules
 {
@@ -78,8 +90,7 @@ internal static class TreeDecorationJson
         root.GetProperty("coins").GetInt64(),
         root.GetProperty("shards").GetInt64(),
         root.GetProperty("scene_version").GetInt64(),
-        Array.AsReadOnly(root.GetProperty("owned_ids").EnumerateArray()
-            .Select(item => item.GetString() ?? string.Empty).ToArray()),
+        ReadInventory(root),
         Array.AsReadOnly(root.GetProperty("card_packs").EnumerateArray()
             .Select(item => new TreeDecorationCardPack(
                 Text(item, "id"), item.GetProperty("draw_count").GetInt32(),
@@ -95,11 +106,13 @@ internal static class TreeDecorationJson
         return Array.AsReadOnly(results.EnumerateArray().Select(item => new TreeDecorationDrawResult(
             Text(item, "item_id"), Text(item, "rarity"),
             item.GetProperty("is_new").GetBoolean(),
-            item.GetProperty("shards_awarded").GetInt64())).ToArray());
+            item.GetProperty("shards_awarded").GetInt64(),
+            item.TryGetProperty("quantity", out JsonElement quantity) ? quantity.GetInt32() : 1)).ToArray());
     }
 
     internal static IReadOnlyList<TreeDecorationPlacement> ReadPlacements(JsonElement source) => Array.AsReadOnly(
         source.EnumerateArray().Select(item => new TreeDecorationPlacement(
+            OptionalText(item, "placement_id") ?? string.Empty,
             Text(item, "item_id"),
             item.GetProperty("x").GetDouble(),
             item.GetProperty("y").GetDouble(),
@@ -121,6 +134,7 @@ internal static class TreeDecorationJson
         foreach (TreeDecorationPlacement placement in placements)
         {
             writer.WriteStartObject();
+            writer.WriteString("placement_id", placement.PlacementId);
             writer.WriteString("item_id", placement.ItemId);
             writer.WriteNumber("x", placement.X);
             writer.WriteNumber("y", placement.Y);
@@ -141,6 +155,15 @@ internal static class TreeDecorationJson
         writer.WriteNumber("scene_version", state.SceneVersion);
         writer.WriteStartArray("owned_ids");
         foreach (string id in state.OwnedIds) writer.WriteStringValue(id);
+        writer.WriteEndArray();
+        writer.WriteStartArray("inventory");
+        foreach (TreeDecorationInventoryItem item in state.Inventory)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("item_id", item.ItemId);
+            writer.WriteNumber("quantity", item.Quantity);
+            writer.WriteEndObject();
+        }
         writer.WriteEndArray();
         writer.WriteStartArray("card_packs");
         foreach (TreeDecorationCardPack pack in state.CardPacks)
@@ -187,4 +210,17 @@ internal static class TreeDecorationJson
     private static string? OptionalText(JsonElement item, string property) =>
         item.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String
             ? value.GetString() : null;
+
+    private static IReadOnlyList<TreeDecorationInventoryItem> ReadInventory(JsonElement root)
+    {
+        if (root.TryGetProperty("inventory", out JsonElement inventory) &&
+            inventory.ValueKind == JsonValueKind.Array)
+        {
+            return Array.AsReadOnly(inventory.EnumerateArray().Select(item =>
+                new TreeDecorationInventoryItem(Text(item, "item_id"),
+                    Math.Max(0, item.GetProperty("quantity").GetInt32()))).ToArray());
+        }
+        return Array.AsReadOnly(root.GetProperty("owned_ids").EnumerateArray()
+            .Select(item => new TreeDecorationInventoryItem(item.GetString() ?? string.Empty, 1)).ToArray());
+    }
 }

@@ -68,6 +68,20 @@ function tree_decoration_item(string $id): array
     throw new ApiError('invalid_item', 'Unknown tree decoration.', 400);
 }
 
+/** @return array<string,int> */
+function tree_decoration_inventory_quantities(PDO $pdo, string $userId): array
+{
+    $query = $pdo->prepare('SELECT item_id, quantity FROM tree_decoration_inventory '
+        . 'WHERE user_id = :user ORDER BY item_id');
+    $query->execute([':user' => $userId]);
+    $inventory = [];
+    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $quantity = max(0, (int)$row['quantity']);
+        if ($quantity > 0) { $inventory[(string)$row['item_id']] = $quantity; }
+    }
+    return $inventory;
+}
+
 function tree_decoration_read_state(PDO $pdo, string $userId): array
 {
     $tree = $pdo->prepare('SELECT stage FROM tree_profiles WHERE user_id = :user');
@@ -80,8 +94,11 @@ function tree_decoration_read_state(PDO $pdo, string $userId): array
         . 'FROM tree_decoration_profiles WHERE user_id = :user');
     $profile->execute([':user' => $userId]);
     $decoration = $profile->fetch(PDO::FETCH_ASSOC);
-    $owned = $pdo->prepare('SELECT item_id FROM tree_decoration_inventory WHERE user_id = :user ORDER BY item_id');
-    $owned->execute([':user' => $userId]);
+    $quantities = tree_decoration_inventory_quantities($pdo, $userId);
+    $inventory = [];
+    foreach ($quantities as $itemId => $quantity) {
+        $inventory[] = ['item_id' => $itemId, 'quantity' => $quantity];
+    }
     $packs = $pdo->prepare('SELECT id, draw_count, created_at FROM tree_decoration_card_packs '
         . 'WHERE user_id = :user ORDER BY created_at, id');
     $packs->execute([':user' => $userId]);
@@ -100,7 +117,8 @@ function tree_decoration_read_state(PDO $pdo, string $userId): array
         'coins' => is_array($walletState) && (bool)$walletState['initialized'] ? (int)$walletState['coins'] : 0,
         'shards' => is_array($decoration) ? (int)$decoration['shards'] : 0,
         'scene_version' => is_array($decoration) ? (int)$decoration['scene_version'] : 0,
-        'owned_ids' => array_map('strval', $owned->fetchAll(PDO::FETCH_COLUMN)),
+        'owned_ids' => array_keys($quantities),
+        'inventory' => $inventory,
         'card_packs' => $cardPacks,
         'placements' => $placements,
         'active_theme_id' => is_array($decoration) && is_string($decoration['active_theme_id'])
@@ -251,9 +269,7 @@ function tree_decoration_draw_rewards(PDO $pdo, string $userId, int $count,
     DateTimeImmutable $now, ?callable $selector): array
 {
     $catalog = tree_decoration_catalog()['items'];
-    $ownedQuery = $pdo->prepare('SELECT item_id FROM tree_decoration_inventory WHERE user_id = :user');
-    $ownedQuery->execute([':user' => $userId]);
-    $owned = array_fill_keys(array_map('strval', $ownedQuery->fetchAll(PDO::FETCH_COLUMN)), true);
+    $owned = tree_decoration_inventory_quantities($pdo, $userId);
     $results = [];
     $shards = 0;
     for ($draw = 0; $draw < $count; $draw++) {
@@ -264,16 +280,21 @@ function tree_decoration_draw_rewards(PDO $pdo, string $userId, int $count,
         $isNew = !isset($owned[$itemId]);
         $awarded = 0;
         if ($isNew) {
-            $pdo->prepare('INSERT INTO tree_decoration_inventory (user_id,item_id,acquired_at) '
-                . 'VALUES (:user,:item,:created)')
+            $pdo->prepare('INSERT INTO tree_decoration_inventory (user_id,item_id,quantity,acquired_at) '
+                . 'VALUES (:user,:item,1,:created)')
                 ->execute([':user' => $userId, ':item' => $itemId, ':created' => auth_sql_time($now)]);
-            $owned[$itemId] = true;
+            $owned[$itemId] = 1;
+        } elseif ($item['category'] !== 'theme') {
+            $pdo->prepare('UPDATE tree_decoration_inventory SET quantity=quantity+1 '
+                . 'WHERE user_id=:user AND item_id=:item')
+                ->execute([':user' => $userId, ':item' => $itemId]);
+            $owned[$itemId]++;
         } else {
             $awarded = tree_decoration_duplicate_shards($item['rarity']);
             $shards += $awarded;
         }
         $results[] = ['item_id' => $itemId, 'rarity' => $item['rarity'],
-            'is_new' => $isNew, 'shards_awarded' => $awarded];
+            'is_new' => $isNew, 'shards_awarded' => $awarded, 'quantity' => $owned[$itemId]];
     }
     if ($shards > 0) {
         $pdo->prepare('UPDATE tree_decoration_profiles SET shards=shards+:shards,updated_at=:now WHERE user_id=:user')
@@ -301,16 +322,26 @@ function tree_decoration_redeem(PDO $pdo, string $userId, array $body, DateTimeI
 {
     $item = tree_decoration_item(aquarium_string($body, 'item_id'));
     $cost = match ($item['rarity']) { 'common' => 80, 'rare' => 240, 'theme' => 800 };
-    $owned = $pdo->prepare('SELECT 1 FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item');
+    $owned = $pdo->prepare('SELECT quantity FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item');
     $owned->execute([':user' => $userId, ':item' => $item['id']]);
-    if ($owned->fetchColumn() !== false) { throw new ApiError('already_owned', 'Decoration is already owned.', 409); }
+    $ownedQuantity = $owned->fetchColumn();
+    if ($ownedQuantity !== false && $item['category'] === 'theme') {
+        throw new ApiError('already_owned', 'Theme is already owned.', 409);
+    }
     $profile = $pdo->prepare('SELECT shards FROM tree_decoration_profiles WHERE user_id=:user');
     $profile->execute([':user' => $userId]);
     if ((int)$profile->fetchColumn() < $cost) { throw new ApiError('insufficient_shards', 'Not enough shards.', 409); }
     $pdo->prepare('UPDATE tree_decoration_profiles SET shards=shards-:cost,updated_at=:now WHERE user_id=:user')
         ->execute([':cost' => $cost, ':now' => auth_sql_time($now), ':user' => $userId]);
-    $pdo->prepare('INSERT INTO tree_decoration_inventory (user_id,item_id,acquired_at) VALUES (:user,:item,:created)')
-        ->execute([':user' => $userId, ':item' => $item['id'], ':created' => auth_sql_time($now)]);
+    if ($ownedQuantity === false) {
+        $pdo->prepare('INSERT INTO tree_decoration_inventory (user_id,item_id,quantity,acquired_at) '
+            . 'VALUES (:user,:item,1,:created)')
+            ->execute([':user' => $userId, ':item' => $item['id'], ':created' => auth_sql_time($now)]);
+    } else {
+        $pdo->prepare('UPDATE tree_decoration_inventory SET quantity=quantity+1 '
+            . 'WHERE user_id=:user AND item_id=:item')
+            ->execute([':user' => $userId, ':item' => $item['id']]);
+    }
     return (string)$item['id'];
 }
 
@@ -325,17 +356,24 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
     if (!is_array($placements) || count($placements) > TREE_DECORATION_MAX_PLACEMENTS) {
         throw new ApiError('invalid_scene', 'Tree decoration scene is invalid.', 400);
     }
-    $ownedQuery = $pdo->prepare('SELECT item_id FROM tree_decoration_inventory WHERE user_id=:user');
-    $ownedQuery->execute([':user' => $userId]);
-    $owned = array_fill_keys(array_map('strval', $ownedQuery->fetchAll(PDO::FETCH_COLUMN)), true);
+    $owned = tree_decoration_inventory_quantities($pdo, $userId);
     $normalized = [];
-    $seen = [];
+    $placedCounts = [];
+    $placementIds = [];
     foreach ($placements as $placement) {
         if (!is_array($placement)) { throw new ApiError('invalid_scene', 'Invalid placement.', 400); }
         $id = isset($placement['item_id']) && is_string($placement['item_id']) ? $placement['item_id'] : '';
         $item = tree_decoration_item($id);
-        if (!isset($owned[$id]) || isset($seen[$id]) || $item['category'] === 'theme') {
-            throw new ApiError('invalid_scene', 'Only owned placeable decorations may be used once.', 400);
+        $placedCounts[$id] = ($placedCounts[$id] ?? 0) + 1;
+        if (!isset($owned[$id]) || $placedCounts[$id] > $owned[$id] || $item['category'] === 'theme') {
+            throw new ApiError('invalid_scene', 'Placed decorations cannot exceed the owned quantity.', 400);
+        }
+        $placementId = $placement['placement_id'] ?? null;
+        if ($placementId === null || $placementId === '') { $placementId = auth_random_id(); }
+        if (!is_string($placementId)
+            || !preg_match('/\A[A-Za-z0-9_-]{1,128}\z/D', $placementId)
+            || isset($placementIds[$placementId])) {
+            throw new ApiError('invalid_scene', 'Each decoration placement needs a unique identifier.', 400);
         }
         $x = tree_decoration_number($placement, 'x', 0, 1);
         $y = tree_decoration_number($placement, 'y', 0, 1);
@@ -345,8 +383,8 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
         if (!is_int($layer) || $layer < -2 || $layer > 2) {
             throw new ApiError('invalid_scene', 'Decoration layer must be from -2 to 2.', 400);
         }
-        $seen[$id] = true;
-        $normalized[] = ['item_id' => $id, 'x' => $x, 'y' => $y,
+        $placementIds[$placementId] = true;
+        $normalized[] = ['placement_id' => $placementId, 'item_id' => $id, 'x' => $x, 'y' => $y,
             'scale' => $scale, 'rotation' => $rotation, 'layer' => $layer];
     }
     $theme = $body['active_theme_id'] ?? null;

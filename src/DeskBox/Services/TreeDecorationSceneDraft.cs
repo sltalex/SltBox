@@ -7,7 +7,7 @@ internal sealed class TreeDecorationSceneDraft
 
     internal TreeDecorationSceneDraft(IEnumerable<TreeDecorationPlacement> placements, string? activeThemeId)
     {
-        _placements = placements.ToList();
+        _placements = NormalizeIds(placements);
         ActiveThemeId = activeThemeId;
     }
 
@@ -16,28 +16,33 @@ internal sealed class TreeDecorationSceneDraft
     internal bool CanUndo => _undo.Count > 0;
 
     internal bool TryAdd(string itemId, double x = .5, double y = .5)
+        => TryAdd(itemId, out _, x, y);
+
+    internal bool TryAdd(string itemId, out string placementId, double x = .5, double y = .5)
     {
-        if (_placements.Count >= TreeDecorationPlacementRules.MaximumPlacements ||
-            _placements.Any(item => item.ItemId == itemId)) return false;
+        placementId = string.Empty;
+        if (_placements.Count >= TreeDecorationPlacementRules.MaximumPlacements) return false;
         Remember();
-        _placements.Add(Clamp(new TreeDecorationPlacement(itemId, x, y, 1, 0, 0)));
+        placementId = Guid.NewGuid().ToString("N");
+        _placements.Add(Clamp(new TreeDecorationPlacement(placementId, itemId, x, y, 1, 0, 0)));
         return true;
     }
 
-    internal bool TryUpdate(string itemId, double x, double y, double scale, double rotation, int layer)
+    internal bool TryUpdate(string placementId, double x, double y, double scale, double rotation, int layer)
     {
-        int index = _placements.FindIndex(item => item.ItemId == itemId);
+        int index = _placements.FindIndex(item => item.PlacementId == placementId);
         if (index < 0) return false;
-        TreeDecorationPlacement updated = Clamp(new(itemId, x, y, scale, rotation, layer));
+        TreeDecorationPlacement updated = Clamp(_placements[index] with
+            { X = x, Y = y, Scale = scale, Rotation = rotation, Layer = layer });
         if (_placements[index] == updated) return true;
         Remember();
         _placements[index] = updated;
         return true;
     }
 
-    internal bool MoveWithoutUndo(string itemId, double x, double y)
+    internal bool MoveWithoutUndo(string placementId, double x, double y)
     {
-        int index = _placements.FindIndex(item => item.ItemId == itemId);
+        int index = _placements.FindIndex(item => item.PlacementId == placementId);
         if (index < 0) return false;
         TreeDecorationPlacement current = _placements[index];
         _placements[index] = Clamp(current with { X = x, Y = y });
@@ -46,9 +51,9 @@ internal sealed class TreeDecorationSceneDraft
 
     internal void BeginContinuousEdit() => Remember();
 
-    internal bool Remove(string itemId)
+    internal bool Remove(string placementId)
     {
-        int index = _placements.FindIndex(item => item.ItemId == itemId);
+        int index = _placements.FindIndex(item => item.PlacementId == placementId);
         if (index < 0) return false;
         Remember();
         _placements.RemoveAt(index);
@@ -72,12 +77,26 @@ internal sealed class TreeDecorationSceneDraft
 
     internal void Reset(IEnumerable<TreeDecorationPlacement> placements, string? activeThemeId)
     {
-        _placements = placements.ToList();
+        _placements = NormalizeIds(placements);
         ActiveThemeId = activeThemeId;
         _undo.Clear();
     }
 
     private void Remember() => _undo.Push(new(_placements.ToArray(), ActiveThemeId));
+
+    private static List<TreeDecorationPlacement> NormalizeIds(IEnumerable<TreeDecorationPlacement> placements)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        return placements.Select(item =>
+        {
+            string id = item.PlacementId;
+            if (string.IsNullOrWhiteSpace(id) || !used.Add(id))
+            {
+                do { id = Guid.NewGuid().ToString("N"); } while (!used.Add(id));
+            }
+            return item with { PlacementId = id };
+        }).ToList();
+    }
 
     private static TreeDecorationPlacement Clamp(TreeDecorationPlacement item) => item with
     {

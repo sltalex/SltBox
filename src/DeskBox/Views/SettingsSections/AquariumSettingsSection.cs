@@ -499,6 +499,9 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         page.ItemsHost.Children.Clear();
         page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.Aquarium"), false, null,
             page.RequestAquariumSettings));
+        page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Tree.Decorations.Title"),
+            _selectedExternalBackpackGroup == "tree", null, () =>
+            { _selectedExternalBackpackGroup = "tree"; RenderExternalBackpack(); }));
         page.PrimaryCategoriesHost.Children.Add(CategoryButton(L("Aquarium.Backpack.General"),
             _selectedExternalBackpackGroup == "general", null, () =>
             { _selectedExternalBackpackGroup = "general"; RenderExternalBackpack(); }));
@@ -516,6 +519,11 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         if (_selectedExternalBackpackGroup == "fruit")
         {
             RenderFruitBackpack(page.ItemsHost);
+            return;
+        }
+        if (_selectedExternalBackpackGroup == "tree")
+        {
+            RenderTreeDecorationBackpack(page.ItemsHost, page.RequestTreeSettings);
             return;
         }
         var owned = AquariumInventoryPresentation.Summarize(_service?.State?.Inventory ?? [], _draft,
@@ -578,6 +586,78 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
                 F("Tree.Decorations.CardPack.Name", group.Key), group.Count(), open));
         }
         return true;
+    }
+
+    private void RenderTreeDecorationBackpack(StackPanel host, Action openSettings)
+    {
+        if (_treeDecorations?.State is not { } state || _treeDecorations.Catalog is not { } catalog)
+        {
+            host.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
+            return;
+        }
+        IReadOnlyList<TreeDecorationOwnedProduct> products = TreeDecorationInventoryPresentation.Summarize(
+            state.Inventory, state.Placements, catalog.Items);
+        var cards = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalSpacing = 8,
+            VerticalSpacing = 8
+        };
+        foreach (TreeDecorationOwnedProduct product in products)
+            cards.Children.Add(TreeDecorationBackpackCard(product, openSettings));
+        if (cards.Children.Count > 0) host.Children.Add(cards);
+        else host.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
+    }
+
+    private Border TreeDecorationBackpackCard(TreeDecorationOwnedProduct owned, Action openSettings)
+    {
+        TreeDecorationCatalogItem product = owned.Product;
+        var panel = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
+        imageHost.Children.Add(new Image
+        {
+            Source = TreeDecorationAssetCatalog.Source(product.AssetKey),
+            Width = 54,
+            Height = 43,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+        imageHost.Children.Add(BackpackQuantityBadge(owned.OwnedCount));
+        panel.Children.Add(imageHost);
+        panel.Children.Add(new TextBlock
+        {
+            Text = L("Tree.Decorations.Item." + product.Id),
+            FontSize = 12,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            MaxLines = 2
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = product.Category == "theme"
+                ? L("Tree.Decorations.Rarity." + product.Rarity)
+                : $"{L("Aquarium.Settings.Placed")} {owned.PlacedCount}/{owned.OwnedCount}",
+            FontSize = 11,
+            Opacity = .72,
+            TextAlignment = TextAlignment.Center
+        });
+        var place = ActionButton("Tree.Decorations.Place");
+        place.FontSize = 11;
+        place.MinHeight = 26;
+        place.Padding = new Thickness(8, 2, 8, 2);
+        place.HorizontalAlignment = HorizontalAlignment.Center;
+        place.Click += (_, _) => openSettings();
+        panel.Children.Add(place);
+        return new Border
+        {
+            Width = 146,
+            Height = 150,
+            Padding = new Thickness(6),
+            CornerRadius = new CornerRadius(10),
+            Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
+            Child = panel
+        };
     }
 
     private static void RenderWildlifeBackpack(StackPanel host)
