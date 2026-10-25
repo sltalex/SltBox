@@ -67,6 +67,11 @@ check(admin_read($pdo, $adminId, 'shop', [], $clock)['card_pack_price'] === 275,
 check(aquarium_catalog($pdo)['items'][array_search(AQUARIUM_CARD_PACK_ID,
     array_column(aquarium_catalog($pdo)['items'], 'id'), true)]['price'] === 275,
     'The user-facing aquarium catalog reads the administrator card pack price.');
+admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_tree_decoration_card_pack_prices',
+    'tree_card_pack_single_price' => 260, 'tree_card_pack_ten_price' => 2300], $clock);
+$shop = admin_read($pdo, $adminId, 'shop', [], $clock);
+check($shop['tree_card_pack_single_price'] === 260 && $shop['tree_card_pack_ten_price'] === 2300,
+    'The administrator can save independent one-draw and ten-draw tree pack prices.');
 admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_aquarium_card_pack_price',
     'card_pack_price' => 200], $clock);
 admin_mutate($pdo, $adminId, $common + ['action' => 'disable'], $clock);
@@ -141,6 +146,6 @@ admin_mutate($pdo, $adminId, $common + ['action' => 'delete_user',
     'confirm_username' => 'second_user', 'admin_password' => 'secret1'], $clock);
 check((int)$pdo->query('SELECT COUNT(*) FROM auth_users')->fetchColumn() === 1, 'Account deleted.');
 check((int)$pdo->query("SELECT COUNT(*) FROM auth_sessions WHERE user_id = '{$memberId}'")->fetchColumn() === 0, 'Deleted sessions cascade.');
-check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 20, 'Operations and failures audited.');
+check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 21, 'Operations and failures audited.');
 check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 7, 'Failed operations are audited.');
 echo "admin_service_test: ok\n";

@@ -53,8 +53,10 @@ public sealed class AquariumCardPackArtworkTests
         Assert.Contains("Source = AquariumSceneView.Asset(AquariumService.AquariumCardPackItemId)", settings, StringComparison.Ordinal);
         Assert.Contains("content.Children.Add(PackVisual(76, 64))", settings, StringComparison.Ordinal);
         Assert.Contains("content.Children.Add(_packRevealImage)", settings, StringComparison.Ordinal);
-        Assert.Contains("_packRevealImage.Source = product is null ? null : AquariumSceneView.Asset(product.AssetKey)",
+        Assert.Contains("product is null ? null : AquariumSceneView.Asset(product.AssetKey)",
             settings, StringComparison.Ordinal);
+        Assert.Contains("TreeDecorationAssetCatalog.Source(first.ItemId)", settings, StringComparison.Ordinal);
+        Assert.Contains("_packRevealImage.Source = image", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("Text = \"✦\"", settings, StringComparison.Ordinal);
     }
 }

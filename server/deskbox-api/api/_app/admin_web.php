@@ -116,7 +116,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post): string
         return 'wildlife_catalog_item';
     }
 
-    $targetId = $operation === 'shop_price'
+    $targetId = in_array($operation, ['shop_price', 'tree_pack_prices'], true)
         ? $actor['user_id'] : admin_page_post_id($post, 'target_id');
     $body = ['target_id' => $targetId, 'reason' => 'web_admin'];
     if ($operation === 'update_user') {
@@ -141,6 +141,12 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post): string
         ];
     } elseif ($operation === 'shop_price') {
         $body += ['action' => 'set_aquarium_card_pack_price', 'card_pack_price' => admin_page_nonnegative($post, 'card_pack_price', 'invalid_price')];
+    } elseif ($operation === 'tree_pack_prices') {
+        $body += [
+            'action' => 'set_tree_decoration_card_pack_prices',
+            'tree_card_pack_single_price' => admin_page_nonnegative($post, 'tree_card_pack_single_price', 'invalid_price'),
+            'tree_card_pack_ten_price' => admin_page_nonnegative($post, 'tree_card_pack_ten_price', 'invalid_price'),
+        ];
     } else {
         throw new ApiError('invalid_action', 'Unknown management operation.', 400);
     }

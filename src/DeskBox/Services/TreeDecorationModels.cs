@@ -19,12 +19,18 @@ internal sealed record TreeDecorationPlacement(
     double Rotation,
     int Layer);
 
+internal sealed record TreeDecorationCardPack(
+    string Id,
+    int DrawCount,
+    string CreatedAt);
+
 internal sealed record TreeDecorationState(
     bool Mature,
     long Coins,
     long Shards,
     long SceneVersion,
     IReadOnlyList<string> OwnedIds,
+    IReadOnlyList<TreeDecorationCardPack> CardPacks,
     IReadOnlyList<TreeDecorationPlacement> Placements,
     string? ActiveThemeId);
 
@@ -74,6 +80,10 @@ internal static class TreeDecorationJson
         root.GetProperty("scene_version").GetInt64(),
         Array.AsReadOnly(root.GetProperty("owned_ids").EnumerateArray()
             .Select(item => item.GetString() ?? string.Empty).ToArray()),
+        Array.AsReadOnly(root.GetProperty("card_packs").EnumerateArray()
+            .Select(item => new TreeDecorationCardPack(
+                Text(item, "id"), item.GetProperty("draw_count").GetInt32(),
+                Text(item, "created_at"))).ToArray()),
         ReadPlacements(root.GetProperty("placements")),
         OptionalText(root, "active_theme_id"));
 
@@ -131,6 +141,16 @@ internal static class TreeDecorationJson
         writer.WriteNumber("scene_version", state.SceneVersion);
         writer.WriteStartArray("owned_ids");
         foreach (string id in state.OwnedIds) writer.WriteStringValue(id);
+        writer.WriteEndArray();
+        writer.WriteStartArray("card_packs");
+        foreach (TreeDecorationCardPack pack in state.CardPacks)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("id", pack.Id);
+            writer.WriteNumber("draw_count", pack.DrawCount);
+            writer.WriteString("created_at", pack.CreatedAt);
+            writer.WriteEndObject();
+        }
         writer.WriteEndArray();
         writer.WritePropertyName("placements");
         WritePlacements(writer, state.Placements);

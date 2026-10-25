@@ -63,6 +63,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private readonly Button _reapply = ActionButton("Aquarium.Settings.Reapply");
     private readonly List<AquariumPlacement> _draft = [];
     private AquariumService? _service;
+    private TreeDecorationService? _treeDecorations;
     private LocalizationService? _localization;
     private Func<bool>? _animationEnabled;
     private Action<bool>? _setAnimationEnabled;
@@ -199,11 +200,13 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         };
     }
 
-    internal void Initialize(AquariumService service, LocalizationService localization,
+    internal void Initialize(AquariumService service, TreeDecorationService treeDecorations,
+        LocalizationService localization,
         Func<bool> animationEnabled, Action<bool> setAnimationEnabled)
     {
         Unsubscribe();
         _service = service;
+        _treeDecorations = treeDecorations;
         _localization = localization;
         _animationEnabled = animationEnabled;
         _setAnimationEnabled = setAnimationEnabled;
@@ -240,6 +243,8 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         if (becameActive && !_disposed) _ = RefreshAsync();
         if (becameActive && !_disposed) _ = App.Current.WildlifeService.RefreshAsync();
         if (becameActive && !_disposed) _ = App.Current.FruitService.RefreshAsync();
+        if (becameActive && !_disposed && _treeDecorations?.IsAvailable == true)
+            _ = _treeDecorations.RefreshAsync();
     }
 
     internal void SetStoreActive(bool active)
@@ -247,6 +252,8 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         bool becameActive = active && !_storeActive;
         _storeActive = active && !_disposed;
         if (becameActive && !_disposed) _ = RefreshAsync();
+        if (becameActive && !_disposed && _treeDecorations?.IsAvailable == true)
+            _ = _treeDecorations.RefreshAsync();
     }
 
     internal void AttachExternalBackpack(AquariumBackpackSection page)
@@ -276,6 +283,11 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     {
         if (_subscribed || _service is null || _localization is null) return;
         _service.Changed += OnChanged;
+        if (_treeDecorations is not null)
+        {
+            _treeDecorations.Changed += OnChanged;
+            _treeDecorations.Opened += OnTreePackOpened;
+        }
         App.Current.WildlifeService.Changed += OnChanged;
         App.Current.FruitService.Changed += OnChanged;
         _service.Opened += OnPackOpened;
@@ -287,6 +299,11 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     {
         if (!_subscribed) return;
         if (_service is not null) _service.Changed -= OnChanged;
+        if (_treeDecorations is not null)
+        {
+            _treeDecorations.Changed -= OnChanged;
+            _treeDecorations.Opened -= OnTreePackOpened;
+        }
         App.Current.WildlifeService.Changed -= OnChanged;
         App.Current.FruitService.Changed -= OnChanged;
         if (_service is not null) _service.Opened -= OnPackOpened;
@@ -376,6 +393,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         foreach (AquariumStoreGroup group in AquariumStoreBrowse.Groups)
         {
             int count = _service.Catalog.Count(item => AquariumStoreBrowse.Matches(item, group.Id, "all"));
+            if (group.Id == "pack") count += 2;
             primaryCategories.Children.Add(StoreFilterButton(
                 $"{L("Aquarium.Store.Group." + group.Id)} ({count})",
                 group.Id == _selectedStoreGroup, () =>
@@ -411,6 +429,11 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             HorizontalSpacing = 8,
             VerticalSpacing = 8
         };
+        if (_selectedStoreGroup == "pack")
+        {
+            cards.Children.Add(TreePackStoreCard(1));
+            cards.Children.Add(TreePackStoreCard(10));
+        }
         foreach (AquariumCatalogItem product in _service.Catalog.Where(item =>
             AquariumStoreBrowse.Matches(item, _selectedStoreGroup, _selectedStoreSubcategory)))
         {
@@ -496,7 +519,57 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         }
         var owned = AquariumInventoryPresentation.Summarize(_service?.State?.Inventory ?? [], _draft,
             _service?.Catalog ?? []);
-        AddBackpackCards(page.ItemsHost, AquariumInventoryPresentation.GeneralItems(owned), showEdit: false);
+        bool hasTreePacks = AddTreePackBackpackCards(page.ItemsHost);
+        IReadOnlyList<AquariumOwnedProduct> general = AquariumInventoryPresentation.GeneralItems(owned);
+        if (general.Count > 0) AddBackpackCards(page.ItemsHost, general, showEdit: false);
+        else if (!hasTreePacks) page.ItemsHost.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
+    }
+
+    private Border TreePackStoreCard(int drawCount)
+    {
+        long price = drawCount == 10
+            ? _treeDecorations?.Catalog?.TenPrice ?? long.MaxValue
+            : _treeDecorations?.Catalog?.SinglePrice ?? long.MaxValue;
+        var buy = ActionButton("Aquarium.Settings.Buy");
+        buy.IsEnabled = CanOperate && _treeDecorations is
+        {
+            IsAvailable: true, IsOffline: false, State.Mature: true
+        } && (_service?.State?.Coins ?? 0) >= price;
+        buy.Click += async (_, _) => await RunAsync(async () =>
+        {
+            if (_treeDecorations is null || _service is null) return;
+            bool success = await _treeDecorations.BuyPackAsync(drawCount);
+            if (success) await _service.RefreshAsync();
+            else _noticeKey = TreeDecorationErrorKey();
+        });
+        return SimpleProductCard(TreePackVisual(68, 60),
+            F("Tree.Decorations.CardPack.Name", drawCount),
+            F("Aquarium.Settings.Price", price == long.MaxValue ? 0 : price), buy);
+    }
+
+    private bool AddTreePackBackpackCards(StackPanel host)
+    {
+        if (_treeDecorations?.State?.CardPacks is not { Count: > 0 } packs) return false;
+        var cards = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalSpacing = 8, VerticalSpacing = 8 };
+        foreach (IGrouping<int, TreeDecorationCardPack> group in packs.GroupBy(pack => pack.DrawCount).OrderBy(group => group.Key))
+        {
+            TreeDecorationCardPack next = group.First();
+            var open = ActionButton("Tree.Decorations.CardPack.Open");
+            open.FontSize = 11;
+            open.MinHeight = 26;
+            open.Padding = new Thickness(8, 2, 8, 2);
+            open.IsEnabled = !_busy && !_packEffectRunning && CanOperate && _treeDecorations.State.Mature;
+            open.Click += async (_, _) => await RunAsync(async () =>
+            {
+                if (_treeDecorations is null) return;
+                if (!await _treeDecorations.OpenPackAsync(next.Id)) _noticeKey = TreeDecorationErrorKey();
+            });
+            cards.Children.Add(SimpleProductCard(TreePackVisual(60, 48),
+                F("Tree.Decorations.CardPack.Name", group.Key),
+                F("Tree.Decorations.CardPack.Owned", group.Count()), open, 146, 150));
+        }
+        host.Children.Add(cards);
+        return true;
     }
 
     private static void RenderWildlifeBackpack(StackPanel host)
@@ -740,16 +813,20 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     }
 
     private Border StoreProductCard(AquariumCatalogItem product, string detail, Button action)
+        => SimpleProductCard(ProductVisual(product, 68, 60), ProductName(product), detail, action);
+
+    private Border SimpleProductCard(FrameworkElement visual, string nameText, string detail, Button action,
+        double width = 150, double height = 170)
     {
         var panel = new StackPanel { Spacing = 4 };
         panel.Children.Add(new Grid
         {
             Height = 62,
-            Children = { ProductVisual(product, 68, 60) }
+            Children = { visual }
         });
         var name = new TextBlock
         {
-            Text = ProductName(product),
+            Text = nameText,
             Height = 34,
             FontSize = 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
@@ -771,12 +848,41 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         panel.Children.Add(action);
         return new Border
         {
-            Width = 150, Height = 170, Padding = new Thickness(8),
+            Width = width, Height = height, Padding = new Thickness(8),
             CornerRadius = new CornerRadius(10),
             Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
             Child = panel
         };
     }
+
+    private static FrameworkElement TreePackVisual(double width, double height) => new Grid
+    {
+        Width = width,
+        Height = height,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        Children =
+        {
+            new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Background = new LinearGradientBrush
+                {
+                    StartPoint = new Windows.Foundation.Point(0, 0),
+                    EndPoint = new Windows.Foundation.Point(1, 1),
+                    GradientStops =
+                    {
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 45, 112, 76), Offset = 0 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 109, 71, 42), Offset = 1 }
+                    }
+                }
+            },
+            new TextBlock
+            {
+                Text = "🌳", FontSize = 28, TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+            }
+        }
+    };
 
     private FrameworkElement ProductVisual(AquariumCatalogItem product, double width, double height)
     {
@@ -921,16 +1027,40 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         });
     }
 
+    private void OnTreePackOpened(IReadOnlyList<TreeDecorationDrawResult> results)
+    {
+        TreeDecorationService? service = _treeDecorations;
+        string? accountId = service?.CurrentUserId;
+        _queue.TryEnqueue(() =>
+        {
+            if (_disposed || !IsLoaded || (!_active && !_backpackActive) || service is null || accountId is null ||
+                !ReferenceEquals(service, _treeDecorations) || service.CurrentUserId != accountId) return;
+            TreeDecorationDrawResult? first = results.FirstOrDefault();
+            string summary = string.Join(" · ", results.Select(result =>
+                L("Tree.Decorations.Item." + result.ItemId)));
+            if (results.Count > 4) summary = F("Tree.Decorations.CardPack.ResultSummary", results.Count, summary);
+            ShowPackReveal(L("Tree.Decorations.CardPack.RevealTitle"), summary,
+                first is null ? null : TreeDecorationAssetCatalog.Source(first.ItemId));
+        });
+    }
+
     private void ShowPackRevealCore(AquariumOpenedItem reward)
+    {
+        AquariumCatalogItem? product = Product(reward.ItemId);
+        string name = product is null ? reward.Name : ProductName(product);
+        ShowPackReveal(L("Aquarium.Settings.CardPack.RevealTitle"),
+            F("Aquarium.Settings.CardPack.Reward", name),
+            product is null ? null : AquariumSceneView.Asset(product.AssetKey));
+    }
+
+    private void ShowPackReveal(string title, string result, ImageSource? image)
     {
         if (_packEffectRunning || XamlRoot?.Content is not Panel) return;
         _packEffectRunning = true;
         _packPreviousFocus = FocusManager.GetFocusedElement(XamlRoot) as Control;
-        _packRevealTitle.Text = L("Aquarium.Settings.CardPack.RevealTitle");
-        AquariumCatalogItem? product = Product(reward.ItemId);
-        string name = product is null ? reward.Name : ProductName(product);
-        _packRevealResult.Text = F("Aquarium.Settings.CardPack.Reward", name);
-        _packRevealImage.Source = product is null ? null : AquariumSceneView.Asset(product.AssetKey);
+        _packRevealTitle.Text = title;
+        _packRevealResult.Text = result;
+        _packRevealImage.Source = image;
         AttachPackOverlayToSettingsRoot();
         _packOverlay.Visibility = Visibility.Visible;
         _packOverlay.Opacity = 0;
@@ -1203,6 +1333,15 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         "insufficient_coins" => "Aquarium.Settings.InsufficientCoins",
         "sign_in_required" => "Aquarium.Settings.SignInRequired",
         _ => _service?.IsOffline == true ? "Aquarium.Settings.Offline" : "Aquarium.Settings.Error"
+    };
+
+    private string TreeDecorationErrorKey() => _treeDecorations?.ErrorCode switch
+    {
+        "tree_not_mature" => "Tree.Decorations.MatureRequired",
+        "insufficient_coins" => "Tree.Decorations.InsufficientCoins",
+        "pack_not_found" => "Tree.Decorations.CardPack.NotFound",
+        "sign_in_required" => "Aquarium.Settings.SignInRequired",
+        _ => _treeDecorations?.IsOffline == true ? "Aquarium.Settings.Offline" : "Tree.Decorations.OperationFailed"
     };
 
     private AquariumCatalogItem? Product(string itemId) => _service?.Catalog.FirstOrDefault(item => item.Id == itemId);

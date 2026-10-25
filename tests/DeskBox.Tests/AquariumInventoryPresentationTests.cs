@@ -119,7 +119,8 @@ public sealed class AquariumInventoryPresentationTests
         Assert.Contains("var primaryCategories = new WrapPanel", settings, StringComparison.Ordinal);
         Assert.Contains("var subcategories = new WrapPanel", settings, StringComparison.Ordinal);
         Assert.Contains("var cards = new WrapPanel", settings, StringComparison.Ordinal);
-        Assert.Contains("Width = 150, Height = 170", settings, StringComparison.Ordinal);
+        Assert.Contains("double width = 150, double height = 170", settings, StringComparison.Ordinal);
+        Assert.Contains("Width = width, Height = height", settings, StringComparison.Ordinal);
         Assert.Contains("<StackPanel x:Name=\"StoreCategories\" Orientation=\"Vertical\"", store,
             StringComparison.Ordinal);
         Assert.DoesNotContain("_storeCategoryFilter", settings, StringComparison.Ordinal);

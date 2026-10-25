@@ -12,14 +12,10 @@ namespace DeskBox.Views.SettingsSections;
 public sealed class TreeDecorationSettingsSection : UserControl
 {
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
-    private readonly TextBlock _title = new() { FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _balance = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-    private readonly TextBlock _drawResults = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _signIn = new();
     private readonly Button _refresh = new();
-    private readonly Button _drawOne = new();
-    private readonly Button _drawTen = new();
     private readonly Button _undo = new();
     private readonly Button _save = new();
     private readonly Button _return = new();
@@ -38,9 +34,14 @@ public sealed class TreeDecorationSettingsSection : UserControl
         IsItemClickEnabled = false,
         HorizontalContentAlignment = HorizontalAlignment.Stretch
     };
-    private readonly SettingsCard _editorCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly Border _editorSurface = new()
+    {
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        Padding = new Thickness(16),
+        CornerRadius = new CornerRadius(8),
+        Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush
+    };
     private readonly SettingsCard _collectionCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly SettingsCard _drawCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private TreeDecorationService? _service;
     private AquariumService? _aquarium;
     private LocalizationService? _localization;
@@ -57,14 +58,11 @@ public sealed class TreeDecorationSettingsSection : UserControl
 
     public TreeDecorationSettingsSection()
     {
-        var root = new StackPanel { Spacing = 10, Margin = new Thickness(24) };
-        root.Children.Add(_title);
+        var root = new StackPanel { Spacing = 10 };
         root.Children.Add(_status);
 
         _signIn.Click += (_, _) => NavigationRequested?.Invoke(this, new("General"));
         _refresh.Click += async (_, _) => await RunAsync(() => _service!.RefreshAsync());
-        _drawOne.Click += async (_, _) => await DrawAsync(1);
-        _drawTen.Click += async (_, _) => await DrawAsync(10);
         _undo.Click += (_, _) =>
         {
             if (_draft.Undo()) { _dirty = true; _scene.Render(); RefreshEditor(); RefreshActions(); }
@@ -78,17 +76,13 @@ public sealed class TreeDecorationSettingsSection : UserControl
         _rotation.ValueChanged += (_, _) => ApplyEditorValues();
         _layer.SelectionChanged += (_, _) => ApplyEditorValues();
 
-        var drawActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        drawActions.Children.Add(_drawOne);
-        drawActions.Children.Add(_drawTen);
-        drawActions.Children.Add(_refresh);
-        drawActions.Children.Add(_signIn);
-        var drawPanel = new StackPanel { Spacing = 8 };
-        drawPanel.Children.Add(_balance);
-        drawPanel.Children.Add(drawActions);
-        drawPanel.Children.Add(_drawResults);
-        _drawCard.Content = drawPanel;
-        root.Children.Add(_drawCard);
+        var accountActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        accountActions.Children.Add(_refresh);
+        accountActions.Children.Add(_signIn);
+        var accountPanel = new StackPanel { Spacing = 8 };
+        accountPanel.Children.Add(_balance);
+        accountPanel.Children.Add(accountActions);
+        root.Children.Add(accountPanel);
 
         var previewBorder = new Border
         {
@@ -114,8 +108,8 @@ public sealed class TreeDecorationSettingsSection : UserControl
         editorActions.Children.Add(_save);
         editorActions.Children.Add(_reapply);
         editorPanel.Children.Add(editorActions);
-        _editorCard.Content = editorPanel;
-        root.Children.Add(_editorCard);
+        _editorSurface.Child = editorPanel;
+        root.Children.Add(_editorSurface);
 
         _collectionCard.Content = _catalog;
         root.Children.Add(_collectionCard);
@@ -194,17 +188,10 @@ public sealed class TreeDecorationSettingsSection : UserControl
     private void RenderLabels()
     {
         if (_localization is null) return;
-        _title.Text = _localization.T("Tree.Decorations.Title");
-        _drawCard.Header = _localization.T("Tree.Decorations.DrawTitle");
-        _drawCard.Description = _localization.T("Tree.Decorations.DrawDescription");
-        _editorCard.Header = _localization.T("Tree.Decorations.EditorTitle");
-        _editorCard.Description = _localization.T("Tree.Decorations.EditorDescription");
         _collectionCard.Header = _localization.T("Tree.Decorations.CollectionTitle");
         _collectionCard.Description = _localization.T("Tree.Decorations.CollectionDescription");
         _signIn.Content = _localization.T("Tree.Decorations.SignInAction");
         _refresh.Content = _localization.T("Common.Refresh");
-        _drawOne.Content = _localization.T("Tree.Decorations.DrawOne");
-        _drawTen.Content = _localization.T("Tree.Decorations.DrawTen");
         _undo.Content = _localization.T("Tree.Decorations.Undo");
         _save.Content = _localization.T("Tree.Decorations.Save");
         _return.Content = _localization.T("Tree.Decorations.Return");
@@ -323,19 +310,6 @@ public sealed class TreeDecorationSettingsSection : UserControl
         Refresh();
     }
 
-    private async Task DrawAsync(int count)
-    {
-        if (_service is null || _localization is null) return;
-        bool success = await RunAsync(() => _service.DrawAsync(count));
-        if (success)
-        {
-            _drawResults.Text = string.Join(" · ", _service.LastDrawResults.Select(result =>
-                _localization.Format(result.IsNew
-                    ? "Tree.Decorations.DrawNew" : "Tree.Decorations.DrawDuplicate",
-                    _localization.T("Tree.Decorations.Item." + result.ItemId), result.ShardsAwarded)));
-        }
-    }
-
     private async Task SaveAsync()
     {
         if (_service is null) return;
@@ -414,9 +388,6 @@ public sealed class TreeDecorationSettingsSection : UserControl
     {
         if (_service is null) return;
         bool enabled = CanMutate();
-        TreeDecorationState? state = _service.State;
-        _drawOne.IsEnabled = enabled && state is not null && state.Coins >= (_service.Catalog?.SinglePrice ?? long.MaxValue);
-        _drawTen.IsEnabled = enabled && state is not null && state.Coins >= (_service.Catalog?.TenPrice ?? long.MaxValue);
         _refresh.IsEnabled = _service.IsAvailable && Volatile.Read(ref _busy) == 0;
         _undo.IsEnabled = enabled && _draft.CanUndo;
         _save.IsEnabled = enabled && _dirty;

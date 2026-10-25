@@ -31,6 +31,13 @@ $shopResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']
     ['csrf' => $_SESSION['csrf'], 'operation' => 'shop_price', 'panel' => 'shop', 'card_pack_price' => '275']);
 web_check($shopResult === 'shop_price' && admin_read($pdo, $administrator['user']['id'], 'shop', [], $clock)['card_pack_price'] === 275,
     'Saving the web shop price updates the card pack price.');
+$treeShopResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']],
+    ['csrf' => $_SESSION['csrf'], 'operation' => 'tree_pack_prices', 'panel' => 'shop',
+        'tree_card_pack_single_price' => '260', 'tree_card_pack_ten_price' => '2300']);
+$shop = admin_read($pdo, $administrator['user']['id'], 'shop', [], $clock);
+web_check($treeShopResult === 'tree_pack_prices' && $shop['tree_card_pack_single_price'] === 260
+    && $shop['tree_card_pack_ten_price'] === 2300,
+    'Saving web shop prices updates both tree card pack products.');
 $coinsResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']],
     ['csrf' => $_SESSION['csrf'], 'operation' => 'set_coins', 'target_id' => $member['user']['id'], 'coins' => '125']);
 web_check($coinsResult === 'set_coins'

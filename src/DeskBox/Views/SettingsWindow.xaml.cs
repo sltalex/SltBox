@@ -101,7 +101,6 @@ public sealed partial class SettingsWindow : Window
             ["AquariumStore"] = new("AquariumStore", "Aquarium.Settings.Store", null, "AquariumStore"),
             ["FruitMarket"] = new("FruitMarket", "Tree.FruitMarket", null, "FruitMarket"),
             ["FruitEncyclopedia"] = new("FruitEncyclopedia", "Tree.FruitEncyclopedia", null, "FruitEncyclopedia"),
-            ["TreeDecorationSettings"] = new("TreeDecorationSettings", "Tree.Decorations.Title", null, "TreeDecorationSettings"),
             ["PerformanceSettings"] = new("PerformanceSettings", "Settings.Performance.Title", "General", "General"),
             ["Appearance"] = new("Appearance", "Settings.Section.Appearance", null, "Appearance"),
             ["CapsuleMode"] = new("CapsuleMode", "Settings.Section.CapsuleMode", null, "CapsuleMode"),

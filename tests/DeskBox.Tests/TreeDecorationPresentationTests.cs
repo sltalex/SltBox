@@ -22,19 +22,29 @@ public sealed class TreeDecorationPresentationTests
     }
 
     [Fact]
-    public void ProjectAndSettings_RegisterDecorationAssetsAndIndependentRoute()
+    public void ProjectAndSettings_RegisterAssetsInsideTreeSettingsAndCardPacksInsideStore()
     {
         string project = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/DeskBox.csproj"));
         string xaml = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml"));
         string shell = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml.cs"));
 
         Assert.Contains("Assets\\Tree\\Decorations\\**\\*.svg", project, StringComparison.Ordinal);
-        Assert.Contains("TreeDecorationSettingsSectionTemplate", xaml, StringComparison.Ordinal);
-        Assert.Contains("Tag=\"TreeDecorationSettings\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("[\"TreeDecorationSettings\"]", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("TreeDecorationSettingsSectionTemplate", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tag=\"TreeDecorationSettings\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("[\"TreeDecorationSettings\"]", shell, StringComparison.Ordinal);
+        string treeSettings = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+        Assert.Contains("TreeDecorationSettingsSection _decorations", treeSettings, StringComparison.Ordinal);
         string section = File.ReadAllText(TestPaths.FromRepository(
             "src/DeskBox/Views/SettingsSections/TreeDecorationSettingsSection.cs"));
         Assert.Contains("InitializeAsync", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tree.Decorations.EditorTitle", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tree.Decorations.EditorDescription", section, StringComparison.Ordinal);
+        string aquarium = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/AquariumSettingsSection.cs"));
+        Assert.Contains("TreePackStoreCard(1)", aquarium, StringComparison.Ordinal);
+        Assert.Contains("TreePackStoreCard(10)", aquarium, StringComparison.Ordinal);
+        Assert.Contains("OpenPackAsync(next.Id)", aquarium, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -80,7 +90,7 @@ public sealed class TreeDecorationPresentationTests
             JsonElement root = document.RootElement;
             foreach (string key in new[]
             {
-                "Tree.Decorations.Title", "Tree.Decorations.DrawOne", "Tree.Decorations.DrawTen",
+                "Tree.Decorations.Title", "Tree.Decorations.CardPack.Name", "Tree.Decorations.CardPack.Open",
                 "Tree.Decorations.Save", "Tree.Decorations.Undo", "Tree.Decorations.Return",
                 "Tree.Decorations.Scale", "Tree.Decorations.Rotation", "Tree.Decorations.Layer"
             })

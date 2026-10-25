@@ -94,7 +94,7 @@ public sealed partial class SettingsWindow
         switch (section)
         {
             case AquariumSettingsSection aquarium:
-                aquarium.Initialize(_aquariumService, _localizationService,
+                aquarium.Initialize(_aquariumService, _treeDecorationService, _localizationService,
                     () => _settingsService.Settings.WidgetLayout.AquariumAnimationsEnabled,
                     enabled =>
                     {
@@ -119,14 +119,9 @@ public sealed partial class SettingsWindow
                     ViewModel,
                     _localizationService,
                     _authSession,
-                    _treeCloudSyncService);
-                break;
-            case TreeDecorationSettingsSection treeDecorations:
-                treeDecorations.Configure(
+                    _treeCloudSyncService,
                     _treeDecorationService,
-                    _aquariumService,
-                    _localizationService,
-                    _authSession);
+                    _aquariumService);
                 break;
             case DingTalkGroupDocsSettingsSection groupDocsSettings:
                 groupDocsSettings.Configure(

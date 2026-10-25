@@ -33,6 +33,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly SettingsCard _syncCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly TreeDecorationSettingsSection _decorations = new();
     private readonly Grid _participationRow;
     private SettingsViewModel? _viewModel;
     private LocalizationService? _localization;
@@ -95,7 +96,10 @@ public sealed partial class TreeSettingsSection : UserControl
         panel.Children.Add(_switchesCard);
         panel.Children.Add(_syncCard);
         panel.Children.Add(_leaderboardCard);
+        panel.Children.Add(_decorations);
         Content = panel;
+
+        _decorations.NavigationRequested += (_, args) => NavigationRequested?.Invoke(this, args);
 
         _enable.Toggled += (_, _) =>
         {
@@ -122,12 +126,14 @@ public sealed partial class TreeSettingsSection : UserControl
         Unloaded += TreeSettingsSection_Unloaded;
     }
 
-    internal void Configure(SettingsViewModel viewModel, LocalizationService localization, IAuthSession auth, TreeCloudSyncService cloud)
+    internal void Configure(SettingsViewModel viewModel, LocalizationService localization, IAuthSession auth,
+        TreeCloudSyncService cloud, TreeDecorationService decorations, AquariumService aquarium)
     {
         _viewModel = viewModel;
         _localization = localization;
         _auth = auth;
         _cloud = cloud;
+        _decorations.Configure(decorations, aquarium, localization, auth);
         RenderLabels();
         Refresh();
     }

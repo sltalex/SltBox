@@ -35,6 +35,7 @@ internal sealed class TreeDecorationService : IAsyncDisposable
     }
 
     internal event Action? Changed;
+    internal event Action<IReadOnlyList<TreeDecorationDrawResult>>? Opened;
     internal TreeDecorationCatalog? Catalog { get; private set; }
     internal TreeDecorationState? State { get; private set; }
     internal IReadOnlyList<TreeDecorationDrawResult> LastDrawResults { get; private set; } =
@@ -64,16 +65,22 @@ internal sealed class TreeDecorationService : IAsyncDisposable
             return replayed;
         }, cancellationToken);
 
-    internal Task<bool> DrawAsync(int count, CancellationToken cancellationToken = default)
+    internal Task<bool> BuyPackAsync(int drawCount, CancellationToken cancellationToken = default)
     {
-        if (count is not (1 or 10)) throw new ArgumentOutOfRangeException(nameof(count));
-        return MutateAsync("draw", count, null, null, null, 0, cancellationToken);
+        if (drawCount is not (1 or 10)) throw new ArgumentOutOfRangeException(nameof(drawCount));
+        return MutateAsync("buy_pack", drawCount, null, null, null, null, 0, cancellationToken);
+    }
+
+    internal Task<bool> OpenPackAsync(string packInstanceId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packInstanceId);
+        return MutateAsync("open_pack", null, null, packInstanceId, null, null, 0, cancellationToken);
     }
 
     internal Task<bool> RedeemAsync(string itemId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
-        return MutateAsync("redeem", null, itemId, null, null, 0, cancellationToken);
+        return MutateAsync("redeem", null, itemId, null, null, null, 0, cancellationToken);
     }
 
     internal Task<bool> SaveSceneAsync(IReadOnlyList<TreeDecorationPlacement> placements,
@@ -85,7 +92,7 @@ internal sealed class TreeDecorationService : IAsyncDisposable
             placements.Any(item => !TreeDecorationPlacementRules.IsValid(item)) ||
             placements.Select(item => item.ItemId).Distinct(StringComparer.Ordinal).Count() != placements.Count)
             throw new ArgumentException("Tree decoration scene is outside the server contract.", nameof(placements));
-        return MutateAsync("save_scene", null, null,
+        return MutateAsync("save_scene", null, null, null,
             Array.AsReadOnly(placements.ToArray()), activeThemeId, baseSceneVersion, cancellationToken);
     }
 
@@ -97,7 +104,7 @@ internal sealed class TreeDecorationService : IAsyncDisposable
             return true;
         }, cancellationToken);
 
-    private Task<bool> MutateAsync(string action, int? count, string? itemId,
+    private Task<bool> MutateAsync(string action, int? drawCount, string? itemId, string? packInstanceId,
         IReadOnlyList<TreeDecorationPlacement>? placements, string? activeThemeId,
         long sceneVersion, CancellationToken cancellationToken) =>
         RunAsync(async (identity, version, token) =>
@@ -106,7 +113,8 @@ internal sealed class TreeDecorationService : IAsyncDisposable
             Update(identity, version, token, () => existing = _pending);
             if (existing is not null)
             {
-                if (!MatchesPending(existing, action, count, itemId, placements, activeThemeId, sceneVersion))
+                if (!MatchesPending(existing, action, drawCount, itemId, packInstanceId,
+                    placements, activeThemeId, sceneVersion))
                 {
                     Update(identity, version, token, () => ErrorCode = "pending_operation");
                     return false;
@@ -114,18 +122,19 @@ internal sealed class TreeDecorationService : IAsyncDisposable
             }
             else
             {
-                if (action == "draw" && Catalog is null) await ReadCloudAsync(identity, version, token);
+                if (action == "buy_pack" && Catalog is null) await ReadCloudAsync(identity, version, token);
                 byte[] command = TreeDecorationJson.Write(writer =>
                 {
                     writer.WriteStartObject();
                     writer.WriteString("action", action);
                     writer.WriteString("operation_id", Guid.NewGuid().ToString("N"));
-                    if (count is int drawCount)
+                    if (drawCount is int count)
                     {
                         writer.WriteNumber("catalog_version", Catalog?.Version ?? 0);
-                        writer.WriteNumber("count", drawCount);
+                        writer.WriteNumber("draw_count", count);
                     }
                     if (itemId is not null) writer.WriteString("item_id", itemId);
+                    if (packInstanceId is not null) writer.WriteString("pack_instance_id", packInstanceId);
                     if (placements is not null)
                     {
                         writer.WriteNumber("base_scene_version", sceneVersion);
@@ -199,12 +208,15 @@ internal sealed class TreeDecorationService : IAsyncDisposable
         using JsonDocument body = await ReadDocumentAsync(response, token);
         TreeDecorationState state = TreeDecorationJson.ReadState(body.RootElement);
         IReadOnlyList<TreeDecorationDrawResult> results = TreeDecorationJson.ReadDrawResults(body.RootElement);
+        bool opened = false;
         Update(identity, version, token, () =>
         {
             State = state;
             LastDrawResults = results;
             using JsonDocument pending = JsonDocument.Parse(command);
-            if (pending.RootElement.GetProperty("action").GetString() == "save_scene")
+            string? action = pending.RootElement.GetProperty("action").GetString();
+            opened = action == "open_pack";
+            if (action == "save_scene")
             {
                 PendingScene = null;
                 PendingThemeId = null;
@@ -213,6 +225,7 @@ internal sealed class TreeDecorationService : IAsyncDisposable
             IsOffline = false;
             ErrorCode = null;
         });
+        if (opened) RaiseOpened(results);
         await SaveCacheAsync(identity, version, token);
         return true;
     }
@@ -278,14 +291,16 @@ internal sealed class TreeDecorationService : IAsyncDisposable
         finally { _gate.Release(); RaiseChanged(); }
     }
 
-    private static bool MatchesPending(byte[] command, string action, int? count, string? itemId,
+    private static bool MatchesPending(byte[] command, string action, int? drawCount, string? itemId,
+        string? packInstanceId,
         IReadOnlyList<TreeDecorationPlacement>? placements, string? activeThemeId, long sceneVersion)
     {
         using JsonDocument document = JsonDocument.Parse(command);
         JsonElement root = document.RootElement;
         if (root.GetProperty("action").GetString() != action) return false;
-        if (count is int drawCount && root.GetProperty("count").GetInt32() != drawCount) return false;
+        if (drawCount is int count && root.GetProperty("draw_count").GetInt32() != count) return false;
         if (itemId is not null && root.GetProperty("item_id").GetString() != itemId) return false;
+        if (packInstanceId is not null && root.GetProperty("pack_instance_id").GetString() != packInstanceId) return false;
         if (placements is null) return true;
         string? theme = root.GetProperty("active_theme_id").ValueKind == JsonValueKind.String
             ? root.GetProperty("active_theme_id").GetString() : null;
@@ -443,6 +458,15 @@ internal sealed class TreeDecorationService : IAsyncDisposable
         {
             try { observer(); }
             catch (Exception ex) { App.Log($"[TreeDecoration] Observer failed: {ex.GetType().Name}"); }
+        }
+    }
+
+    private void RaiseOpened(IReadOnlyList<TreeDecorationDrawResult> results)
+    {
+        foreach (Action<IReadOnlyList<TreeDecorationDrawResult>> observer in Opened?.GetInvocationList() ?? [])
+        {
+            try { observer(results); }
+            catch (Exception ex) { App.Log($"[TreeDecoration] Open observer failed: {ex.GetType().Name}"); }
         }
     }
 

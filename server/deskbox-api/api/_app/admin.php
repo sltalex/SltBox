@@ -17,8 +17,12 @@ function admin_require(PDO $pdo, string $token, callable $clock): array
 function admin_read(PDO $pdo, string $actorId, string $view, array $query, callable $clock): array
 {
     if ($view === 'shop') {
-        $row = $pdo->query('SELECT card_pack_price, updated_by, updated_at FROM aquarium_catalog_settings WHERE id = 1')->fetch(PDO::FETCH_ASSOC);
+        $row = $pdo->query('SELECT card_pack_price, tree_card_pack_single_price, '
+            . 'tree_card_pack_ten_price, updated_by, updated_at '
+            . 'FROM aquarium_catalog_settings WHERE id = 1')->fetch(PDO::FETCH_ASSOC);
         return ['card_pack_price' => (int)($row['card_pack_price'] ?? aquarium_card_pack_price()),
+            'tree_card_pack_single_price' => (int)($row['tree_card_pack_single_price'] ?? 200),
+            'tree_card_pack_ten_price' => (int)($row['tree_card_pack_ten_price'] ?? 1800),
             'updated_by' => $row['updated_by'] ?? null, 'updated_at' => $row['updated_at'] ?? null];
     }
     if ($view === 'overview') {
@@ -137,7 +141,7 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
     $reason = $reason === '' ? 'admin_ui' : $reason;
     $allowed = ['disable', 'enable', 'update_user', 'revoke_session', 'revoke_all_sessions', 'delete_user',
         'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk', 'set_aquarium_coins',
-        'set_aquarium_card_pack_price'];
+        'set_aquarium_card_pack_price', 'set_tree_decoration_card_pack_prices'];
     if (!in_array($action, $allowed, true)) { throw new ApiError('invalid_action', 'Unknown action.', 400); }
     if ($action === 'delete_user') {
         auth_rate_limit($pdo, 'admin_delete', hash('sha256', $actorId), 5, 900, $clock);
@@ -195,6 +199,9 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         } elseif ($action === 'set_aquarium_card_pack_price') {
             if ($targetId !== $actorId) { throw new ApiError('invalid_target', 'Shop price changes must target the administrator.', 400); }
             $details = admin_set_aquarium_card_pack_price($pdo, $actorId, $body, $now, $driver);
+        } elseif ($action === 'set_tree_decoration_card_pack_prices') {
+            if ($targetId !== $actorId) { throw new ApiError('invalid_target', 'Shop price changes must target the administrator.', 400); }
+            $details = admin_set_tree_decoration_card_pack_prices($pdo, $actorId, $body, $now, $driver);
         } else {
             $details = admin_change_tree($pdo, $targetId, $action, $body, $now, $driver);
         }
@@ -256,6 +263,23 @@ function admin_set_aquarium_card_pack_price(PDO $pdo, string $actorId, array $bo
         : 'INSERT INTO aquarium_catalog_settings (id, card_pack_price, updated_by, updated_at) VALUES (1, :price, :actor, :now) ON DUPLICATE KEY UPDATE card_pack_price = VALUES(card_pack_price), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)';
     $pdo->prepare($insert)->execute([':price' => $price, ':actor' => $actorId, ':now' => auth_sql_time($now)]);
     return ['card_pack_price' => $price];
+}
+
+function admin_set_tree_decoration_card_pack_prices(PDO $pdo, string $actorId, array $body,
+    DateTimeImmutable $now, string $driver): array
+{
+    $singlePrice = $body['tree_card_pack_single_price'] ?? null;
+    $tenPrice = $body['tree_card_pack_ten_price'] ?? null;
+    if (!is_int($singlePrice) || $singlePrice < 0 || $singlePrice > 2147483647
+        || !is_int($tenPrice) || $tenPrice < 0 || $tenPrice > 2147483647) {
+        throw new ApiError('invalid_price', 'Tree card pack prices are invalid.', 400);
+    }
+    $insert = $driver === 'sqlite'
+        ? 'INSERT INTO aquarium_catalog_settings (id, card_pack_price, tree_card_pack_single_price, tree_card_pack_ten_price, updated_by, updated_at) VALUES (1, 200, :single, :ten, :actor, :now) ON CONFLICT(id) DO UPDATE SET tree_card_pack_single_price = excluded.tree_card_pack_single_price, tree_card_pack_ten_price = excluded.tree_card_pack_ten_price, updated_by = excluded.updated_by, updated_at = excluded.updated_at'
+        : 'INSERT INTO aquarium_catalog_settings (id, card_pack_price, tree_card_pack_single_price, tree_card_pack_ten_price, updated_by, updated_at) VALUES (1, 200, :single, :ten, :actor, :now) ON DUPLICATE KEY UPDATE tree_card_pack_single_price = VALUES(tree_card_pack_single_price), tree_card_pack_ten_price = VALUES(tree_card_pack_ten_price), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)';
+    $pdo->prepare($insert)->execute([':single' => $singlePrice, ':ten' => $tenPrice,
+        ':actor' => $actorId, ':now' => auth_sql_time($now)]);
+    return ['tree_card_pack_single_price' => $singlePrice, 'tree_card_pack_ten_price' => $tenPrice];
 }
 
 function admin_set_aquarium_coins(PDO $pdo, string $userId, array $body,
