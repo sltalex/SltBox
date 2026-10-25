@@ -3,9 +3,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel Spacing="8" Padding="4,8,4,12">
             <TextBlock Text="只显示背包中当前拥有的果实；价格每天更新，保留最近 7 天记录。" Opacity=".7" TextWrapping="Wrap" />
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="FruitCards" Orientation="Horizontal" Spacing="8" />
-            </ScrollViewer>
+            <Grid x:Name="FruitCards" ColumnSpacing="8" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
             <TextBlock x:Name="Status" Opacity=".75" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

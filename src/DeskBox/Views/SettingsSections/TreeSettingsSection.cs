@@ -20,6 +20,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TextBlock _enableLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _statisticsLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _syncLabel = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
@@ -28,7 +29,6 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly SettingsCard _syncCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TreeDecorationSettingsSection _decorations = new();
     private readonly Grid _participationRow;
@@ -45,35 +45,36 @@ public sealed partial class TreeSettingsSection : UserControl
 
     public TreeSettingsSection()
     {
-        var switches = new Grid { ColumnSpacing = 18 };
-        switches.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        switches.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var switches = new Grid { ColumnSpacing = 12 };
+        for (int column = 0; column < 4; column++)
+            switches.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         Grid enableColumn = CreateToggleRow(_enableLabel, _enable);
         Grid statisticsColumn = CreateToggleRow(_statisticsLabel, _statistics);
         Grid.SetColumn(statisticsColumn, 1);
         switches.Children.Add(enableColumn);
         switches.Children.Add(statisticsColumn);
-        _switchesCard.Content = switches;
 
         _repairButton.Click += RepairButton_Click;
-        var syncActions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
         _repairButton.Content = new TextBlock();
-        syncActions.Children.Add(_repairButton);
-        var syncPanel = new StackPanel { Spacing = 8 };
+        var syncPanel = new StackPanel
+        {
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        syncPanel.Children.Add(_syncLabel);
         syncPanel.Children.Add(_syncStatus);
-        syncPanel.Children.Add(syncActions);
-        _syncCard.Content = syncPanel;
+        syncPanel.Children.Add(_repairButton);
+        Grid.SetColumn(syncPanel, 3);
+
+        _participationRow = CreateToggleRow(_participationLabel, _participation);
+        Grid.SetColumn(_participationRow, 2);
+        switches.Children.Add(_participationRow);
+        switches.Children.Add(syncPanel);
+        _switchesCard.Content = switches;
 
         _loginButton.Click += (_, _) => NavigationRequested?.Invoke(this, new("General"));
         var leaderboardPanel = new StackPanel { Spacing = 10 };
         leaderboardPanel.Children.Add(_leaderboardTitle);
-        _participationRow = CreateToggleRow(_participationLabel, _participation);
-        leaderboardPanel.Children.Add(_participationRow);
         leaderboardPanel.Children.Add(_leaderboardHint);
         leaderboardPanel.Children.Add(_currentRankHint);
         leaderboardPanel.Children.Add(_loginButton);
@@ -86,7 +87,6 @@ public sealed partial class TreeSettingsSection : UserControl
         var panel = new StackPanel { Spacing = 10, Margin = new Thickness(24) };
         panel.Children.Add(_decorations);
         panel.Children.Add(_switchesCard);
-        panel.Children.Add(_syncCard);
         panel.Children.Add(_leaderboardCard);
         Content = panel;
 
@@ -156,8 +156,7 @@ public sealed partial class TreeSettingsSection : UserControl
     {
         if (_localization is null) return;
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
-        _syncCard.Header = _localization.T("Tree.Settings.Card.Sync");
-        _syncCard.Description = string.Empty;
+        _syncLabel.Text = _localization.T("Tree.Settings.Card.Sync");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _enableLabel.Text = _localization.T("Tree.Settings.Enable");
         _statisticsLabel.Text = _localization.T("Tree.Settings.EnableStatistics");

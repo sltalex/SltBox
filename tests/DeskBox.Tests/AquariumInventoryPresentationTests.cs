@@ -152,11 +152,18 @@ public sealed class AquariumInventoryPresentationTests
     {
         string source = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src", "DeskBox", "Views",
             "SettingsSections", "FruitMarketSection.xaml.cs"));
+        string xaml = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src", "DeskBox", "Views",
+            "SettingsSections", "FruitMarketSection.xaml"));
 
-        Assert.Contains("Width = 180, MinHeight = 160", source, StringComparison.Ordinal);
+        Assert.Contains("MinHeight = 160", source, StringComparison.Ordinal);
         Assert.Contains("Content = \"全卖\", Width = 90", source, StringComparison.Ordinal);
         Assert.Contains("PlaceholderText = \"数量\", Width = 48", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Width = 210, MinHeight = 160", source, StringComparison.Ordinal);
+        Assert.Contains("int columns = FruitCards.ColumnDefinitions.Count", source, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(cardBorder, index % columns)", source, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetRow(cardBorder, index / columns)", source, StringComparison.Ordinal);
+        Assert.Equal(3, xaml.Split("<ColumnDefinition Width=\"*\" />", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("HorizontalScrollBarVisibility", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

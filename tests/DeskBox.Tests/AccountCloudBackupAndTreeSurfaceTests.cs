@@ -61,7 +61,7 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     {
         string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
 
-        Assert.True(source.Split("new() { HorizontalContentAlignment", StringSplitOptions.None).Length - 1 >= 2);
+        Assert.Contains("SettingsCard _switchesCard", source, StringComparison.Ordinal);
         Assert.Contains("private readonly Border _leaderboardCard", source, StringComparison.Ordinal);
         Assert.Contains("ListView _leaderboard", source, StringComparison.Ordinal);
         Assert.Contains("new Grid", source, StringComparison.Ordinal);
@@ -84,10 +84,9 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         int panel = source.IndexOf("var panel = new StackPanel", StringComparison.Ordinal);
         int decorations = source.IndexOf("panel.Children.Add(_decorations)", panel, StringComparison.Ordinal);
         int switches = source.IndexOf("panel.Children.Add(_switchesCard)", panel, StringComparison.Ordinal);
-        int sync = source.IndexOf("panel.Children.Add(_syncCard)", panel, StringComparison.Ordinal);
         int leaderboard = source.IndexOf("panel.Children.Add(_leaderboardCard)", panel, StringComparison.Ordinal);
-        Assert.True(panel >= 0 && decorations > panel && switches > decorations && sync > switches
-            && leaderboard > sync);
+        Assert.True(panel >= 0 && decorations > panel && switches > decorations && leaderboard > switches);
+        Assert.DoesNotContain("_syncCard", source, StringComparison.Ordinal);
     }
 
     [Fact]

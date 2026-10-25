@@ -47,6 +47,19 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
     }
 
     [Fact]
+    public void TreeSettings_PutAllControlsInOneCompactRowBeforeLeaderboard()
+    {
+        string source = Read("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs");
+
+        Assert.Contains("for (int column = 0; column < 4; column++)", source, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(_participationRow, 2)", source, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(syncPanel, 3)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_syncCard", source, StringComparison.Ordinal);
+        Assert.True(source.IndexOf("panel.Children.Add(_switchesCard)", StringComparison.Ordinal) <
+            source.IndexOf("panel.Children.Add(_leaderboardCard)", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void DingTalkAccount_UsesOneRowForDescriptionStatusAndActions()
     {
         XDocument document = XDocument.Parse(Read("src/DeskBox/Views/SettingsWindow.xaml"));

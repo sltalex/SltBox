@@ -5,6 +5,23 @@ namespace DeskBox.Tests;
 public sealed class TreeDecorationPresentationTests
 {
     [Fact]
+    public void DecorationSettings_UseFullSceneAndWrappingCompactInventory()
+    {
+        string section = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/TreeDecorationSettingsSection.cs"));
+        string scene = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Controls/TreeDecorationSceneView.cs"));
+
+        Assert.DoesNotContain("Tree.Decorations.Ready", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tree.Decorations.Balance", section, StringComparison.Ordinal);
+        Assert.DoesNotContain("Common.Refresh", section, StringComparison.Ordinal);
+        Assert.Contains("private readonly WrapPanel _catalog", section, StringComparison.Ordinal);
+        Assert.Contains("var editorFields = new StackPanel { Spacing = 2 }", section, StringComparison.Ordinal);
+        Assert.Contains("Height = TreeIllustrationLayout.Height", scene, StringComparison.Ordinal);
+        Assert.Contains("VerticalAlignment = VerticalAlignment.Top", scene, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DecorationAssets_ContainUniqueTwentyFourItemSourceAndSilhouettePairs()
     {
         string root = TestPaths.FromRepository("src/DeskBox/Assets/Tree/Decorations");

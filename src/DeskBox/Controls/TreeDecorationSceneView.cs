@@ -15,7 +15,7 @@ internal sealed class TreeDecorationSceneView : UserControl
     private readonly Grid _scene = new()
     {
         Width = TreeIllustrationLayout.Width,
-        Height = TreeIllustrationLayout.ArtworkHeight,
+        Height = TreeIllustrationLayout.Height,
         Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent)
     };
     private readonly Canvas _themeLayer = Layer();
@@ -50,6 +50,7 @@ internal sealed class TreeDecorationSceneView : UserControl
         {
             Source = TreeAsset("ground.svg"), Width = TreeIllustrationLayout.Width,
             Height = TreeIllustrationLayout.ArtworkHeight, Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Top,
             IsHitTestVisible = false,
             RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.GroundVerticalOffset }
         });
@@ -59,6 +60,7 @@ internal sealed class TreeDecorationSceneView : UserControl
         {
             Width = TreeIllustrationLayout.Width,
             Height = TreeIllustrationLayout.ArtworkHeight,
+            VerticalAlignment = VerticalAlignment.Top,
             RenderTransformOrigin = new Point(.5, .86),
             RenderTransform = new CompositeTransform
             {
@@ -230,7 +232,8 @@ internal sealed class TreeDecorationSceneView : UserControl
     private static Canvas Layer() => new()
     {
         Width = TreeIllustrationLayout.Width,
-        Height = TreeIllustrationLayout.ArtworkHeight
+        Height = TreeIllustrationLayout.ArtworkHeight,
+        VerticalAlignment = VerticalAlignment.Top
     };
 
     private static SvgImageSource TreeAsset(string name) =>

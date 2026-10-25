@@ -20,10 +20,14 @@ public sealed partial class FruitMarketSection : UserControl
         DispatcherQueue.TryEnqueue(() =>
         {
             FruitCards.Children.Clear();
+            FruitCards.RowDefinitions.Clear();
             var catalog = Service.Catalog.ToDictionary(x => x.Id, StringComparer.Ordinal);
+            int columns = FruitCards.ColumnDefinitions.Count;
+            int index = 0;
             foreach (var owned in Service.Inventory.Where(x => x.Quantity > 0))
             {
                 if (!catalog.TryGetValue(owned.FruitId, out FruitCatalogItem? fruit)) continue;
+                if (index % columns == 0) FruitCards.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 var card = new StackPanel { Spacing = 4 };
                 var imageAndActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 imageAndActions.Children.Add(new Image
@@ -74,7 +78,17 @@ public sealed partial class FruitMarketSection : UserControl
                 card.Children.Add(new TextBlock { Text = $"今日 {fruit.CurrentPrice} 金币 · 数量 {owned.Quantity}", FontSize = 11, Opacity = .75, TextWrapping = TextWrapping.Wrap });
                 var history = Service.PriceHistory.TryGetValue(fruit.Id, out var points) ? string.Join("  ", points.TakeLast(7).Select(x => x.Price)) : "暂无历史";
                 card.Children.Add(new TextBlock { Text = $"7日：{history}", FontSize = 10, Opacity = .65, TextWrapping = TextWrapping.Wrap });
-                FruitCards.Children.Add(new Border { Width = 180, MinHeight = 160, Padding = new Thickness(8), CornerRadius = new CornerRadius(10), Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush, Child = card });
+                var cardBorder = new Border
+                {
+                    MinHeight = 160, Padding = new Thickness(8), CornerRadius = new CornerRadius(10),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
+                    Child = card
+                };
+                Grid.SetColumn(cardBorder, index % columns);
+                Grid.SetRow(cardBorder, index / columns);
+                FruitCards.Children.Add(cardBorder);
+                index++;
             }
             Status.Text = FruitCards.Children.Count == 0 ? "背包中暂无可出售的分类果实。" : "";
         });

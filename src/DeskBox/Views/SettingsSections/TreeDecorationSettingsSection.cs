@@ -13,9 +13,7 @@ public sealed class TreeDecorationSettingsSection : UserControl
 {
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock _balance = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly Button _signIn = new();
-    private readonly Button _refresh = new();
     private readonly Button _undo = new();
     private readonly Button _save = new();
     private readonly Button _return = new();
@@ -28,11 +26,11 @@ public sealed class TreeDecorationSettingsSection : UserControl
     private readonly Slider _rotation = new() { Minimum = -45, Maximum = 45, StepFrequency = 1, Width = 220 };
     private readonly ComboBox _layer = new() { Width = 100, ItemsSource = new object[] { -2, -1, 0, 1, 2 } };
     private readonly TreeDecorationSceneView _scene = new();
-    private readonly GridView _catalog = new()
+    private readonly WrapPanel _catalog = new()
     {
-        SelectionMode = ListViewSelectionMode.None,
-        IsItemClickEnabled = false,
-        HorizontalContentAlignment = HorizontalAlignment.Stretch
+        Orientation = Orientation.Horizontal,
+        HorizontalSpacing = 8,
+        VerticalSpacing = 8
     };
     private readonly Border _editorSurface = new()
     {
@@ -62,7 +60,6 @@ public sealed class TreeDecorationSettingsSection : UserControl
         root.Children.Add(_status);
 
         _signIn.Click += (_, _) => NavigationRequested?.Invoke(this, new("General"));
-        _refresh.Click += async (_, _) => await RunAsync(() => _service!.RefreshAsync());
         _undo.Click += (_, _) =>
         {
             if (_draft.Undo()) { _dirty = true; _scene.Render(); RefreshEditor(); RefreshActions(); }
@@ -76,13 +73,7 @@ public sealed class TreeDecorationSettingsSection : UserControl
         _rotation.ValueChanged += (_, _) => ApplyEditorValues();
         _layer.SelectionChanged += (_, _) => ApplyEditorValues();
 
-        var accountActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        accountActions.Children.Add(_refresh);
-        accountActions.Children.Add(_signIn);
-        var accountPanel = new StackPanel { Spacing = 8 };
-        accountPanel.Children.Add(_balance);
-        accountPanel.Children.Add(accountActions);
-        root.Children.Add(accountPanel);
+        root.Children.Add(_signIn);
 
         var previewBorder = new Border
         {
@@ -96,12 +87,14 @@ public sealed class TreeDecorationSettingsSection : UserControl
             Padding = new Thickness(8),
             Child = new Viewbox { Child = _scene, Stretch = Stretch.Uniform }
         };
-        var editorPanel = new StackPanel { Spacing = 10 };
+        var editorPanel = new StackPanel { Spacing = 8 };
         editorPanel.Children.Add(previewBorder);
         editorPanel.Children.Add(_selected);
-        editorPanel.Children.Add(EditorRow(_scaleLabel, _scale));
-        editorPanel.Children.Add(EditorRow(_rotationLabel, _rotation));
-        editorPanel.Children.Add(EditorRow(_layerLabel, _layer));
+        var editorFields = new StackPanel { Spacing = 2 };
+        editorFields.Children.Add(EditorRow(_scaleLabel, _scale));
+        editorFields.Children.Add(EditorRow(_rotationLabel, _rotation));
+        editorFields.Children.Add(EditorRow(_layerLabel, _layer));
+        editorPanel.Children.Add(editorFields);
         var editorActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         editorActions.Children.Add(_undo);
         editorActions.Children.Add(_return);
@@ -191,7 +184,6 @@ public sealed class TreeDecorationSettingsSection : UserControl
         _collectionCard.Header = _localization.T("Tree.Decorations.CollectionTitle");
         _collectionCard.Description = _localization.T("Tree.Decorations.CollectionDescription");
         _signIn.Content = _localization.T("Tree.Decorations.SignInAction");
-        _refresh.Content = _localization.T("Common.Refresh");
         _undo.Content = _localization.T("Tree.Decorations.Undo");
         _save.Content = _localization.T("Tree.Decorations.Save");
         _return.Content = _localization.T("Tree.Decorations.Return");
@@ -209,8 +201,6 @@ public sealed class TreeDecorationSettingsSection : UserControl
         TreeDecorationState? state = _service.State;
         bool signedIn = _service.IsAvailable;
         _signIn.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
-        _balance.Text = state is null ? string.Empty :
-            _localization.Format("Tree.Decorations.Balance", state.Coins, state.Shards);
         _status.Text = !signedIn
             ? _localization.T("Tree.Decorations.SignInRequired")
             : _service.IsOffline
@@ -223,12 +213,14 @@ public sealed class TreeDecorationSettingsSection : UserControl
                             ? _localization.T("Tree.Decorations.MatureRequired")
                             : _dirty
                                 ? _localization.T("Tree.Decorations.Unsaved")
-                                : _localization.T("Tree.Decorations.Ready");
+                                : string.Empty;
+        _status.Visibility = string.IsNullOrWhiteSpace(_status.Text)
+            ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void RenderCatalog()
     {
-        _catalog.Items.Clear();
+        _catalog.Children.Clear();
         if (_service?.Catalog is not { } catalog || _localization is null) return;
         HashSet<string> owned = _service.State?.OwnedIds.ToHashSet(StringComparer.Ordinal) ?? [];
         foreach (TreeDecorationCatalogItem item in catalog.Items)
@@ -283,7 +275,7 @@ public sealed class TreeDecorationSettingsSection : UserControl
                 BorderThickness = new Thickness(activeTheme ? 2 : 1), Child = panel
             };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, name);
-            _catalog.Items.Add(card);
+            _catalog.Children.Add(card);
         }
     }
 
@@ -388,7 +380,6 @@ public sealed class TreeDecorationSettingsSection : UserControl
     {
         if (_service is null) return;
         bool enabled = CanMutate();
-        _refresh.IsEnabled = _service.IsAvailable && Volatile.Read(ref _busy) == 0;
         _undo.IsEnabled = enabled && _draft.CanUndo;
         _save.IsEnabled = enabled && _dirty;
         _reapply.Visibility = _service.PendingScene is null ? Visibility.Collapsed : Visibility.Visible;
