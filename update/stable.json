@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102402",
-  "releaseDate": "2026-10-25",
+  "version": "2026102701",
+  "releaseDate": "2026-10-27",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102402/SltBox_Setup_2026102402_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102402_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102701/SltBox_Setup_2026102701_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102701_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "2e71edab425b06c6d95102dade34aea128f46986b7fa24dfa71f353dc81ddaf7",
-  "size": 131387275,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102402",
+  "sha256": "0a586698fb77b7e8600392c02b2f60137021fd5a99065ec7a9eb19ab256aa545",
+  "size": 155880381,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102701",
   "summary": {
-    "zh-CN": "SltBox 2026102402：扩大并下移种树草地，让树根位于草地中间，同时调整雪地效果。",
-    "en-US": "SltBox 2026102402 enlarges and lowers the tree ground, centers the trunk, and updates the snowy ground effect."
+    "zh-CN": "SltBox 2026102701：重做 184 种动物图鉴与生态条件，采摘和获取动物先播放动画，修复跨天及响应丢失时的树能量同步，并改进树木卡包与装饰。",
+    "en-US": "SltBox 2026102701 rebuilds the 184-species wildlife catalog and ecology, plays harvest and capture animations before requests, fixes tree energy sync across days and lost responses, and improves tree card packs and decorations."
   }
 }
