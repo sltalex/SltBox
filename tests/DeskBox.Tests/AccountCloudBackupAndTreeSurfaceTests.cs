@@ -36,7 +36,7 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
-    public void AccountCard_OwnsManualSyncAndTreeSettingsKeepsRepair()
+    public void TreeSettings_OffersManualTreeCalibrationAlongsideRepair()
     {
         string xaml = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.xaml"));
         string account = Slice(xaml, "svc:Localized.HeaderKey=\"Settings.Account.Title\"", "svc:Localized.HeaderKey=\"Settings.DingTalk.Title\"");
@@ -50,7 +50,9 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         Assert.Contains("_treeCloudSyncService.SyncNowAsync()", accountHandlers, StringComparison.Ordinal);
         string treeSettings = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
         Assert.DoesNotContain("Settings.Account.SyncData", treeSettings, StringComparison.Ordinal);
-        Assert.DoesNotContain("SyncButton_Click", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("_syncButton.Click += SyncButton_Click", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("_cloud.SyncProgressNowAsync()", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("Tree.SyncCalibrate", treeSettings, StringComparison.Ordinal);
         Assert.Contains("Tree.SyncRepair", treeSettings, StringComparison.Ordinal);
         string treeWidget = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
         Assert.DoesNotContain("SyncButton_Click", treeWidget, StringComparison.Ordinal);
@@ -195,7 +197,9 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
             "Tree.Settings.Card.Sync", "Tree.Settings.Card.Sync.Description",
             "Tree.Settings.Card.Leaderboard", "Tree.Settings.Leaderboard.Participate",
             "Tree.Settings.Leaderboard.SignIn", "Tree.Settings.Leaderboard.Offline", "Tree.Settings.Leaderboard.Me",
-            "Tree.Settings.Leaderboard.CurrentRank", "Tree.SyncRepair", "Tree.SyncRepairTitle",
+            "Tree.Settings.Leaderboard.CurrentRank", "Tree.SyncCalibrate", "Tree.SyncCalibrating",
+            "Tree.SyncCalibrateSuccess", "Tree.SyncCalibrateUnavailable", "Tree.SyncCalibrateError",
+            "Tree.SyncRepair", "Tree.SyncRepairTitle",
             "Tree.SyncRepairBody", "Tree.SyncRepairConfirm", "Tree.SyncRepairFailed",
             "Tree.SyncRepairRestartFailed"
         ];

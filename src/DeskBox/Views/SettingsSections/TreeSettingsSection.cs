@@ -25,6 +25,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _syncStatus = new() { FontSize = 12, Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
+    private readonly Button _syncButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
@@ -54,6 +55,8 @@ public sealed partial class TreeSettingsSection : UserControl
         switches.Children.Add(enableColumn);
         switches.Children.Add(statisticsColumn);
 
+        _syncButton.Click += SyncButton_Click;
+        _syncButton.Content = new TextBlock();
         _repairButton.Click += RepairButton_Click;
         _repairButton.Content = new TextBlock();
         var syncPanel = new StackPanel
@@ -63,6 +66,7 @@ public sealed partial class TreeSettingsSection : UserControl
         };
         syncPanel.Children.Add(_syncLabel);
         syncPanel.Children.Add(_syncStatus);
+        syncPanel.Children.Add(_syncButton);
         syncPanel.Children.Add(_repairButton);
         Grid.SetColumn(syncPanel, 3);
 
@@ -164,9 +168,45 @@ public sealed partial class TreeSettingsSection : UserControl
         _statistics.OffContent = _localization.T("Tree.Settings.StatisticsPaused");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
+        if (_syncButton.Content is TextBlock syncText)
+            syncText.Text = _localization.T("Tree.SyncCalibrate");
         if (_repairButton.Content is TextBlock repairText)
             repairText.Text = _localization.T("Tree.SyncRepair");
         RefreshSyncActions();
+    }
+
+    private async void SyncButton_Click(object sender, RoutedEventArgs e)
+    {
+        string? ownerId = _auth?.CurrentUser?.Id;
+        if (_cloud is null || ownerId is null || Interlocked.Exchange(ref _syncOperationInProgress, 1) != 0) return;
+
+        RefreshSyncActions();
+        _syncStatus.Text = _localization?.T("Tree.SyncCalibrating") ?? string.Empty;
+        try
+        {
+            bool synchronized = await _cloud.SyncProgressNowAsync();
+            if (_auth?.CurrentUser?.Id != ownerId) return;
+            _syncStatus.Text = _localization?.T(synchronized
+                ? "Tree.SyncCalibrateSuccess"
+                : "Tree.SyncCalibrateUnavailable") ?? string.Empty;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            App.Log($"[TreeCloud] Manual tree calibration failed: {ex.GetType().Name}");
+            if (_auth?.CurrentUser?.Id == ownerId)
+                _syncStatus.Text = _localization?.T("Tree.SyncCalibrateError") ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[TreeCloud] Manual tree calibration failed: {ex}");
+            if (_auth?.CurrentUser?.Id == ownerId)
+                _syncStatus.Text = _localization?.T("Tree.SyncCalibrateError") ?? string.Empty;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _syncOperationInProgress, 0);
+            RefreshSyncActions();
+        }
     }
 
     private async void RepairButton_Click(object sender, RoutedEventArgs e)
@@ -224,6 +264,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private void RefreshSyncActions()
     {
         bool busy = Volatile.Read(ref _syncOperationInProgress) != 0;
+        _syncButton.IsEnabled = !busy && _auth?.IsAuthenticated == true;
         _repairButton.IsEnabled = !busy;
     }
 
