@@ -178,6 +178,102 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DayRolloverUploadsOfflineEnergyInsteadOfReplacingIt()
+    {
+        TreeProgress local = Progress(100, 80, 0, 0);
+        var api = new FakeApi { State = State(1, 100, 80, 1, 0, 0, 0) };
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("rollover", "Tree"),
+            () => local, _root, applyAuthoritativeIfUnchanged: (state, _) =>
+            {
+                local = Progress(state.TotalEnergy, state.TodayGrowth, state.FruitInventory, state.HarvestedTotal, state);
+                return true;
+            }, applyAuthoritativeCloudState: (state, _) =>
+                local = Progress(state.TotalEnergy, state.TodayGrowth, state.FruitInventory, state.HarvestedTotal, state));
+        Assert.True(await service.SyncProgressNowAsync());
+        local = Progress(150, 5, 0, 0);
+        local.LocalDay = "2026-10-15";
+        api.State = State(1, 100, 0, 1, 0, 0, 0);
+        api.State.Day = local.LocalDay;
+        api.UploadState = State(2, 150, 5, 1, 0, 0, 0);
+        api.UploadState.Day = local.LocalDay;
+
+        Assert.True(await service.SyncProgressNowAsync());
+        Assert.Equal(150, local.TotalEnergy);
+        using JsonDocument body = JsonDocument.Parse(Assert.Single(api.Bodies));
+        Assert.Equal(50, body.RootElement.GetProperty("energy_delta").GetInt64());
+        Assert.Equal(5, body.RootElement.GetProperty("day_growth_delta").GetInt64());
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task LostUploadResponseRetriesOriginalPayloadAndPreservesLaterEnergy(bool committed, bool nextDay)
+    {
+        var auth = new FakeAuth("lost-response", "Tree");
+        TreeProgress local = Progress(100, 10, 0, 0);
+        var offline = new FakeApi { PostFailure = new HttpRequestException("response lost") };
+        await using (var first = new TreeCloudSyncService(offline, auth, () => local, _root))
+            await Assert.ThrowsAsync<HttpRequestException>(() => first.SyncProgressNowAsync());
+        local = Progress(150, 60, 0, 0);
+        if (nextDay)
+        {
+            local.LocalDay = "2026-10-15";
+            local.TodayKeys = 50;
+        }
+        var accepted = State(1, 100, nextDay ? 0 : 10, 1, 0, 0, 0);
+        accepted.Day = local.LocalDay;
+        var online = new FakeApi
+        {
+            State = committed ? accepted : State(0, 0, 0, 1, 0, 0, 0),
+            UploadState = accepted
+        };
+        await using var retry = new TreeCloudSyncService(online, auth, () => local, _root,
+            applyAuthoritativeIfUnchanged: (state, expected) =>
+            {
+                if (local.TotalEnergy != expected.TotalEnergy) return false;
+                local = Progress(state.TotalEnergy, state.TodayGrowth, state.FruitInventory, state.HarvestedTotal, state);
+                return true;
+            });
+
+        Assert.True(await retry.SyncProgressNowAsync());
+        Assert.Equal(150, local.TotalEnergy);
+        Assert.Equal(offline.Bodies[0], online.Bodies[0]);
+        online.State = accepted;
+        online.UploadState = State(2, 150, nextDay ? 50 : 60, 1, 0, 0, 0);
+        online.UploadState.Day = local.LocalDay;
+        Assert.True(await retry.SyncProgressNowAsync());
+        using JsonDocument next = JsonDocument.Parse(online.Bodies[1]);
+        Assert.Equal(50, next.RootElement.GetProperty("energy_delta").GetInt64());
+        Assert.Equal(50, next.RootElement.GetProperty("day_growth_delta").GetInt64());
+        Assert.NotEqual(ReadOperation(online.Bodies[0]), ReadOperation(online.Bodies[1]));
+        Assert.Equal(150, local.TotalEnergy);
+    }
+
+    [Fact]
+    public async Task LegacyPendingWithoutPayloadPreservesRecoverySnapshot()
+    {
+        Directory.CreateDirectory(_root);
+        var oldState = new TreeCloudState
+        {
+            UserId = "legacy", Acknowledged = State(1, 100, 10, 1, 0, 0, 0), StateVersion = 1,
+            Pending = new() { OperationId = "legacy_operation_123456789", BaseVersion = 1 }
+        };
+        File.WriteAllText(Path.Combine(_root, "state-legacy.json"),
+            JsonSerializer.Serialize(oldState, AccountCloudJsonContext.Default.TreeCloudState));
+        var api = new FakeApi { State = State(2, 150, 60, 1, 0, 0, 0) };
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("legacy", "Tree"),
+            () => Progress(180, 90, 0, 0), _root, applyAuthoritativeIfUnchanged: (_, _) => true);
+
+        Assert.True(await service.SyncProgressNowAsync());
+        using JsonDocument saved = JsonDocument.Parse(File.ReadAllText(
+            Assert.Single(Directory.GetFiles(_root, "conflict-legacy-*.json"))));
+        Assert.Equal(180, saved.RootElement.GetProperty("total_energy").GetInt64());
+        Assert.Equal(oldState.Pending.OperationId, saved.RootElement.GetProperty("operation_id").GetString());
+    }
+
+    [Fact]
     public async Task FailedUpload_PersistsAndReusesSameOperationId()
     {
         var auth = new FakeAuth("user-1", "Simon");

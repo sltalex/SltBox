@@ -8,6 +8,8 @@ namespace DeskBox.Controls.WidgetContents;
 
 public sealed partial class TreeWidgetContent
 {
+    private string? _capturingEncounterId;
+
     private void RenderWildlife()
     {
         WildlifeService service = App.Current.WildlifeService;
@@ -31,28 +33,47 @@ public sealed partial class TreeWidgetContent
         var transform = new CompositeTransform { ScaleX = motion.Frames[0].ScaleX };
         double visualSize = WildlifeMotionCatalog.VisualSize(encounter.SpeciesId, species.Category, treeStage);
         double hitSize = Math.Max(visualSize, 56);
+        var captureScale = new ScaleTransform();
+        var captureVisual = new Grid
+        {
+            RenderTransform = captureScale,
+            RenderTransformOrigin = new Windows.Foundation.Point(.5, .5),
+            IsHitTestVisible = false
+        };
         var image = new Image
         {
             Source = source, Width = visualSize, Height = visualSize, Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false
         };
+        captureVisual.Children.Add(image);
         var hitTarget = new Border
         {
-            Width = hitSize, Height = hitSize, Child = image,
+            Width = hitSize, Height = hitSize, Child = captureVisual,
             Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             RenderTransform = transform, RenderTransformOrigin = new Windows.Foundation.Point(.5, .5)
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(hitTarget, $"{species.Name}，点击收藏");
-        bool capturing = false;
         hitTarget.Tapped += async (_, args) =>
         {
             args.Handled = true;
-            if (capturing) return;
-            capturing = true;
-            hitTarget.Opacity = .6;
+            if (_capturingEncounterId is not null) return;
+            _capturingEncounterId = encounter.Id;
+            hitTarget.IsHitTestVisible = false;
+            Storyboard? feedback = null;
             try
             {
+                if (WindowsCompatibilityService.ShouldAnimate)
+                {
+                    _wildlifeMotion.Pause();
+                    feedback = new Storyboard();
+                    AddFruitPickFrames(feedback, captureScale, "ScaleX", (0, 1), (150, .94), (320, .65));
+                    AddFruitPickFrames(feedback, captureScale, "ScaleY", (0, 1), (150, .94), (320, .65));
+                    AddFruitPickFrames(feedback, captureVisual, "Opacity", (0, 1), (150, 1), (320, 0));
+                    if (!await PlayCollectionAnimationAsync(feedback)) return;
+                }
+                else captureVisual.Opacity = .6;
+                if (_disposed || !_visible || !IsLoaded) return;
                 bool captured = await service.CaptureAsync(encounter.Id);
                 _wildlifeCaptureConfirmed = captured;
                 _wildlifeFeedbackUntil = DateTimeOffset.UtcNow.AddSeconds(4);
@@ -60,8 +81,13 @@ public sealed partial class TreeWidgetContent
             }
             finally
             {
-                capturing = false;
-                hitTarget.Opacity = 1;
+                feedback?.Stop();
+                captureVisual.Opacity = 1;
+                captureScale.ScaleX = captureScale.ScaleY = 1;
+                hitTarget.IsHitTestVisible = true;
+                _capturingEncounterId = null;
+                if (!_disposed && _visible && IsLoaded && _motionRunning &&
+                    _renderedEncounterId == encounter.Id) _wildlifeMotion.Resume();
             }
         };
         (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(

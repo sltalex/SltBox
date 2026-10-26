@@ -226,9 +226,17 @@ internal sealed class TreeCloudState
     public string UserId { get; set; } = string.Empty;
     public long StateVersion { get; set; }
     public TreeStateSyncRequest? Pending { get; set; }
+    public TreeProgressPendingUpload? PendingProgress { get; set; }
     public string? ConflictSnapshot { get; set; }
     public bool RefreshRequired { get; set; }
     public TreeStateDto? Acknowledged { get; set; }
+}
+
+internal sealed class TreeProgressPendingUpload
+{
+    public TreeProgressUploadRequest Request { get; set; } = new();
+    public TreeStateSyncRequest LocalSnapshot { get; set; } = new();
+    public TreeStateDto Baseline { get; set; } = new();
 }
 
 [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

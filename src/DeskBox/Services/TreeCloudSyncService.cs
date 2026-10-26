@@ -93,8 +93,18 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             TreeCloudState state = await LoadStateAsync(statePath, user.Id, cancellationToken);
             HasConflict = state.ConflictSnapshot is not null;
             TreeStateDto cloud = await ReadStateAsync(cancellationToken);
-            TreeProgress local = _readProgress();
-            if (state.Acknowledged is null && IsEmpty(local) && cloud.TotalEnergy > 0)
+            if (state.Pending is not null && state.PendingProgress is null)
+            {
+                // Older queues did not retain the submitted delta. Preserve
+                // recovery evidence before a duplicate response can replace it.
+                PreserveLocalSnapshot(state, _readProgress());
+                await SaveStateAsync(statePath, state, cancellationToken);
+            }
+            // Retry exactly the persisted operation, including its original local
+            // snapshot. A lost response must not acknowledge later keystrokes.
+            TreeProgress local = state.PendingProgress is { } pending
+                ? ProgressFromRequest(pending.LocalSnapshot) : _readProgress();
+            if (state.PendingProgress is null && state.Acknowledged is null && IsEmpty(local) && cloud.TotalEnergy > 0)
             {
                 _applyAuthoritativeCloudState(cloud, _ => { });
                 state.Acknowledged = cloud;
@@ -103,8 +113,8 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 IsOffline = false;
                 return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
-            TreeStateDto baseline = state.Acknowledged ?? InitialBaseline(cloud);
-            if (IsBehind(local, baseline))
+            TreeStateDto baseline = state.PendingProgress?.Baseline ?? state.Acknowledged ?? InitialBaseline(cloud);
+            if (state.PendingProgress is null && IsBehind(local, baseline))
             {
                 _applyAuthoritativeCloudState(cloud, _ => { });
                 state.Acknowledged = cloud;
@@ -115,8 +125,10 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 HasConflict = false;
                 return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
-            TreeProgressDelta delta = CalculateDelta(local, baseline);
-            if (!delta.HasChanges)
+            TreeProgressDelta delta = state.PendingProgress is { Request: var queued }
+                ? new(queued.EnergyDelta, queued.DayGrowthDelta, queued.FruitDelta, queued.HarvestedDelta)
+                : CalculateDelta(local, baseline);
+            if (state.PendingProgress is null && !delta.HasChanges)
             {
                 _applyAuthoritativeIfUnchanged(cloud, local);
                 state.Acknowledged = cloud;
@@ -129,7 +141,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 return await FinishSyncAsync(syncAdditionalData, cancellationToken);
             }
 
-            TreeProgressUploadRequest request = new()
+            TreeProgressUploadRequest request = state.PendingProgress?.Request ?? new()
             {
                 OperationId = state.Pending?.OperationId ?? Guid.NewGuid().ToString("N"),
                 DeviceId = DeviceIdentity.Id,
@@ -141,6 +153,12 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 TypedFruit = IsNewTypedGrowth(cloud, delta)
             };
             state.Pending = new TreeStateSyncRequest { OperationId = request.OperationId, BaseVersion = cloud.StateVersion };
+            if (state.PendingProgress is null)
+            {
+                TreeStateSyncRequest snapshot = CreateRequest(state, local);
+                snapshot.Day = local.LocalDay;
+                state.PendingProgress = new() { Request = request, LocalSnapshot = snapshot, Baseline = baseline };
+            }
             await SaveStateAsync(statePath, state, cancellationToken);
             byte[] json = JsonSerializer.SerializeToUtf8Bytes(request, AccountCloudJsonContext.Default.TreeProgressUploadRequest);
             HttpResponseMessage? response = null;
@@ -164,9 +182,10 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                     AccountCloudJsonContext.Default.TreeProgressUploadResponse, cancellationToken)
                     ?? throw new InvalidDataException("The tree progress response is empty.");
             bool appliedToLocal = _applyAuthoritativeIfUnchanged(body.State, local);
-            state.Acknowledged = appliedToLocal ? body.State : ProjectedAcknowledgement(baseline, delta, body.State);
+            state.Acknowledged = appliedToLocal ? body.State : ProjectedAcknowledgement(baseline, delta, body.State, local.LocalDay);
             state.StateVersion = body.State.StateVersion;
             state.Pending = null;
+            state.PendingProgress = null;
             state.ConflictSnapshot = null;
             state.RefreshRequired = false;
             await SaveStateAsync(statePath, state, cancellationToken);
@@ -228,15 +247,16 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
         && progress.FruitInventory == 0 && progress.HarvestedFruit == 0 && progress.FruitEnergy == 0;
 
     private static bool IsBehind(TreeProgress local, TreeStateDto baseline) =>
-        local.TotalEnergy < baseline.TotalEnergy || local.TodayKeys < baseline.TodayGrowth
+        local.TotalEnergy < baseline.TotalEnergy ||
+        (local.LocalDay == baseline.Day && local.TodayKeys < baseline.TodayGrowth)
         || local.FruitInventory + local.HarvestedFruit < baseline.FruitTotal
         || local.HarvestedFruit < baseline.HarvestedTotal;
 
-    private static TreeStateDto ProjectedAcknowledgement(TreeStateDto baseline, TreeProgressDelta delta, TreeStateDto cloud) => new()
+    private static TreeStateDto ProjectedAcknowledgement(TreeStateDto baseline, TreeProgressDelta delta, TreeStateDto cloud, string localDay) => new()
     {
-        Day = cloud.Day,
+        Day = localDay,
         StateVersion = cloud.StateVersion,
-        TodayGrowth = baseline.TodayGrowth + delta.TodayGrowth,
+        TodayGrowth = (baseline.Day == localDay ? baseline.TodayGrowth : 0) + delta.TodayGrowth,
         TotalEnergy = baseline.TotalEnergy + delta.Energy,
         Stage = TreeProgress.StageFor(baseline.TotalEnergy + delta.Energy),
         FruitEnergy = cloud.FruitEnergy,
@@ -287,24 +307,10 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
         HarvestedTotal = local.HarvestedFruit
     };
 
-    private void RefreshPendingSnapshot(TreeStateSyncRequest pending, TreeProgress local)
-    {
-        // Keep the operation id and base version stable for idempotent retry,
-        // but submit all local growth accumulated while the request was offline.
-        TreeStateSyncRequest latest = CreateRequest(new TreeCloudState { StateVersion = pending.BaseVersion }, local);
-        pending.DeviceId = latest.DeviceId;
-        pending.Day = latest.Day;
-        pending.TodayGrowth = latest.TodayGrowth;
-        pending.TotalEnergy = latest.TotalEnergy;
-        pending.Stage = latest.Stage;
-        pending.FruitEnergy = latest.FruitEnergy;
-        pending.FruitTotal = latest.FruitTotal;
-        pending.HarvestedTotal = latest.HarvestedTotal;
-    }
-
     private TreeStateSyncRequest CreateConflictSnapshot(TreeCloudState state, TreeProgress local)
     {
         TreeStateSyncRequest snapshot = CreateRequest(state, local);
+        snapshot.Day = local.LocalDay;
         if (state.Pending is { } pending)
         {
             // Retain the queued operation identity/version so the snapshot
@@ -315,19 +321,25 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
         return snapshot;
     }
 
+    private void PreserveLocalSnapshot(TreeCloudState state, TreeProgress latest)
+    {
+        state.ConflictSnapshot = JsonSerializer.Serialize(
+            CreateConflictSnapshot(state, latest), AccountCloudJsonContext.Default.TreeStateSyncRequest);
+        string conflictPath = Path.Combine(_stateDirectory,
+            $"conflict-{AccountBackupFileCatalog.SafeAccountId(state.UserId)}-{Guid.NewGuid():N}.json");
+        File.WriteAllText(conflictPath, state.ConflictSnapshot);
+    }
+
     private async Task AdoptCloudAfterConflictAsync(string path, TreeCloudState state, TreeStateDto cloud, CancellationToken cancellationToken)
     {
         _applyAuthoritativeCloudState(cloud, latest =>
         {
-            state.ConflictSnapshot = JsonSerializer.Serialize(
-                CreateConflictSnapshot(state, latest), AccountCloudJsonContext.Default.TreeStateSyncRequest);
             // Run inside the counter's lock: every overwritten field is durably
             // preserved before the atomic replacement, including in-flight keys.
-            string conflictPath = Path.Combine(_stateDirectory,
-                $"conflict-{AccountBackupFileCatalog.SafeAccountId(state.UserId)}-{Guid.NewGuid():N}.json");
-            File.WriteAllText(conflictPath, state.ConflictSnapshot);
+            PreserveLocalSnapshot(state, latest);
         });
         state.Pending = null;
+        state.PendingProgress = null;
         // The cloud snapshot is now the durable baseline. Leaving the old
         // acknowledgement here would make every later cycle calculate the
         // same local delta again and repeatedly hit the version conflict.
@@ -458,7 +470,8 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             string json = await File.ReadAllTextAsync(path, cancellationToken);
             TreeCloudState? state = JsonSerializer.Deserialize(json, AccountCloudJsonContext.Default.TreeCloudState);
             if (state is not null && string.Equals(state.UserId, userId, StringComparison.Ordinal)
-                && (state.Pending is not null || state.StateVersion != 0 || state.ConflictSnapshot is not null || state.RefreshRequired))
+                && (state.Pending is not null || state.PendingProgress is not null || state.Acknowledged is not null
+                    || state.StateVersion != 0 || state.ConflictSnapshot is not null || state.RefreshRequired))
                 return state;
 
             // Migrate the former delta queue without silently dropping its

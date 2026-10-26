@@ -245,6 +245,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         try
         {
             visual = BeginFruitPickVisual(pendingId, fruitIndex, image);
+            if (visual is null || !await AnimateFruitPickAsync(visual) || _disposed || !_visible || !IsLoaded) return;
             var fruitService = App.Current.FruitService;
             if (fruitService.IsAvailable)
             {
@@ -275,13 +276,22 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             }
             Refresh();
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException or AuthApiException)
         {
             App.Log($"[Tree] Fruit pick failed: {ex.Message}");
         }
         finally
         {
-            if (!pickedSuccessfully) CancelFruitPickVisual(visual);
+            if (!pickedSuccessfully)
+            {
+                CancelFruitPickVisual(visual);
+                if (visual is not null && !_disposed && _visible && IsLoaded)
+                {
+                    _wildlifeCaptureConfirmed = false;
+                    _wildlifeFeedbackUntil = DateTimeOffset.UtcNow.AddSeconds(4);
+                    Refresh();
+                }
+            }
             Volatile.Write(ref _pickInProgress, 0);
         }
     }

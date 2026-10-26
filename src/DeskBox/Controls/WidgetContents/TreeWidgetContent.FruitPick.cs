@@ -76,23 +76,16 @@ public sealed partial class TreeWidgetContent
         return visual;
     }
 
-    private void CompleteFruitPickVisual(FruitPickVisual? visual, long quantity)
+    private async Task<bool> AnimateFruitPickAsync(FruitPickVisual visual)
     {
-        if (visual is null || !_fruitPickVisuals.Contains(visual)) return;
-        visual.Reward.Text = $"+{quantity}";
-
-        var animation = new Storyboard { FillBehavior = FillBehavior.Stop };
-        visual.Animation = animation;
-        animation.Completed += (_, _) => RemoveFruitPickVisual(visual);
         if (!WindowsCompatibilityService.ShouldAnimate)
         {
-            visual.Fruit.Opacity = 0;
-            visual.Reward.Opacity = 1;
-            AddFruitPickFrames(animation, visual.Reward, "Opacity", (0, 1), (900, 1));
-            animation.Begin();
-            return;
+            visual.Fruit.Opacity = .6;
+            visual.Sparkle.Opacity = 1;
+            return true;
         }
-
+        var animation = new Storyboard();
+        visual.Animation = animation;
         AddFruitPickFrames(animation, visual.FruitScale, "ScaleX", (0, 1), (240, 1.6), (430, 1.68));
         AddFruitPickFrames(animation, visual.FruitScale, "ScaleY", (0, 1), (240, 1.6), (430, 1.68));
         AddFruitPickFrames(animation, visual.Fruit, "Opacity", (0, 1), (255, 1), (430, 0));
@@ -100,10 +93,29 @@ public sealed partial class TreeWidgetContent
         AddFruitPickFrames(animation, visual.GlowScale, "ScaleY", (0, .55), (430, 1.55));
         AddFruitPickFrames(animation, visual.Glow, "Opacity", (0, 0), (145, .9), (430, 0));
         AddFruitPickFrames(animation, visual.Sparkle, "Opacity", (0, 0), (155, 1), (430, 0));
-        AddFruitPickFrames(animation, visual.Reward, "Opacity",
-            (0, 0), (430, 0), (530, 1), (790, 1), (1220, 0));
-        AddFruitPickFrames(animation, visual.RewardRise, "Y",
-            (0, 0), (430, 0), (1220, -Math.Min(34, Math.Max(0, visual.Y - 5))));
+        return await PlayCollectionAnimationAsync(animation);
+    }
+
+    private void CompleteFruitPickVisual(FruitPickVisual? visual, long quantity)
+    {
+        if (visual is null || !_fruitPickVisuals.Contains(visual)) return;
+        visual.Animation?.Stop();
+        visual.Fruit.Opacity = visual.Glow.Opacity = visual.Sparkle.Opacity = 0;
+        visual.Reward.Text = $"+{quantity}";
+        var animation = new Storyboard { FillBehavior = FillBehavior.Stop };
+        visual.Animation = animation;
+        animation.Completed += (_, _) => RemoveFruitPickVisual(visual);
+        if (WindowsCompatibilityService.ShouldAnimate)
+        {
+            AddFruitPickFrames(animation, visual.Reward, "Opacity", (0, 0), (100, 1), (360, 1), (790, 0));
+            AddFruitPickFrames(animation, visual.RewardRise, "Y",
+                (0, 0), (790, -Math.Min(34, Math.Max(0, visual.Y - 5))));
+        }
+        else
+        {
+            visual.Reward.Opacity = 1;
+            AddFruitPickFrames(animation, visual.Reward, "Opacity", (0, 1), (900, 1));
+        }
         animation.Begin();
     }
 
@@ -129,6 +141,7 @@ public sealed partial class TreeWidgetContent
 
     private void ClearFruitPickVisuals()
     {
+        CancelCollectionAnimations();
         foreach (FruitPickVisual visual in _fruitPickVisuals.ToArray())
         {
             visual.Animation?.Stop();
