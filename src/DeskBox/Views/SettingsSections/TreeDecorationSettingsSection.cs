@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace DeskBox.Views.SettingsSections;
 
-public sealed class TreeDecorationSettingsSection : UserControl
+public sealed partial class TreeDecorationSettingsSection : UserControl
 {
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };

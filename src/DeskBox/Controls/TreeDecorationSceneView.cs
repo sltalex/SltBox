@@ -10,7 +10,7 @@ using Windows.System;
 
 namespace DeskBox.Controls;
 
-internal sealed class TreeDecorationSceneView : UserControl
+internal sealed partial class TreeDecorationSceneView : UserControl
 {
     private readonly Grid _scene = new()
     {
