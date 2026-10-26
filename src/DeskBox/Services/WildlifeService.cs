@@ -57,8 +57,8 @@ internal sealed class WildlifeService : IAsyncDisposable
                 if (!await MergeCacheAsync(owner, token)) return false;
                 _cacheNeedsMerge = false;
             }
-            using var catalog = await _api.SendAsync(HttpMethod.Get, "../wildlife/catalog.php", null, null, token);
-            using var state = await _api.SendAsync(HttpMethod.Get, "../wildlife/state.php", null, null, token);
+            using var catalog = await _api.SendAsync(HttpMethod.Get, "../wildlife/catalog.php?catalog_version=2", null, null, token);
+            using var state = await _api.SendAsync(HttpMethod.Get, "../wildlife/state.php?catalog_version=2", null, null, token);
             if (!catalog.IsSuccessStatusCode || !state.IsSuccessStatusCode) return false;
             using JsonDocument catalogJson = JsonDocument.Parse(await catalog.Content.ReadAsStringAsync(token));
             using JsonDocument stateJson = JsonDocument.Parse(await state.Content.ReadAsStringAsync(token));
@@ -93,7 +93,7 @@ internal sealed class WildlifeService : IAsyncDisposable
         try
         {
             _lastOfferAttempt = DateTimeOffset.UtcNow;
-            var request = new WildlifeOfferRequest(weather.Value.WeatherCode,
+            var request = new WildlifeOfferRequest(WildlifeCatalogVersions.Current, weather.Value.WeatherCode,
                 weather.Value.FetchedAtUtc.ToUniversalTime().ToString("O"),
                 (int)DateTimeOffset.Now.Offset.TotalMinutes, _resumeAfterHidden);
             byte[] body = JsonSerializer.SerializeToUtf8Bytes(request, WildlifeJsonContext.Default.WildlifeOfferRequest);
@@ -132,6 +132,7 @@ internal sealed class WildlifeService : IAsyncDisposable
             using var response = await _api.SendAsync(HttpMethod.Post, "../wildlife/capture.php", body, null, token);
             if (!response.IsSuccessStatusCode)
             {
+                App.Log($"[Wildlife] Capture rejected: HTTP {(int)response.StatusCode}");
                 if ((int)response.StatusCode == 409) { Encounter = null; Changed?.Invoke(); }
                 return false;
             }
@@ -146,7 +147,9 @@ internal sealed class WildlifeService : IAsyncDisposable
             return false;
         }
         finally { _gate.Release(); }
-        return await RefreshAsync(token);
+        bool refreshed = await RefreshAsync(token);
+        if (!refreshed) App.Log("[Wildlife] Capture succeeded but inventory refresh failed.");
+        return refreshed;
     }
 
     private async Task<bool> MergeCacheAsync(string owner, CancellationToken token)
@@ -154,7 +157,7 @@ internal sealed class WildlifeService : IAsyncDisposable
         WildlifeRestoreItem[] items = Inventory.Where(item => item.Quantity > 0 || item.Discovered)
             .Select(item => new WildlifeRestoreItem(item.SpeciesId, item.Quantity, item.Discovered)).ToArray();
         if (items.Length == 0) return true;
-        var request = new WildlifeRestoreRequest(owner, items);
+        var request = new WildlifeRestoreRequest(WildlifeCatalogVersions.Current, owner, items);
         byte[] body = JsonSerializer.SerializeToUtf8Bytes(request, WildlifeJsonContext.Default.WildlifeRestoreRequest);
         using var response = await _api.SendAsync(HttpMethod.Post, "../wildlife/restore.php", body, null, token);
         return response.IsSuccessStatusCode;
@@ -176,7 +179,7 @@ internal sealed class WildlifeService : IAsyncDisposable
     private static IReadOnlyList<WildlifeCatalogItem> ReadCatalog(JsonElement root) =>
         root.GetProperty("items").EnumerateArray().Select(item => new WildlifeCatalogItem(
             item.GetProperty("id").GetString()!, item.GetProperty("name").GetString()!,
-            item.GetProperty("category").GetString()!)
+            item.GetProperty("category").GetString()!, item.GetProperty("placement").GetString()!)
         {
             Seasons = ReadConditions(item, "seasons"),
             Periods = ReadConditions(item, "periods"),
@@ -200,7 +203,7 @@ internal sealed class WildlifeService : IAsyncDisposable
         {
             if (!File.Exists(path)) return;
             WildlifeCacheDto? cache = JsonSerializer.Deserialize(File.ReadAllText(path), WildlifeJsonContext.Default.WildlifeCacheDto);
-            if (cache?.OwnerUserId != owner) return;
+            if (cache?.OwnerUserId != owner || cache.CatalogVersion != WildlifeCatalogVersions.Current) return;
             Inventory = cache.Inventory;
             _cacheNeedsMerge = Inventory.Any(item => item.Quantity > 0 || item.Discovered);
             Changed?.Invoke();
@@ -218,6 +221,7 @@ internal sealed class WildlifeService : IAsyncDisposable
             string path = CachePath(owner);
             WildlifeCacheFileStore.Save(path, new WildlifeCacheDto
             {
+                CatalogVersion = WildlifeCatalogVersions.Current,
                 OwnerUserId = owner, Inventory = Inventory.ToArray()
             });
         }

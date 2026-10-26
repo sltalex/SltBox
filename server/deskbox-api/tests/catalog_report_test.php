@@ -41,13 +41,13 @@ $pdo->prepare("INSERT INTO aquarium_inventory (id,user_id,item_id,created_at) VA
     ->execute([$first, $first]);
 $pdo->prepare("INSERT INTO aquarium_wallet_entries (user_id,operation_id,delta,balance,reason,item_id,created_at) VALUES (?,'report-purchase',-100,0,'purchase','clownfish','2026-10-24 10:00:00')")
     ->execute([$second]);
-$pdo->prepare("INSERT INTO wildlife_inventory (user_id,species_id,quantity,updated_at) VALUES (?,'butterfly',4,'2026-10-24 10:00:00')")
+$pdo->prepare("INSERT INTO wildlife_inventory (user_id,species_id,quantity,updated_at) VALUES (?,'blue-morpho',4,'2026-10-24 10:00:00')")
     ->execute([$first]);
-$pdo->prepare("INSERT INTO wildlife_discoveries (user_id,species_id,discovered_at) VALUES (?,'butterfly','2026-10-24 10:00:00'),(?,'butterfly','2026-10-24 10:00:00')")
+$pdo->prepare("INSERT INTO wildlife_discoveries (user_id,species_id,discovered_at) VALUES (?,'blue-morpho','2026-10-24 10:00:00'),(?,'blue-morpho','2026-10-24 10:00:00')")
     ->execute([$first, $second]);
 
 $report = catalog_report($pdo);
-foreach (['fruit' => ['apple',3], 'aquarium' => ['clownfish',2], 'wildlife' => ['butterfly',4]] as $type => [$id,$quantity]) {
+foreach (['fruit' => ['apple',3], 'aquarium' => ['clownfish',2], 'wildlife' => ['blue-morpho',4]] as $type => [$id,$quantity]) {
     $item = report_item($report[$type]['items'], $id);
     report_check($item['quantity'] === $quantity && $item['holders'] === 1 && $item['obtained_users'] === 2,
         $type . ' counts current copies, current owners and historical owners separately.');
@@ -55,21 +55,21 @@ foreach (['fruit' => ['apple',3], 'aquarium' => ['clownfish',2], 'wildlife' => [
         $type . ' overview sums its per-species rows.');
 }
 report_check(report_item($report['fruit']['items'], 'banana')['quantity'] === 0 &&
-    report_item($report['wildlife']['items'], 'honeybee')['obtained_users'] === 0,
+    report_item($report['wildlife']['items'], 'monarch')['obtained_users'] === 0,
     'Unobtained species remain visible with zero counts.');
 report_check(!in_array('aquarium-card-pack', array_column($report['aquarium']['items'], 'id'), true),
     'The purchasable card pack is not an encyclopedia entry.');
 
 $_SESSION = ['csrf' => str_repeat('a', 64)];
-$post = ['csrf' => $_SESSION['csrf'], 'operation' => 'wildlife_catalog_item', 'species_id' => 'butterfly',
+$post = ['csrf' => $_SESSION['csrf'], 'operation' => 'wildlife_catalog_item', 'species_id' => 'blue-morpho',
     'species_name' => '彩蝶', 'encounter_weight' => '7'];
 report_check(admin_page_mutate($pdo, ['user_id' => $first], $post) === 'wildlife_catalog_item',
     'The web form routes to the wildlife catalogue update.');
-$butterfly = report_item(wildlife_catalog($pdo), 'butterfly');
+$butterfly = report_item(wildlife_catalog($pdo), 'blue-morpho');
 report_check($butterfly['name'] === '彩蝶' && $butterfly['enabled'] === false && $butterfly['encounter_weight'] === 7,
     'The catalogue persists name, availability and weight.');
-report_check(report_item(catalog_report($pdo)['wildlife']['items'], 'butterfly')['quantity'] === 4 &&
-    !in_array('butterfly', array_column(array_column(wildlife_eligible('spring','day','clear',$pdo), 'item'), 'id'), true),
+report_check(report_item(catalog_report($pdo)['wildlife']['items'], 'blue-morpho')['quantity'] === 4 &&
+    !in_array('blue-morpho', array_column(array_column(wildlife_eligible('spring','day','clear',$pdo), 'item'), 'id'), true),
     'Disabling an animal stops encounters but retains collected copies in the report.');
 try {
     wildlife_admin_update($pdo, ['species_id' => 'unknown', 'species_name' => '未知', 'encounter_weight' => '1'], $clock());

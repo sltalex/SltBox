@@ -93,15 +93,15 @@ public sealed class EncyclopediaCategorySummaryTests
     {
         WildlifeCatalogItem[] catalog =
         [
-            new("butterfly", "蝴蝶", "昆虫"), new("honeybee", "蜜蜂", "昆虫"),
-            new("rabbit", "兔子", "小动物")
+            new("blue-morpho", "蓝闪蝶", "蝴蝶", "grass"), new("albatross", "信天翁蝶", "蝴蝶", "grass"),
+            new("rabbit", "兔子", "小动物", "grass")
         ];
         WildlifeInventoryItem[] inventory =
-        [new("butterfly", 0, true), new("rabbit", 3, false)];
+        [new("blue-morpho", 0, true), new("rabbit", 3, false)];
 
         var result = EncyclopediaCategorySummary.Wildlife(catalog, inventory);
 
-        Assert.Equal(new EncyclopediaCategoryProgress("昆虫", 1, 2), result[0]);
+        Assert.Equal(new EncyclopediaCategoryProgress("蝴蝶", 1, 2), result[0]);
         Assert.Equal(new EncyclopediaCategoryProgress("小动物", 1, 1), result[1]);
     }
 }

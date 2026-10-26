@@ -18,6 +18,11 @@ internal static class WildlifeAvailabilityPresentation
         "rain" => "雨", "snow" => "雪", "thunderstorm" => "雷暴", _ => code
     });
 
+    internal static string Placement(WildlifeCatalogItem species) => "地点：" + (species.Placement switch
+    {
+        "tree" => "树上", "grass" => "草地", "sky" => "天空", _ => species.Placement
+    });
+
     private static string Format(string label, IReadOnlyList<string> codes, Func<string, string> name) =>
         $"{label}：{(codes.Count == 0 ? "待同步" : string.Join("、", codes.Select(name)))}";
 }

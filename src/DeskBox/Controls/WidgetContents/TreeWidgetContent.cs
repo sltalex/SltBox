@@ -54,6 +54,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         RepeatBehavior = RepeatBehavior.Forever
     };
     private readonly TextBlock _captureStatus = new() { FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center };
+    private DateTimeOffset _wildlifeFeedbackUntil;
+    private bool _wildlifeCaptureConfirmed;
     private readonly TreeBubbleProgressBar _progress = new();
     private volatile bool _visible = true;
     private volatile bool _disposed;
@@ -170,8 +172,13 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _lastHarvested = p.HarvestedFruit;
         _progress.Visibility = TreeIllustrationLayout.ShowsStageProgress(p.Stage)
             ? Visibility.Visible : Visibility.Collapsed;
-        _captureStatus.Visibility = p.Paused ? Visibility.Visible : Visibility.Collapsed;
-        if (p.Paused) _captureStatus.Text = _localization.T("Tree.Settings.StatisticsPaused");
+        bool showingWildlifeFeedback = _wildlifeFeedbackUntil > DateTimeOffset.UtcNow;
+        _captureStatus.Visibility = showingWildlifeFeedback || p.Paused
+            ? Visibility.Visible : Visibility.Collapsed;
+        if (showingWildlifeFeedback)
+            _captureStatus.Text = _wildlifeCaptureConfirmed ? "✓ +1" : "⚠";
+        else if (p.Paused)
+            _captureStatus.Text = _localization.T("Tree.Settings.StatisticsPaused");
         // The desktop tile describes the current growth step.  Showing the
         // all-the-way-to-maturity percentage here made it disagree with the
         // stage wording and made each 36,000-energy stage feel stalled.

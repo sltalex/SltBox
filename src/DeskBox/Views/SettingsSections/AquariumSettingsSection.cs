@@ -679,6 +679,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Seasons(species)));
             content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Periods(species)));
             content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Weathers(species)));
+            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Placement(species)));
             cards.Children.Add(new Border
             {
                 Width = 172, MinHeight = 176, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),

@@ -13,6 +13,7 @@ if ($FtpRootUri.Scheme -ne 'ftp' -or $FtpRootUri.UserInfo) {
 $root = Split-Path -Parent $PSScriptRoot
 $files = @(
     'config/wildlife.json',
+    'config/wildlife-legacy.json',
     'api/_app/wildlife.php',
     'api/v1/wildlife/catalog.php',
     'api/v1/wildlife/state.php',
@@ -29,6 +30,8 @@ function New-Request([uri]$uri, [string]$method) {
     $request.UsePassive = $true
     $request.KeepAlive = $false
     $request.Proxy = $null
+    $request.Timeout = 20000
+    $request.ReadWriteTimeout = 20000
     return $request
 }
 

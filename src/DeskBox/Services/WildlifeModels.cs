@@ -2,7 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace DeskBox.Services;
 
-internal sealed record WildlifeCatalogItem(string Id, string Name, string Category)
+internal static class WildlifeCatalogVersions
+{
+    internal const int Current = 2;
+}
+
+internal sealed record WildlifeCatalogItem(string Id, string Name, string Category, string Placement)
 {
     public IReadOnlyList<string> Seasons { get; init; } = [];
     public IReadOnlyList<string> Periods { get; init; } = [];
@@ -13,11 +18,13 @@ internal sealed record WildlifeEncounter(string Id, string SpeciesId, DateTimeOf
 
 internal sealed class WildlifeCacheDto
 {
+    public int CatalogVersion { get; set; }
     public string OwnerUserId { get; set; } = string.Empty;
     public WildlifeInventoryItem[] Inventory { get; set; } = [];
 }
 
 internal sealed record WildlifeOfferRequest(
+    [property: JsonPropertyName("catalog_version")] int CatalogVersion,
     [property: JsonPropertyName("weather_code")] int WeatherCode,
     [property: JsonPropertyName("weather_fetched_at_utc")] string WeatherFetchedAtUtc,
     [property: JsonPropertyName("utc_offset_minutes")] int UtcOffsetMinutes,
@@ -28,6 +35,7 @@ internal sealed record WildlifeCaptureRequest(
     [property: JsonPropertyName("operation_id")] string OperationId);
 
 internal sealed record WildlifeRestoreRequest(
+    [property: JsonPropertyName("catalog_version")] int CatalogVersion,
     [property: JsonPropertyName("owner_user_id")] string OwnerUserId,
     [property: JsonPropertyName("inventory")] WildlifeRestoreItem[] Inventory);
 

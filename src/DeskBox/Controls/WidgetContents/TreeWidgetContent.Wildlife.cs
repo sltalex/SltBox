@@ -26,6 +26,7 @@ public sealed partial class TreeWidgetContent
         ImageSource? source = WildlifeAssetCatalog.GetImage(encounter.SpeciesId);
         if (species is null || source is null ||
             !WildlifeMotionCatalog.Profiles.TryGetValue(encounter.SpeciesId, out WildlifeMotionProfile? motion)) return;
+        motion = WildlifeMotionCatalog.ForStage(encounter.SpeciesId, treeStage);
 
         var transform = new CompositeTransform { ScaleX = motion.Frames[0].ScaleX };
         double visualSize = WildlifeMotionCatalog.VisualSize(encounter.SpeciesId, species.Category, treeStage);
@@ -52,8 +53,10 @@ public sealed partial class TreeWidgetContent
             hitTarget.Opacity = .6;
             try
             {
-                await service.CaptureAsync(encounter.Id);
-                RenderWildlife();
+                bool captured = await service.CaptureAsync(encounter.Id);
+                _wildlifeCaptureConfirmed = captured;
+                _wildlifeFeedbackUntil = DateTimeOffset.UtcNow.AddSeconds(4);
+                Refresh();
             }
             finally
             {
@@ -61,10 +64,10 @@ public sealed partial class TreeWidgetContent
                 hitTarget.Opacity = 1;
             }
         };
-        double inset = (hitSize - visualSize) / 2;
-        Canvas.SetLeft(hitTarget, motion.X - inset);
-        Canvas.SetTop(hitTarget, motion.Y - inset + (WildlifeMotionCatalog.FliesAcrossSky(encounter.SpeciesId)
-            ? 0 : TreeIllustrationLayout.TreeVerticalOffset));
+        (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(
+            motion, visualSize, WildlifeMotionCatalog.FliesAcrossSky(encounter.SpeciesId));
+        Canvas.SetLeft(hitTarget, left);
+        Canvas.SetTop(hitTarget, top);
         _wildlifeLayer.Children.Add(hitTarget);
 
         if (!WindowsCompatibilityService.ShouldAnimate) return;

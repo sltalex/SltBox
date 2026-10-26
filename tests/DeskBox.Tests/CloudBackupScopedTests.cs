@@ -160,7 +160,7 @@ public sealed class CloudBackupScopedTests : IDisposable
         string alice = Path.Combine(wildlifeDir, "wildlife-state-account-alice.json");
         string bob = Path.Combine(wildlifeDir, "wildlife-state-account-bob.json");
         await File.WriteAllTextAsync(alice,
-            "{\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":3,\"Discovered\":true},{\"SpeciesId\":\"owl\",\"Quantity\":0,\"Discovered\":true}]}");
+            "{\"CatalogVersion\":2,\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":3,\"Discovered\":true},{\"SpeciesId\":\"owl\",\"Quantity\":0,\"Discovered\":true}]}");
         var service = new DeskBoxDataBackupService(_appDataRoot);
         string backupPath = await service.ExportScopedBackupAsync(_exportRoot, CloudBackupDomain.WildlifeData);
         using (ZipArchive archive = ZipFile.OpenRead(backupPath))
@@ -171,9 +171,9 @@ public sealed class CloudBackupScopedTests : IDisposable
         }
 
         await File.WriteAllTextAsync(alice,
-            "{\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":5,\"Discovered\":true},{\"SpeciesId\":\"butterfly\",\"Quantity\":1,\"Discovered\":true}]}");
+            "{\"CatalogVersion\":2,\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"rabbit\",\"Quantity\":5,\"Discovered\":true},{\"SpeciesId\":\"blue-morpho\",\"Quantity\":1,\"Discovered\":true}]}");
         await File.WriteAllTextAsync(bob,
-            "{\"OwnerUserId\":\"bob\",\"Inventory\":[{\"SpeciesId\":\"fox\",\"Quantity\":2,\"Discovered\":true}]}");
+            "{\"CatalogVersion\":2,\"OwnerUserId\":\"bob\",\"Inventory\":[{\"SpeciesId\":\"fox\",\"Quantity\":2,\"Discovered\":true}]}");
         await service.PrepareScopedRestoreAsync(backupPath, CloudBackupDomain.WildlifeData);
         Assert.True(await service.SetPendingRestoreItemReplaceModeAsync(false));
         DeskBoxRestoreApplyResult result = await service.ApplyPendingRestoreAsync();
@@ -182,10 +182,36 @@ public sealed class CloudBackupScopedTests : IDisposable
         WildlifeCacheDto merged = JsonSerializer.Deserialize(
             await File.ReadAllTextAsync(alice), WildlifeJsonContext.Default.WildlifeCacheDto)!;
         Assert.Equal("alice", merged.OwnerUserId);
+        Assert.Equal(2, merged.CatalogVersion);
         Assert.Equal(5, merged.Inventory.Single(item => item.SpeciesId == "rabbit").Quantity);
         Assert.Contains(merged.Inventory, item => item.SpeciesId == "owl" && item.Discovered);
-        Assert.Contains(merged.Inventory, item => item.SpeciesId == "butterfly" && item.Quantity == 1);
+        Assert.Contains(merged.Inventory, item => item.SpeciesId == "blue-morpho" && item.Quantity == 1);
         Assert.True(File.Exists(bob));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task LegacyWildlifeBackup_CannotRepopulateResetCollection(bool replace, bool hasLiveCache)
+    {
+        string wildlifeDir = Directory.CreateDirectory(Path.Combine(_appDataRoot, "data", "wildlife")).FullName;
+        string alice = Path.Combine(wildlifeDir, "wildlife-state-account-alice.json");
+        await File.WriteAllTextAsync(alice,
+            "{\"OwnerUserId\":\"alice\",\"Inventory\":[{\"SpeciesId\":\"butterfly\",\"Quantity\":99,\"Discovered\":true}]}");
+        var service = new DeskBoxDataBackupService(_appDataRoot);
+        string backupPath = await service.ExportScopedBackupAsync(_exportRoot, CloudBackupDomain.WildlifeData);
+        const string empty = "{\"CatalogVersion\":2,\"OwnerUserId\":\"alice\",\"Inventory\":[]}";
+        if (hasLiveCache) await File.WriteAllTextAsync(alice, empty);
+        else File.Delete(alice);
+
+        await service.PrepareScopedRestoreAsync(backupPath, CloudBackupDomain.WildlifeData);
+        Assert.True(await service.SetPendingRestoreItemReplaceModeAsync(replace));
+        DeskBoxRestoreApplyResult result = await service.ApplyPendingRestoreAsync();
+        Assert.True(result.Succeeded, result.ErrorMessage);
+        if (hasLiveCache) Assert.Equal(empty, await File.ReadAllTextAsync(alice));
+        else Assert.False(File.Exists(alice));
     }
 
     [Theory]

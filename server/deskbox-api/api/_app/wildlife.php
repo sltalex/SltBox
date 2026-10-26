@@ -2,28 +2,66 @@
 declare(strict_types=1);
 
 const WILDLIFE_MANIFEST_PATH = __DIR__ . '/../../config/wildlife.json';
+const WILDLIFE_LEGACY_MANIFEST_PATH = __DIR__ . '/../../config/wildlife-legacy.json';
 const WILDLIFE_RESTORE_MAX_BYTES = 32768;
 
-function wildlife_catalog(?PDO $pdo = null): array
+function wildlife_catalog_version(mixed $value, int $default = 1): int
 {
-    static $items = null;
-    if ($items === null) {
-        $manifest = json_decode((string)file_get_contents(WILDLIFE_MANIFEST_PATH), true, 512, JSON_THROW_ON_ERROR);
-        $items = $manifest['items'] ?? [];
-        if (!is_array($items) || count($items) < 16 || count($items) > 256)
-            throw new RuntimeException('Wildlife catalogue is invalid.');
-        $ids = [];
-        foreach ($items as $item) {
-            if (!is_array($item) || !preg_match('/\A[a-z-]{1,80}\z/D', (string)($item['id'] ?? '')) ||
-                !in_array($item['category'] ?? null, ['昆虫', '飞鸟', '小动物'], true) ||
-                !is_array($item['seasons'] ?? null) || !is_array($item['periods'] ?? null) ||
-                !is_array($item['weathers'] ?? null) || !is_array($item['preferred_weathers'] ?? null) ||
-                isset($ids[$item['id']])) throw new RuntimeException('Wildlife catalogue item is invalid.');
-            $ids[$item['id']] = true;
-        }
+    if ($value === null || $value === '') return $default;
+    $version = is_int($value) ? $value : (is_string($value) && preg_match('/\A[12]\z/D', $value) ? (int)$value : 0);
+    if (!in_array($version, [1, 2], true))
+        throw new ApiError('invalid_wildlife_catalog_version', 'Wildlife catalog version is invalid.', 400);
+    return $version;
+}
+
+function wildlife_manifest_catalog(int $version): array
+{
+    static $catalogs = [];
+    if (isset($catalogs[$version])) return $catalogs[$version];
+    $path = $version === 1 ? WILDLIFE_LEGACY_MANIFEST_PATH : WILDLIFE_MANIFEST_PATH;
+    $manifest = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    $items = $manifest['items'] ?? [];
+    if (!is_array($items) || count($items) < 16 || count($items) > 256)
+        throw new RuntimeException('Wildlife catalogue is invalid.');
+    $ids = [];
+    foreach ($items as $item) {
+        if (!is_array($item) || !preg_match('/\A[a-z-]{1,80}\z/D', (string)($item['id'] ?? '')) ||
+            !in_array($item['category'] ?? null, ['蝴蝶', '飞鸟', '小动物'], true) ||
+            !is_array($item['seasons'] ?? null) || count($item['seasons']) < 1 ||
+            !is_array($item['periods'] ?? null) || count($item['periods']) < 1 ||
+            !is_array($item['weathers'] ?? null) || count($item['weathers']) < 1 ||
+            !is_array($item['preferred_weathers'] ?? null) || count($item['preferred_weathers']) < 1 ||
+            !in_array($item['placement'] ?? null, ['tree', 'grass', 'sky'], true) ||
+            !is_string($item['motion'] ?? null) || !preg_match('/\A[a-z-]{1,32}\z/D', $item['motion']) ||
+            isset($ids[$item['id']])) throw new RuntimeException('Wildlife catalogue item is invalid.');
+        $ids[$item['id']] = true;
     }
+    return $catalogs[$version] = $items;
+}
+
+function wildlife_catalog(?PDO $pdo = null, int $version = 2): array
+{
+    $items = wildlife_manifest_catalog($version);
     if ($pdo === null) return $items;
     if (!$pdo->inTransaction()) wildlife_ensure_catalog_schema($pdo);
+    $query = $pdo->prepare('SELECT species_id,name,category,seasons_json,periods_json,weathers_json,' .
+        'preferred_weathers_json,placement,motion FROM wildlife_catalog_entries WHERE catalog_version=:version');
+    $query->execute([':version' => $version]);
+    $rows = $query->fetchAll(PDO::FETCH_ASSOC);
+    if (count($rows) === count($items)) {
+        $byId = array_column($rows, null, 'species_id');
+        $items = array_map(static function(array $manifestItem) use ($byId): array {
+            $row = $byId[$manifestItem['id']] ?? throw new RuntimeException('Database wildlife catalog does not match its manifest.');
+            return [
+            'id' => $row['species_id'], 'name' => $row['name'], 'category' => $row['category'],
+            'seasons' => json_decode((string)$row['seasons_json'], true, 32, JSON_THROW_ON_ERROR),
+            'periods' => json_decode((string)$row['periods_json'], true, 32, JSON_THROW_ON_ERROR),
+            'weathers' => json_decode((string)$row['weathers_json'], true, 32, JSON_THROW_ON_ERROR),
+            'preferred_weathers' => json_decode((string)$row['preferred_weathers_json'], true, 32, JSON_THROW_ON_ERROR),
+            'placement' => $row['placement'], 'motion' => $row['motion'],
+            ];
+        }, $items);
+    }
     $settings = [];
     foreach ($pdo->query('SELECT species_id,name,enabled,encounter_weight FROM wildlife_catalog_settings')->fetchAll(PDO::FETCH_ASSOC) as $row)
         $settings[$row['species_id']] = $row;
@@ -38,11 +76,21 @@ function wildlife_catalog(?PDO $pdo = null): array
 
 function wildlife_ensure_catalog_schema(PDO $pdo): void
 {
-    $date = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'TEXT' : 'DATETIME';
+    $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+    $date = $sqlite ? 'TEXT' : 'DATETIME';
+    $catalogVersion = $sqlite ? 'INT' : 'TINYINT UNSIGNED';
+    $json = $sqlite ? 'TEXT' : 'JSON';
+    $tableOptions = $sqlite ? '' : ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4';
     $pdo->exec("CREATE TABLE IF NOT EXISTS wildlife_catalog_settings (
         species_id VARCHAR(80) PRIMARY KEY, name VARCHAR(120) NOT NULL,
         enabled INT NOT NULL DEFAULT 1, encounter_weight INT NOT NULL DEFAULT 1,
         updated_at {$date} NOT NULL)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS wildlife_catalog_entries (
+        catalog_version {$catalogVersion} NOT NULL, species_id VARCHAR(80) NOT NULL, name VARCHAR(120) NOT NULL,
+        category VARCHAR(40) NOT NULL, seasons_json {$json} NOT NULL, periods_json {$json} NOT NULL,
+        weathers_json {$json} NOT NULL, preferred_weathers_json {$json} NOT NULL,
+        placement VARCHAR(16) NOT NULL, motion VARCHAR(32) NOT NULL, updated_at {$date} NOT NULL,
+        PRIMARY KEY(catalog_version,species_id)){$tableOptions}");
 }
 
 function wildlife_admin_update(PDO $pdo, array $post, DateTimeImmutable $now): void
@@ -64,21 +112,6 @@ function wildlife_admin_update(PDO $pdo, array $post, DateTimeImmutable $now): v
                 : 'ON DUPLICATE KEY UPDATE name=VALUES(name),enabled=VALUES(enabled),encounter_weight=VALUES(encounter_weight),updated_at=VALUES(updated_at)');
         $pdo->prepare($sql)->execute([':id' => $id, ':name' => $name, ':enabled' => $enabled,
             ':weight' => (int)$weight, ':updated' => auth_sql_time($now)]);
-        $catalog = wildlife_catalog($pdo);
-        foreach (['spring','summer','autumn','winter'] as $season)
-            foreach (['morning','day','dusk','night'] as $period)
-                foreach (['clear','cloudy','fog','drizzle','rain','snow','thunderstorm'] as $weather) {
-                    $available = false;
-                    foreach ($catalog as $species) {
-                        if ($species['enabled'] && in_array($season, $species['seasons'], true) &&
-                            in_array($period, $species['periods'], true) && in_array($weather, $species['weathers'], true)) {
-                            $available = true;
-                            break;
-                        }
-                    }
-                    if (!$available)
-                        throw new ApiError('invalid_wildlife', '每种季节、时段和天气须至少保留一种可遇见动物。', 400);
-                }
         $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -172,10 +205,11 @@ function wildlife_period(DateTimeImmutable $now, int $utcOffsetMinutes): string
         ($hour >= 9 && $hour < 17 ? 'day' : ($hour >= 17 && $hour < 20 ? 'dusk' : 'night'));
 }
 
-function wildlife_eligible(string $season, string $period, string $weather, ?PDO $pdo = null): array
+function wildlife_eligible(string $season, string $period, string $weather, ?PDO $pdo = null,
+    int $catalogVersion = 2): array
 {
     $eligible = [];
-    foreach (wildlife_catalog($pdo) as $item) {
+    foreach (wildlife_catalog($pdo, $catalogVersion) as $item) {
         if (isset($item['enabled']) && !$item['enabled']) continue;
         if (!in_array($season, $item['seasons'], true) || !in_array($period, $item['periods'], true) ||
             !in_array($weather, $item['weathers'], true)) continue;
@@ -202,7 +236,8 @@ function wildlife_datetime(?string $value): ?DateTimeImmutable
     return $value === null ? null : new DateTimeImmutable($value . ' UTC');
 }
 
-function wildlife_state_read(PDO $pdo, string $userId, DateTimeImmutable $now, bool $schemaReady = false): array
+function wildlife_state_read(PDO $pdo, string $userId, DateTimeImmutable $now, bool $schemaReady = false,
+    int $catalogVersion = 2): array
 {
     // MySQL DDL implicitly commits: callers already inside a capture/offer
     // transaction must not run CREATE TABLE IF NOT EXISTS a second time.
@@ -218,13 +253,16 @@ function wildlife_state_read(PDO $pdo, string $userId, DateTimeImmutable $now, b
     $query->execute([':user' => $userId]);
     $row = $query->fetch(PDO::FETCH_ASSOC);
     $expiry = $row ? wildlife_datetime($row['expires_at']) : null;
-    $encounter = $row && $row['encounter_id'] !== null && $expiry !== null && $expiry > $now
+    $catalog = wildlife_catalog($pdo, $catalogVersion);
+    $catalogIds = array_fill_keys(array_column($catalog, 'id'), true);
+    $encounter = $row && $row['encounter_id'] !== null && isset($catalogIds[$row['species_id']]) &&
+        $expiry !== null && $expiry > $now
         ? ['id' => $row['encounter_id'], 'species_id' => $row['species_id'],
             'expires_at_utc' => $expiry->format(DATE_ATOM)] : null;
     return ['inventory' => array_map(static fn(array $item): array => [
         'species_id' => $item['id'], 'quantity' => $inventory[$item['id']] ?? 0,
         'discovered' => isset($discovered[$item['id']]) || ($inventory[$item['id']] ?? 0) > 0,
-    ], wildlife_catalog()), 'encounter' => $encounter,
+    ], $catalog), 'encounter' => $encounter,
         'next_due_at_utc' => $row ? wildlife_datetime($row['next_due_at'])->format(DATE_ATOM) : null];
 }
 
@@ -236,6 +274,7 @@ function wildlife_offer(PDO $pdo, string $userId, array $body, callable $clock,
     $offset = $body['utc_offset_minutes'] ?? null;
     $fetchedText = $body['weather_fetched_at_utc'] ?? null;
     $resume = $body['resume_after_hidden'] ?? false;
+    $catalogVersion = wildlife_catalog_version($body['catalog_version'] ?? null);
     if (!is_int($weatherCode) || ($weather = wildlife_weather($weatherCode)) === null ||
         !is_int($offset) || $offset < -720 || $offset > 840 ||
         !is_bool($resume) ||
@@ -270,14 +309,20 @@ function wildlife_offer(PDO $pdo, string $userId, array $body, callable $clock,
             wildlife_datetime($row['next_due_at']) <= $now) {
             $season = wildlife_season($now, $offset);
             $period = wildlife_period($now, $offset);
-            $species = wildlife_pick_species(wildlife_eligible($season, $period, $weather, $pdo), $random);
-            $pdo->prepare('UPDATE wildlife_encounter_state SET encounter_id=:id,species_id=:species,expires_at=:expiry,next_due_at=:due,updated_at=:now WHERE user_id=:user')
-                ->execute([':id' => bin2hex(random_bytes(16)), ':species' => $species,
-                    ':expiry' => auth_sql_time($now->modify('+10 minutes')),
-                    ':due' => auth_sql_time($now->modify('+' . $random(15, 30) . ' minutes')),
-                    ':now' => auth_sql_time($now), ':user' => $userId]);
+            $eligible = wildlife_eligible($season, $period, $weather, $pdo, $catalogVersion);
+            if ($eligible === []) {
+                $pdo->prepare('UPDATE wildlife_encounter_state SET encounter_id=NULL,species_id=NULL,expires_at=NULL,next_due_at=:due,updated_at=:now WHERE user_id=:user')
+                    ->execute([':due' => auth_sql_time($due), ':now' => auth_sql_time($now), ':user' => $userId]);
+            } else {
+                $species = wildlife_pick_species($eligible, $random);
+                $pdo->prepare('UPDATE wildlife_encounter_state SET encounter_id=:id,species_id=:species,expires_at=:expiry,next_due_at=:due,updated_at=:now WHERE user_id=:user')
+                    ->execute([':id' => bin2hex(random_bytes(16)), ':species' => $species,
+                        ':expiry' => auth_sql_time($now->modify('+10 minutes')),
+                        ':due' => auth_sql_time($now->modify('+' . $random(15, 30) . ' minutes')),
+                        ':now' => auth_sql_time($now), ':user' => $userId]);
+            }
         }
-        $state = wildlife_state_read($pdo, $userId, $now, true);
+        $state = wildlife_state_read($pdo, $userId, $now, true, $catalogVersion);
         $pdo->commit();
         return $state;
     } catch (Throwable $error) {
@@ -334,10 +379,19 @@ function wildlife_capture(PDO $pdo, string $userId, array $body, callable $clock
 
 function wildlife_restore(PDO $pdo, string $userId, array $body, callable $clock): array
 {
-    if (($body['owner_user_id'] ?? null) !== $userId || !is_array($body['inventory'] ?? null) ||
-        count($body['inventory']) > count(wildlife_catalog()))
+    if (($body['owner_user_id'] ?? null) !== $userId)
         throw new ApiError('invalid_wildlife_restore', 'Wildlife backup owner or inventory is invalid.', 400);
-    $known = array_column(wildlife_catalog(), null, 'id');
+    $catalogVersion = wildlife_catalog_version($body['catalog_version'] ?? null);
+    wildlife_ensure_schema($pdo);
+    $now = $clock();
+    // Catalog v1 clients may still hold a pre-reset cache. A successful no-op
+    // lets them refresh without reintroducing deleted collection data.
+    if ($catalogVersion === 1)
+        return wildlife_state_read($pdo, $userId, $now, true, 1);
+    $catalog = wildlife_catalog($pdo, $catalogVersion);
+    if (!is_array($body['inventory'] ?? null) || count($body['inventory']) > count($catalog))
+        throw new ApiError('invalid_wildlife_restore', 'Wildlife backup owner or inventory is invalid.', 400);
+    $known = array_column($catalog, null, 'id');
     $seen = [];
     $inventory = [];
     foreach ($body['inventory'] as $item) {
@@ -350,8 +404,6 @@ function wildlife_restore(PDO $pdo, string $userId, array $body, callable $clock
         $seen[$item['species_id']] = true;
         $inventory[] = $item;
     }
-    wildlife_ensure_schema($pdo);
-    $now = $clock();
     $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
     $pdo->beginTransaction();
     try {
@@ -366,7 +418,7 @@ function wildlife_restore(PDO $pdo, string $userId, array $body, callable $clock
                 $pdo->prepare(($sqlite ? 'INSERT OR IGNORE' : 'INSERT IGNORE') . ' INTO wildlife_discoveries (user_id,species_id,discovered_at) VALUES (:user,:species,:now)')
                     ->execute([':user' => $userId, ':species' => $item['species_id'], ':now' => auth_sql_time($now)]);
         }
-        $state = wildlife_state_read($pdo, $userId, $now, true);
+        $state = wildlife_state_read($pdo, $userId, $now, true, $catalogVersion);
         $pdo->commit();
         return $state;
     } catch (Throwable $error) {

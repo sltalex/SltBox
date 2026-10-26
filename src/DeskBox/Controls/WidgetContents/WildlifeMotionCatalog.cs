@@ -6,7 +6,7 @@ namespace DeskBox.Controls.WidgetContents;
 // fruit hit targets unobstructed. Each species has its own recognizable rhythm.
 internal static class WildlifeMotionCatalog
 {
-    private const double VisitorDisplayScale = .82;
+    private const double VisitorDisplayScale = 1.64;
     private static WildlifeMotionFrame F(double at, double x = 0, double y = 0,
         double rotation = 0, double scaleX = 1, double scaleY = 1, double opacity = 1) =>
         new(at, x, y, rotation, scaleX, scaleY, opacity);
@@ -114,30 +114,54 @@ internal static class WildlifeMotionCatalog
         };
 
     private static readonly HashSet<string> SkyFlightIds = new(
-        WildlifeAssetCatalog.LocalCatalog.Where(CanFlyAcrossSky).Select(species => species.Id),
+        WildlifeAssetCatalog.LocalCatalog.Where(species => species.Placement == "sky").Select(species => species.Id),
         StringComparer.Ordinal);
 
     static WildlifeMotionCatalog()
     {
         var profiles = (Dictionary<string, WildlifeMotionProfile>)Profiles;
+        foreach (string obsolete in profiles.Keys.Where(id => !WildlifeAssetCatalog.SpeciesIds.Contains(
+                     id, StringComparer.Ordinal)).ToArray())
+            profiles.Remove(obsolete);
         foreach (WildlifeCatalogItem species in WildlifeAssetCatalog.LocalCatalog)
         {
-            if (profiles.ContainsKey(species.Id)) continue;
-            if (!WildlifeAssetCatalog.MotionCodes.TryGetValue(species.Id, out string? motion)) continue;
-            profiles.Add(species.Id, CreateSpeciesMotion(species, motion));
+            double y = species.Placement == "grass" ? 165 : species.Category switch
+            {
+                "飞鸟" => 52,
+                "蝴蝶" => 92,
+                _ => 112
+            };
+            if (!profiles.ContainsKey(species.Id) &&
+                WildlifeAssetCatalog.MotionCodes.TryGetValue(species.Id, out string? motion))
+                profiles.Add(species.Id, CreateSpeciesMotion(species, motion, y));
+            if (profiles.TryGetValue(species.Id, out WildlifeMotionProfile? profile))
+            {
+                // Placement also applies to the original hand-authored trajectories.
+                profiles[species.Id] = profile with
+                {
+                    X = species.Placement == "tree" ? 165 : profile.X,
+                    Y = y
+                };
+            }
         }
-        foreach (WildlifeCatalogItem species in WildlifeAssetCatalog.LocalCatalog.Where(CanFlyAcrossSky))
+        foreach (WildlifeCatalogItem species in WildlifeAssetCatalog.LocalCatalog.Where(
+                     species => species.Placement == "sky"))
             profiles[species.Id] = CreateSkyFlight(species);
     }
 
     internal static bool FliesAcrossSky(string id) => SkyFlightIds.Contains(id);
 
-    private static bool CanFlyAcrossSky(WildlifeCatalogItem species)
+    internal static WildlifeMotionProfile ForStage(string id, int stage)
     {
-        if (species.Category != "飞鸟" || species.Id is "heron" or "woodpecker") return false;
-        if (!WildlifeAssetCatalog.MotionCodes.TryGetValue(species.Id, out string? motion)) return true;
-        if (motion == "groundbird") return false;
-        return motion != "wader" || species.Id is "goose" or "swan" or "seagull";
+        WildlifeMotionProfile profile = Profiles[id];
+        if (!WildlifeAssetCatalog.LocalCatalog.Any(species => species.Id == id && species.Placement == "tree"))
+            return profile;
+        double ratio = TreeIllustrationLayout.ArtworkWidth(stage) / TreeIllustrationLayout.ArtworkWidth(5);
+        return profile with
+        {
+            X = 130 + (profile.X - 130) * ratio,
+            Y = 116 + (profile.Y - 116) * ratio
+        };
     }
 
     private static WildlifeMotionProfile CreateSkyFlight(WildlifeCatalogItem species)
@@ -147,8 +171,9 @@ internal static class WildlifeMotionCatalog
         bool rightward = (hash & 1) == 0;
         double direction = rightward ? 1 : -1;
         double center = TreeIllustrationLayout.Width / 2 - 18;
-        double start = rightward ? -42 : TreeIllustrationLayout.Width + 6;
-        double finish = rightward ? TreeIllustrationLayout.Width + 6 : -42;
+        double offscreen = VisualSize(species.Id, species.Category, 5) + 6;
+        double start = rightward ? -offscreen : TreeIllustrationLayout.Width + 6;
+        double finish = rightward ? TreeIllustrationLayout.Width + 6 : -offscreen;
         double distance = finish - start;
         double bob = 2 + hash % 3;
         double y = 9 + hash % 7;
@@ -170,10 +195,10 @@ internal static class WildlifeMotionCatalog
                 "butterfly" or "moth" or "bee" or "dragonfly" => 31,
                 "raptor" or "wader" or "deer" => 40,
                 "snail" or "rodent" or "lizard" => 30,
-                _ => category == "昆虫" ? 30 : category == "飞鸟" ? 35 : 37
+                _ => category == "蝴蝶" ? 30 : category == "飞鸟" ? 35 : 37
             };
         else
-            baseSize = category == "昆虫" ? 31 : category == "飞鸟" ? 35 : 38;
+            baseSize = category == "蝴蝶" ? 31 : category == "飞鸟" ? 35 : 38;
 
         // The illustration's drawn width changes with growth. A fixed visitor
         // size makes animals dwarf seedlings even though the canvas is fixed.
@@ -181,7 +206,40 @@ internal static class WildlifeMotionCatalog
             TreeIllustrationLayout.ArtworkWidth(treeStage) / TreeIllustrationLayout.ArtworkWidth(5);
     }
 
-    private static WildlifeMotionProfile CreateSpeciesMotion(WildlifeCatalogItem species, string motion)
+    internal static (double Left, double Top) HitTargetPosition(WildlifeMotionProfile motion,
+        double visualSize, bool skyFlight)
+    {
+        double hitSize = Math.Max(visualSize, 56);
+        double inset = (hitSize - visualSize) / 2;
+        double left = motion.X - inset;
+        double top = motion.Y - inset + (skyFlight ? 0 : TreeIllustrationLayout.TreeVerticalOffset);
+        double minimumLeft = 0;
+        double maximumLeft = TreeIllustrationLayout.Width - hitSize;
+        double minimumTop = 0;
+        double maximumTop = TreeIllustrationLayout.Height - hitSize;
+        foreach (WildlifeMotionFrame frame in motion.Frames)
+        {
+            double radians = frame.Rotation * Math.PI / 180;
+            double cosine = Math.Abs(Math.Cos(radians));
+            double sine = Math.Abs(Math.Sin(radians));
+            double overhangX = Math.Max(0, hitSize / 2 *
+                (Math.Abs(frame.ScaleX) * cosine + Math.Abs(frame.ScaleY) * sine - 1));
+            double overhangY = Math.Max(0, hitSize / 2 *
+                (Math.Abs(frame.ScaleX) * sine + Math.Abs(frame.ScaleY) * cosine - 1));
+            minimumTop = Math.Max(minimumTop, overhangY - frame.Y);
+            maximumTop = Math.Min(maximumTop,
+                TreeIllustrationLayout.Height - hitSize - overhangY - frame.Y);
+            if (skyFlight) continue;
+            minimumLeft = Math.Max(minimumLeft, overhangX - frame.X);
+            maximumLeft = Math.Min(maximumLeft,
+                TreeIllustrationLayout.Width - hitSize - overhangX - frame.X);
+        }
+        top = Math.Clamp(top, minimumTop, maximumTop);
+        if (!skyFlight) left = Math.Clamp(left, minimumLeft, maximumLeft);
+        return (left, top);
+    }
+
+    private static WildlifeMotionProfile CreateSpeciesMotion(WildlifeCatalogItem species, string motion, double y)
     {
         uint hash = 2166136261;
         foreach (char character in species.Id) hash = unchecked((hash ^ character) * 16777619);
@@ -189,9 +247,6 @@ internal static class WildlifeMotionCatalog
         double stride = 12 + (hash % 8);
         double seconds = 3.5 + (hash % 13) * .31;
         double x = 188 + (hash % 9);
-        bool airborne = species.Category == "飞鸟" || motion is "bat";
-        bool flyingInsect = motion is "butterfly" or "bee" or "fly" or "dragonfly" or "moth";
-        double y = airborne ? 28 + (hash % 12) : flyingInsect ? 96 + (hash % 16) : 161 + (hash % 9);
         string label = species.Name + "·" + motion;
 
         // Similar anatomy shares a movement family; cadence, distance and
@@ -199,7 +254,7 @@ internal static class WildlifeMotionCatalog
         return motion switch
         {
             "butterfly" or "moth" or "bat" => M(label, x, y, seconds + 1.4,
-                F(0), F(.23, -stride * .45, -8 - variation, -9, 1.08, .82),
+                F(0), F(.23, -stride * .45, -9 - variation, -9, 1.08, .82),
                 F(.48, -stride, 4 + variation, 11, .88, 1.12),
                 F(.73, -stride * .32, -5, -6, 1.1, .85), F(1)),
             "bee" or "nectar" or "fly" => M(label, x, y, Math.Max(2.2, seconds - 1),

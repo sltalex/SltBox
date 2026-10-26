@@ -23,6 +23,7 @@ internal static class WildlifeCacheFileStore
             string name = Path.GetFileName(source);
             if (!CloudBackupDomains.IsInDomain(CloudBackupDomain.WildlifeData, "wildlife/" + name)) continue;
             WildlifeCacheDto staged = ReadOwned(source, name);
+            if (staged.CatalogVersion != WildlifeCatalogVersions.Current) continue;
             string destination = Path.Combine(dataDirectory, "wildlife", name);
             if (!File.Exists(destination))
             {
@@ -32,6 +33,11 @@ internal static class WildlifeCacheFileStore
             WildlifeCacheDto live = ReadOwned(destination, name);
             if (live.OwnerUserId != staged.OwnerUserId)
                 throw new InvalidDataException("Wildlife backup account does not match the live account.");
+            if (live.CatalogVersion != WildlifeCatalogVersions.Current)
+            {
+                Save(destination, staged);
+                continue;
+            }
             var merged = live.Inventory.ToDictionary(item => item.SpeciesId, StringComparer.Ordinal);
             foreach (WildlifeInventoryItem item in staged.Inventory)
             {
@@ -42,6 +48,7 @@ internal static class WildlifeCacheFileStore
             }
             Save(destination, new WildlifeCacheDto
             {
+                CatalogVersion = WildlifeCatalogVersions.Current,
                 OwnerUserId = live.OwnerUserId,
                 Inventory = merged.Values.ToArray()
             });
@@ -55,13 +62,15 @@ internal static class WildlifeCacheFileStore
             ?? throw new InvalidDataException("Wildlife backup cache is invalid.");
         if (string.IsNullOrWhiteSpace(cache.OwnerUserId) || cache.Inventory is null ||
             cache.Inventory.Length > WildlifeAssetCatalog.SpeciesIds.Length ||
-            cache.Inventory.Any(item => item is null || item.Quantity is < 0 or > 1000000000 ||
-                !WildlifeAssetCatalog.SpeciesIds.Contains(item.SpeciesId, StringComparer.Ordinal)))
+            cache.Inventory.Any(item => item is null || item.Quantity is < 0 or > 1000000000))
             throw new InvalidDataException("Wildlife backup cache owner or entries are invalid.");
         string expected = "wildlife-state-account-" + AccountBackupFileCatalog.SafeAccountId(cache.OwnerUserId) + ".json";
         if (!string.Equals(name, expected, StringComparison.OrdinalIgnoreCase) ||
             cache.Inventory.Select(item => item.SpeciesId).Distinct(StringComparer.Ordinal).Count() != cache.Inventory.Length)
             throw new InvalidDataException("Wildlife backup cache owner or entries are invalid.");
+        if (cache.CatalogVersion == WildlifeCatalogVersions.Current && cache.Inventory.Any(item =>
+                !WildlifeAssetCatalog.SpeciesIds.Contains(item.SpeciesId, StringComparer.Ordinal)))
+            throw new InvalidDataException("Wildlife backup cache contains an unknown current-catalog species.");
         return cache;
     }
 }
