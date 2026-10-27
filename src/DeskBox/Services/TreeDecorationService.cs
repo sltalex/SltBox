@@ -44,6 +44,8 @@ internal sealed class TreeDecorationService : IAsyncDisposable
     internal string? PendingThemeId { get; private set; }
     internal string? CurrentUserId => VerifiedIdentity();
     internal bool IsAvailable => Volatile.Read(ref _disposed) == 0 && CurrentUserId is not null;
+    internal bool IsVisibleToCurrentUser => _auth.IsAuthenticated &&
+        string.Equals(_auth.CurrentUser?.Username, "sltalex", StringComparison.OrdinalIgnoreCase);
     internal bool IsOffline { get; private set; }
     internal string? ErrorCode { get; private set; }
     internal bool HasPendingOperation => _pending is not null;

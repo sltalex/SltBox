@@ -117,7 +117,6 @@ public sealed partial class SettingsWindow
                 break;
             case TreeSettingsSection treeSettings:
                 treeSettings.Configure(
-                    ViewModel,
                     _localizationService,
                     _authSession,
                     _treeCloudSyncService,

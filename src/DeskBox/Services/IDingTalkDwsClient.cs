@@ -43,7 +43,12 @@ public sealed record DingTalkGroupMessage(
     string GroupName,
     string Content,
     DateTimeOffset CreatedAt,
-    bool IsSingleChat);
+    bool IsSingleChat)
+{
+    public IReadOnlyList<DingTalkGroupMessageResource> Resources { get; init; } = [];
+}
+
+public sealed record DingTalkGroupMessageResource(string Url, string ResourceType, string ResourceId = "");
 
 public sealed record DingTalkCalendarEvent(
     string EventId,
@@ -52,7 +57,10 @@ public sealed record DingTalkCalendarEvent(
     DateTimeOffset End,
     string Location,
     bool IsCancelled = false,
-    bool IsDeleted = false);
+    bool IsDeleted = false)
+{
+    public IReadOnlyList<string> AttendeeNames { get; init; } = [];
+}
 
 public interface IDingTalkDwsClient
 {

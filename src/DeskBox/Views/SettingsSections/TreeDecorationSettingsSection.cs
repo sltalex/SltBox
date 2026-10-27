@@ -1,4 +1,3 @@
-using CommunityToolkit.WinUI.Controls;
 using DeskBox.Controls;
 using DeskBox.Contracts;
 using DeskBox.Services;
@@ -26,7 +25,22 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
     private readonly Slider _rotation = new() { Minimum = -45, Maximum = 45, StepFrequency = 1, Width = 220 };
     private readonly ComboBox _layer = new() { Width = 100, ItemsSource = new object[] { -2, -1, 0, 1, 2 } };
     private readonly TreeDecorationSceneView _scene = new();
-    private readonly Grid _catalog = new() { ColumnSpacing = 8, RowSpacing = 8 };
+    private readonly Grid _catalog = new()
+    {
+        Width = TreeDecorationInventoryLayout.SettingsCardWidth,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        ColumnSpacing = TreeDecorationInventoryLayout.SettingsCardSpacing,
+        RowSpacing = TreeDecorationInventoryLayout.SettingsCardSpacing
+    };
+    private readonly TextBlock _collectionTitle = new()
+    {
+        FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        TextWrapping = TextWrapping.Wrap
+    };
+    private readonly TextBlock _collectionDescription = new()
+    {
+        FontSize = 12, Opacity = .72, TextWrapping = TextWrapping.Wrap
+    };
     private readonly Border _editorSurface = new()
     {
         HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -34,7 +48,14 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
         CornerRadius = new CornerRadius(8),
         Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush
     };
-    private readonly SettingsCard _collectionCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+    private readonly Border _collectionCard = new()
+    {
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        Padding = new Thickness(16),
+        CornerRadius = new CornerRadius(8),
+        Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush
+    };
+    private int _catalogColumnCount = 1;
     private TreeDecorationService? _service;
     private AquariumService? _aquarium;
     private LocalizationService? _localization;
@@ -51,8 +72,7 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
 
     public TreeDecorationSettingsSection()
     {
-        for (int column = 0; column < 4; column++)
-            _catalog.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _catalog.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(TreeDecorationInventoryLayout.SettingsCardWidth) });
         var root = new StackPanel { Spacing = 10 };
         root.Children.Add(_status);
 
@@ -92,7 +112,10 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
         editorFields.Children.Add(EditorRow(_rotationLabel, _rotation));
         editorFields.Children.Add(EditorRow(_layerLabel, _layer));
         editorPanel.Children.Add(editorFields);
-        var editorActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var editorActions = new CommunityToolkit.WinUI.Controls.WrapPanel
+        {
+            Orientation = Orientation.Horizontal, HorizontalSpacing = 8, VerticalSpacing = 8
+        };
         editorActions.Children.Add(_undo);
         editorActions.Children.Add(_return);
         editorActions.Children.Add(_save);
@@ -101,9 +124,14 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
         _editorSurface.Child = editorPanel;
         root.Children.Add(_editorSurface);
 
-        _collectionCard.Content = _catalog;
+        var collectionContent = new StackPanel { Spacing = 8 };
+        collectionContent.Children.Add(_collectionTitle);
+        collectionContent.Children.Add(_collectionDescription);
+        collectionContent.Children.Add(_catalog);
+        _collectionCard.Child = collectionContent;
         root.Children.Add(_collectionCard);
         Content = root;
+        SizeChanged += (_, args) => UpdateCatalogColumns(args.NewSize.Width);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -178,8 +206,8 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
     private void RenderLabels()
     {
         if (_localization is null) return;
-        _collectionCard.Header = _localization.T("Tree.Decorations.CollectionTitle");
-        _collectionCard.Description = _localization.T("Tree.Decorations.CollectionDescription");
+        _collectionTitle.Text = _localization.T("Tree.Decorations.CollectionTitle");
+        _collectionDescription.Text = _localization.T("Tree.Decorations.CollectionDescription");
         _signIn.Content = _localization.T("Tree.Decorations.SignInAction");
         _undo.Content = _localization.T("Tree.Decorations.Undo");
         _save.Content = _localization.T("Tree.Decorations.Save");
@@ -227,7 +255,8 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
         {
             TreeDecorationOwnedProduct owned = products[index];
             TreeDecorationCatalogItem item = owned.Product;
-            if (index % 4 == 0)
+            (int row, int column) = TreeDecorationInventoryLayout.PositionOf(index, _catalogColumnCount);
+            if (column == 0)
                 _catalog.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             bool activeTheme = item.Id == _draft.ActiveThemeId;
             var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -245,7 +274,7 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
                 Text = name, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxLines = 2
             };
-            var panel = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Stretch };
+            var panel = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch };
             panel.Children.Add(imageHost);
             panel.Children.Add(nameBlock);
             if (item.Category == "theme")
@@ -300,7 +329,8 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
             }
             var card = new Border
             {
-                Width = 146, Height = 150, Padding = new Thickness(6),
+                Width = TreeDecorationInventoryLayout.SettingsCardWidth,
+                Height = 142, Padding = new Thickness(4),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 CornerRadius = new CornerRadius(10),
                 Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
@@ -309,10 +339,23 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
                 BorderThickness = new Thickness(activeTheme ? 2 : 1), Child = panel
             };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, name);
-            Grid.SetColumn(card, index % 4);
-            Grid.SetRow(card, index / 4);
+            Grid.SetColumn(card, column);
+            Grid.SetRow(card, row);
             _catalog.Children.Add(card);
         }
+    }
+
+    private void UpdateCatalogColumns(double sectionWidth)
+    {
+        int columns = TreeDecorationInventoryLayout.SettingsColumnsForWidth(
+            Math.Max(0, sectionWidth - _collectionCard.Padding.Left - _collectionCard.Padding.Right));
+        if (columns == _catalogColumnCount) return;
+        _catalogColumnCount = columns;
+        _catalog.Width = TreeDecorationInventoryLayout.SettingsRowWidthForColumns(columns);
+        _catalog.ColumnDefinitions.Clear();
+        for (int column = 0; column < columns; column++)
+            _catalog.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(TreeDecorationInventoryLayout.SettingsCardWidth) });
+        RenderCatalog();
     }
 
     private void RecallOne(string itemId)

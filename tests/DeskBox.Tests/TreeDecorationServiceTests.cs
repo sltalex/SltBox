@@ -12,6 +12,31 @@ public sealed class TreeDecorationServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "DeskBoxTreeDecor", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task DecorationVisibilityFollowsSignedInUsernameWithoutChangingApiAvailability()
+    {
+        var auth = new FakeAuth();
+        await using var service = new TreeDecorationService(auth, new FakeApi(), _root);
+
+        Assert.False(service.IsVisibleToCurrentUser);
+        Assert.True(service.IsAvailable);
+        Assert.True(await service.RefreshAsync());
+
+        int changed = 0;
+        service.Changed += () => changed++;
+        auth.SetCurrentUser(new AuthUser("tree-owner", "SLTALEX"));
+        Assert.True(service.IsVisibleToCurrentUser);
+        Assert.Equal(1, changed);
+
+        auth.SetCurrentUser(new AuthUser("other-owner", "other"));
+        Assert.False(service.IsVisibleToCurrentUser);
+        Assert.True(service.IsAvailable);
+
+        auth.SetCurrentUser(null);
+        Assert.False(service.IsVisibleToCurrentUser);
+        Assert.False(service.IsAvailable);
+    }
+
+    [Fact]
     public async Task LostOpenResponseReplaysExactCommandWithoutSecondReward()
     {
         var auth = new FakeAuth();
@@ -103,6 +128,27 @@ public sealed class TreeDecorationServiceTests : IDisposable
         Assert.True(changed > 0);
     }
 
+    [Fact]
+    public async Task SavedSceneReloadsWithEveryDecorationInstance()
+    {
+        var api = new FakeApi();
+        TreeDecorationPlacement[] placements =
+        [
+            new("first-lantern", "red-lantern", .25, .35, 1, 0, 0),
+            new("second-lantern", "red-lantern", .75, .65, 1, 0, 1)
+        ];
+        await using (var editor = new TreeDecorationService(new FakeAuth(), api, _root))
+        {
+            Assert.True(await editor.RefreshAsync());
+            Assert.True(await editor.SaveSceneAsync(placements, null, 0));
+        }
+
+        await using var desktop = new TreeDecorationService(new FakeAuth(), api, _root);
+        Assert.True(await desktop.RefreshAsync());
+        Assert.Equal(1, desktop.State!.SceneVersion);
+        Assert.Equal(placements, desktop.State.Placements);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
@@ -113,6 +159,11 @@ public sealed class TreeDecorationServiceTests : IDisposable
         public event Action? SessionChanged;
         public bool IsAuthenticated => CurrentUser is not null;
         public AuthUser? CurrentUser { get; private set; } = new("tree-owner", "Tree Owner", "user");
+        public void SetCurrentUser(AuthUser? user)
+        {
+            CurrentUser = user;
+            SessionChanged?.Invoke();
+        }
         public Task<AuthUser> RegisterAsync(string username, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<AuthUser> SignInAsync(string username, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

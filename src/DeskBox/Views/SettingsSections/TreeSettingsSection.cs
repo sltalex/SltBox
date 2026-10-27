@@ -1,8 +1,6 @@
 using CommunityToolkit.WinUI.Controls;
 using DeskBox.Contracts;
-using DeskBox.Models;
 using DeskBox.Services;
-using DeskBox.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,33 +10,34 @@ namespace DeskBox.Views.SettingsSections;
 
 public sealed partial class TreeSettingsSection : UserControl
 {
-    private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
-    private readonly ToggleSwitch _enable = new() { OnContent = "", OffContent = "", MinWidth = 0 };
-    private readonly ToggleSwitch _statistics = new() { MinWidth = 0 };
     private readonly ToggleSwitch _participation = new() { OnContent = "", OffContent = "", MinWidth = 0 };
-    private readonly TextBlock _enableLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _statisticsLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _syncLabel = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock _syncStatus = new() { FontSize = 12, Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _syncStatus = new()
+    {
+        FontSize = 12, Opacity = 0.78, TextWrapping = TextWrapping.Wrap,
+        HorizontalAlignment = HorizontalAlignment.Right, Visibility = Visibility.Collapsed
+    };
     private readonly Button _syncButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
-    private readonly ListView _leaderboard = new() { SelectionMode = ListViewSelectionMode.None };
+    private readonly ListView _leaderboard = new()
+    {
+        SelectionMode = ListViewSelectionMode.None,
+        HorizontalContentAlignment = HorizontalAlignment.Stretch
+    };
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TreeDecorationSettingsSection _decorations = new();
     private readonly Grid _participationRow;
-    private SettingsViewModel? _viewModel;
     private LocalizationService? _localization;
     private IAuthSession? _auth;
     private TreeCloudSyncService? _cloud;
+    private TreeDecorationService? _decorationService;
     private bool _updating;
-    private int _progressRefreshQueued;
     private int _leaderboardRefreshQueued;
     private int _syncOperationInProgress;
 
@@ -46,35 +45,32 @@ public sealed partial class TreeSettingsSection : UserControl
 
     public TreeSettingsSection()
     {
-        var switches = new Grid { ColumnSpacing = 12 };
-        for (int column = 0; column < 4; column++)
-            switches.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        Grid enableColumn = CreateToggleRow(_enableLabel, _enable);
-        Grid statisticsColumn = CreateToggleRow(_statisticsLabel, _statistics);
-        Grid.SetColumn(statisticsColumn, 1);
-        switches.Children.Add(enableColumn);
-        switches.Children.Add(statisticsColumn);
-
         _syncButton.Click += SyncButton_Click;
         _syncButton.Content = new TextBlock();
         _repairButton.Click += RepairButton_Click;
         _repairButton.Content = new TextBlock();
-        var syncPanel = new StackPanel
+        _participationRow = new Grid
         {
-            Spacing = 4,
-            VerticalAlignment = VerticalAlignment.Center
+            MinHeight = 46, ColumnSpacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
-        syncPanel.Children.Add(_syncLabel);
-        syncPanel.Children.Add(_syncStatus);
-        syncPanel.Children.Add(_syncButton);
-        syncPanel.Children.Add(_repairButton);
-        Grid.SetColumn(syncPanel, 3);
-
-        _participationRow = CreateToggleRow(_participationLabel, _participation);
-        Grid.SetColumn(_participationRow, 2);
-        switches.Children.Add(_participationRow);
-        switches.Children.Add(syncPanel);
-        _switchesCard.Content = switches;
+        _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (int i = 0; i < 3; i++)
+            _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _participationLabel.TextWrapping = TextWrapping.NoWrap;
+        _participationLabel.TextTrimming = TextTrimming.CharacterEllipsis;
+        _participation.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(_participation, 1);
+        Grid.SetColumn(_syncButton, 2);
+        Grid.SetColumn(_repairButton, 3);
+        _participationRow.Children.Add(_participationLabel);
+        _participationRow.Children.Add(_participation);
+        _participationRow.Children.Add(_syncButton);
+        _participationRow.Children.Add(_repairButton);
+        var cardContent = new StackPanel { Spacing = 2 };
+        cardContent.Children.Add(_participationRow);
+        cardContent.Children.Add(_syncStatus);
+        _switchesCard.Content = cardContent;
 
         _loginButton.Click += (_, _) => NavigationRequested?.Invoke(this, new("General"));
         var leaderboardPanel = new StackPanel { Spacing = 10 };
@@ -83,12 +79,13 @@ public sealed partial class TreeSettingsSection : UserControl
         leaderboardPanel.Children.Add(_currentRankHint);
         leaderboardPanel.Children.Add(_loginButton);
         leaderboardPanel.Children.Add(_leaderboard);
-        _leaderboardCard.Padding = new Thickness(16);
+        _leaderboardCard.Padding = new Thickness(8);
         _leaderboardCard.CornerRadius = new CornerRadius(8);
         _leaderboardCard.Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush;
         _leaderboardCard.Child = leaderboardPanel;
 
-        var panel = new StackPanel { Spacing = 10, Margin = new Thickness(24) };
+        var panel = new StackPanel { Spacing = 12 };
+        _decorations.Visibility = Visibility.Collapsed;
         panel.Children.Add(_decorations);
         panel.Children.Add(_switchesCard);
         panel.Children.Add(_leaderboardCard);
@@ -96,21 +93,6 @@ public sealed partial class TreeSettingsSection : UserControl
 
         _decorations.NavigationRequested += (_, args) => NavigationRequested?.Invoke(this, args);
 
-        _enable.Toggled += (_, _) =>
-        {
-            if (_updating || _viewModel is null) return;
-            bool wasEnabled = _viewModel.IsWidgetEnabled(WidgetKind.Tree);
-            _viewModel.SetWidgetEnabled(WidgetKind.Tree, _enable.IsOn);
-            if (_enable.IsOn && !wasEnabled) _counter.SetPaused(false);
-            _counter.SetEnabled(_enable.IsOn);
-            RefreshProgress();
-        };
-        _statistics.Toggled += (_, _) =>
-        {
-            if (_updating || !_statistics.IsEnabled) return;
-            _counter.SetPaused(TreeStatisticsState.PausedFromToggle(_statistics.IsOn));
-            RefreshProgress();
-        };
         _participation.Toggled += async (_, _) =>
         {
             if (_updating || _cloud is null || _auth?.IsAuthenticated != true) return;
@@ -121,13 +103,13 @@ public sealed partial class TreeSettingsSection : UserControl
         Unloaded += TreeSettingsSection_Unloaded;
     }
 
-    internal void Configure(SettingsViewModel viewModel, LocalizationService localization, IAuthSession auth,
+    internal void Configure(LocalizationService localization, IAuthSession auth,
         TreeCloudSyncService cloud, TreeDecorationService decorations, AquariumService aquarium)
     {
-        _viewModel = viewModel;
         _localization = localization;
         _auth = auth;
         _cloud = cloud;
+        _decorationService = decorations;
         _decorations.Configure(decorations, aquarium, localization, auth);
         RenderLabels();
         Refresh();
@@ -135,7 +117,6 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void TreeSettingsSection_Loaded(object sender, RoutedEventArgs e)
     {
-        _counter.Changed += OnProgressChanged;
         if (_localization is not null) _localization.LanguageChanged += OnLanguageChanged;
         if (_auth is not null) _auth.SessionChanged += OnLeaderboardChanged;
         if (_cloud is not null) _cloud.LeaderboardChanged += OnLeaderboardChanged;
@@ -150,7 +131,6 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void TreeSettingsSection_Unloaded(object sender, RoutedEventArgs e)
     {
-        _counter.Changed -= OnProgressChanged;
         if (_localization is not null) _localization.LanguageChanged -= OnLanguageChanged;
         if (_auth is not null) _auth.SessionChanged -= OnLeaderboardChanged;
         if (_cloud is not null) _cloud.LeaderboardChanged -= OnLeaderboardChanged;
@@ -160,12 +140,7 @@ public sealed partial class TreeSettingsSection : UserControl
     {
         if (_localization is null) return;
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
-        _syncLabel.Text = _localization.T("Tree.Settings.Card.Sync");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
-        _enableLabel.Text = _localization.T("Tree.Settings.Enable");
-        _statisticsLabel.Text = _localization.T("Tree.Settings.EnableStatistics");
-        _statistics.OnContent = _localization.T("Tree.Settings.StatisticsRunning");
-        _statistics.OffContent = _localization.T("Tree.Settings.StatisticsPaused");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
         if (_syncButton.Content is TextBlock syncText)
@@ -181,26 +156,26 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_cloud is null || ownerId is null || Interlocked.Exchange(ref _syncOperationInProgress, 1) != 0) return;
 
         RefreshSyncActions();
-        _syncStatus.Text = _localization?.T("Tree.SyncCalibrating") ?? string.Empty;
+        SetSyncStatus(_localization?.T("Tree.SyncCalibrating") ?? string.Empty);
         try
         {
             bool synchronized = await _cloud.SyncProgressNowAsync();
             if (_auth?.CurrentUser?.Id != ownerId) return;
-            _syncStatus.Text = _localization?.T(synchronized
+            SetSyncStatus(_localization?.T(synchronized
                 ? "Tree.SyncCalibrateSuccess"
-                : "Tree.SyncCalibrateUnavailable") ?? string.Empty;
+                : "Tree.SyncCalibrateUnavailable") ?? string.Empty);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             App.Log($"[TreeCloud] Manual tree calibration failed: {ex.GetType().Name}");
             if (_auth?.CurrentUser?.Id == ownerId)
-                _syncStatus.Text = _localization?.T("Tree.SyncCalibrateError") ?? string.Empty;
+                SetSyncStatus(_localization?.T("Tree.SyncCalibrateError") ?? string.Empty);
         }
         catch (Exception ex)
         {
             App.Log($"[TreeCloud] Manual tree calibration failed: {ex}");
             if (_auth?.CurrentUser?.Id == ownerId)
-                _syncStatus.Text = _localization?.T("Tree.SyncCalibrateError") ?? string.Empty;
+                SetSyncStatus(_localization?.T("Tree.SyncCalibrateError") ?? string.Empty);
         }
         finally
         {
@@ -219,7 +194,7 @@ public sealed partial class TreeSettingsSection : UserControl
             int deleted = _cloud.DeleteLocalStateFiles();
             if (XamlRoot is null)
             {
-                _syncStatus.Text = _localization?.T("Tree.SyncRepairFailed") ?? string.Empty;
+                SetSyncStatus(_localization?.T("Tree.SyncRepairFailed") ?? string.Empty);
                 return;
             }
 
@@ -242,8 +217,8 @@ public sealed partial class TreeSettingsSection : UserControl
             AppRelaunchScheduleResult relaunch = AppRelaunchService.ScheduleAfterCurrentProcessExit();
             if (!relaunch.Started)
             {
-                _syncStatus.Text = _localization?.Format(
-                    "Tree.SyncRepairRestartFailed", relaunch.ErrorMessage ?? string.Empty) ?? string.Empty;
+                SetSyncStatus(_localization?.Format(
+                    "Tree.SyncRepairRestartFailed", relaunch.ErrorMessage ?? string.Empty) ?? string.Empty);
                 return;
             }
 
@@ -252,7 +227,7 @@ public sealed partial class TreeSettingsSection : UserControl
         catch (Exception ex)
         {
             App.Log($"[TreeCloud] Sync repair failed: {ex}");
-            _syncStatus.Text = _localization?.T("Tree.SyncRepairFailed") ?? string.Empty;
+            SetSyncStatus(_localization?.T("Tree.SyncRepairFailed") ?? string.Empty);
         }
         finally
         {
@@ -268,33 +243,10 @@ public sealed partial class TreeSettingsSection : UserControl
         _repairButton.IsEnabled = !busy;
     }
 
-    private static Grid CreateToggleRow(TextBlock label, ToggleSwitch toggle)
+    private void SetSyncStatus(string text)
     {
-        var row = new Grid
-        {
-            MinHeight = 46,
-            ColumnSpacing = 16,
-            HorizontalAlignment = HorizontalAlignment.Stretch
-        };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        toggle.HorizontalAlignment = HorizontalAlignment.Right;
-        toggle.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(label, 0);
-        Grid.SetColumn(toggle, 1);
-        row.Children.Add(label);
-        row.Children.Add(toggle);
-        return row;
-    }
-
-    private void OnProgressChanged()
-    {
-        if (Interlocked.Exchange(ref _progressRefreshQueued, 1) != 0) return;
-        if (!_uiQueue.TryEnqueue(() =>
-            {
-                try { if (IsLoaded) RefreshProgress(); }
-                finally { Interlocked.Exchange(ref _progressRefreshQueued, 0); }
-            })) Interlocked.Exchange(ref _progressRefreshQueued, 0);
+        _syncStatus.Text = text;
+        _syncStatus.Visibility = string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnLeaderboardChanged()
@@ -309,37 +261,20 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void OnLanguageChanged() { RenderLabels(); Refresh(); }
 
-    private void Refresh()
-    {
-        RefreshProgress();
-        RefreshLeaderboardSurface();
-    }
-
-    private void RefreshProgress()
-    {
-        if (_viewModel is null || _localization is null) return;
-        _updating = true;
-        try
-        {
-            _enable.IsOn = _viewModel.IsWidgetEnabled(WidgetKind.Tree);
-            TreeProgress snapshot = _counter.Snapshot;
-            TreeStatisticsState statistics = TreeStatisticsState.FromProgress(_enable.IsOn, snapshot.Paused);
-            _statistics.IsEnabled = statistics.ToggleEnabled;
-            _statistics.IsOn = statistics.ToggleOn;
-            _statistics.OffContent = _localization.T(statistics.OffContentKey);
-        }
-        finally { _updating = false; }
-    }
+    private void Refresh() => RefreshLeaderboardSurface();
 
     private void RefreshLeaderboardSurface()
     {
-        if (_viewModel is null || _localization is null) return;
+        if (_localization is null) return;
         _updating = true;
         try
         {
             bool signedIn = _auth?.IsAuthenticated == true;
+            _decorations.Visibility = _decorationService?.IsVisibleToCurrentUser == true
+                ? Visibility.Visible : Visibility.Collapsed;
             RefreshSyncActions();
-            _participationRow.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
+            _participationLabel.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
+            _participation.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
             _leaderboard.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
             _loginButton.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
             _participation.IsOn = _cloud?.CurrentUserRank.Participating ?? true;
@@ -369,31 +304,177 @@ public sealed partial class TreeSettingsSection : UserControl
             string medal = entry.Rank switch { 1 => "🥇", 2 => "🥈", 3 => "🥉", _ => "🌿" };
             var grid = new Grid
             {
-                Padding = new Thickness(10, 7, 10, 7),
-                ColumnSpacing = 12,
+                Padding = new Thickness(4, 5, 4, 5),
+                ColumnSpacing = 4,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 Background = entry.IsCurrentUser ? new SolidColorBrush(Microsoft.UI.Colors.PaleGreen) : null,
                 CornerRadius = new CornerRadius(8)
             };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(54) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition());
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(78) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(54) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
             AddCell(grid, $"{medal} {entry.Rank}", 0, true);
             AddCell(grid, entry.IsCurrentUser ? _localization.Format("Tree.Settings.Leaderboard.Me", entry.Username) : entry.Username, 1, entry.IsCurrentUser);
             AddStageCell(grid, _localization.Format("Tree.Settings.Leaderboard.Stage", entry.Stage), entry.Stage, 2);
             AddCell(grid, $"+{entry.TodayGrowth:N0}", 3, false);
-            AddCell(grid, $"⚡ {entry.TotalEnergy:N0}  🍎 {entry.FruitInventory ?? entry.FruitTotal:N0}", 4, false);
+            AddCell(grid, $"⚡{entry.TotalEnergy:N0}", 4, false);
+            AddCell(grid, $"🍎{entry.FruitInventory ?? entry.FruitTotal:N0}", 5, false);
+            var visits = new TextBlock
+            {
+                Text = $"👁 {entry.VisitCount:N0}", FontSize = 12,
+                TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(visits,
+                _localization.Format("Tree.Settings.Leaderboard.VisitCount", entry.VisitCount));
+            Grid.SetColumn(visits, 6);
+            grid.Children.Add(visits);
+            if (_cloud.CanVisit(entry))
+            {
+                var visit = new Button
+                {
+                    Content = _localization.T("Tree.Settings.Leaderboard.Visit"),
+                    MinWidth = 0, MinHeight = 28, FontSize = 11,
+                    Padding = new Thickness(3, 1, 3, 1),
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+                visit.Click += async (_, _) => await VisitAsync(entry, visit, visits);
+                Grid.SetColumn(visit, 7);
+                grid.Children.Add(visit);
+            }
             _leaderboard.Items.Add(grid);
         }
     }
 
-    private static void AddCell(Grid grid, string text, int column, bool strong)
+    private async Task VisitAsync(TreeLeaderboardEntryDto entry, Button button, TextBlock visits)
     {
-        var block = new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2), TextTrimming = TextTrimming.CharacterEllipsis };
+        if (_cloud is null || _localization is null || _auth?.IsAuthenticated != true ||
+            !_cloud.CanVisit(entry)) return;
+        string? viewerId = _auth.CurrentUser?.Id;
+        var status = new TextBlock
+        {
+            Text = _localization.T("Tree.Settings.Leaderboard.VisitLoading"),
+            TextWrapping = TextWrapping.Wrap
+        };
+        var panel = new StackPanel { Spacing = 8, Width = 390 };
+        var header = new Grid { ColumnSpacing = 5, MinHeight = 34 };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+        var name = new TextBlock
+        {
+            Text = entry.Username,
+            FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        header.Children.Add(name);
+        TextBlock stage = AddCell(header,
+            _localization.Format("Tree.Settings.Leaderboard.Stage", entry.Stage), 1, false);
+        TextBlock energy = AddCell(header, $"⚡{entry.TotalEnergy:N0}", 2, false);
+        var like = new Button
+        {
+            Content = "👍 0", MinWidth = 0, MinHeight = 28,
+            Padding = new Thickness(3, 1, 3, 1), IsEnabled = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetColumn(like, 3);
+        header.Children.Add(like);
+        ToolTipService.SetToolTip(like, _localization.T("Tree.Settings.Leaderboard.Like"));
+        var close = new Button
+        {
+            Content = "×", MinWidth = 0, MinHeight = 28, FontSize = 18,
+            Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetColumn(close, 4);
+        header.Children.Add(close);
+        ToolTipService.SetToolTip(close, _localization.T("Common.Close"));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(close,
+            _localization.T("Common.Close"));
+        panel.Children.Add(header);
+        panel.Children.Add(status);
+        var flyout = new Flyout { Content = panel };
+        close.Click += (_, _) => flyout.Hide();
+        flyout.ShowAt(button);
+        button.IsEnabled = false;
+        try
+        {
+            TreeVisitSnapshot snapshot = await _cloud.VisitAsync(entry.Account);
+            entry.VisitCount = snapshot.VisitCount;
+            visits.Text = $"👁 {entry.VisitCount:N0}";
+            ToolTipService.SetToolTip(visits,
+                _localization.Format("Tree.Settings.Leaderboard.VisitCount", entry.VisitCount));
+            if (!flyout.IsOpen || _auth.CurrentUser?.Id != viewerId) return;
+            name.Text = snapshot.Username;
+            stage.Text = _localization.Format("Tree.Settings.Leaderboard.Stage", snapshot.Stage);
+            energy.Text = $"⚡{snapshot.TotalEnergy:N0}";
+            like.Content = $"{(snapshot.LikedByMe ? "❤️" : "👍")} {snapshot.LikeCount:N0}";
+            ToolTipService.SetToolTip(like, _localization.T(snapshot.LikedByMe
+                ? "Tree.Settings.Leaderboard.LikedToday" : "Tree.Settings.Leaderboard.Like"));
+            like.IsEnabled = !snapshot.LikedByMe;
+            like.Click += async (_, _) =>
+            {
+                if (_cloud is null || _auth?.CurrentUser?.Id != viewerId || snapshot.LikedByMe) return;
+                like.IsEnabled = false;
+                try
+                {
+                    TreeVisitLikeResponse result = await _cloud.LikeVisitAsync(entry.Account);
+                    snapshot.LikedByMe = result.LikedByMe;
+                    snapshot.LikeCount = result.LikeCount;
+                    if (flyout.IsOpen && _auth?.CurrentUser?.Id == viewerId)
+                    {
+                        like.Content = $"{(result.LikedByMe ? "❤️" : "👍")} {result.LikeCount:N0}";
+                        ToolTipService.SetToolTip(like, _localization.T(result.LikedByMe
+                            ? "Tree.Settings.Leaderboard.LikedToday" : "Tree.Settings.Leaderboard.Like"));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    App.Log($"[TreeCloud] Tree like failed: {ex.GetType().Name}");
+                    if (flyout.IsOpen)
+                    {
+                        status.Text = _localization.T("Tree.Settings.Leaderboard.LikeError");
+                        if (status.Parent is null) panel.Children.Insert(1, status);
+                    }
+                }
+                finally { like.IsEnabled = flyout.IsOpen && _auth?.CurrentUser?.Id == viewerId && !snapshot.LikedByMe; }
+            };
+            panel.Children.Remove(status);
+            panel.Children.Add(new TreeVisitSceneView(snapshot, _decorationService?.Catalog));
+            panel.Children.Add(new TextBlock
+            {
+                Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit", snapshot.FruitInventory),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[TreeCloud] Tree visit failed: {ex.GetType().Name}");
+            if (flyout.IsOpen && _auth.CurrentUser?.Id == viewerId)
+                status.Text = _localization.T("Tree.Settings.Leaderboard.VisitError");
+        }
+        finally { button.IsEnabled = true; }
+    }
+
+    private static TextBlock AddCell(Grid grid, string text, int column, bool strong)
+    {
+        var block = new TextBlock
+        {
+            Text = text, VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
+            FontSize = 12
+        };
         if (strong) block.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         Grid.SetColumn(block, column);
         grid.Children.Add(block);
+        return block;
     }
 
     private static void AddStageCell(Grid grid, string text, int stage, int column)
@@ -409,8 +490,18 @@ public sealed partial class TreeSettingsSection : UserControl
                 _ => Microsoft.UI.Colors.Plum
             }),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(8, 3, 8, 3),
-            Child = new TextBlock { Text = text, FontSize = 12, Foreground = new SolidColorBrush(Microsoft.UI.Colors.DarkSlateGray) }
+            Padding = new Thickness(4, 3, 4, 3),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = text, FontSize = 11, TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.DarkSlateGray)
+            }
         };
         Grid.SetColumn(badge, column);
         grid.Children.Add(badge);

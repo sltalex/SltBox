@@ -211,6 +211,45 @@ internal sealed class TreeLeaderboardEntryDto
     public long? FruitInventory { get; set; }
     [JsonPropertyName("is_current_user")]
     public bool IsCurrentUser { get; set; }
+    public long VisitCount { get; set; }
+}
+
+internal sealed class TreeVisitCountsResponse
+{
+    [JsonPropertyName("entries")]
+    public TreeVisitCountEntryDto[] Entries { get; set; } = [];
+}
+
+internal sealed class TreeVisitCountEntryDto
+{
+    [JsonPropertyName("account")]
+    public string Account { get; set; } = string.Empty;
+    [JsonPropertyName("visit_count")]
+    public long VisitCount { get; set; }
+}
+
+internal sealed class TreeVisitOpenRequest
+{
+    [JsonPropertyName("account")]
+    public string Account { get; set; } = string.Empty;
+    [JsonPropertyName("operation_id")]
+    public string OperationId { get; set; } = string.Empty;
+}
+
+internal sealed class TreeVisitLikeRequest
+{
+    [JsonPropertyName("account")]
+    public string Account { get; set; } = string.Empty;
+    [JsonPropertyName("liked")]
+    public bool Liked { get; set; }
+}
+
+internal sealed class TreeVisitLikeResponse
+{
+    [JsonPropertyName("like_count")]
+    public long LikeCount { get; set; }
+    [JsonPropertyName("liked_by_me")]
+    public bool LikedByMe { get; set; }
 }
 
 internal sealed class TreeLeaderboardCurrentUserDto
@@ -219,6 +258,50 @@ internal sealed class TreeLeaderboardCurrentUserDto
     public int? Rank { get; set; }
     [JsonPropertyName("participating")]
     public bool Participating { get; set; }
+}
+
+internal sealed class TreeVisitSnapshot
+{
+    [JsonPropertyName("username")]
+    public string Username { get; set; } = string.Empty;
+    [JsonPropertyName("stage")]
+    public int Stage { get; set; }
+    [JsonPropertyName("total_energy")]
+    public long TotalEnergy { get; set; }
+    [JsonPropertyName("visit_count")]
+    public long VisitCount { get; set; }
+    [JsonPropertyName("like_count")]
+    public long LikeCount { get; set; }
+    [JsonPropertyName("liked_by_me")]
+    public bool LikedByMe { get; set; }
+    [JsonPropertyName("fruit_inventory")]
+    public long FruitInventory { get; set; }
+    [JsonPropertyName("fruit_on_tree_count")]
+    public long FruitOnTreeCount { get; set; }
+    [JsonPropertyName("fruits")]
+    public string[] Fruits { get; set; } = [];
+    [JsonPropertyName("placements")]
+    public TreeVisitPlacement[] Placements { get; set; } = [];
+    [JsonPropertyName("active_theme_id")]
+    public string? ActiveThemeId { get; set; }
+    [JsonPropertyName("wildlife_species_id")]
+    public string? WildlifeSpeciesId { get; set; }
+}
+
+internal sealed class TreeVisitPlacement
+{
+    [JsonPropertyName("item_id")]
+    public string ItemId { get; set; } = string.Empty;
+    [JsonPropertyName("x")]
+    public double X { get; set; }
+    [JsonPropertyName("y")]
+    public double Y { get; set; }
+    [JsonPropertyName("scale")]
+    public double Scale { get; set; }
+    [JsonPropertyName("rotation")]
+    public double Rotation { get; set; }
+    [JsonPropertyName("layer")]
+    public int Layer { get; set; }
 }
 
 internal sealed class TreeCloudState
@@ -255,6 +338,11 @@ internal sealed class TreeProgressPendingUpload
 [JsonSerializable(typeof(TreeProfileUpdateRequest))]
 [JsonSerializable(typeof(TreeProgressUploadResponse))]
 [JsonSerializable(typeof(TreeLeaderboardResponse))]
+[JsonSerializable(typeof(TreeVisitCountsResponse))]
+[JsonSerializable(typeof(TreeVisitOpenRequest))]
+[JsonSerializable(typeof(TreeVisitLikeRequest))]
+[JsonSerializable(typeof(TreeVisitLikeResponse))]
+[JsonSerializable(typeof(TreeVisitSnapshot))]
 [JsonSerializable(typeof(TreeCloudState))]
 [JsonSerializable(typeof(FruitCacheDto))]
 [JsonSerializable(typeof(string[]))]

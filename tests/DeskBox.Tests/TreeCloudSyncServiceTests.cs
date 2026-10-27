@@ -31,6 +31,61 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task VisitingAndLikingTreeUseAuthenticatedEndpointsAndLoadCounts()
+    {
+        var api = new FakeApi();
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("viewer", "Viewer"),
+            stateDirectory: _root);
+
+        TreeLeaderboardEntryDto entry = Assert.Single(await service.RefreshLeaderboardAsync());
+        Assert.Equal(12, entry.VisitCount);
+        TreeVisitSnapshot snapshot = await service.VisitAsync(entry.Account);
+        Assert.Equal(13, snapshot.VisitCount);
+        TreeVisitLikeResponse like = await service.LikeVisitAsync(entry.Account);
+        Assert.Equal(4, like.LikeCount);
+        Assert.True(like.LikedByMe);
+        Assert.Contains("GET ../tree/visit-counts.php", api.Requests);
+        Assert.Contains("POST ../tree/visit.php", api.Requests);
+        Assert.Contains("POST ../tree/like.php", api.Requests);
+        using JsonDocument visitBody = JsonDocument.Parse(api.Bodies[^2]);
+        Assert.Equal("friend", visitBody.RootElement.GetProperty("account").GetString());
+        Assert.Equal(32, visitBody.RootElement.GetProperty("operation_id").GetString()?.Length);
+        using JsonDocument likeBody = JsonDocument.Parse(api.Bodies[^1]);
+        Assert.True(likeBody.RootElement.GetProperty("liked").GetBoolean());
+    }
+
+    [Fact]
+    public async Task VisitAsync_RejectsOwnTreeBeforeSendingRequest()
+    {
+        var api = new FakeApi();
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("owner", "Owner"),
+            stateDirectory: _root);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.VisitAsync("owner"));
+        Assert.DoesNotContain(api.Requests, request => request.Contains("../tree/visit.php", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CanVisit_UsesCurrentAccountWhenLeaderboardFlagIsStale()
+    {
+        await using var service = new TreeCloudSyncService(new FakeApi(),
+            new FakeAuth("owner", "Owner"), stateDirectory: _root);
+
+        Assert.False(service.CanVisit(new TreeLeaderboardEntryDto
+        {
+            Account = "owner", IsCurrentUser = false
+        }));
+        Assert.False(service.CanVisit(new TreeLeaderboardEntryDto
+        {
+            Account = "friend", IsCurrentUser = true
+        }));
+        Assert.True(service.CanVisit(new TreeLeaderboardEntryDto
+        {
+            Account = "friend", IsCurrentUser = false
+        }));
+    }
+
+    [Fact]
     public async Task SyncUploadsPendingDeltaAndAppliesAuthoritativeState()
     {
         var api = new FakeApi
@@ -326,7 +381,8 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
                 "GET ../tree/progress.php",
                 "GET ../tree/state.php",
                 "POST ../tree/progress.php",
-                "GET ../tree/leaderboard.php"
+                "GET ../tree/leaderboard.php",
+                "GET ../tree/visit-counts.php"
             ],
             api.Requests);
     }
@@ -497,6 +553,24 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         {
             Methods.Add(method.Method);
             Requests.Add($"{method.Method} {relativePath}");
+            if (relativePath == "../tree/leaderboard.php")
+                return Response(HttpStatusCode.OK,
+                    "{\"entries\":[{\"account\":\"friend\",\"username\":\"Friend\"}],\"current_user\":{}}");
+            if (relativePath == "../tree/visit-counts.php")
+                return Response(HttpStatusCode.OK,
+                    "{\"entries\":[{\"account\":\"friend\",\"visit_count\":12}]}");
+            if (relativePath == "../tree/visit.php")
+            {
+                if (jsonBody is not null) Bodies.Add(jsonBody);
+                return Response(HttpStatusCode.OK,
+                    "{\"username\":\"Friend\",\"stage\":4,\"visit_count\":13,\"like_count\":3,\"liked_by_me\":false}");
+            }
+            if (relativePath == "../tree/like.php")
+            {
+                if (jsonBody is not null) Bodies.Add(jsonBody);
+                return Response(HttpStatusCode.OK,
+                    "{\"like_count\":4,\"liked_by_me\":true}");
+            }
             if (method == HttpMethod.Post)
             {
                 if (jsonBody is not null) Bodies.Add(jsonBody);

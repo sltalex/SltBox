@@ -83,6 +83,12 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
         if (!response.Success)
             throw new DingTalkDwsMessageReadException("DWS could not read DingTalk group messages.");
 
+        return ToGroupMessagePage(response, start);
+    }
+
+    internal static DingTalkGroupMessagePage ToGroupMessagePage(
+        DwsGroupMessagesResponseDto response, DateTimeOffset start)
+    {
         var messages = new List<DingTalkGroupMessage>();
         foreach (DwsConversationMessagesDto conversation in response.Result.Conversations)
         {
@@ -104,7 +110,14 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
                     conversation.Title.Trim(),
                     message.Content,
                     createdAt,
-                    conversation.IsSingleChat));
+                    conversation.IsSingleChat)
+                {
+                    Resources = (message.Resources ?? [])
+                        .Where(resource => !string.IsNullOrWhiteSpace(resource.Url))
+                        .Select(resource => new DingTalkGroupMessageResource(
+                            resource.Url, resource.ResourceType, resource.ResourceId))
+                        .ToArray()
+                });
             }
         }
 
@@ -179,11 +192,21 @@ internal sealed class DingTalkDwsClient : IDingTalkDwsClient
                 end,
                 CalendarLocation(item),
                 isCancelled,
-                isDeleted));
+                isDeleted)
+            {
+                AttendeeNames = CalendarAttendeeNames(item)
+            });
         }
 
         return events;
     }
+
+    internal static IReadOnlyList<string> CalendarAttendeeNames(DwsCalendarEventDetailsDto item) =>
+        item.Attendees?
+            .Select(attendee => attendee.DisplayName?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .ToArray() ?? [];
 
     private static string CalendarLocation(DwsCalendarEventDetailsDto item)
     {

@@ -1131,8 +1131,8 @@ public partial class App : Application
             OnAquariumChanged();
             RunOptionalStartupStep("tree-counter", () =>
             {
-                SettingsService.SettingsChanged += OnTreeFeatureSettingsChanged;
-                OnTreeFeatureSettingsChanged();
+                TreeCounterService.Instance.SetPaused(false);
+                TreeCounterService.Instance.SetEnabled(true);
             });
             MarkStartupProgress();
             // Non-null past this point: the critical step above rethrows on
@@ -4947,12 +4947,6 @@ public partial class App : Application
         }
     }
 
-    private void OnTreeFeatureSettingsChanged()
-    {
-        TreeCounterService.Instance.SetEnabled(
-            FeatureWidgetSettings.IsEnabled(SettingsService.Settings, WidgetKind.Tree));
-    }
-
     private void OnAquariumChanged()
     {
         if (UiDispatcherQueue is { HasThreadAccess: false } dispatcher)
@@ -5000,7 +4994,6 @@ public partial class App : Application
             ShutdownStep.Sync("background-update-check", CancelBackgroundUpdateCheck),
             ShutdownStep.Sync("tree-counter", () =>
             {
-                SettingsService.SettingsChanged -= OnTreeFeatureSettingsChanged;
                 TreeCounterService.Instance.Dispose();
             }),
             ShutdownStep.Sync("backup-subscriptions", () =>

@@ -137,7 +137,7 @@ $redeemed = tree_decoration_mutate($pdo, $userId, [
 decor_expect($redeemed['shards'] === 0 && in_array('midsummer-camp', $redeemed['owned_ids'], true),
     'Eight hundred shards redeem an unowned theme.');
 
-$saved = tree_decoration_mutate($pdo, $userId, [
+$saveRequest = api_decode_body(json_encode([
     'action' => 'save_scene', 'operation_id' => 'save-decoration-scene', 'base_scene_version' => 0,
     'active_theme_id' => 'midsummer-camp',
     'placements' => [[
@@ -147,7 +147,8 @@ $saved = tree_decoration_mutate($pdo, $userId, [
         'placement_id' => 'second-lantern', 'item_id' => 'red-lantern', 'x' => 0.65, 'y' => 0.58,
         'scale' => 0.9, 'rotation' => 10.0, 'layer' => 0,
     ]],
-], $clock);
+], JSON_THROW_ON_ERROR));
+$saved = tree_decoration_mutate($pdo, $userId, $saveRequest, $clock);
 decor_expect($saved['scene_version'] === 1 && count($saved['placements']) === 2
     && $saved['placements'][0]['placement_id'] === 'first-lantern'
     && $saved['placements'][1]['placement_id'] === 'second-lantern',

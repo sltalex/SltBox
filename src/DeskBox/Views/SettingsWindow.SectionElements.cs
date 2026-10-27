@@ -192,6 +192,10 @@ public sealed partial class SettingsWindow
         FindCreatedSectionElement<global::Microsoft.UI.Xaml.Controls.StackPanel>("About", "AboutSection")!;
     private global::Microsoft.UI.Xaml.Controls.Button OneClickUpdateButton =>
         FindCreatedSectionElement<global::Microsoft.UI.Xaml.Controls.Button>("About", "OneClickUpdateButton")!;
+    private global::Microsoft.UI.Xaml.Controls.StackPanel UpdateCheckActionsPanel =>
+        FindCreatedSectionElement<global::Microsoft.UI.Xaml.Controls.StackPanel>("About", "UpdateCheckActionsPanel")!;
+    private global::Microsoft.UI.Xaml.Controls.Button VersionDownloadButton =>
+        FindCreatedSectionElement<global::Microsoft.UI.Xaml.Controls.Button>("About", "VersionDownloadButton")!;
     private global::Microsoft.UI.Xaml.Controls.Button ViewReleaseNotesButton =>
         FindCreatedSectionElement<global::Microsoft.UI.Xaml.Controls.Button>("About", "ViewReleaseNotesButton")!;
     private global::Microsoft.UI.Xaml.Controls.StackPanel UpdateActionsPanel =>

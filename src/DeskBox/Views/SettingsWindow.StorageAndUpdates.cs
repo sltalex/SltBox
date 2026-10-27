@@ -352,6 +352,11 @@ public sealed partial class SettingsWindow
         }
     }
 
+    private void VersionDownloadButton_Click(object sender, RoutedEventArgs e)
+    {
+        Win32Helper.OpenFile("http://sltbox.2leaves.cn/");
+    }
+
     private void SkipUpdateVersionButton_Click(object sender, RoutedEventArgs e)
     {
         string? skippedVersion = ViewModel.SkipCurrentUpdateVersion();

@@ -130,19 +130,22 @@ public sealed partial class TodoWidgetContent
     private void ApplyMasterDetailVisibility()
     {
         bool hasDetail = ViewModel?.SelectedDetailItem is not null;
-        bool showList = _isDualPane || !hasDetail;
-        ListHeaderArea.Visibility = showList ? Visibility.Visible : Visibility.Collapsed;
-        ListArea.Visibility = showList ? Visibility.Visible : Visibility.Collapsed;
-        ListFooterArea.Visibility = showList ? Visibility.Visible : Visibility.Collapsed;
-        DetailPage.Visibility = hasDetail ? Visibility.Visible : Visibility.Collapsed;
-        WideDetailEmptyState.Visibility = _isDualPane && !hasDetail
+        TodoPaneVisibility panes = TodoPaneVisibilityPolicy.Resolve(_meetingsSelected, _isDualPane, hasDetail);
+        Grid.SetColumnSpan(ListHeaderArea, _meetingsSelected || !_isDualPane ? 3 : 1);
+        Grid.SetColumnSpan(MeetingsArea, _meetingsSelected ? 3 : 1);
+        ListHeaderArea.Visibility = panes.ShowHeader ? Visibility.Visible : Visibility.Collapsed;
+        ListArea.Visibility = panes.ShowTaskList ? Visibility.Visible : Visibility.Collapsed;
+        ListFooterArea.Visibility = panes.ShowTaskList ? Visibility.Visible : Visibility.Collapsed;
+        MeetingsArea.Visibility = _meetingsSelected ? Visibility.Visible : Visibility.Collapsed;
+        DetailPage.Visibility = panes.ShowDetail ? Visibility.Visible : Visibility.Collapsed;
+        WideDetailEmptyState.Visibility = panes.ShowWideEmptyState
             ? Visibility.Visible
             : Visibility.Collapsed;
-        MasterDetailSplitter.Visibility = _isDualPane
+        MasterDetailSplitter.Visibility = panes.ShowSplitter
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        if (showList)
+        if (panes.ShowHeader)
         {
             QueueTodoSegmentedRestore();
         }

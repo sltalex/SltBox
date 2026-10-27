@@ -39,11 +39,15 @@ public sealed record DingTalkGroupDocumentSyncProgress(
 
 public sealed class DingTalkGroupDocumentService
 {
+    private const int CurrentIndexVersion = 2;
     private static readonly Regex MarkdownLinkRegex = new(
-        @"\[(?<title>[^\]]+)\]\((?<url>https://alidocs\.dingtalk\.com/[^\s\)<>]+)\)",
+        @"\[(?<title>[^\]]+)\]\((?<url>https://(?:alidocs|dlink)\.dingtalk\.com/[^\s\)<>]+)\)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex PlainLinkRegex = new(
-        @"(?<url>https://alidocs\.dingtalk\.com/[^\s\]\)<>]+)",
+        @"(?<url>https://(?:alidocs|dlink)\.dingtalk\.com/[^\s\]\)<>]+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex OfficeFileTitleRegex = new(
+        @"(?m)^\s*(?:\[[^\]\r\n]{1,20}\]\s*)?(?<title>[^\r\n]{1,255}?\.(?:docx?|xlsx?|pptx?))\s+fileId:\s*(?<fileId>[^\s\r\n]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private readonly IDingTalkDwsClient _dws;
@@ -108,12 +112,28 @@ public sealed class DingTalkGroupDocumentService
             string json = await File.ReadAllTextAsync(_statePath, cancellationToken);
             DingTalkGroupDocumentStore? store = JsonSerializer.Deserialize(
                 json, DingTalkGroupDocumentJsonContext.Default.DingTalkGroupDocumentStore);
+            bool needsBackfill = store is not null && store.IndexVersion < CurrentIndexVersion;
+            if (needsBackfill)
+            {
+                store!.HasCompletedInitialSync = false;
+                store.LastSyncCompletedAt = null;
+                store.InitialScanStart = null;
+                store.InitialScanEnd = null;
+                store.InitialScanNextEnd = null;
+                store.InitialScanCompletedSegments = 0;
+                store.PendingWindowStart = null;
+                store.PendingWindowEnd = null;
+                store.PendingCursor = null;
+                store.PendingPages = 0;
+                store.PendingDocuments = [];
+            }
             _documents = DingTalkGroupDocumentRepair.Normalize(store?.Documents ?? []);
             LastRefresh = store?.LastRefresh;
             LastSyncStartedAt = store?.LastSyncStartedAt;
-            LastSyncCompletedAt = store?.LastSyncCompletedAt ?? store?.LastRefresh;
-            HasCompletedInitialSync = store?.HasCompletedInitialSync == true ||
-                (store?.LastRefresh is not null && store.InitialScanNextEnd is null);
+            HasCompletedInitialSync = !needsBackfill && store?.HasCompletedInitialSync == true;
+            LastSyncCompletedAt = HasCompletedInitialSync
+                ? store?.LastSyncCompletedAt ?? store?.LastRefresh
+                : null;
             _initialScanStart = store?.InitialScanStart;
             _initialScanEnd = store?.InitialScanEnd;
             _initialScanNextEnd = store?.InitialScanNextEnd;
@@ -128,7 +148,7 @@ public sealed class DingTalkGroupDocumentService
                 : new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
             SyncIntervalHours = NormalizeInterval(store?.SyncIntervalHours ?? 6);
             await LoadIntervalSettingsAsync(cancellationToken);
-            if (store is not null && (!store.Documents.SequenceEqual(_documents) ||
+            if (store is not null && (needsBackfill || !store.Documents.SequenceEqual(_documents) ||
                 !store.PendingDocuments.SequenceEqual(_pendingDocuments)))
             {
                 store.Documents = _documents;
@@ -297,7 +317,7 @@ public sealed class DingTalkGroupDocumentService
                     retryExpiredCursor = false;
                     foreach (DingTalkGroupMessage message in page.Messages)
                     {
-                        if (message.IsSingleChat || string.IsNullOrWhiteSpace(message.Content)) continue;
+                        if (message.IsSingleChat) continue;
                         AddDocuments(windowDocuments, message);
                     }
 
@@ -417,6 +437,25 @@ public sealed class DingTalkGroupDocumentService
         foreach (Match match in PlainLinkRegex.Matches(message.Content))
         {
             AddDocument(byGroupAndUrl, message, string.Empty, match.Groups["url"].Value);
+        }
+
+        MatchCollection officeTitles = OfficeFileTitleRegex.Matches(message.Content);
+        if (officeTitles.Count == 0) return;
+        foreach (DingTalkGroupMessageResource resource in message.Resources)
+        {
+            Match? officeTitle = officeTitles.Cast<Match>().FirstOrDefault(match =>
+                string.Equals(match.Groups["fileId"].Value, resource.ResourceId, StringComparison.Ordinal));
+            if (officeTitle is null && string.IsNullOrWhiteSpace(resource.ResourceId) &&
+                officeTitles.Count == 1 && message.Resources.Count == 1)
+                officeTitle = officeTitles[0];
+            if (officeTitle is null) continue;
+            if (!string.Equals(resource.ResourceType, "file", StringComparison.OrdinalIgnoreCase) ||
+                !Uri.TryCreate(resource.Url, UriKind.Absolute, out Uri? uri) ||
+                uri.Scheme != Uri.UriSchemeHttps ||
+                !string.Equals(uri.Host, "alidocs.dingtalk.com", StringComparison.OrdinalIgnoreCase) ||
+                !uri.AbsolutePath.StartsWith("/i/nodes/", StringComparison.OrdinalIgnoreCase))
+                continue;
+            AddDocument(byGroupAndUrl, message, officeTitle.Groups["title"].Value, resource.Url);
         }
     }
 
@@ -560,6 +599,7 @@ public sealed class DingTalkGroupDocumentService
     {
         if (_statePath is null)
             throw new InvalidOperationException("DWS account state is not initialized.");
+        store.IndexVersion = CurrentIndexVersion;
         Directory.CreateDirectory(Path.GetDirectoryName(_statePath)!);
         string json = JsonSerializer.Serialize(
             store, DingTalkGroupDocumentJsonContext.Default.DingTalkGroupDocumentStore);
@@ -631,6 +671,7 @@ public sealed class DingTalkGroupDocumentService
 
 internal sealed class DingTalkGroupDocumentStore
 {
+    public int IndexVersion { get; set; }
     public DateTimeOffset? LastRefresh { get; set; }
     public DateTimeOffset? LastSyncStartedAt { get; set; }
     public DateTimeOffset? LastSyncCompletedAt { get; set; }

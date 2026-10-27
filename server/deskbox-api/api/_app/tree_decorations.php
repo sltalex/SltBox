@@ -361,6 +361,7 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
     $placedCounts = [];
     $placementIds = [];
     foreach ($placements as $placement) {
+        if ($placement instanceof stdClass) { $placement = get_object_vars($placement); }
         if (!is_array($placement)) { throw new ApiError('invalid_scene', 'Invalid placement.', 400); }
         $id = isset($placement['item_id']) && is_string($placement['item_id']) ? $placement['item_id'] : '';
         $item = tree_decoration_item($id);

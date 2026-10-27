@@ -67,6 +67,14 @@ internal sealed class DwsGroupMessageDto
     [JsonPropertyName("content")] public string Content { get; set; } = string.Empty;
     [JsonPropertyName("createTime")] public string CreateTime { get; set; } = string.Empty;
     [JsonPropertyName("openConversationId")] public string ConversationId { get; set; } = string.Empty;
+    [JsonPropertyName("resources")] public DwsGroupMessageResourceDto[] Resources { get; set; } = [];
+}
+
+internal sealed class DwsGroupMessageResourceDto
+{
+    [JsonPropertyName("url")] public string Url { get; set; } = string.Empty;
+    [JsonPropertyName("resourceType")] public string ResourceType { get; set; } = string.Empty;
+    [JsonPropertyName("resourceId")] public string ResourceId { get; set; } = string.Empty;
 }
 
 internal sealed class DwsDriveInfoResponseDto
@@ -107,6 +115,7 @@ internal sealed class DwsCalendarEventDetailsDto
     [JsonPropertyName("end")] public DwsCalendarDateTimeDto End { get; set; } = new();
     [JsonPropertyName("location")] public JsonElement Location { get; set; }
     [JsonPropertyName("meetingRooms")] public DwsCalendarMeetingRoomDto[] MeetingRooms { get; set; } = [];
+    [JsonPropertyName("attendees")] public DwsCalendarAttendeeDto[]? Attendees { get; set; }
     [JsonPropertyName("status")] public JsonElement Status { get; set; }
     [JsonPropertyName("eventStatus")] public JsonElement EventStatus { get; set; }
     [JsonPropertyName("state")] public JsonElement State { get; set; }
@@ -132,6 +141,11 @@ internal sealed class DwsCalendarMeetingRoomDto
 {
     [JsonPropertyName("roomName")] public string? RoomName { get; set; }
     [JsonPropertyName("name")] public string? Name { get; set; }
+}
+
+internal sealed class DwsCalendarAttendeeDto
+{
+    [JsonPropertyName("displayName")] public string? DisplayName { get; set; }
 }
 
 internal sealed class DwsCalendarEventDto

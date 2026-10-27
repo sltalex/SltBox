@@ -26,6 +26,11 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
     private readonly Button _allTab = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(10, 2, 10, 2) };
     private readonly Button _favoritesTab = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(10, 2, 10, 2) };
     private readonly Button _addFavorite = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(10, 2, 10, 2) };
+    private readonly Button _previousPage = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(8, 2, 8, 2) };
+    private readonly Button _nextPage = new() { MinWidth = 0, MinHeight = 28, Padding = new Thickness(8, 2, 8, 2) };
+    private readonly TextBlock _pageLabel = new() { VerticalAlignment = VerticalAlignment.Center };
+    private readonly StackPanel _pager = new() { Orientation = Orientation.Horizontal, Spacing = 6,
+        HorizontalAlignment = HorizontalAlignment.Right, Visibility = Visibility.Collapsed };
     private readonly StackPanel _addForm = new() { Spacing = 8, Visibility = Visibility.Collapsed };
     private readonly TextBox _documentName = new() { MaxLength = 255 };
     private readonly TextBox _documentUrl = new() { MaxLength = 4096 };
@@ -34,6 +39,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
     private bool _loaded;
     private bool _disposed;
     private bool _showFavorites;
+    private int _currentPage;
     private int _lastRenderedSegment;
 
     public DingTalkGroupDocsWidgetContent(
@@ -58,6 +64,13 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         _allTab.Content = _localization.T("DingTalkGroupDocs.Tab.All");
         _favoritesTab.Content = _localization.T("DingTalkGroupDocs.Tab.Favorites");
         _addFavorite.Content = _localization.T("DingTalkGroupDocs.Manual.Add");
+        _previousPage.Content = _localization.T("Settings.Admin.PreviousPage");
+        _nextPage.Content = _localization.T("Settings.Admin.NextPage");
+        _previousPage.Click += (_, _) => { _currentPage--; Render(_service.Documents); };
+        _nextPage.Click += (_, _) => { _currentPage++; Render(_service.Documents); };
+        _pager.Children.Add(_previousPage);
+        _pager.Children.Add(_pageLabel);
+        _pager.Children.Add(_nextPage);
         _documentName.PlaceholderText = _localization.T("DingTalkGroupDocs.Manual.Name");
         _documentUrl.PlaceholderText = _localization.T("DingTalkGroupDocs.Manual.Url");
         AutomationProperties.SetName(_documentName, _documentName.PlaceholderText);
@@ -77,10 +90,11 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         _favorites.Changed += FavoritesChanged;
         if (_settings is not null) _settings.SettingsChanged += SettingsChanged;
         _search.TextChanged += Search_TextChanged;
-        _allTab.Click += (_, _) => { _showFavorites = false; UpdateTabs(); Render(_service.Documents); };
+        _allTab.Click += (_, _) => { _showFavorites = false; _currentPage = 0; UpdateTabs(); Render(_service.Documents); };
         _favoritesTab.Click += async (_, _) =>
         {
             _showFavorites = true;
+            _currentPage = 0;
             UpdateTabs();
             try { await _favorites.LoadAsync(); SetStatus(string.Empty); }
             catch (DingTalkDwsAuthorizationRequiredException) { SetStatus(_localization.T("DingTalkGroupDocs.Manual.SignIn")); }
@@ -121,6 +135,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             MaxHeight = 620
         });
+        root.Children.Add(_pager);
         Content = root;
         Loaded += LoadedHandler;
         Unloaded += UnloadedHandler;
@@ -137,7 +152,11 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAsync(loadOnly: false);
 
-    private void Search_TextChanged(object sender, TextChangedEventArgs e) => Render(_service.Documents);
+    private void Search_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _currentPage = 0;
+        Render(_service.Documents);
+    }
 
     private void SettingsChanged()
     {
@@ -292,9 +311,23 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
                 ? _localization.T("DingTalkGroupDocs.Manual.Group") : document.GroupName, StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
+        var orderedDocuments = groups
+            .SelectMany(group => group.OrderByDescending(item => item.LastSeenAt)
+                .Select(document => (GroupName: group.Key, Document: document)))
+            .ToArray();
+        const int pageSize = 5;
+        int pageCount = (orderedDocuments.Length + pageSize - 1) / pageSize;
+        _currentPage = Math.Clamp(_currentPage, 0, Math.Max(0, pageCount - 1));
+        var pageGroups = orderedDocuments
+            .Skip(_currentPage * pageSize).Take(pageSize)
+            .GroupBy(item => item.GroupName, StringComparer.CurrentCultureIgnoreCase);
+        _pageLabel.Text = _localization.Format("Settings.Admin.Page", _currentPage + 1, pageCount);
+        _previousPage.IsEnabled = _currentPage > 0;
+        _nextPage.IsEnabled = _currentPage + 1 < pageCount;
+        _pager.Visibility = pageCount > 1 ? Visibility.Visible : Visibility.Collapsed;
 
         _groups.Children.Clear();
-        foreach (IGrouping<string, DingTalkGroupDocument> group in groups)
+        foreach (var group in pageGroups)
         {
             var card = new Border
             {
@@ -311,8 +344,9 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             panel.Children.Add(documentRows);
-            foreach (DingTalkGroupDocument document in group.OrderByDescending(item => item.LastSeenAt))
+            foreach (var item in group)
             {
+                DingTalkGroupDocument document = item.Document;
                 var row = new Grid { ColumnSpacing = 2 };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

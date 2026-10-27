@@ -61,7 +61,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             ["src/DeskBox/Services/SyncStateStore.cs"] = 2,
             ["src/DeskBox/Services/TodoWidgetStore.cs"] = 3,
             ["src/DeskBox/Services/TreeProgressFileStore.cs"] = 2,
-            ["src/DeskBox/Services/TreeCloudSyncService.cs"] = 9,
+            ["src/DeskBox/Services/TreeCloudSyncService.cs"] = 14,
             ["src/DeskBox/Services/UpdatePreferenceService.cs"] = 2,
             ["src/DeskBox/Services/WeatherService.cs"] = 5,
             ["src/DeskBox/Services/WildlifeCacheFileStore.cs"] = 2,
@@ -91,7 +91,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
         }
 
         Assert.Equal(52, actual.Count);
-        Assert.Equal(136, actual.Values.Sum());
+        Assert.Equal(141, actual.Values.Sum());
 
         string[] expectedContextOwners =
         [

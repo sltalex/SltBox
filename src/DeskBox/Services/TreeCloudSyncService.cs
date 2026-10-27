@@ -61,6 +61,10 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
     internal bool AdditionalDataSynced { get; private set; } = true;
     internal bool IsAuthenticated => _auth.IsAuthenticated && _auth.CurrentUser is not null;
 
+    internal bool CanVisit(TreeLeaderboardEntryDto entry) =>
+        IsAuthenticated && !entry.IsCurrentUser &&
+        !string.Equals(entry.Account, _auth.CurrentUser!.Id, StringComparison.Ordinal);
+
     internal int DeleteLocalStateFiles()
     {
         int deleted = TreeCloudSyncStateFileStore.DeleteStateFiles(_stateDirectory);
@@ -407,6 +411,26 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             TreeLeaderboardResponse body = await JsonSerializer.DeserializeAsync(
                 stream, AccountCloudJsonContext.Default.TreeLeaderboardResponse, cancellationToken)
                 ?? throw new InvalidDataException("The tree leaderboard response is empty.");
+            try
+            {
+                using HttpResponseMessage countsResponse = await _api.SendAsync(
+                    HttpMethod.Get, "../tree/visit-counts.php", null, null, cancellationToken);
+                await EnsureSuccessAsync(countsResponse, cancellationToken);
+                await using Stream countsStream = await countsResponse.Content.ReadAsStreamAsync(cancellationToken);
+                TreeVisitCountsResponse counts = await JsonSerializer.DeserializeAsync(countsStream,
+                    AccountCloudJsonContext.Default.TreeVisitCountsResponse, cancellationToken)
+                    ?? throw new InvalidDataException("Tree visit counts are empty.");
+                Dictionary<string, long> byAccount = counts.Entries.ToDictionary(
+                    item => item.Account, item => item.VisitCount, StringComparer.Ordinal);
+                foreach (TreeLeaderboardEntryDto entry in body.Entries)
+                    entry.VisitCount = byAccount.GetValueOrDefault(entry.Account);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                App.Log(ex is AuthApiException apiError
+                    ? $"[TreeCloud] Visit counts unavailable: {apiError.Code} ({(int)apiError.StatusCode})"
+                    : $"[TreeCloud] Visit counts unavailable: {ex.GetType().Name}");
+            }
             Leaderboard = body.Entries;
             CurrentUserRank = body.CurrentUser;
             LastLeaderboardSuccess = DateTimeOffset.UtcNow;
@@ -420,6 +444,43 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             RaiseLeaderboardChanged();
             return Leaderboard;
         }
+    }
+
+    internal async Task<TreeVisitSnapshot> VisitAsync(string account, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        if (!_auth.IsAuthenticated) throw new InvalidOperationException("Sign in to visit a tree.");
+        if (string.Equals(account, _auth.CurrentUser?.Id, StringComparison.Ordinal))
+            throw new InvalidOperationException("You cannot visit your own tree.");
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(new TreeVisitOpenRequest
+        {
+            Account = account, OperationId = Guid.NewGuid().ToString("N")
+        }, AccountCloudJsonContext.Default.TreeVisitOpenRequest);
+        using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post,
+            "../tree/visit.php", json, null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return await JsonSerializer.DeserializeAsync(stream,
+            AccountCloudJsonContext.Default.TreeVisitSnapshot, cancellationToken)
+            ?? throw new InvalidDataException("The tree visit response is empty.");
+    }
+
+    internal async Task<TreeVisitLikeResponse> LikeVisitAsync(string account,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        if (!_auth.IsAuthenticated) throw new InvalidOperationException("Sign in to like a tree.");
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(new TreeVisitLikeRequest
+        {
+            Account = account, Liked = true
+        }, AccountCloudJsonContext.Default.TreeVisitLikeRequest);
+        using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post,
+            "../tree/like.php", json, null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return await JsonSerializer.DeserializeAsync(stream,
+            AccountCloudJsonContext.Default.TreeVisitLikeResponse, cancellationToken)
+            ?? throw new InvalidDataException("The tree like response is empty.");
     }
 
     internal async Task SetParticipationAsync(bool participating, CancellationToken cancellationToken = default)

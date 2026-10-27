@@ -1,10 +1,139 @@
 using DeskBox.Services;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace DeskBox.Tests;
 
 public sealed class DingTalkGroupDocumentServiceTests
 {
+    [Fact]
+    public void DwsMessageMapping_PreservesFileResourceLinks()
+    {
+        const string json = """
+            {"success":true,"result":{"conversationMessagesList":[{"openConversationId":"group-a","title":"项目群","singleChat":false,"messages":[{"content":"[文件] 预算.xlsx fileId: 123","createTime":"2026-10-27 12:00:00","resources":[{"resourceType":"file","resourceId":"123","url":"https://alidocs.dingtalk.com/i/nodes/office-file"}]}]}],"hasMore":false}}
+            """;
+        DwsGroupMessagesResponseDto response = JsonSerializer.Deserialize(
+            json, DingTalkDwsJsonContext.Default.DwsGroupMessagesResponseDto)!;
+
+        DingTalkGroupMessage message = Assert.Single(
+            DingTalkDwsClient.ToGroupMessagePage(response, DateTimeOffset.UtcNow).Messages);
+
+        DingTalkGroupMessageResource resource = Assert.Single(message.Resources);
+        Assert.Equal("file", resource.ResourceType);
+        Assert.Equal("123", resource.ResourceId);
+        Assert.Equal("https://alidocs.dingtalk.com/i/nodes/office-file", resource.Url);
+    }
+
+    [Fact]
+    public async Task SyncAsync_IndexesOfficeFilesAndBaseLinksUnderTheirGroups()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            const string officeUrl = "https://alidocs.dingtalk.com/i/nodes/office-file";
+            var dws = new FakeDwsClient();
+            dws.Pages.Enqueue(new DingTalkGroupMessagePage(
+            [
+                new("group-a", "项目群", "[文件] 预算.xlsx fileId: 123", DateTimeOffset.Now, false)
+                {
+                    Resources = [new(officeUrl, "file", "123")]
+                },
+                new("group-b", "运营群", "[文件] 预算.xlsx fileId: 123", DateTimeOffset.Now, false)
+                {
+                    Resources = [new(officeUrl, "file", "123")]
+                },
+                new("group-a", "项目群", "[多维表](https://alidocs.dingtalk.com/i/nodes/base-file)",
+                    DateTimeOffset.Now, false),
+                new("group-a", "项目群", "[另一个多维表](https://dlink.dingtalk.com/base-file)",
+                    DateTimeOffset.Now, false),
+                new("group-a", "项目群", "[图片] 图.png fileId: 456", DateTimeOffset.Now, false)
+                {
+                    Resources = [new("https://alidocs.dingtalk.com/i/nodes/image-file", "image")]
+                },
+                new("group-a", "项目群", "[文件] 其他.docx fileId: 111", DateTimeOffset.Now, false)
+                {
+                    Resources = [new("https://alidocs.dingtalk.com/i/nodes/mismatched-file", "file", "222")]
+                },
+                new("group-a", "项目群", "[文件] 合同.docx fileId: 111\n[文件] 演示.pptx fileId: 222",
+                    DateTimeOffset.Now, false)
+                {
+                    Resources =
+                    [
+                        new("https://alidocs.dingtalk.com/i/nodes/word-file", "file", "111"),
+                        new("https://alidocs.dingtalk.com/i/nodes/slides-file", "file", "222")
+                    ]
+                },
+                new("direct", "私聊", "[文件] 私密.docx fileId: 789", DateTimeOffset.Now, true)
+                {
+                    Resources = [new("https://alidocs.dingtalk.com/i/nodes/private-file", "file")]
+                }
+            ], false, null));
+
+            IReadOnlyList<DingTalkGroupDocument> documents =
+                await new DingTalkGroupDocumentService(dws, root).SyncAsync();
+
+            Assert.Equal(6, documents.Count);
+            Assert.Equal(2, documents.Count(document => document.Url == officeUrl));
+            Assert.All(documents.Where(document => document.Url == officeUrl),
+                document => Assert.Equal("预算.xlsx", document.Title));
+            Assert.Contains(documents, document => document.GroupName == "项目群" &&
+                document.Title == "多维表");
+            Assert.Contains(documents, document => document.GroupName == "项目群" &&
+                document.Title == "另一个多维表");
+            Assert.Contains(documents, document => document.Title == "合同.docx" &&
+                document.Url.EndsWith("/word-file", StringComparison.Ordinal));
+            Assert.Contains(documents, document => document.Title == "演示.pptx" &&
+                document.Url.EndsWith("/slides-file", StringComparison.Ordinal));
+            Assert.DoesNotContain(documents, document => document.Url.Contains("image-file") ||
+                document.Url.Contains("private-file") || document.Url.Contains("mismatched-file"));
+        }
+        finally { DeleteTempRoot(root); }
+    }
+
+    [Fact]
+    public async Task LoadAsync_RescansLegacyIndexToFindPreviouslySkippedOfficeFiles()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            var dws = new FakeDwsClient();
+            dws.Pages.Enqueue(new DingTalkGroupMessagePage(
+                [new("group-a", "项目群", "https://alidocs.dingtalk.com/i/nodes/old",
+                    DateTimeOffset.Now, false)], false, null));
+            await new DingTalkGroupDocumentService(dws, root).SyncAsync();
+
+            string indexPath = Assert.Single(Directory.GetFiles(root, "group-documents-*.json"));
+            DingTalkGroupDocumentStore legacy = JsonSerializer.Deserialize(
+                await File.ReadAllTextAsync(indexPath),
+                DingTalkGroupDocumentJsonContext.Default.DingTalkGroupDocumentStore)!;
+            legacy.IndexVersion = 1;
+            await File.WriteAllTextAsync(indexPath, JsonSerializer.Serialize(
+                legacy, DingTalkGroupDocumentJsonContext.Default.DingTalkGroupDocumentStore));
+
+            var upgraded = new DingTalkGroupDocumentService(dws, root);
+            Assert.Single(await upgraded.LoadAsync());
+            Assert.False(upgraded.HasCompletedInitialSync);
+            Assert.Null(upgraded.LastSyncCompletedAt);
+
+            var restartedBeforeFirstPage = new DingTalkGroupDocumentService(dws, root);
+            Assert.Single(await restartedBeforeFirstPage.LoadAsync());
+            Assert.False(restartedBeforeFirstPage.HasCompletedInitialSync);
+            Assert.Null(restartedBeforeFirstPage.LastSyncCompletedAt);
+
+            dws.Pages.Enqueue(new DingTalkGroupMessagePage(
+                [new("group-b", "运营群", "[文件] 新表.xlsx fileId: 456",
+                    DateTimeOffset.Now, false)
+                {
+                    Resources = [new("https://alidocs.dingtalk.com/i/nodes/new-office", "file")]
+                }], false, null));
+            IReadOnlyList<DingTalkGroupDocument> documents = await restartedBeforeFirstPage.SyncAsync();
+            Assert.Equal(2, documents.Count);
+            Assert.Contains(documents, document => document.Title == "新表.xlsx" &&
+                document.GroupName == "运营群");
+        }
+        finally { DeleteTempRoot(root); }
+    }
+
     [Fact]
     public async Task RefreshAsync_ResolvesDocumentNameForBareSharedLink()
     {

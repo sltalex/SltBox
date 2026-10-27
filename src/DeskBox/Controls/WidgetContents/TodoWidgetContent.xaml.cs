@@ -646,18 +646,14 @@ public sealed partial class TodoWidgetContent : UserControl
     private void ShowMeetings()
     {
         _meetingsSelected = true;
-        ListArea.Visibility = Visibility.Collapsed;
-        MeetingsArea.Visibility = Visibility.Visible;
-        ListFooterArea.Visibility = Visibility.Collapsed;
+        ApplyMasterDetailVisibility();
         _ = RefreshMeetingsAsync();
     }
 
     private void ShowTodoList()
     {
         _meetingsSelected = false;
-        MeetingsArea.Visibility = Visibility.Collapsed;
-        ListArea.Visibility = Visibility.Visible;
-        ListFooterArea.Visibility = Visibility.Visible;
+        ApplyMasterDetailVisibility();
     }
 
     private async Task RefreshMeetingsAsync()
@@ -754,6 +750,21 @@ public sealed partial class TodoWidgetContent : UserControl
                         TextTrimming = TextTrimming.CharacterEllipsis
                     });
                 }
+
+                var localization = App.Current!.LocalizationService;
+                string attendeeText = meeting.AttendeeNames.Count == 0
+                    ? localization.T("Todo.Meetings.AttendeesUnavailable")
+                    : string.Join(
+                        localization.CurrentCultureName is "zh-CN" or "zh-TW" or "ja-JP"
+                            ? "、" : ", ",
+                        meeting.AttendeeNames);
+                content.Children.Add(new TextBlock
+                {
+                    Text = localization.Format("Todo.Meetings.Attendees", attendeeText),
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"],
+                    FontSize = 11,
+                    TextWrapping = TextWrapping.Wrap
+                });
 
                 card.Child = content;
                 MeetingItemsPanel.Children.Add(card);

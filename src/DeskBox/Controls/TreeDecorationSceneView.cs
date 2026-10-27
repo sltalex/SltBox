@@ -205,7 +205,7 @@ internal sealed partial class TreeDecorationSceneView : UserControl
             item => item.PlacementId == _selectedPlacementId);
         if (current is null) return;
         double step = e.Key is VirtualKey.Left or VirtualKey.Right ? 1d / TreeIllustrationLayout.Width : 0;
-        double stepY = e.Key is VirtualKey.Up or VirtualKey.Down ? 1d / TreeIllustrationLayout.ArtworkHeight : 0;
+        double stepY = e.Key is VirtualKey.Up or VirtualKey.Down ? 1d / TreeIllustrationLayout.Height : 0;
         double x = current.X + (e.Key == VirtualKey.Right ? step : e.Key == VirtualKey.Left ? -step : 0);
         double y = current.Y + (e.Key == VirtualKey.Down ? stepY : e.Key == VirtualKey.Up ? -stepY : 0);
         if (x == current.X && y == current.Y) return;
@@ -228,13 +228,13 @@ internal sealed partial class TreeDecorationSceneView : UserControl
     private static void Position(FrameworkElement visual, TreeDecorationPlacement placement)
     {
         Canvas.SetLeft(visual, placement.X * TreeIllustrationLayout.Width - visual.Width / 2);
-        Canvas.SetTop(visual, placement.Y * TreeIllustrationLayout.ArtworkHeight - visual.Height / 2);
+        Canvas.SetTop(visual, placement.Y * TreeIllustrationLayout.Height - visual.Height / 2);
     }
 
     private static Canvas Layer() => new()
     {
         Width = TreeIllustrationLayout.Width,
-        Height = TreeIllustrationLayout.ArtworkHeight,
+        Height = TreeIllustrationLayout.Height,
         VerticalAlignment = VerticalAlignment.Top
     };
 

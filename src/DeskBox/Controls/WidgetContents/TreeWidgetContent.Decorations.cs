@@ -21,18 +21,15 @@ public sealed partial class TreeWidgetContent
     private void RenderDecorations(int treeStage)
     {
         TreeDecorationService service = App.Current.TreeDecorationService;
-        TreeDecorationState? state = service.State;
-        TreeDecorationCatalog? catalog = service.Catalog;
+        TreeDecorationState? state = service.IsVisibleToCurrentUser ? service.State : null;
+        TreeDecorationCatalog? catalog = service.IsVisibleToCurrentUser ? service.Catalog : null;
         string signature = BuildDecorationSignature(treeStage, state, catalog);
         if (_renderedDecorationSignature == signature) return;
         _renderedDecorationSignature = signature;
         _decorationThemeLayer.Children.Clear();
         foreach (Canvas layer in _decorationLayers.Values) layer.Children.Clear();
-        if (treeStage != 5 || state is not { Mature: true } || catalog is null) return;
-
-        IReadOnlyDictionary<string, TreeDecorationCatalogItem> items = catalog.Items
-            .ToDictionary(item => item.Id, StringComparer.Ordinal);
-        if (state.ActiveThemeId is string themeId && items.TryGetValue(themeId, out var theme))
+        TreeDecorationDisplayScene scene = TreeDecorationSceneProjection.ForDesktop(treeStage, state, catalog);
+        if (scene.Theme is { } theme)
         {
             _decorationThemeLayer.Children.Add(new Image
             {
@@ -45,9 +42,8 @@ public sealed partial class TreeWidgetContent
             });
         }
 
-        foreach (TreeDecorationPlacement placement in state.Placements.OrderBy(item => item.Layer))
+        foreach ((TreeDecorationPlacement placement, TreeDecorationCatalogItem item) in scene.Placements)
         {
-            if (!items.TryGetValue(placement.ItemId, out var item) || item.Category == "theme") continue;
             double size = TreeDecorationAssetCatalog.VisualSize(item.Category);
             var visual = new Image
             {
@@ -65,7 +61,7 @@ public sealed partial class TreeWidgetContent
                 }
             };
             Canvas.SetLeft(visual, placement.X * TreeIllustrationLayout.Width - size / 2);
-            Canvas.SetTop(visual, placement.Y * TreeIllustrationLayout.ArtworkHeight - size / 2);
+            Canvas.SetTop(visual, placement.Y * TreeIllustrationLayout.Height - size / 2);
             _decorationLayers[placement.Layer].Children.Add(visual);
         }
     }
@@ -94,12 +90,13 @@ public sealed partial class TreeWidgetContent
     private static Canvas DecorationLayer() => new()
     {
         Width = TreeIllustrationLayout.Width,
-        Height = TreeIllustrationLayout.ArtworkHeight,
+        Height = TreeIllustrationLayout.Height,
+        VerticalAlignment = VerticalAlignment.Top,
         IsHitTestVisible = false,
         Clip = new RectangleGeometry
         {
             Rect = new Windows.Foundation.Rect(
-                0, 0, TreeIllustrationLayout.Width, TreeIllustrationLayout.ArtworkHeight)
+                0, 0, TreeIllustrationLayout.Width, TreeIllustrationLayout.Height)
         }
     };
 }

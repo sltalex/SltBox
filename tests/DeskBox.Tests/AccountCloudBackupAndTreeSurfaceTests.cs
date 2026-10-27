@@ -107,31 +107,55 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
-    public void TreeSettings_SeparatesLocalProgressRefreshFromLeaderboardRefresh()
+    public void TreeVisit_DeserializesReadOnlyScene()
     {
-        string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+        const string json = """
+            {"username":"friend","stage":5,"total_energy":180000,"visit_count":12,"like_count":3,"liked_by_me":true,"fruit_inventory":3,"fruit_on_tree_count":1,"fruits":["apple"],"placements":[{"item_id":"red-lantern","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1}],"active_theme_id":"spring","wildlife_species_id":"butterfly"}
+            """;
+        TreeVisitSnapshot? snapshot = JsonSerializer.Deserialize(
+            json, AccountCloudJsonContext.Default.TreeVisitSnapshot);
 
-        Assert.Contains("_counter.Changed += OnProgressChanged", source, StringComparison.Ordinal);
-        Assert.Contains("_cloud.LeaderboardChanged += OnLeaderboardChanged", source, StringComparison.Ordinal);
-        Assert.Contains("private void OnProgressChanged()", source, StringComparison.Ordinal);
-        Assert.Contains("private void OnLeaderboardChanged()", source, StringComparison.Ordinal);
-        int progressStart = source.IndexOf("private void OnProgressChanged()", StringComparison.Ordinal);
-        int progressEnd = source.IndexOf("private void OnLeaderboardChanged()", progressStart, StringComparison.Ordinal);
-        Assert.True(progressStart >= 0 && progressEnd > progressStart);
-        Assert.DoesNotContain("RenderLeaderboard();", source[progressStart..progressEnd], StringComparison.Ordinal);
+        Assert.NotNull(snapshot);
+        Assert.Equal("friend", snapshot.Username);
+        Assert.Equal("apple", Assert.Single(snapshot.Fruits));
+        Assert.Equal(1, snapshot.FruitOnTreeCount);
+        Assert.Equal("red-lantern", Assert.Single(snapshot.Placements).ItemId);
+        Assert.Equal("spring", snapshot.ActiveThemeId);
+        Assert.Equal(180000, snapshot.TotalEnergy);
+        Assert.Equal("butterfly", snapshot.WildlifeSpeciesId);
+        Assert.Equal(12, snapshot.VisitCount);
+        Assert.Equal(3, snapshot.LikeCount);
+        Assert.True(snapshot.LikedByMe);
     }
 
     [Fact]
-    public void TreeSettings_UsesDedicatedToggleLabelRows()
+    public void TreeCounter_StartsCountingRegardlessOfTreeWidgetVisibility()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/App.xaml.cs"));
+        int start = source.IndexOf("RunOptionalStartupStep(\"tree-counter\"", StringComparison.Ordinal);
+        int end = source.IndexOf("MarkStartupProgress();", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        string startup = source[start..end];
+
+        Assert.Contains("TreeCounterService.Instance.SetPaused(false)", startup, StringComparison.Ordinal);
+        Assert.Contains("TreeCounterService.Instance.SetEnabled(true)", startup, StringComparison.Ordinal);
+        Assert.True(startup.IndexOf("SetPaused(false)", StringComparison.Ordinal) <
+            startup.IndexOf("SetEnabled(true)", StringComparison.Ordinal));
+        Assert.DoesNotContain("FeatureWidgetSettings.IsEnabled", startup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TreeSettings_OnlyShowsParticipationToggle()
     {
         string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
 
-        Assert.Contains("CreateToggleRow(_enableLabel, _enable)", source, StringComparison.Ordinal);
-        Assert.Contains("CreateToggleRow(_statisticsLabel, _statistics)", source, StringComparison.Ordinal);
-        Assert.Contains("CreateToggleRow(_participationLabel, _participation)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("_enable.Header", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("_statistics.Header", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateToggleRow(_enableLabel, _enable)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_statistics", source, StringComparison.Ordinal);
+        Assert.Contains("_participationRow.Children.Add(_participation)", source, StringComparison.Ordinal);
+        Assert.Contains("_participationRow.Children.Add(_syncButton)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_enable = new()", source, StringComparison.Ordinal);
         Assert.DoesNotContain("_participation.Header", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_progressCard", source, StringComparison.Ordinal);
     }
 
     [Fact]
