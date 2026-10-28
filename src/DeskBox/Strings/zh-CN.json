@@ -88,6 +88,7 @@
   "DingTalkGroupDocs.LinkFontSize": "文档链接字体大小",
   "DingTalkGroupDocs.LinkPadding": "文档链接边距",
   "DingTalkGroupDocs.RowSpacing": "文档行间距",
+  "DingTalkGroupDocs.PageSize": "每页显示行数",
   "DingTalkGroupDocs.Sync.Last": "上次同步：{0}",
   "DingTalkGroupDocs.Sync.NotReady": "请先登录 SltBox、关联钉钉，并确认 DWS 登录的是同一钉钉账号。",
   "DingTalkGroupDocs.Sync.Error": "同步服务暂时不可用，请稍后重试。",

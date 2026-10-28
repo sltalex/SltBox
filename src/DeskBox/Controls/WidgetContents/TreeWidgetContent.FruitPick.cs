@@ -14,10 +14,10 @@ public sealed partial class TreeWidgetContent
 
     private FruitPickVisual? BeginFruitPickVisual(long pendingId, int index, ImageSource source)
     {
-        if (_disposed || !_visible || index < 0 || index >= TreeIllustrationLayout.FruitPositions.Count)
+        if (_disposed || !_visible || index < 0)
             return null;
 
-        (double x, double y) = TreeIllustrationLayout.FruitPositions[index];
+        (double x, double y) = TreeIllustrationLayout.FruitPositionAt(index);
         var glowScale = new ScaleTransform { ScaleX = .55, ScaleY = .55 };
         var glow = new Ellipse
         {

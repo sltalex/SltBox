@@ -22,15 +22,68 @@ internal static class TreeIllustrationLayout
         4 => 167,
         _ => 198
     };
-    public const int MaxVisibleFruit = 12;
     public const double LeafCycleSeconds = 10;
 
-    public static IReadOnlyList<(double X, double Y)> FruitPositions { get; } = Array.AsReadOnly<(double X, double Y)>(
-    [
-        (90, 83), (157, 87), (120, 33), (57, 61),
-        (177, 54), (119, 106), (73, 110), (191, 99),
-        (87, 44), (147, 48), (44, 91), (144, 115)
-    ]);
+    private static readonly List<(double X, double Y)> GeneratedFruitPositions = [];
+    private static readonly object FruitPositionGate = new();
+
+    /// <summary>
+    /// Returns a stable pseudo-random point inside the mature tree crown.
+    /// Stability keeps a fruit from jumping when the widget refreshes, while
+    /// the low-discrepancy sequence spreads nearby fruits across the leaves.
+    /// </summary>
+    public static (double X, double Y) FruitPositionAt(int index)
+    {
+        if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+        lock (FruitPositionGate)
+        {
+            while (GeneratedFruitPositions.Count <= index)
+                GeneratedFruitPositions.Add(NextFruitPosition(GeneratedFruitPositions.Count));
+            return GeneratedFruitPositions[index];
+        }
+    }
+
+    private static (double X, double Y) NextFruitPosition(int index)
+    {
+        // Give the first fruits room by choosing the most separated of several
+        // deterministic candidates. Crowded crowns may naturally overlap.
+        if (index >= 32) return FruitCandidate(index, 0);
+        const int attempts = 96;
+        (double X, double Y) best = default;
+        double bestDistance = double.NegativeInfinity;
+        for (int attempt = 0; attempt < attempts; attempt++)
+        {
+            (double x, double y) = FruitCandidate(index, attempt);
+            double nearest = double.PositiveInfinity;
+            foreach ((double priorX, double priorY) in GeneratedFruitPositions)
+            {
+                double dx = (x - priorX) / 24;
+                double dy = (y - priorY) / 28;
+                nearest = Math.Min(nearest, dx * dx + dy * dy);
+            }
+            if (nearest <= bestDistance) continue;
+            best = (x, y);
+            bestDistance = nearest;
+        }
+        return best;
+    }
+
+    private static (double X, double Y) FruitCandidate(int index, int attempt)
+    {
+        const double centerX = 130;
+        const double centerY = 79;
+        const double radiusX = 91;
+        const double radiusY = 64;
+        double angle = 2 * Math.PI * Fraction((index + 1) * 0.6180339887498949 +
+            attempt * 0.7548776662466927 + 0.137);
+        double radius = Math.Sqrt(Fraction((index + 1) * 0.4142135623730951 +
+            attempt * 0.5698402909980532 + 0.271));
+        double x = centerX + Math.Cos(angle) * radiusX * radius - 12;
+        double y = centerY + Math.Sin(angle) * radiusY * radius - 14;
+        return (Math.Clamp(x, 8, Width - 32), Math.Clamp(y, 4, ArtworkHeight - 32));
+    }
+
+    private static double Fraction(double value) => value - Math.Floor(value);
 
     public static string StageAssetName(int stage) => $"stage-{Math.Clamp(stage, 1, 5)}.svg";
 
@@ -75,9 +128,8 @@ internal static class TreeIllustrationLayout
         new(112, 114, 26, 4.2, 5.6, 30)
     ]);
 
-    public static int VisibleFruitCount(long inventory) => (int)Math.Clamp(inventory, 0, MaxVisibleFruit);
-
-    public static long ExtraFruitCount(long inventory) => inventory > MaxVisibleFruit ? inventory - MaxVisibleFruit : 0;
+    public static int VisibleFruitCount(long inventory) => inventory <= 0 ? 0 :
+        inventory >= int.MaxValue ? int.MaxValue : (int)inventory;
 
     public static bool CanHarvest(int stage, long inventory, double x, double y) =>
         stage == 5 && inventory > 0 && x is >= 32 and <= 228 && y is >= 12 and <= 150;
@@ -88,9 +140,9 @@ internal static class TreeIllustrationLayout
         const double padding = 10;
         int nearest = -1;
         double nearestDistance = double.PositiveInfinity;
-        for (int i = Math.Min(visibleCount, MaxVisibleFruit) - 1; i >= 0; i--)
+        for (int i = visibleCount - 1; i >= 0; i--)
         {
-            (double left, double top) = FruitPositions[i];
+            (double left, double top) = FruitPositionAt(i);
             if (x < left - padding || x > left + 24 + padding ||
                 y < top - padding || y > top + 28 + padding) continue;
             double dx = x - (left + 12);

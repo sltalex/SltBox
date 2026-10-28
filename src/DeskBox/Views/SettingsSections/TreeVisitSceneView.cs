@@ -42,10 +42,10 @@ internal sealed partial class TreeVisitSceneView : UserControl
         var fruitLayer = new Canvas();
         if (snapshot.Stage == 5)
         {
-            int count = Math.Min(snapshot.Fruits.Length, TreeIllustrationLayout.MaxVisibleFruit);
+            int count = snapshot.Fruits.Length;
             for (int index = 0; index < count; index++)
             {
-                (double x, double y) = TreeIllustrationLayout.FruitPositions[index];
+                (double x, double y) = TreeIllustrationLayout.FruitPositionAt(index);
                 var fruit = new Image
                 {
                     Width = 24, Height = 28, Stretch = Stretch.Uniform,
@@ -54,29 +54,6 @@ internal sealed partial class TreeVisitSceneView : UserControl
                 Canvas.SetLeft(fruit, x);
                 Canvas.SetTop(fruit, y);
                 fruitLayer.Children.Add(fruit);
-            }
-            long extra = TreeIllustrationLayout.ExtraFruitCount(snapshot.FruitOnTreeCount);
-            if (extra > 0)
-            {
-                var badge = new Border
-                {
-                    Background = new SolidColorBrush(ColorHelper.FromArgb(240, 39, 92, 61)),
-                    CornerRadius = new CornerRadius(10),
-                    Padding = new Thickness(7, 3, 7, 3),
-                    Child = new TextBlock
-                    {
-                        Text = $"+{extra}", Foreground = new SolidColorBrush(Colors.White),
-                        FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-                    }
-                };
-                var fitted = new Viewbox
-                {
-                    Width = 104, Height = 25, Stretch = Stretch.Uniform,
-                    StretchDirection = StretchDirection.DownOnly, Child = badge
-                };
-                Canvas.SetLeft(fitted, 131);
-                Canvas.SetTop(fitted, 19);
-                fruitLayer.Children.Add(fitted);
             }
         }
         canopy.Children.Add(fruitLayer);

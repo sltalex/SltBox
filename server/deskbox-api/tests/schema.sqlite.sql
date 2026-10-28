@@ -124,6 +124,15 @@ CREATE TABLE dingtalk_group_document_favorites (
     FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE dingtalk_group_document_indexes (
+    user_id TEXT PRIMARY KEY,
+    documents_json TEXT NOT NULL,
+    sync_interval_hours INTEGER NOT NULL DEFAULT 6,
+    last_sync_completed_at TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE account_backup_uploads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

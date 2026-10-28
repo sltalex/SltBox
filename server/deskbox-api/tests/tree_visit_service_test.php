@@ -62,6 +62,12 @@ visit_expect($snapshot['username'] === 'sltalex' && $snapshot['stage'] === 5, 'P
 visit_expect($snapshot['total_energy'] === 180000, 'Growth progress appears in visit.');
 visit_expect($snapshot['fruit_inventory'] === 3 && $snapshot['fruit_on_tree_count'] === 1
     && $snapshot['fruits'] === ['apple'], 'Read-only fruit snapshot.');
+$insertFruit = $pdo->prepare('INSERT INTO user_fruit_pending (user_id,fruit_id,created_at) VALUES (:user,:fruit,:time)');
+for ($index = 0; $index < 12; $index++)
+    $insertFruit->execute([':user' => 'owner', ':fruit' => 'apple', ':time' => $now]);
+$manyFruits = tree_visit_snapshot($pdo, 'owner', 'other', $dayOne);
+visit_expect($manyFruits['fruit_on_tree_count'] === 13 && $manyFruits['fruits'] === array_fill(0, 13, 'apple'),
+    'Visit shows every fruit beyond the former twelve-item limit.');
 visit_expect($snapshot['active_theme_id'] === 'spring' && count($snapshot['placements']) === 1,
     'Saved scene appears in visit.');
 visit_expect($snapshot['wildlife_species_id'] === null, 'Absent wildlife state is safe.');

@@ -303,11 +303,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         FruitService fruitService = App.Current.FruitService;
         IReadOnlyList<FruitOnTreeItem> onTree = fruitService.OnTree;
         int visible = fruitService.IsAvailable
-            ? Math.Min(onTree.Count, TreeIllustrationLayout.MaxVisibleFruit)
+            ? onTree.Count
             : TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory);
         for (int i = 0; i < visible; i++)
         {
-            (double x, double y) = TreeIllustrationLayout.FruitPositions[i];
+            (double x, double y) = TreeIllustrationLayout.FruitPositionAt(i);
             ImageSource source = onTree.Count > i
                 ? FruitAssetCatalog.GetImageSource(onTree[i].FruitId)
                 : Asset("fruit.svg");
@@ -318,30 +318,6 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             Canvas.SetLeft(fruit, x);
             Canvas.SetTop(fruit, y);
             _fruitLayer.Children.Add(fruit);
-        }
-        long extra = TreeIllustrationLayout.ExtraFruitCount(
-            fruitService.IsAvailable ? onTree.Count : state.FruitInventory);
-        if (extra > 0)
-        {
-            // Keep even a very large inventory inside the artwork's view box.
-            var count = new TextBlock
-            {
-                Text = $"+{extra}",
-                Foreground = new SolidColorBrush(Colors.White),
-                FontSize = 12,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-            };
-            var badge = new Border
-            {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(240, 39, 92, 61)),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(7, 3, 7, 3),
-                Child = count
-            };
-            var fitted = new Viewbox { Width = 104, Height = 25, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, Child = badge };
-            Canvas.SetLeft(fitted, 131);
-            Canvas.SetTop(fitted, 19);
-            _fruitLayer.Children.Add(fitted);
         }
     }
 

@@ -54,6 +54,7 @@
   "DingTalkGroupDocs.LinkFontSize": "Document link font size",
   "DingTalkGroupDocs.LinkPadding": "Document link padding",
   "DingTalkGroupDocs.RowSpacing": "Document row spacing",
+  "DingTalkGroupDocs.PageSize": "Documents per page",
   "DingTalkGroupDocs.Sync.Last": "Last sync: {0}",
   "DingTalkGroupDocs.Sync.NotReady": "Sign in to SltBox, link DingTalk, and use the same DingTalk account in DWS.",
   "DingTalkGroupDocs.Sync.Error": "Sync is temporarily unavailable. Try again later.",

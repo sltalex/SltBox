@@ -96,32 +96,29 @@ public sealed class TreeIllustrationTests
     }
 
     [Theory]
-    [InlineData(long.MinValue, 0, 0L)]
-    [InlineData(-1L, 0, 0L)]
-    [InlineData(0L, 0, 0L)]
-    [InlineData(1L, 1, 0L)]
-    [InlineData(11L, 11, 0L)]
-    [InlineData(12L, 12, 0L)]
-    [InlineData(13L, 12, 1L)]
-    [InlineData(1000L, 12, 988L)]
-    [InlineData(long.MaxValue, 12, long.MaxValue - 12)]
-    public void FruitVisualLimitNeverLosesTheOverflowCount(long inventory, int visible, long extra)
+    [InlineData(long.MinValue, 0)]
+    [InlineData(-1L, 0)]
+    [InlineData(0L, 0)]
+    [InlineData(1L, 1)]
+    [InlineData(12L, 12)]
+    [InlineData(13L, 13)]
+    [InlineData(1000L, 1000)]
+    [InlineData(long.MaxValue, int.MaxValue)]
+    public void FruitCountDoesNotStopAtTheFormerTwelveItemLimit(long inventory, int visible)
     {
         Assert.Equal(visible, TreeIllustrationLayout.VisibleFruitCount(inventory));
-        Assert.Equal(extra, TreeIllustrationLayout.ExtraFruitCount(inventory));
     }
 
     [Fact]
-    public void EveryFruitSlotIsDistinctAndInsideTheHarvestableCanopy()
+    public void GeneratedFruitPositionsStayInsideTheHarvestableCanopy()
     {
         Assert.Equal(260, TreeIllustrationLayout.Width);
         Assert.Equal(220, TreeIllustrationLayout.ArtworkHeight);
         Assert.Equal(260, TreeIllustrationLayout.Height);
-        Assert.Equal(12, TreeIllustrationLayout.MaxVisibleFruit);
-        Assert.Equal(TreeIllustrationLayout.MaxVisibleFruit, TreeIllustrationLayout.FruitPositions.Count);
-        Assert.Equal(TreeIllustrationLayout.FruitPositions.Count, TreeIllustrationLayout.FruitPositions.Distinct().Count());
+        var positions = Enumerable.Range(0, 32).Select(TreeIllustrationLayout.FruitPositionAt).ToArray();
+        Assert.Equal(positions.Length, positions.Distinct().Count());
 
-        foreach ((double x, double y) in TreeIllustrationLayout.FruitPositions)
+        foreach ((double x, double y) in positions)
         {
             Assert.True(double.IsFinite(x) && double.IsFinite(y));
             Assert.InRange(x, 0, TreeIllustrationLayout.Width - 24);
@@ -133,14 +130,38 @@ public sealed class TreeIllustrationTests
     [Fact]
     public void FruitHitTargetRejectsEmptyCanopyAndSelectsVisibleFruit()
     {
+        (double x0, double y0) = TreeIllustrationLayout.FruitPositionAt(0);
+        (double x1, double y1) = TreeIllustrationLayout.FruitPositionAt(1);
+        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, x0 + 12, y0 + 14));
+        Assert.Equal(1, TreeIllustrationLayout.FruitIndexAt(2, x1 + 12, y1 + 14));
         Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 130, 80));
-        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 102, 97));
-        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 82, 97));
-        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(1, 102, 75));
-        Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 72, 97));
-        Assert.Equal(0, TreeIllustrationLayout.FruitIndexAt(7, 100, 110));
-        Assert.Equal(-1, TreeIllustrationLayout.FruitIndexAt(1, 169, 101));
-        Assert.Equal(1, TreeIllustrationLayout.FruitIndexAt(2, 169, 101));
+        (double x30, double y30) = TreeIllustrationLayout.FruitPositionAt(30);
+        Assert.Equal(30, TreeIllustrationLayout.FruitIndexAt(31, x30 + 12, y30 + 14));
+    }
+
+    [Fact]
+    public void FruitPositionsRemainStableAndContinueBeyondTheLegacyPrefix()
+    {
+        var positions = Enumerable.Range(0, 100).Select(TreeIllustrationLayout.FruitPositionAt).ToArray();
+        Assert.Equal(positions[0], TreeIllustrationLayout.FruitPositionAt(0));
+        Assert.Equal(positions[99], TreeIllustrationLayout.FruitPositionAt(99));
+        Assert.True(positions.Distinct().Count() > 90);
+        Assert.All(positions, position =>
+        {
+            Assert.InRange(position.X, 8, TreeIllustrationLayout.Width - 32);
+            Assert.InRange(position.Y, 4, TreeIllustrationLayout.ArtworkHeight - 32);
+        });
+    }
+
+    [Fact]
+    public void FirstTwelveFruitImagesDoNotOverlap()
+    {
+        var positions = Enumerable.Range(0, 12).Select(TreeIllustrationLayout.FruitPositionAt).ToArray();
+        for (int index = 0; index < positions.Length; index++)
+            for (int prior = 0; prior < index; prior++)
+                Assert.True(Math.Abs(positions[index].X - positions[prior].X) >= 24 ||
+                    Math.Abs(positions[index].Y - positions[prior].Y) >= 28,
+                    $"Fruit images {prior} and {index} overlap.");
     }
 
     [Theory]

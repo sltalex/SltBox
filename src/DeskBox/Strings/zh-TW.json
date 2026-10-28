@@ -54,6 +54,7 @@
   "DingTalkGroupDocs.LinkFontSize": "文件連結字體大小",
   "DingTalkGroupDocs.LinkPadding": "文件連結邊距",
   "DingTalkGroupDocs.RowSpacing": "文件行間距",
+  "DingTalkGroupDocs.PageSize": "每頁顯示列數",
   "DingTalkGroupDocs.Sync.Last": "上次同步：{0}",
   "DingTalkGroupDocs.Sync.NotReady": "請先登入 SltBox、關聯釘釘，並確認 DWS 登入的是同一釘釘帳號。",
   "DingTalkGroupDocs.Sync.Error": "同步服務暫時無法使用，請稍後再試。",

@@ -106,7 +106,7 @@ function tree_visit_snapshot(PDO $pdo, string $account, ?string $viewer = null,
         try {
             $onTree = fruit_on_tree($pdo, $account);
             $fruitOnTreeCount = count($onTree);
-            foreach (array_slice($onTree, 0, 12) as $fruit) {
+            foreach ($onTree as $fruit) {
                 $fruits[] = $fruit['fruit_id'];
             }
         } catch (PDOException $error) {

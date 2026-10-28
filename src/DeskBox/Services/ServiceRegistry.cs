@@ -24,13 +24,20 @@ public static class ServiceRegistry
         services.AddSingleton<IAuthSession>(sp => sp.GetRequiredService<DeskBoxAuthSession>());
         services.AddSingleton<IAuthenticatedAccountApi>(sp => sp.GetRequiredService<DeskBoxAuthSession>());
         services.AddSingleton<IDingTalkDwsClient>(_ => new DingTalkDwsClient());
+        services.AddSingleton<DingTalkGroupDocumentCloudStore>(sp =>
+            new DingTalkGroupDocumentCloudStore(sp.GetRequiredService<IAuthenticatedAccountApi>(),
+                sp.GetRequiredService<IAuthSession>()));
         services.AddSingleton<DingTalkAccountService>(sp => new DingTalkAccountService(sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<DingTalkCalendarService>(sp =>
             new DingTalkCalendarService(
                 sp.GetRequiredService<IDingTalkDwsClient>(),
                 sp.GetRequiredService<DingTalkAccountService>()));
         services.AddSingleton<DingTalkGroupDocumentService>(sp =>
-            new DingTalkGroupDocumentService(sp.GetRequiredService<IDingTalkDwsClient>()));
+            new DingTalkGroupDocumentService(sp.GetRequiredService<IDingTalkDwsClient>(),
+                stateDirectory: null,
+                cloud: sp.GetRequiredService<DingTalkGroupDocumentCloudStore>(),
+                auth: sp.GetRequiredService<IAuthSession>(),
+                account: sp.GetRequiredService<DingTalkAccountService>()));
         services.AddSingleton<DingTalkGroupDocumentFavorites>(sp =>
             new DingTalkGroupDocumentFavorites(sp.GetRequiredService<IDingTalkDwsClient>(),
                 auth: sp.GetRequiredService<IAuthSession>(), account: sp.GetRequiredService<DingTalkAccountService>()));

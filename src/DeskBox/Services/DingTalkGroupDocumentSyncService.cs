@@ -134,6 +134,8 @@ internal sealed class DingTalkGroupDocumentSyncService : IAsyncDisposable
 
             await _documents.LoadAsync(operationToken);
             if (!IsStillLinked()) return false;
+            await _documents.UploadCloudAsync(operationToken);
+            if (!IsStillLinked()) return false;
             DateTimeOffset? last = _documents.LastSyncCompletedAt;
             if (!force && last is not null &&
                 DateTimeOffset.Now - last.Value < TimeSpan.FromHours(_documents.SyncIntervalHours))
@@ -143,6 +145,7 @@ internal sealed class DingTalkGroupDocumentSyncService : IAsyncDisposable
             try
             {
                 await _documents.SyncAsync(IsStillLinked, retryUnavailableTitles, operationToken);
+                if (IsStillLinked()) await _documents.UploadCloudAsync(operationToken);
             }
             finally
             {

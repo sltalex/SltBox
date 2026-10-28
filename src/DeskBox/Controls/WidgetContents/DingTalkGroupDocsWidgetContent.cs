@@ -16,6 +16,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
     private readonly LocalizationService _localization;
     private readonly DingTalkGroupDocumentService _service;
     private readonly DingTalkGroupDocumentFavorites _favorites;
+    private readonly DingTalkGroupDocumentFavoritesCloudSyncService? _favoriteCloud;
     private readonly WidgetConfig _config;
     private readonly SettingsService? _settings;
     private readonly DingTalkGroupDocumentSyncService? _sync;
@@ -56,6 +57,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         _favorites = favorites ?? App.Current?.Services.GetService<DingTalkGroupDocumentFavorites>()
             ?? new DingTalkGroupDocumentFavorites(new DingTalkDwsClient(),
                 auth: App.Current?.Services.GetService<DeskBox.Contracts.IAuthSession>());
+        _favoriteCloud = App.Current?.Services.GetService<DingTalkGroupDocumentFavoritesCloudSyncService>();
         _sync = App.Current?.Services.GetService<DingTalkGroupDocumentSyncService>();
         _search = new TextBox { PlaceholderText = _localization.T("DingTalkGroupDocs.Search") };
         _groups.Spacing = (double)Application.Current.Resources["SettingsCardSpacing"];
@@ -180,6 +182,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         try
         {
             await _favorites.LoadAsync();
+            await SyncFavoritesSafelyAsync();
             // The first six-month scan may take a long time. Keep the already
             // loaded local index visible instead of waiting for its state lock.
             IReadOnlyList<DingTalkGroupDocument> documents = _service.IsSyncing
@@ -271,9 +274,6 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
     {
         if (!_disposed)
         {
-            _documentName.Text = string.Empty;
-            _documentUrl.Text = string.Empty;
-            _addForm.Visibility = Visibility.Collapsed;
             Render(_service.Documents);
         }
     });
@@ -315,7 +315,7 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             .SelectMany(group => group.OrderByDescending(item => item.LastSeenAt)
                 .Select(document => (GroupName: group.Key, Document: document)))
             .ToArray();
-        const int pageSize = 5;
+        int pageSize = DingTalkGroupDocsPresentationSettings.ReadPageSize(_config);
         int pageCount = (orderedDocuments.Length + pageSize - 1) / pageSize;
         _currentPage = Math.Clamp(_currentPage, 0, Math.Max(0, pageCount - 1));
         var pageGroups = orderedDocuments
@@ -434,7 +434,9 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         button.IsEnabled = false;
         try
         {
-            await _favorites.SetFavoriteAsync(document, !_favorites.IsFavorite(document));
+            bool favorite = !_favorites.IsFavorite(document);
+            if (_favoriteCloud is null) await _favorites.SetFavoriteAsync(document, favorite);
+            else await _favoriteCloud.SetFavoriteAndSyncAsync(document, favorite);
             SetStatus(string.Empty);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or
@@ -452,7 +454,8 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         button.IsEnabled = false;
         try
         {
-            await _favorites.AddManualAsync(_documentName.Text, _documentUrl.Text);
+            if (_favoriteCloud is null) await _favorites.AddManualAsync(_documentName.Text, _documentUrl.Text);
+            else await _favoriteCloud.AddManualAndSyncAsync(_documentName.Text, _documentUrl.Text);
             _documentName.Text = _documentUrl.Text = string.Empty;
             _addForm.Visibility = Visibility.Collapsed;
             _search.Text = string.Empty;
@@ -468,6 +471,17 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             SetStatus(_localization.T("DingTalkGroupDocs.Favorite.Error"));
         }
         finally { button.IsEnabled = true; }
+    }
+
+    private async Task SyncFavoritesSafelyAsync()
+    {
+        if (_favoriteCloud is null) return;
+        try { await _favoriteCloud.SyncNowAsync(); }
+        catch (Exception error) when (error is AuthApiException or HttpRequestException or
+            IOException or InvalidDataException or OperationCanceledException)
+        {
+            App.Log($"[DingTalkGroupDocs] Favorite cloud sync deferred: {error.GetType().Name}");
+        }
     }
 
     public void Dispose()

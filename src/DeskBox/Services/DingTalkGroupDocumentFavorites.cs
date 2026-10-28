@@ -114,6 +114,43 @@ public sealed class DingTalkGroupDocumentFavorites : IDisposable
         }
     }
 
+    internal async Task ReplaceSnapshotAsync(
+        DingTalkGroupDocumentFavoritesStore snapshot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            string owner = await GetOwnerKeyAsync(cancellationToken);
+            await StoreGate.WaitAsync(cancellationToken);
+            try
+            {
+                await LoadCoreAsync(owner, cancellationToken);
+                var keys = new HashSet<string>(StringComparer.Ordinal);
+                var documents = new Dictionary<string, DingTalkGroupDocument>(StringComparer.Ordinal);
+                foreach (string url in snapshot.DocumentUrls ?? [])
+                    if (TryDocumentKey(url, out string? key) && key is not null) keys.Add(key);
+                foreach (DingTalkGroupDocument document in snapshot.Documents ?? [])
+                {
+                    if (!TryDocumentKey(document.Url, out string? urlKey) || urlKey is null) continue;
+                    string key = DocumentIdentity(document);
+                    keys.Remove(urlKey);
+                    keys.Add(key);
+                    documents[key] = document;
+                }
+                EnsureCurrentOwner(owner);
+                await SaveCoreAsync(_statePath!, keys, documents.Values, cancellationToken);
+                EnsureCurrentOwner(owner);
+                _keys = keys;
+                _favoriteDocuments = [.. documents.Values.OrderBy(DocumentIdentity, StringComparer.Ordinal)];
+            }
+            finally { StoreGate.Release(); }
+        }
+        finally { _gate.Release(); }
+        Changed?.Invoke();
+    }
+
     internal static string CanonicalKey(string url) => DocumentKey(url);
 
     internal static string CanonicalKey(DingTalkGroupDocument document) => DocumentIdentity(document);

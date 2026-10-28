@@ -15,6 +15,8 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
         Assert.Equal("钉钉格子", json.RootElement.GetProperty("DingTalkGroupDocs.Settings.Title").GetString());
         Assert.Contains("_card.Header = _localization.T(\"DingTalkGroupDocs.Title\")",
             Read("src/DeskBox/Views/SettingsSections/DingTalkGroupDocsSettingsSection.cs"), StringComparison.Ordinal);
+        Assert.Contains("DingTalkGroupDocs.PageSize", Read("src/DeskBox/Views/SettingsSections/DingTalkGroupDocsSettingsSection.cs"), StringComparison.Ordinal);
+        Assert.Contains("DingTalkGroupDocsPresentationSettings.ReadPageSize", Read("src/DeskBox/Controls/WidgetContents/DingTalkGroupDocsWidgetContent.cs"), StringComparison.Ordinal);
     }
 
     [Theory]
@@ -101,6 +103,7 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
         {
             using JsonDocument json = JsonDocument.Parse(File.ReadAllText(file));
             Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("Widget.Settings.DingTalkGroupDocs").GetString()));
+            Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("DingTalkGroupDocs.PageSize").GetString()));
             Assert.Contains("{0}", json.RootElement.GetProperty("Tree.Settings.Leaderboard.Stage").GetString()!, StringComparison.Ordinal);
         }
     }

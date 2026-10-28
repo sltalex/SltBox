@@ -24,6 +24,14 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
     private readonly NumberBox _padding = new() { Minimum = 0, Maximum = 24, SmallChange = 1, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
     private readonly TextBlock _rowSpacingLabel = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly NumberBox _rowSpacing = new() { Minimum = 0, Maximum = 24, SmallChange = 1, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+    private readonly TextBlock _pageSizeLabel = new() { VerticalAlignment = VerticalAlignment.Center };
+    private readonly NumberBox _pageSize = new()
+    {
+        Minimum = DingTalkGroupDocsPresentationSettings.MinPageSize,
+        Maximum = DingTalkGroupDocsPresentationSettings.MaxPageSize,
+        SmallChange = 1,
+        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+    };
     private DingTalkGroupDocumentSyncService? _sync;
     private LocalizationService? _localization;
     private SettingsService? _settings;
@@ -38,6 +46,7 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
         _fontSize.ValueChanged += LinkStyle_ValueChanged;
         _padding.ValueChanged += LinkStyle_ValueChanged;
         _rowSpacing.ValueChanged += LinkStyle_ValueChanged;
+        _pageSize.ValueChanged += PageSize_ValueChanged;
 
         var intervalRow = new Grid { ColumnSpacing = 8 };
         intervalRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -54,6 +63,7 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
         panel.Children.Add(CreateStyleRow(_fontSizeLabel, _fontSize));
         panel.Children.Add(CreateStyleRow(_paddingLabel, _padding));
         panel.Children.Add(CreateStyleRow(_rowSpacingLabel, _rowSpacing));
+        panel.Children.Add(CreateStyleRow(_pageSizeLabel, _pageSize));
         panel.Children.Add(_status);
         panel.Children.Add(_hint);
         panel.Children.Add(_progress);
@@ -145,6 +155,20 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
         _settings.SaveDebounced();
     }
 
+    private void PageSize_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (_updating || _settings is null || _widget is null || double.IsNaN(args.NewValue)) return;
+        int pageSize = DingTalkGroupDocsPresentationSettings.NormalizePageSize(args.NewValue);
+        if (Math.Abs(args.NewValue - pageSize) > double.Epsilon)
+        {
+            _updating = true;
+            try { _pageSize.Value = pageSize; }
+            finally { _updating = false; }
+        }
+        DingTalkGroupDocsPresentationSettings.WritePageSize(_widget, pageSize);
+        _settings.SaveDebounced();
+    }
+
     private void OnProgressChanged(DingTalkGroupDocumentSyncProgress progress)
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -185,6 +209,7 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
         _fontSizeLabel.Text = _localization.T("DingTalkGroupDocs.LinkFontSize");
         _paddingLabel.Text = _localization.T("DingTalkGroupDocs.LinkPadding");
         _rowSpacingLabel.Text = _localization.T("DingTalkGroupDocs.RowSpacing");
+        _pageSizeLabel.Text = _localization.T("DingTalkGroupDocs.PageSize");
     }
 
     private void RefreshState()
@@ -197,6 +222,8 @@ public sealed partial class DingTalkGroupDocsSettingsSection : UserControl
             _fontSize.Value = ReadFontSize();
             _padding.Value = ReadPadding();
             _rowSpacing.Value = ReadRowSpacing();
+            _pageSize.Value = DingTalkGroupDocsPresentationSettings.ReadPageSize(_widget);
+            _pageSize.IsEnabled = _widget is not null;
             _syncButton.IsEnabled = !_sync.Documents.IsSyncing;
             _progress.Visibility = _sync.Documents.IsSyncing ? Visibility.Visible : Visibility.Collapsed;
             if (_sync.Documents.LastSyncCompletedAt is null && _localization is not null)

@@ -51,13 +51,21 @@ public sealed class DingTalkGroupDocumentService
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private readonly IDingTalkDwsClient _dws;
+    private readonly DingTalkGroupDocumentCloudStore? _cloud;
+    private readonly DeskBox.Contracts.IAuthSession? _auth;
+    private readonly DingTalkAccountService? _account;
     private readonly string _stateDirectory;
     private readonly string _settingsPath;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private DingTalkGroupDocument[] _documents = [];
     private string? _loadedAccountKey;
+    private string? _stateOwnerUserId;
     private string? _statePath;
     private bool _stateLoaded;
+    private string? _cloudOwnerId;
+    private DingTalkGroupDocumentCloudSnapshot? _cloudSnapshot;
+    private string? _activeSltboxUserId;
+    private bool _cloudUploadPending;
     private DateTimeOffset? _initialScanStart;
     private DateTimeOffset? _initialScanEnd;
     private DateTimeOffset? _initialScanNextEnd;
@@ -70,12 +78,20 @@ public sealed class DingTalkGroupDocumentService
     private Dictionary<string, DateTimeOffset> _titleRetryAfter = new(StringComparer.OrdinalIgnoreCase);
 
     public DingTalkGroupDocumentService(IDingTalkDwsClient dws, string? stateDirectory = null)
+        : this(dws, stateDirectory, null, null, null) { }
+
+    internal DingTalkGroupDocumentService(IDingTalkDwsClient dws, string? stateDirectory,
+        DingTalkGroupDocumentCloudStore? cloud = null, DeskBox.Contracts.IAuthSession? auth = null,
+        DingTalkAccountService? account = null)
     {
         _dws = dws;
+        _cloud = cloud;
+        _auth = auth;
+        _account = account;
         _stateDirectory = stateDirectory ?? Path.Combine(
             DeskBoxDataPathService.Current.DataDirectory, "sync", "dingtalk");
         _settingsPath = Path.Combine(_stateDirectory, "group-documents-settings.json");
-        LoadIntervalSettingsFromDisk();
+        if (_auth is null) LoadIntervalSettingsFromDisk();
     }
 
     public IReadOnlyList<DingTalkGroupDocument> Documents => _documents;
@@ -92,9 +108,101 @@ public sealed class DingTalkGroupDocumentService
         CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
-        try { return await LoadCoreAsync(cancellationToken); }
+        try
+        {
+            if (_auth is not null && _activeSltboxUserId != _auth.CurrentUser?.Id)
+            {
+                _documents = [];
+                _cloudOwnerId = null;
+                _cloudSnapshot = null;
+                _activeSltboxUserId = _auth.CurrentUser?.Id;
+                _stateLoaded = false;
+                _loadedAccountKey = null;
+                _statePath = null;
+                _stateOwnerUserId = null;
+                LastSyncCompletedAt = null;
+                HasCompletedInitialSync = false;
+                SyncIntervalHours = 6;
+                _cloudUploadPending = false;
+            }
+            try { await LoadCoreAsync(cancellationToken); }
+            catch (DingTalkDwsAuthorizationRequiredException) when (_cloud is not null && _auth?.IsAuthenticated == true)
+            {
+                // A new computer can display the account's saved index before DWS is authorized.
+            }
+            await HydrateCloudAsync(cancellationToken);
+            return _documents;
+        }
         finally { _gate.Release(); }
     }
+
+    private async Task HydrateCloudAsync(CancellationToken cancellationToken)
+    {
+        if (_cloud is null || _auth?.CurrentUser is not { } user) return;
+        DingTalkGroupDocumentCloudSnapshot? remote = _cloudOwnerId == user.Id ? _cloudSnapshot : null;
+        if (_cloudOwnerId != user.Id)
+        {
+            try { remote = await _cloud.ReadAsync(cancellationToken); }
+            catch (Exception error) when (error is HttpRequestException or AuthApiException or InvalidDataException or TaskCanceledException)
+            {
+                App.Log($"[DingTalkGroupDocs] Cloud index load deferred: {error.GetType().Name}");
+                return;
+            }
+        }
+        if (_auth.CurrentUser?.Id != user.Id || remote is null) return;
+        _cloudOwnerId = user.Id;
+        _cloudSnapshot = remote;
+        DingTalkGroupDocument[] merged = DingTalkGroupDocumentRepair.Normalize(
+            _documents.Concat(remote.Documents));
+        _cloudUploadPending = !merged.SequenceEqual(DingTalkGroupDocumentRepair.Normalize(remote.Documents)) ||
+            (LastSyncCompletedAt is { } localTime &&
+             (remote.LastSyncCompletedAt is null || localTime > remote.LastSyncCompletedAt));
+        bool changed = !_documents.SequenceEqual(merged);
+        _documents = merged;
+        if (remote.LastSyncCompletedAt is { } cloudTime &&
+            (LastSyncCompletedAt is null || cloudTime > LastSyncCompletedAt))
+        {
+            LastSyncCompletedAt = cloudTime;
+            HasCompletedInitialSync = true;
+            changed = true;
+        }
+        if (!File.Exists(SettingsPath())) SyncIntervalHours = NormalizeInterval(remote.SyncIntervalHours ?? 6);
+        if (changed && _statePath is not null)
+            await SaveAsync(CurrentStore(), cancellationToken);
+    }
+
+    internal async Task<bool> UploadCloudAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cloud is null || _auth?.CurrentUser is null) return false;
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_cloudUploadPending) return true;
+            string owner = _auth.CurrentUser.Id;
+            DingTalkGroupDocumentCloudSnapshot saved = await _cloud.MergeAsync(
+                _documents, LastSyncCompletedAt, null, cancellationToken);
+            if (_auth.CurrentUser?.Id != owner) return false;
+            _documents = DingTalkGroupDocumentRepair.Normalize(_documents.Concat(saved.Documents));
+            _cloudSnapshot = saved;
+            _cloudUploadPending = false;
+            if (_statePath is not null) await SaveAsync(CurrentStore(), cancellationToken);
+            return true;
+        }
+        finally { _gate.Release(); }
+    }
+
+    private DingTalkGroupDocumentStore CurrentStore() => new()
+    {
+        LastRefresh = LastRefresh, LastSyncStartedAt = LastSyncStartedAt,
+        LastSyncCompletedAt = LastSyncCompletedAt, HasCompletedInitialSync = HasCompletedInitialSync,
+        InitialScanStart = _initialScanStart, InitialScanEnd = _initialScanEnd,
+        InitialScanNextEnd = _initialScanNextEnd,
+        InitialScanCompletedSegments = _initialScanCompletedSegments,
+        PendingWindowStart = _pendingWindowStart, PendingWindowEnd = _pendingWindowEnd,
+        PendingCursor = _pendingCursor, PendingPages = _pendingPages,
+        PendingDocuments = _pendingDocuments, TitleRetryAfter = _titleRetryAfter,
+        SyncIntervalHours = SyncIntervalHours, Documents = _documents
+    };
 
     private async Task<IReadOnlyList<DingTalkGroupDocument>> LoadCoreAsync(
         CancellationToken cancellationToken)
@@ -105,6 +213,7 @@ public sealed class DingTalkGroupDocumentService
         {
             await LoadIntervalSettingsAsync(cancellationToken);
             _stateLoaded = true;
+            _cloudUploadPending = _documents.Length > 0;
             return _documents;
         }
         try
@@ -128,6 +237,7 @@ public sealed class DingTalkGroupDocumentService
                 store.PendingDocuments = [];
             }
             _documents = DingTalkGroupDocumentRepair.Normalize(store?.Documents ?? []);
+            _cloudUploadPending = _documents.Length > 0;
             LastRefresh = store?.LastRefresh;
             LastSyncStartedAt = store?.LastSyncStartedAt;
             HasCompletedInitialSync = !needsBackfill && store?.HasCompletedInitialSync == true;
@@ -390,6 +500,7 @@ public sealed class DingTalkGroupDocumentService
                     Documents = checkpointDocuments
                 }, cancellationToken);
                 _documents = checkpointDocuments;
+                _cloudUploadPending = true;
                 LastRefresh = refreshedAt;
                 LastSyncCompletedAt = completedAt;
                 HasCompletedInitialSync = !initialSync || finished;
@@ -418,9 +529,11 @@ public sealed class DingTalkGroupDocumentService
         Directory.CreateDirectory(_stateDirectory);
         cancellationToken.ThrowIfCancellationRequested();
         await ResilientJsonStore.SaveAsync(
-            _settingsPath,
+            SettingsPath(),
             $"{{\"syncIntervalHours\":{interval.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}");
         SyncIntervalHours = interval;
+        if (_cloud is not null && _auth?.IsAuthenticated == true)
+            await _cloud.MergeAsync([], null, interval, cancellationToken);
     }
 
     private static int NormalizeInterval(int hours) => Math.Clamp(hours, 1, 168);
@@ -609,10 +722,11 @@ public sealed class DingTalkGroupDocumentService
 
     private async Task LoadIntervalSettingsAsync(CancellationToken cancellationToken)
     {
-        if (!File.Exists(_settingsPath)) return;
+        string path = SettingsPath();
+        if (!File.Exists(path)) return;
         try
         {
-            string value = await File.ReadAllTextAsync(_settingsPath, cancellationToken);
+            string value = await File.ReadAllTextAsync(path, cancellationToken);
             ApplyIntervalSettings(value);
         }
         catch (Exception ex) when (ex is IOException or JsonException)
@@ -631,6 +745,16 @@ public sealed class DingTalkGroupDocumentService
         }
     }
 
+    private string SettingsPath()
+    {
+        if (_auth is null) return _settingsPath;
+        string userId = _auth.CurrentUser?.Id ??
+            throw new DingTalkDwsAuthorizationRequiredException("Sign in to SltBox to set document sync interval.");
+        string digest = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(userId)))
+            .ToLowerInvariant();
+        return Path.Combine(_stateDirectory, $"group-documents-settings-account-{digest}.json");
+    }
+
     private void ApplyIntervalSettings(string value)
     {
         using JsonDocument document = JsonDocument.Parse(value);
@@ -641,6 +765,8 @@ public sealed class DingTalkGroupDocumentService
 
     private async Task EnsureAuthenticatedStatePathAsync(CancellationToken cancellationToken)
     {
+        if (_auth is not null && (!_auth.IsAuthenticated || _auth.CurrentUser is null))
+            throw new DingTalkDwsAuthorizationRequiredException("Sign in to SltBox to use group documents.");
         DingTalkDwsAuthStatus status = await _dws.GetAuthStatusAsync(cancellationToken);
         if (!status.Authenticated || !status.TokenValid ||
             string.IsNullOrWhiteSpace(status.CorpId) || string.IsNullOrWhiteSpace(status.UserId))
@@ -648,13 +774,35 @@ public sealed class DingTalkGroupDocumentService
             throw new DingTalkDwsAuthorizationRequiredException("DWS authorization is required.");
         }
 
+        if (_account is not null)
+        {
+            DingTalkIdentityDto? linked = _account.CurrentIdentity ?? await _account.GetAsync(cancellationToken);
+            if (linked is null || linked.CorpId != status.CorpId ||
+                linked.DingtalkUserId != status.UserId)
+                throw new DingTalkDwsAuthorizationRequiredException("The DWS account is not linked to this SltBox account.");
+        }
+
         string accountKey = $"{status.CorpId.Trim()}\u001f{status.UserId.Trim()}";
-        if (string.Equals(_loadedAccountKey, accountKey, StringComparison.Ordinal)) return;
+        string? ownerUserId = _auth?.CurrentUser?.Id;
+        if (string.Equals(_loadedAccountKey, accountKey, StringComparison.Ordinal) &&
+            string.Equals(_stateOwnerUserId, ownerUserId, StringComparison.Ordinal)) return;
 
         byte[] digest = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(accountKey));
-        string fileName = $"group-documents-{Convert.ToHexString(digest).ToLowerInvariant()}.json";
+        string legacyFileName = $"group-documents-{Convert.ToHexString(digest).ToLowerInvariant()}.json";
+        string fileName = ownerUserId is null ? legacyFileName :
+            $"group-documents-account-{Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(ownerUserId))).ToLowerInvariant()}.json";
         _statePath = Path.Combine(_stateDirectory, fileName);
+        if (ownerUserId is not null && !File.Exists(_statePath))
+        {
+            string legacyPath = Path.Combine(_stateDirectory, legacyFileName);
+            if (File.Exists(legacyPath))
+            {
+                Directory.CreateDirectory(_stateDirectory);
+                File.Copy(legacyPath, _statePath, overwrite: false);
+            }
+        }
         _loadedAccountKey = accountKey;
+        _stateOwnerUserId = ownerUserId;
         _documents = [];
         LastRefresh = null;
         LastSyncStartedAt = null;
