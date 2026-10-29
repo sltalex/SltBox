@@ -453,7 +453,7 @@ function tree_leaderboard(PDO $pdo, string $currentUserId, string $day): array
         'SELECT p.user_id, u.username, p.stage, COALESCE(d.growth, 0) AS today_growth, p.total_energy, p.fruit_total, p.harvested_total '
         . 'FROM tree_profiles p JOIN auth_users u ON u.id = p.user_id '
         . 'LEFT JOIN tree_daily_progress d ON d.user_id = p.user_id AND d.progress_day = :day '
-        . 'WHERE p.participation_enabled = 1 ORDER BY p.total_energy DESC, p.updated_at ASC, p.user_id ASC'
+        . 'WHERE p.participation_enabled = 1 ORDER BY COALESCE(d.growth, 0) DESC, p.updated_at ASC, p.user_id ASC'
     );
     $statement->execute([':day' => $day]);
     $entries = [];

@@ -103,9 +103,12 @@ data_expect_error('state_conflict', static fn() => tree_apply_state($pdo, $alice
     'stage' => 2, 'fruit_energy' => 501, 'fruit_total' => 5, 'harvested_total' => 1,
 ], $clock));
 
+// Ranking uses today's energy even when another participant has a much larger lifetime total.
+$pdo->prepare('UPDATE tree_profiles SET total_energy = 90000, stage = 3 WHERE user_id = :user_id')
+    ->execute([':user_id' => $bobId]);
 $leaderboard = tree_leaderboard($pdo, $aliceId, '2026-10-14');
 data_expect(count($leaderboard['entries']) === 2, 'Leaderboard includes participating users.');
-data_expect($leaderboard['entries'][0]['username'] === 'Alice_Cloud', 'Leaderboard sorts by energy descending.');
+data_expect($leaderboard['entries'][0]['username'] === 'Alice_Cloud', 'Leaderboard ranks by daily energy, not lifetime total.');
 data_expect($leaderboard['entries'][0]['today_growth'] === 45000, 'Daily growth is summed across devices.');
 data_expect($leaderboard['entries'][0]['stage'] === 2, 'Stage is derived from aggregate energy.');
 data_expect($leaderboard['entries'][0]['fruit_inventory'] === 4,

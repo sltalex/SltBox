@@ -107,6 +107,23 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
+    public void TreeLeaderboardSurfaceShowsDailyEnergyAsTheRankedValue()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+        string backend = File.ReadAllText(TestPaths.FromRepository(
+            "server/deskbox-api/api/_app/account_data.php"));
+
+        Assert.Contains("ORDER BY COALESCE(d.growth, 0) DESC", backend, StringComparison.Ordinal);
+        Assert.Contains("$leaderboard['entries'][0]['username'] === 'Alice_Cloud'", File.ReadAllText(
+            TestPaths.FromRepository("server/deskbox-api/tests/account_data_service_test.php")), StringComparison.Ordinal);
+        Assert.Contains("$pdo->prepare('UPDATE tree_profiles SET total_energy = 90000", File.ReadAllText(
+            TestPaths.FromRepository("server/deskbox-api/tests/account_data_service_test.php")), StringComparison.Ordinal);
+        Assert.Contains("AddCell(grid, $\"+{entry.TodayGrowth:N0}\", 3, false);", source, StringComparison.Ordinal);
+        Assert.Contains("AddCell(grid, $\"⚡{entry.TotalEnergy:N0}\", 4, false);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TreeVisit_DeserializesReadOnlyScene()
     {
         const string json = """

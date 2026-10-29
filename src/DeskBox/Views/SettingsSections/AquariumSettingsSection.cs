@@ -719,7 +719,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             content.Children.Add(new TextBlock { Text = species.Name, FontSize = 13, TextAlignment = TextAlignment.Center });
             cards.Children.Add(new Border
             {
-                Width = 172, MinHeight = 176, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
+                Width = 112, MinHeight = 86, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
                 Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], Child = content
             });
         }

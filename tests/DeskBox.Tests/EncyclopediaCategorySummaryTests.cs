@@ -88,7 +88,7 @@ public sealed class EncyclopediaCategorySummaryTests
         string wildlifeCode = codeBehind[codeBehind.IndexOf("WildlifeService wildlife", StringComparison.Ordinal)..];
         Assert.DoesNotContain("$\"拥有 {owned!.Quantity}\"", wildlifeCode, StringComparison.Ordinal);
         string wildlifePanel = xaml[xaml.IndexOf("x:Name=\"WildlifePanel\"", StringComparison.Ordinal)..];
-        Assert.DoesNotContain("MinHeight=", wildlifePanel, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"196\"", wildlifePanel, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"Wrap\" TextAlignment=\"Left\"", wildlifePanel, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"WildlifePager\"", wildlifePanel, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"WildlifePreviousPageButton\"", wildlifePanel, StringComparison.Ordinal);
