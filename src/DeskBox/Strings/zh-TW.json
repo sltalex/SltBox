@@ -2990,6 +2990,7 @@
   "Tree.Settings.Card.Current": "目前成長",
   "Tree.Settings.Card.Current.Description": "輕鬆看看今天和這棵樹一路累積的成長。",
   "Tree.Settings.Card.Switches": "種樹設定",
+  "Tree.Settings.TodayKeys": "今日鍵盤敲擊次數",
 "Tree.Settings.Card.Sync": "資料同步",
 "Tree.Settings.Card.Sync.Description": "手動同步種樹資料；如果同步狀態異常，可清理本機狀態後重新啟動。",
   "Tree.Settings.Card.Progress": "成長進度",

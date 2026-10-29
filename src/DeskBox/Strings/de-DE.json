@@ -2996,6 +2996,7 @@
   "Tree.Settings.Card.Current": "Aktuelles Wachstum",
   "Tree.Settings.Card.Current.Description": "Eine kompakte Übersicht über heute und die gesamte Entwicklung dieses Baums.",
   "Tree.Settings.Card.Switches": "Baum- und Statistikschalter",
+  "Tree.Settings.TodayKeys": "Today's keyboard presses",
 "Tree.Settings.Card.Sync": "Data sync",
 "Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "Wachstumsfortschritt",

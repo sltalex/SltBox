@@ -159,6 +159,17 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     }
 
     [Fact]
+    public void TreeSettings_ShowsLiveTodayKeyboardPressCount()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+
+        Assert.Contains("TreeCounterService _counter", source, StringComparison.Ordinal);
+        Assert.Contains("_counter.Snapshot.TodayKeys", source, StringComparison.Ordinal);
+        Assert.Contains("_counter.Changed += OnCounterChanged", source, StringComparison.Ordinal);
+        Assert.Contains("Tree.Settings.TodayKeys", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ApplicationBrand_IsSltBox()
     {
         foreach (string file in Directory.EnumerateFiles(TestPaths.FromRepository("src/DeskBox/Resources"), "Resources.resw", SearchOption.AllDirectories))

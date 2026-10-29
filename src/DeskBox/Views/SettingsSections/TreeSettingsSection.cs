@@ -11,8 +11,16 @@ namespace DeskBox.Views.SettingsSections;
 public sealed partial class TreeSettingsSection : UserControl
 {
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
+    private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly ToggleSwitch _participation = new() { OnContent = "", OffContent = "", MinWidth = 0 };
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _todayKeysLabel = new() { VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _todayKeysValue = new()
+    {
+        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Center
+    };
     private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock _leaderboardHint = new() { FontSize = 12, Opacity = 0.72, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _currentRankHint = new() { FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
@@ -39,6 +47,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private TreeDecorationService? _decorationService;
     private bool _updating;
     private int _leaderboardRefreshQueued;
+    private int _counterRefreshQueued;
     private int _syncOperationInProgress;
 
     public event EventHandler<SettingsSectionNavigationRequestedEventArgs>? NavigationRequested;
@@ -69,6 +78,14 @@ public sealed partial class TreeSettingsSection : UserControl
         _participationRow.Children.Add(_repairButton);
         var cardContent = new StackPanel { Spacing = 2 };
         cardContent.Children.Add(_participationRow);
+        var todayKeysRow = new Grid { MinHeight = 36, ColumnSpacing = 8 };
+        todayKeysRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        todayKeysRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(_todayKeysLabel, 0);
+        Grid.SetColumn(_todayKeysValue, 1);
+        todayKeysRow.Children.Add(_todayKeysLabel);
+        todayKeysRow.Children.Add(_todayKeysValue);
+        cardContent.Children.Add(todayKeysRow);
         cardContent.Children.Add(_syncStatus);
         _switchesCard.Content = cardContent;
 
@@ -120,6 +137,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_localization is not null) _localization.LanguageChanged += OnLanguageChanged;
         if (_auth is not null) _auth.SessionChanged += OnLeaderboardChanged;
         if (_cloud is not null) _cloud.LeaderboardChanged += OnLeaderboardChanged;
+        _counter.Changed += OnCounterChanged;
         RenderLabels();
         Refresh();
         if (_auth?.IsAuthenticated == true && _cloud is not null)
@@ -134,6 +152,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_localization is not null) _localization.LanguageChanged -= OnLanguageChanged;
         if (_auth is not null) _auth.SessionChanged -= OnLeaderboardChanged;
         if (_cloud is not null) _cloud.LeaderboardChanged -= OnLeaderboardChanged;
+        _counter.Changed -= OnCounterChanged;
     }
 
     private void RenderLabels()
@@ -142,6 +161,7 @@ public sealed partial class TreeSettingsSection : UserControl
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
+        _todayKeysLabel.Text = _localization.T("Tree.Settings.TodayKeys");
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
         if (_syncButton.Content is TextBlock syncText)
             syncText.Text = _localization.T("Tree.SyncCalibrate");
@@ -261,7 +281,24 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void OnLanguageChanged() { RenderLabels(); Refresh(); }
 
-    private void Refresh() => RefreshLeaderboardSurface();
+    private void OnCounterChanged()
+    {
+        if (Interlocked.Exchange(ref _counterRefreshQueued, 1) != 0) return;
+        if (!_uiQueue.TryEnqueue(() =>
+            {
+                try { if (IsLoaded) RefreshTodayKeys(); }
+                finally { Interlocked.Exchange(ref _counterRefreshQueued, 0); }
+            }))
+            Interlocked.Exchange(ref _counterRefreshQueued, 0);
+    }
+
+    private void Refresh()
+    {
+        RefreshTodayKeys();
+        RefreshLeaderboardSurface();
+    }
+
+    private void RefreshTodayKeys() => _todayKeysValue.Text = $"{_counter.Snapshot.TodayKeys:N0}";
 
     private void RefreshLeaderboardSurface()
     {
