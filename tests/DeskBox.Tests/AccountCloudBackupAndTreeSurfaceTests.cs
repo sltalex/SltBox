@@ -167,6 +167,9 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         Assert.Contains("_counter.Snapshot.TodayKeys", source, StringComparison.Ordinal);
         Assert.Contains("_counter.Changed += OnCounterChanged", source, StringComparison.Ordinal);
         Assert.Contains("Tree.Settings.TodayKeys", source, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(_todayKeysValue, 2)", source, StringComparison.Ordinal);
+        Assert.Contains("_participationRow.Children.Add(_todayKeysValue)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("todayKeysRow", source, StringComparison.Ordinal);
     }
 
     [Fact]

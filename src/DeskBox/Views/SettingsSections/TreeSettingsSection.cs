@@ -14,11 +14,11 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly ToggleSwitch _participation = new() { OnContent = "", OffContent = "", MinWidth = 0 };
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _todayKeysLabel = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _todayKeysValue = new()
     {
+        Text = "⌨ 0",
         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-        HorizontalAlignment = HorizontalAlignment.Right,
+        HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center
     };
     private readonly TextBlock _leaderboardTitle = new() { FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
@@ -64,28 +64,22 @@ public sealed partial class TreeSettingsSection : UserControl
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
             _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _participationLabel.TextWrapping = TextWrapping.NoWrap;
         _participationLabel.TextTrimming = TextTrimming.CharacterEllipsis;
         _participation.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(_participation, 1);
-        Grid.SetColumn(_syncButton, 2);
-        Grid.SetColumn(_repairButton, 3);
+        Grid.SetColumn(_todayKeysValue, 2);
+        Grid.SetColumn(_syncButton, 3);
+        Grid.SetColumn(_repairButton, 4);
         _participationRow.Children.Add(_participationLabel);
         _participationRow.Children.Add(_participation);
+        _participationRow.Children.Add(_todayKeysValue);
         _participationRow.Children.Add(_syncButton);
         _participationRow.Children.Add(_repairButton);
         var cardContent = new StackPanel { Spacing = 2 };
         cardContent.Children.Add(_participationRow);
-        var todayKeysRow = new Grid { MinHeight = 36, ColumnSpacing = 8 };
-        todayKeysRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        todayKeysRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(_todayKeysLabel, 0);
-        Grid.SetColumn(_todayKeysValue, 1);
-        todayKeysRow.Children.Add(_todayKeysLabel);
-        todayKeysRow.Children.Add(_todayKeysValue);
-        cardContent.Children.Add(todayKeysRow);
         cardContent.Children.Add(_syncStatus);
         _switchesCard.Content = cardContent;
 
@@ -161,7 +155,7 @@ public sealed partial class TreeSettingsSection : UserControl
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
-        _todayKeysLabel.Text = _localization.T("Tree.Settings.TodayKeys");
+        ToolTipService.SetToolTip(_todayKeysValue, _localization.T("Tree.Settings.TodayKeys"));
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
         if (_syncButton.Content is TextBlock syncText)
             syncText.Text = _localization.T("Tree.SyncCalibrate");
@@ -298,7 +292,7 @@ public sealed partial class TreeSettingsSection : UserControl
         RefreshLeaderboardSurface();
     }
 
-    private void RefreshTodayKeys() => _todayKeysValue.Text = $"{_counter.Snapshot.TodayKeys:N0}";
+    private void RefreshTodayKeys() => _todayKeysValue.Text = $"⌨ {_counter.Snapshot.TodayKeys:N0}";
 
     private void RefreshLeaderboardSurface()
     {
