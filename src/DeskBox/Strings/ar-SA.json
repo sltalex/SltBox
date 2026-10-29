@@ -2991,6 +2991,7 @@
   "Tree.Settings.Card.Current.Description": "ملخص بسيط لنمو الشجرة اليوم وعلى مدار عمرها.",
   "Tree.Settings.Card.Switches": "إعدادات الشجرة والإحصاءات",
   "Tree.Settings.TodayKeys": "Today's keyboard presses",
+  "Tree.Settings.ShowEnergy": "عرض الطاقة على الشجرة",
 "Tree.Settings.Card.Sync": "Data sync",
 "Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "تقدم النمو",

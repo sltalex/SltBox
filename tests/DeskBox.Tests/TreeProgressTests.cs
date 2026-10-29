@@ -176,6 +176,28 @@ public sealed class TreeProgressTests
         }
     }
 
+    [Fact]
+    public void EnergyDisplayPreferenceDefaultsOffAndSurvivesRestart()
+    {
+        Assert.False(new TreeProgress().ShowEnergy);
+
+        string directory = Path.Combine(Path.GetTempPath(), "deskbox-tree-display-test-" + Guid.NewGuid().ToString("N"));
+        string path = Path.Combine(directory, "progress.json");
+        try
+        {
+            var store = new TreeProgressFileStore(path);
+            store.Save(new TreeProgress { TotalEnergy = 1234, ShowEnergy = true });
+
+            TreeProgress recovered = store.Load();
+            Assert.True(recovered.ShowEnergy);
+            Assert.Equal(1234, recovered.TotalEnergy);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private sealed class FixedRandom(int value) : Random
     {
         public override int Next(int minValue, int maxValue) => Math.Clamp(value, minValue, maxValue - 1);

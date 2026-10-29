@@ -3025,6 +3025,7 @@
   "Tree.Settings.Card.Current.Description": "轻松看看今天和这棵树一路积累的成长。",
   "Tree.Settings.Card.Switches": "种树设置",
   "Tree.Settings.TodayKeys": "今日键盘敲击次数",
+  "Tree.Settings.ShowEnergy": "前端展示能量值",
 "Tree.Settings.Card.Sync": "数据同步",
 "Tree.Settings.Card.Sync.Description": "手动同步种树数据；如果同步状态异常，可清理本地状态后重启。",
   "Tree.Settings.Card.Progress": "成长进度",

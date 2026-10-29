@@ -72,6 +72,16 @@ public sealed class TreeCounterService : IDisposable
         Save(); Changed?.Invoke();
     }
 
+    public void SetShowEnergy(bool enabled)
+    {
+        lock (_gate)
+        {
+            if (_progress.ShowEnergy == enabled) return;
+            _progress.ShowEnergy = enabled;
+        }
+        Save(); Changed?.Invoke();
+    }
+
     public long Harvest()
     {
         long result;
@@ -145,7 +155,15 @@ public sealed class TreeCounterService : IDisposable
 
     public void Reset()
     {
-        lock (_gate) _progress = new TreeProgress { DailyGoal = _progress.DailyGoal, Paused = _progress.Paused };
+        lock (_gate)
+        {
+            _progress = new TreeProgress
+            {
+                DailyGoal = _progress.DailyGoal,
+                Paused = _progress.Paused,
+                ShowEnergy = _progress.ShowEnergy
+            };
+        }
         Save(); Changed?.Invoke();
     }
 
@@ -273,7 +291,7 @@ public sealed class TreeCounterService : IDisposable
 
     private static TreeProgress Clone(TreeProgress p) => new()
     {
-        DailyGoal = p.DailyGoal, Paused = p.Paused, LocalDay = p.LocalDay,
+        DailyGoal = p.DailyGoal, Paused = p.Paused, ShowEnergy = p.ShowEnergy, LocalDay = p.LocalDay,
         TodayKeys = p.TodayKeys, TotalEnergy = p.TotalEnergy, HighestStage = p.HighestStage,
         FruitEnergy = p.FruitEnergy, FruitInventory = p.FruitInventory, HarvestedFruit = p.HarvestedFruit
     };

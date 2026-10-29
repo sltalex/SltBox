@@ -12,6 +12,14 @@ public sealed partial class TreeSettingsSection : UserControl
 {
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
+    private readonly ToggleSwitch _showEnergy = new() { OnContent = "", OffContent = "", MinWidth = 0 };
+    private readonly TextBlock _showEnergyLabel = new()
+    {
+        Width = 128,
+        TextWrapping = TextWrapping.NoWrap,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        VerticalAlignment = VerticalAlignment.Center
+    };
     private readonly ToggleSwitch _participation = new() { OnContent = "", OffContent = "", MinWidth = 0 };
     private readonly TextBlock _participationLabel = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _todayKeysValue = new()
@@ -63,16 +71,23 @@ public sealed partial class TreeSettingsSection : UserControl
             MinHeight = 46, ColumnSpacing = 6,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         for (int i = 0; i < 4; i++)
             _participationRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _participationLabel.TextWrapping = TextWrapping.NoWrap;
         _participationLabel.TextTrimming = TextTrimming.CharacterEllipsis;
+        _showEnergy.VerticalAlignment = VerticalAlignment.Center;
         _participation.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(_participation, 1);
-        Grid.SetColumn(_todayKeysValue, 2);
-        Grid.SetColumn(_syncButton, 3);
-        Grid.SetColumn(_repairButton, 4);
+        Grid.SetColumn(_showEnergy, 1);
+        Grid.SetColumn(_participationLabel, 2);
+        Grid.SetColumn(_participation, 3);
+        Grid.SetColumn(_todayKeysValue, 4);
+        Grid.SetColumn(_syncButton, 5);
+        Grid.SetColumn(_repairButton, 6);
+        _participationRow.Children.Add(_showEnergyLabel);
+        _participationRow.Children.Add(_showEnergy);
         _participationRow.Children.Add(_participationLabel);
         _participationRow.Children.Add(_participation);
         _participationRow.Children.Add(_todayKeysValue);
@@ -109,6 +124,11 @@ public sealed partial class TreeSettingsSection : UserControl
             if (_updating || _cloud is null || _auth?.IsAuthenticated != true) return;
             try { await _cloud.SetParticipationAsync(_participation.IsOn); }
             catch (Exception ex) { App.Log($"[TreeCloud] Participation update failed: {ex.GetType().Name}"); Refresh(); }
+        };
+        _showEnergy.Toggled += (_, _) =>
+        {
+            if (_updating) return;
+            _counter.SetShowEnergy(_showEnergy.IsOn);
         };
         Loaded += TreeSettingsSection_Loaded;
         Unloaded += TreeSettingsSection_Unloaded;
@@ -154,6 +174,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_localization is null) return;
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
+        _showEnergyLabel.Text = _localization.T("Tree.Settings.ShowEnergy");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
         ToolTipService.SetToolTip(_todayKeysValue, _localization.T("Tree.Settings.TodayKeys"));
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
@@ -280,7 +301,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (Interlocked.Exchange(ref _counterRefreshQueued, 1) != 0) return;
         if (!_uiQueue.TryEnqueue(() =>
             {
-                try { if (IsLoaded) RefreshTodayKeys(); }
+                try { if (IsLoaded) { RefreshTodayKeys(); RefreshShowEnergy(); } }
                 finally { Interlocked.Exchange(ref _counterRefreshQueued, 0); }
             }))
             Interlocked.Exchange(ref _counterRefreshQueued, 0);
@@ -289,10 +310,21 @@ public sealed partial class TreeSettingsSection : UserControl
     private void Refresh()
     {
         RefreshTodayKeys();
+        RefreshShowEnergy();
         RefreshLeaderboardSurface();
     }
 
     private void RefreshTodayKeys() => _todayKeysValue.Text = $"⌨ {_counter.Snapshot.TodayKeys:N0}";
+
+    private void RefreshShowEnergy()
+    {
+        bool showEnergy = _counter.Snapshot.ShowEnergy;
+        if (_showEnergy.IsOn == showEnergy) return;
+        bool wasUpdating = _updating;
+        _updating = true;
+        try { _showEnergy.IsOn = showEnergy; }
+        finally { _updating = wasUpdating; }
+    }
 
     private void RefreshLeaderboardSurface()
     {
@@ -304,6 +336,7 @@ public sealed partial class TreeSettingsSection : UserControl
             _decorations.Visibility = _decorationService?.IsVisibleToCurrentUser == true
                 ? Visibility.Visible : Visibility.Collapsed;
             RefreshSyncActions();
+            RefreshShowEnergy();
             _participationLabel.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
             _participation.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
             _leaderboard.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;

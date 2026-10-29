@@ -2991,6 +2991,7 @@
   "Tree.Settings.Card.Current.Description": "আজ এবং গাছটির পুরো জীবনের বৃদ্ধির সংক্ষিপ্তসার।",
   "Tree.Settings.Card.Switches": "গাছ ও পরিসংখ্যান সেটিংস",
   "Tree.Settings.TodayKeys": "Today's keyboard presses",
+  "Tree.Settings.ShowEnergy": "গাছে শক্তি দেখান",
 "Tree.Settings.Card.Sync": "Data sync",
 "Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "বৃদ্ধির অগ্রগতি",

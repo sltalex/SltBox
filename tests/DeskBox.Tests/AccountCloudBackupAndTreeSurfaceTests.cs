@@ -167,9 +167,24 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         Assert.Contains("_counter.Snapshot.TodayKeys", source, StringComparison.Ordinal);
         Assert.Contains("_counter.Changed += OnCounterChanged", source, StringComparison.Ordinal);
         Assert.Contains("Tree.Settings.TodayKeys", source, StringComparison.Ordinal);
-        Assert.Contains("Grid.SetColumn(_todayKeysValue, 2)", source, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(_todayKeysValue, 4)", source, StringComparison.Ordinal);
         Assert.Contains("_participationRow.Children.Add(_todayKeysValue)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("todayKeysRow", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TreeSettings_ControlsOptionalFrontendEnergyDisplay()
+    {
+        string settings = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
+        string widget = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
+
+        Assert.Contains("_showEnergy", settings, StringComparison.Ordinal);
+        Assert.Contains("_counter.SetShowEnergy(_showEnergy.IsOn)", settings, StringComparison.Ordinal);
+        Assert.Contains("Tree.Settings.ShowEnergy", settings, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumn(_showEnergy, 1)", settings, StringComparison.Ordinal);
+        Assert.Contains("_energyText", widget, StringComparison.Ordinal);
+        Assert.Contains("p.ShowEnergy ? Visibility.Visible : Visibility.Collapsed", widget, StringComparison.Ordinal);
+        Assert.Contains("⚡ {p.TotalEnergy:N0}", widget, StringComparison.Ordinal);
     }
 
     [Fact]

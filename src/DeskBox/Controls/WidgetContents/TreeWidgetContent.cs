@@ -54,6 +54,12 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         RepeatBehavior = RepeatBehavior.Forever
     };
     private readonly TextBlock _captureStatus = new() { FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly TextBlock _energyText = new()
+    {
+        FontSize = 12,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        Visibility = Visibility.Collapsed
+    };
     private DateTimeOffset _wildlifeFeedbackUntil;
     private bool _wildlifeCaptureConfirmed;
     private readonly TreeBubbleProgressBar _progress = new();
@@ -107,6 +113,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         var stack = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch };
         _progress.Margin = new Thickness(16, 8, 16, 4);
         stack.Children.Add(new Viewbox { Child = _drawing, Height = TreeIllustrationLayout.DisplayHeight, Stretch = Stretch.Uniform });
+        stack.Children.Add(_energyText);
         stack.Children.Add(_captureStatus);
         stack.Children.Add(_progress);
         Content = stack;
@@ -168,6 +175,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     {
         if (_disposed) return;
         TreeProgress p = _counter.Snapshot;
+        _energyText.Visibility = p.ShowEnergy ? Visibility.Visible : Visibility.Collapsed;
+        _energyText.Text = $"⚡ {p.TotalEnergy:N0}";
         bool celebrate = _lastStage != 0 && (p.Stage > _lastStage || p.HarvestedFruit > _lastHarvested);
         _lastHarvested = p.HarvestedFruit;
         _progress.Visibility = TreeIllustrationLayout.ShowsStageProgress(p.Stage)

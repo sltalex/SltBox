@@ -3025,6 +3025,7 @@
   "Tree.Settings.Card.Current.Description": "A friendly summary of today and the lifetime of this tree.",
   "Tree.Settings.Card.Switches": "Tree settings",
   "Tree.Settings.TodayKeys": "Today's keyboard presses",
+  "Tree.Settings.ShowEnergy": "Show energy on tree",
 "Tree.Settings.Card.Sync": "Data sync",
 "Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "Growth progress",

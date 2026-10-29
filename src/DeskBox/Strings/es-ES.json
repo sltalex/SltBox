@@ -2991,6 +2991,7 @@
   "Tree.Settings.Card.Current.Description": "Un resumen de hoy y de toda la vida de este árbol.",
   "Tree.Settings.Card.Switches": "Árbol y estadísticas",
   "Tree.Settings.TodayKeys": "Today's keyboard presses",
+  "Tree.Settings.ShowEnergy": "Mostrar energía en el árbol",
 "Tree.Settings.Card.Sync": "Data sync",
 "Tree.Settings.Card.Sync.Description": "Manually sync tree data. If sync is stuck, clear the local state and restart.",
   "Tree.Settings.Card.Progress": "Progreso de crecimiento",

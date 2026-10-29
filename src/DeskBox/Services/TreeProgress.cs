@@ -7,6 +7,7 @@ public sealed class TreeProgress
     public const int CloudFruitCost = 3_000;
     public int DailyGoal { get; set; } = 12000;
     public bool Paused { get; set; }
+    public bool ShowEnergy { get; set; }
     public string LocalDay { get; set; } = string.Empty;
     public long TodayKeys { get; set; }
     public long TotalEnergy { get; set; }
