@@ -49,6 +49,8 @@ public sealed class WildlifeServiceTests : IDisposable
         Assert.Equal("季节：春季、夏季、秋季、冬季", WildlifeAvailabilityPresentation.Seasons(butterfly));
         Assert.Equal("时段：清晨、白天", WildlifeAvailabilityPresentation.Periods(butterfly));
         Assert.Equal("天气：晴、多云", WildlifeAvailabilityPresentation.Weathers(butterfly));
+        Assert.Equal("季节：春季、夏季、秋季、冬季\n时段：清晨、白天\n天气：晴、多云",
+            WildlifeAvailabilityPresentation.EncyclopediaDetails(butterfly));
         Assert.Equal("地点：草地", WildlifeAvailabilityPresentation.Placement(butterfly));
     }
 

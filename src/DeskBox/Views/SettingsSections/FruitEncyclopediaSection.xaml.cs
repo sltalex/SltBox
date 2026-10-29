@@ -229,7 +229,7 @@ public sealed partial class FruitEncyclopediaSection : UserControl
                     bool discovered = inventory.TryGetValue(species.Id, out WildlifeInventoryItem? owned) &&
                         (owned.Discovered || owned.Quantity > 0);
                     entries.Add(new AtlasEntry(discovered ? species.Name : "尚未发现", species.Category,
-                        discovered ? $"拥有 {owned!.Quantity}" : "未发现",
+                        discovered ? WildlifeAvailabilityPresentation.EncyclopediaDetails(species) : "未发现",
                         () => WildlifeAssetCatalog.GetImage(species.Id, blurred: !discovered)));
                 }
                 WildlifeItems.ItemsSource = entries;

@@ -84,6 +84,11 @@ public sealed class EncyclopediaCategorySummaryTests
         Assert.DoesNotContain("未发现的仅显示模糊轮廓", xaml, StringComparison.Ordinal);
         Assert.Contains("\"Tree.FruitEncyclopedia\":\"图鉴\"", zh, StringComparison.Ordinal);
         Assert.Contains("{name} {progress.Obtained}/{progress.Total}", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("WildlifeAvailabilityPresentation.EncyclopediaDetails(species)", codeBehind, StringComparison.Ordinal);
+        string wildlifeCode = codeBehind[codeBehind.IndexOf("WildlifeService wildlife", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("$\"拥有 {owned!.Quantity}\"", wildlifeCode, StringComparison.Ordinal);
+        string wildlifePanel = xaml[xaml.IndexOf("x:Name=\"WildlifePanel\"", StringComparison.Ordinal)..];
+        Assert.Contains("TextWrapping=\"Wrap\" TextAlignment=\"Center\"", wildlifePanel, StringComparison.Ordinal);
         Assert.DoesNotContain("已获得", codeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("总数", codeBehind, StringComparison.Ordinal);
     }

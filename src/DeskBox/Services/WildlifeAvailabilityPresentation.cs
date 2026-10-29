@@ -18,6 +18,9 @@ internal static class WildlifeAvailabilityPresentation
         "rain" => "雨", "snow" => "雪", "thunderstorm" => "雷暴", _ => code
     });
 
+    internal static string EncyclopediaDetails(WildlifeCatalogItem species) => string.Join("\n",
+        Seasons(species), Periods(species), Weathers(species));
+
     internal static string Placement(WildlifeCatalogItem species) => "地点：" + (species.Placement switch
     {
         "tree" => "树上", "grass" => "草地", "sky" => "天空", _ => species.Placement
