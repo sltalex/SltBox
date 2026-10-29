@@ -49,12 +49,11 @@
                 <GridView x:Name="WildlifeItems" Height="400" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></GridView.ItemsPanel>
                     <GridView.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
-                        <Border Width="132" MinHeight="184" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Border Width="132" MinHeight="224" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <StackPanel Spacing="4">
                                 <Image Source="{x:Bind Image}" Width="72" Height="72" Stretch="Uniform" />
                                 <TextBlock Text="{x:Bind Name}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{x:Bind Category}" FontSize="11" Opacity="0.65" HorizontalAlignment="Center" />
-                                <TextBlock Text="{x:Bind QuantityText}" FontSize="11" Opacity="0.75" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                                <TextBlock Text="{x:Bind QuantityText}" FontSize="11" Opacity="0.75" HorizontalAlignment="Stretch" TextWrapping="Wrap" TextAlignment="Left" />
                             </StackPanel>
                         </Border>
                     </DataTemplate></GridView.ItemTemplate>

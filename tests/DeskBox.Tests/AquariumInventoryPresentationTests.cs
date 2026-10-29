@@ -138,6 +138,9 @@ public sealed class AquariumInventoryPresentationTests
         Assert.Contains("AddTreePackBackpackCards(cards)", settings, StringComparison.Ordinal);
         Assert.Contains("BackpackPackCard", settings, StringComparison.Ordinal);
         Assert.Contains("AquariumInventoryPresentation.AquariumItems", settings, StringComparison.Ordinal);
+        string wildlifeBackpack = settings[settings.IndexOf("RenderWildlifeBackpack", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("WildlifeAvailabilityPresentation", wildlifeBackpack, StringComparison.Ordinal);
+        Assert.DoesNotContain("WildlifeConditionText", wildlifeBackpack, StringComparison.Ordinal);
         Assert.Contains("backpack.AquariumRequested += () => NavigateToSettingsSection(\"AquariumSettings\")", navigation,
             StringComparison.Ordinal);
         Assert.Contains("AttachExternalStore(store)", navigation, StringComparison.Ordinal);

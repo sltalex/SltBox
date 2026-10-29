@@ -705,10 +705,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             imageHost.Children.Add(BackpackQuantityBadge(item.Quantity));
             content.Children.Add(imageHost);
             content.Children.Add(new TextBlock { Text = species.Name, FontSize = 13, TextAlignment = TextAlignment.Center });
-            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Seasons(species)));
-            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Periods(species)));
-            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Weathers(species)));
-            content.Children.Add(WildlifeConditionText(WildlifeAvailabilityPresentation.Placement(species)));
             cards.Children.Add(new Border
             {
                 Width = 172, MinHeight = 176, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
@@ -748,11 +744,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             host.Children.Add(new TextBlock { Text = "尚未收集果实", Opacity = .7 });
         else host.Children.Add(cards);
     }
-
-    private static TextBlock WildlifeConditionText(string text) => new()
-    {
-        Text = text, FontSize = 11, Opacity = .72, TextWrapping = TextWrapping.Wrap
-    };
 
     private static Border BackpackQuantityBadge(long count) => new()
     {
