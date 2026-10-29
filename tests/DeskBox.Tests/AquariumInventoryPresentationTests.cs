@@ -170,6 +170,26 @@ public sealed class AquariumInventoryPresentationTests
     }
 
     [Fact]
+    public void ExternalBackpackRefreshesOnOpenAndCategoryChangeOnly()
+    {
+        string settings = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src", "DeskBox", "Views",
+            "SettingsSections", "AquariumSettingsSection.cs"));
+
+        Assert.Contains("if (becameActive && !_disposed) _ = RefreshBackpackDataAsync();", settings,
+            StringComparison.Ordinal);
+        Assert.Contains("await App.Current.WildlifeService.RefreshAsync();", settings, StringComparison.Ordinal);
+        Assert.Contains("await App.Current.FruitService.RefreshAsync();", settings, StringComparison.Ordinal);
+        Assert.Contains("RenderExternalBackpack();", settings[settings.IndexOf("AttachExternalBackpack", StringComparison.Ordinal)..],
+            StringComparison.Ordinal);
+
+        string render = settings[settings.IndexOf("private void Render()", StringComparison.Ordinal)..
+            settings.IndexOf("private void RenderPreview()", StringComparison.Ordinal)];
+        Assert.DoesNotContain("RenderExternalBackpack();", render, StringComparison.Ordinal);
+        Assert.Contains("_selectedExternalBackpackGroup = \"wildlife\"; RenderExternalBackpack();", settings,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CardPackIsShownAsAnUnplacedBackpackItem()
     {
         AquariumInventoryItem[] inventory = [new("pack-1", "aquarium-card-pack", "now")];

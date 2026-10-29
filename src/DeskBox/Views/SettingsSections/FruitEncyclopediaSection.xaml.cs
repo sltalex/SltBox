@@ -10,6 +10,7 @@ namespace DeskBox.Views.SettingsSections;
 public sealed partial class FruitEncyclopediaSection : UserControl
 {
     private const string AllCategories = "";
+    private const int WildlifePageSize = 10;
     private string _selectedFruitCategory = AllCategories;
     private string _selectedAquariumCategory = AllCategories;
     private string _selectedWildlifeCategory = AllCategories;
@@ -17,6 +18,8 @@ public sealed partial class FruitEncyclopediaSection : UserControl
     private volatile bool _fruitDirty = true;
     private volatile bool _aquariumDirty = true;
     private volatile bool _wildlifeDirty = true;
+    private int _wildlifePage;
+    private IReadOnlyList<AtlasEntry> _wildlifeEntries = [];
 
     public FruitEncyclopediaSection()
     {
@@ -63,6 +66,21 @@ public sealed partial class FruitEncyclopediaSection : UserControl
         WildlifePanel.Visibility = Visibility.Visible;
         UpdatePrimaryTabVisuals();
         Refresh();
+    }
+
+    private void WildlifePreviousPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_wildlifePage <= 0) return;
+        _wildlifePage--;
+        RenderWildlifePage();
+    }
+
+    private void WildlifeNextPage_Click(object sender, RoutedEventArgs e)
+    {
+        int pageCount = Math.Max(1, (_wildlifeEntries.Count + WildlifePageSize - 1) / WildlifePageSize);
+        if (_wildlifePage + 1 >= pageCount) return;
+        _wildlifePage++;
+        RenderWildlifePage();
     }
 
     private void UpdatePrimaryTabVisuals()
@@ -218,7 +236,13 @@ public sealed partial class FruitEncyclopediaSection : UserControl
         if (WildlifePanel.Visibility == Visibility.Visible)
         {
             RenderCategories(WildlifeCategories, wildlifeCategories, _selectedWildlifeCategory,
-                category => category, category => { _selectedWildlifeCategory = category; _wildlifeDirty = true; Refresh(); });
+                category => category, category =>
+                {
+                    _selectedWildlifeCategory = category;
+                    _wildlifePage = 0;
+                    _wildlifeDirty = true;
+                    Refresh();
+                });
             if (_wildlifeDirty)
             {
                 var inventory = wildlife.Inventory.ToDictionary(item => item.SpeciesId, StringComparer.Ordinal);
@@ -232,10 +256,24 @@ public sealed partial class FruitEncyclopediaSection : UserControl
                         discovered ? WildlifeAvailabilityPresentation.EncyclopediaDetails(species) : "未发现",
                         () => WildlifeAssetCatalog.GetImage(species.Id, blurred: !discovered)));
                 }
-                WildlifeItems.ItemsSource = entries;
+                _wildlifeEntries = entries;
+                _wildlifePage = 0;
                 _wildlifeDirty = false;
             }
+            RenderWildlifePage();
         }
+    }
+
+    private void RenderWildlifePage()
+    {
+        int pageCount = Math.Max(1, (_wildlifeEntries.Count + WildlifePageSize - 1) / WildlifePageSize);
+        _wildlifePage = Math.Clamp(_wildlifePage, 0, pageCount - 1);
+        WildlifeItems.ItemsSource = _wildlifeEntries
+            .Skip(_wildlifePage * WildlifePageSize).Take(WildlifePageSize).ToArray();
+        WildlifePager.Visibility = pageCount > 1 ? Visibility.Visible : Visibility.Collapsed;
+        WildlifePageLabel.Text = $"{_wildlifePage + 1}/{pageCount}";
+        WildlifePreviousPageButton.IsEnabled = _wildlifePage > 0;
+        WildlifeNextPageButton.IsEnabled = _wildlifePage + 1 < pageCount;
     }
 }
 

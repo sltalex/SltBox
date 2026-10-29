@@ -245,11 +245,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         bool becameActive = active && !_backpackActive;
         _backpackActive = active && !_disposed;
         if (becameActive) RenderExternalBackpack();
-        if (becameActive && !_disposed) _ = RefreshAsync();
-        if (becameActive && !_disposed) _ = App.Current.WildlifeService.RefreshAsync();
-        if (becameActive && !_disposed) _ = App.Current.FruitService.RefreshAsync();
-        if (becameActive && !_disposed && _treeDecorations?.IsAvailable == true)
-            _ = _treeDecorations.RefreshAsync();
+        if (becameActive && !_disposed) _ = RefreshBackpackDataAsync();
     }
 
     internal void SetStoreActive(bool active)
@@ -267,6 +263,23 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         _externalBackpack = page;
         RenderExternalBackpack();
         UpdateStatus();
+    }
+
+    private async Task RefreshBackpackDataAsync()
+    {
+        try
+        {
+            await RefreshAsync();
+            await App.Current.WildlifeService.RefreshAsync();
+            await App.Current.FruitService.RefreshAsync();
+            if (_treeDecorations?.IsAvailable == true)
+                await _treeDecorations.RefreshAsync();
+        }
+        finally
+        {
+            if (_backpackActive && !_disposed)
+                _queue.TryEnqueue(RenderExternalBackpack);
+        }
     }
 
     internal void AttachExternalStore(AquariumStoreSection page)
@@ -371,7 +384,6 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         UpdateSelection();
         RenderStore();
         RenderBackpack(_backpack, _backpackPrimaryCategories, _backpackCategories);
-        RenderExternalBackpack();
         UpdateStatus();
     }
 

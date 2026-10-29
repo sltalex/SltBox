@@ -88,8 +88,14 @@ public sealed class EncyclopediaCategorySummaryTests
         string wildlifeCode = codeBehind[codeBehind.IndexOf("WildlifeService wildlife", StringComparison.Ordinal)..];
         Assert.DoesNotContain("$\"拥有 {owned!.Quantity}\"", wildlifeCode, StringComparison.Ordinal);
         string wildlifePanel = xaml[xaml.IndexOf("x:Name=\"WildlifePanel\"", StringComparison.Ordinal)..];
-        Assert.Contains("MinHeight=\"224\"", wildlifePanel, StringComparison.Ordinal);
+        Assert.DoesNotContain("MinHeight=", wildlifePanel, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"Wrap\" TextAlignment=\"Left\"", wildlifePanel, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WildlifePager\"", wildlifePanel, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WildlifePreviousPageButton\"", wildlifePanel, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"WildlifeNextPageButton\"", wildlifePanel, StringComparison.Ordinal);
+        Assert.Contains("private const int WildlifePageSize = 10;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("MaximumRowsOrColumns=\"5\"", wildlifePanel, StringComparison.Ordinal);
+        Assert.Contains("Skip(_wildlifePage * WildlifePageSize).Take(WildlifePageSize)", codeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"{x:Bind Category}\"", wildlifePanel, StringComparison.Ordinal);
         Assert.DoesNotContain("已获得", codeBehind, StringComparison.Ordinal);
         Assert.DoesNotContain("总数", codeBehind, StringComparison.Ordinal);
