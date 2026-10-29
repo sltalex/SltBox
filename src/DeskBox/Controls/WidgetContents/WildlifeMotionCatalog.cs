@@ -151,10 +151,67 @@ internal static class WildlifeMotionCatalog
 
     internal static bool FliesAcrossSky(string id) => SkyFlightIds.Contains(id);
 
+    internal static bool FliesAcrossSky(string id, string? placement)
+    {
+        // A verified server placement is authoritative. Fall back to the local
+        // catalog only when the server value is missing or unknown.
+        string? normalized = NormalizePlacementOrNull(placement);
+        return normalized is null ? FliesAcrossSky(id) : normalized == "sky";
+    }
+
+    /// <summary>
+    /// Projects one encounter into a stable random position inside its catalog
+    /// placement band. The encounter id is the seed so refreshes do not make a
+    /// visible animal jump, while two encounters of the same species differ.
+    /// </summary>
+    internal static WildlifeMotionProfile ForEncounter(string id, int stage, string encounterId) =>
+        ForEncounter(id,
+            WildlifeAssetCatalog.LocalCatalog.FirstOrDefault(item => item.Id == id)?.Placement ?? "grass",
+            stage, encounterId);
+
+    internal static WildlifeMotionProfile ForEncounter(string id, string placement, int stage,
+        string encounterId)
+    {
+        WildlifeCatalogItem species = WildlifeAssetCatalog.LocalCatalog.First(item => item.Id == id);
+        string band = NormalizePlacement(placement, species.Placement);
+        WildlifeMotionProfile profile = band == "sky"
+            ? CreateSkyFlight(species)
+            : ForStage(id, stage, band);
+        uint hash = StableHash(id + "|" + encounterId);
+        uint secondHash = NextHash(hash);
+
+        return band switch
+        {
+            "sky" => profile with { Y = Range(secondHash, 24, 48) },
+            "tree" => profile with
+            {
+                X = Range(hash, 130 - Math.Min(35, TreeIllustrationLayout.ArtworkWidth(stage) * .18),
+                    130 + Math.Min(35, TreeIllustrationLayout.ArtworkWidth(stage) * .18)),
+                Y = Range(secondHash, 67, 105)
+            },
+            "trunk" => profile with
+            {
+                X = Range(hash, 112, 148),
+                Y = Range(secondHash, 137, 145)
+            },
+            _ => profile with
+            {
+                X = Range(hash, 40, 220),
+                Y = Range(secondHash, 151, 165)
+            }
+        };
+    }
+
     internal static WildlifeMotionProfile ForStage(string id, int stage)
     {
+        string? placement = WildlifeAssetCatalog.LocalCatalog.FirstOrDefault(item => item.Id == id)?.Placement;
+        return ForStage(id, stage, placement);
+    }
+
+    private static WildlifeMotionProfile ForStage(string id, int stage, string? placement)
+    {
         WildlifeMotionProfile profile = Profiles[id];
-        if (!WildlifeAssetCatalog.LocalCatalog.Any(species => species.Id == id && species.Placement == "tree"))
+        if (!string.Equals(placement, "tree", StringComparison.OrdinalIgnoreCase))
             return profile;
         double ratio = TreeIllustrationLayout.ArtworkWidth(stage) / TreeIllustrationLayout.ArtworkWidth(5);
         return profile with
@@ -163,6 +220,28 @@ internal static class WildlifeMotionCatalog
             Y = 116 + (profile.Y - 116) * ratio
         };
     }
+
+    private static string NormalizePlacement(string? placement, string fallback) =>
+        NormalizePlacementOrNull(placement) ?? NormalizePlacementOrNull(fallback) ?? "grass";
+
+    private static string? NormalizePlacementOrNull(string? placement) => placement?.Trim().ToLowerInvariant() switch
+    {
+        "sky" or "tree" or "trunk" or "grass" => placement.Trim().ToLowerInvariant(),
+        _ => null
+    };
+
+    private static uint StableHash(string value)
+    {
+        uint hash = 2166136261;
+        foreach (char character in value)
+            hash = unchecked((hash ^ character) * 16777619);
+        return hash;
+    }
+
+    private static uint NextHash(uint value) => unchecked(value * 1664525 + 1013904223);
+
+    private static double Range(uint hash, double minimum, double maximum) =>
+        minimum + hash / (double)uint.MaxValue * (maximum - minimum);
 
     private static WildlifeMotionProfile CreateSkyFlight(WildlifeCatalogItem species)
     {

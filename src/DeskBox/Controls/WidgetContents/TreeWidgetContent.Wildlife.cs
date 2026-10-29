@@ -28,7 +28,9 @@ public sealed partial class TreeWidgetContent
         ImageSource? source = WildlifeAssetCatalog.GetImage(encounter.SpeciesId);
         if (species is null || source is null ||
             !WildlifeMotionCatalog.Profiles.TryGetValue(encounter.SpeciesId, out WildlifeMotionProfile? motion)) return;
-        motion = WildlifeMotionCatalog.ForStage(encounter.SpeciesId, treeStage);
+        motion = WildlifeMotionCatalog.ForEncounter(encounter.SpeciesId, species.Placement,
+            treeStage, encounter.Id);
+        bool skyFlight = WildlifeMotionCatalog.FliesAcrossSky(encounter.SpeciesId, species.Placement);
 
         var transform = new CompositeTransform { ScaleX = motion.Frames[0].ScaleX };
         double visualSize = WildlifeMotionCatalog.VisualSize(encounter.SpeciesId, species.Category, treeStage);
@@ -91,14 +93,14 @@ public sealed partial class TreeWidgetContent
             }
         };
         (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(
-            motion, visualSize, WildlifeMotionCatalog.FliesAcrossSky(encounter.SpeciesId));
+            motion, visualSize, skyFlight);
         Canvas.SetLeft(hitTarget, left);
         Canvas.SetTop(hitTarget, top);
         _wildlifeLayer.Children.Add(hitTarget);
 
         if (!WindowsCompatibilityService.ShouldAnimate) return;
         AddWildlifeTrack(transform, "TranslateX", motion, frame => frame.X,
-            linear: WildlifeMotionCatalog.FliesAcrossSky(encounter.SpeciesId));
+            linear: skyFlight);
         AddWildlifeTrack(transform, "TranslateY", motion, frame => frame.Y);
         AddWildlifeTrack(transform, "Rotation", motion, frame => frame.Rotation);
         AddWildlifeTrack(transform, "ScaleX", motion, frame => frame.ScaleX);

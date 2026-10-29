@@ -138,6 +138,33 @@ public sealed class WildlifeMotionCatalogTests
     }
 
     [Fact]
+    public void EncounterPositions_VaryWithinTheCatalogPlacementBand()
+    {
+        WildlifeMotionProfile skyFirst = WildlifeMotionCatalog.ForEncounter("swallow", 5, "encounter-a");
+        WildlifeMotionProfile skySecond = WildlifeMotionCatalog.ForEncounter("swallow", 5, "encounter-b");
+        WildlifeMotionProfile tree = WildlifeMotionCatalog.ForEncounter("squirrel", 5, "encounter-a");
+        WildlifeMotionProfile grass = WildlifeMotionCatalog.ForEncounter("rabbit", 5, "encounter-a");
+
+        Assert.NotEqual((skyFirst.X, skyFirst.Y), (skySecond.X, skySecond.Y));
+        Assert.InRange(skyFirst.Y, 20, 52);
+        Assert.InRange(skySecond.Y, 20, 52);
+        Assert.InRange(tree.X, 95, 165);
+        Assert.InRange(tree.Y, 60, 110);
+        Assert.InRange(grass.X, 40, 220);
+        Assert.InRange(grass.Y, 145, 170);
+    }
+
+    [Fact]
+    public void ExplicitPlacementOverridesLegacyLocalSpeciesClassification()
+    {
+        WildlifeMotionProfile grass = WildlifeMotionCatalog.ForEncounter("swallow", "grass", 5, "encounter-grass");
+
+        Assert.False(WildlifeMotionCatalog.FliesAcrossSky("swallow", "grass"));
+        Assert.InRange(grass.Y, 145, 170);
+        Assert.True(WildlifeMotionCatalog.FliesAcrossSky("swallow", "sky"));
+    }
+
+    [Fact]
     public void MatureTree_DoesNotShowHarvestCountersBelowArtwork()
     {
         string source = File.ReadAllText(TestPaths.FromRepository(

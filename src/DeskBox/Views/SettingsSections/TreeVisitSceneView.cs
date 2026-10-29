@@ -73,10 +73,11 @@ internal sealed partial class TreeVisitSceneView : UserControl
             WildlifeAssetCatalog.GetImage(speciesId) is { } wildlifeSource &&
             WildlifeMotionCatalog.Profiles.ContainsKey(speciesId))
         {
-            WildlifeMotionProfile motion = WildlifeMotionCatalog.ForStage(speciesId, snapshot.Stage);
+            WildlifeMotionProfile motion = WildlifeMotionCatalog.ForEncounter(speciesId,
+                species.Placement, snapshot.Stage, "visit:" + snapshot.Username);
             double size = WildlifeMotionCatalog.VisualSize(speciesId, species.Category, snapshot.Stage);
             (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(
-                motion, size, WildlifeMotionCatalog.FliesAcrossSky(speciesId));
+                motion, size, WildlifeMotionCatalog.FliesAcrossSky(speciesId, species.Placement));
             double inset = (Math.Max(size, 56) - size) / 2;
             var wildlife = new Image { Width = size, Height = size, Source = wildlifeSource, Stretch = Stretch.Uniform };
             Canvas.SetLeft(wildlife, left + inset);
