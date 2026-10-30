@@ -44,4 +44,32 @@ internal static class EncyclopediaCategorySummary
                 group.Key, group.Count(item => discovered.Contains(item.Id)), group.Count()))
             .ToArray();
     }
+
+    internal static IReadOnlyList<EncyclopediaCategoryProgress> TreeDecorations(
+        IReadOnlyList<TreeDecorationCatalogItem> catalog,
+        IReadOnlyList<TreeDecorationInventoryItem> inventory)
+    {
+        HashSet<string> owned = inventory.Where(item => item.Quantity > 0)
+            .Select(item => item.ItemId).ToHashSet(StringComparer.Ordinal);
+        return catalog.Where(item => item.Category != "theme").GroupBy(item => item.Category, StringComparer.Ordinal)
+            .Select(group => new EncyclopediaCategoryProgress(
+                group.Key, group.Count(item => owned.Contains(item.Id)), group.Count()))
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<EncyclopediaCategoryProgress> TreeDecorationSubcategories(
+        IReadOnlyList<TreeDecorationCatalogItem> catalog,
+        IReadOnlyList<TreeDecorationInventoryItem> inventory,
+        string category)
+    {
+        HashSet<string> owned = inventory.Where(item => item.Quantity > 0)
+            .Select(item => item.ItemId).ToHashSet(StringComparer.Ordinal);
+        return catalog.Where(item => item.Category != "theme" &&
+                (string.IsNullOrWhiteSpace(category) || item.Category == category))
+            .GroupBy(item => item.Subcategory, StringComparer.Ordinal)
+            .Select(group => new EncyclopediaCategoryProgress(
+                group.Key, group.Count(item => owned.Contains(item.Id)), group.Count()))
+            .OrderBy(item => item.Category, StringComparer.Ordinal)
+            .ToArray();
+    }
 }

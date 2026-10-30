@@ -191,12 +191,12 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
         }
         if (state is not null && (!_dirty || accountChanged) && _loadedSceneVersion != state.SceneVersion)
         {
-            _draft.Reset(state.Placements, state.ActiveThemeId);
+            _draft.Reset(state.Placements, null);
             _baseSceneVersion = state.SceneVersion;
             _loadedSceneVersion = state.SceneVersion;
         }
         _scene.Bind(_draft, _service.Catalog?.Items ?? [],
-            item => _localization.T("Tree.Decorations.Item." + item.Id));
+            item => TreeDecorationInventoryPresentation.DisplayName(item, _localization.T));
         RenderState();
         RenderCatalog();
         RefreshEditor();
@@ -258,7 +258,6 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
             (int row, int column) = TreeDecorationInventoryLayout.PositionOf(index, _catalogColumnCount);
             if (column == 0)
                 _catalog.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            bool activeTheme = item.Id == _draft.ActiveThemeId;
             var imageHost = new Grid { Height = 46, HorizontalAlignment = HorizontalAlignment.Stretch };
             imageHost.Children.Add(new Image
             {
@@ -268,7 +267,7 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
                 IsHitTestVisible = false
             });
             imageHost.Children.Add(BackpackQuantityBadge(owned.OwnedCount));
-            string name = _localization.T("Tree.Decorations.Item." + item.Id);
+            string name = TreeDecorationInventoryPresentation.DisplayName(item, _localization.T);
             var nameBlock = new TextBlock
             {
                 Text = name, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
@@ -277,26 +276,6 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
             var panel = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch };
             panel.Children.Add(imageHost);
             panel.Children.Add(nameBlock);
-            if (item.Category == "theme")
-            {
-                var theme = new Button
-                {
-                    Content = _localization.T(activeTheme
-                        ? "Tree.Decorations.DisableTheme" : "Tree.Decorations.EnableTheme"),
-                    FontSize = 11, MinHeight = 26, Padding = new Thickness(8, 2, 8, 2),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    IsEnabled = CanMutate()
-                };
-                theme.Click += (_, _) =>
-                {
-                    _draft.SetTheme(activeTheme ? null : item.Id);
-                    _dirty = true;
-                    _scene.Render();
-                    Refresh();
-                };
-                panel.Children.Add(theme);
-            }
-            else
             {
                 panel.Children.Add(new TextBlock
                 {
@@ -334,9 +313,8 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 CornerRadius = new CornerRadius(10),
                 Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Brush,
-                BorderBrush = activeTheme ? new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue) :
-                    Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush,
-                BorderThickness = new Thickness(activeTheme ? 2 : 1), Child = panel
+                BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush,
+                BorderThickness = new Thickness(1), Child = panel
             };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, name);
             Grid.SetColumn(card, column);
@@ -375,10 +353,10 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
     {
         if (_service is null) return;
         bool success = await RunAsync(() => _service.SaveSceneAsync(
-            _draft.Placements, _draft.ActiveThemeId, _baseSceneVersion));
+            _draft.Placements, null, _baseSceneVersion));
         if (success && _service.State is { } state)
         {
-            _draft.Reset(state.Placements, state.ActiveThemeId);
+            _draft.Reset(state.Placements, null);
             _baseSceneVersion = state.SceneVersion;
             _loadedSceneVersion = state.SceneVersion;
             _dirty = false;
@@ -398,7 +376,7 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
     private void ReapplyConflictDraft()
     {
         if (_service?.PendingScene is not { } pending || _service.State is not { } cloud) return;
-        _draft.Reset(pending, _service.PendingThemeId);
+        _draft.Reset(pending, null);
         _baseSceneVersion = cloud.SceneVersion;
         _dirty = true;
         _scene.Render();
@@ -428,10 +406,12 @@ public sealed partial class TreeDecorationSettingsSection : UserControl
         _updatingEditors = true;
         try
         {
-            _selected.Text = selected is null
+            TreeDecorationCatalogItem? product = selected is null ? null : _service?.Catalog?.Items
+                .FirstOrDefault(item => item.Id == selected.ItemId);
+            _selected.Text = product is null
                 ? _localization.T("Tree.Decorations.NoSelection")
                 : _localization.Format("Tree.Decorations.Selected",
-                    _localization.T("Tree.Decorations.Item." + selected.ItemId));
+                    TreeDecorationInventoryPresentation.DisplayName(product, _localization.T));
             _scale.IsEnabled = selected is not null;
             _rotation.IsEnabled = selected is not null;
             _layer.IsEnabled = selected is not null;

@@ -127,7 +127,7 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
     public void TreeVisit_DeserializesReadOnlyScene()
     {
         const string json = """
-            {"username":"friend","stage":5,"total_energy":180000,"visit_count":12,"like_count":3,"liked_by_me":true,"fruit_inventory":3,"fruit_on_tree_count":1,"fruits":["apple"],"placements":[{"item_id":"red-lantern","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1}],"active_theme_id":"spring","wildlife_species_id":"butterfly"}
+            {"username":"friend","stage":5,"total_energy":180000,"visit_count":12,"like_count":3,"liked_by_me":true,"fruit_inventory":3,"fruit_on_tree_count":1,"fruits":["apple"],"placements":[{"item_id":"red-lantern","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1}],"active_theme_id":null,"wildlife_species_id":"butterfly"}
             """;
         TreeVisitSnapshot? snapshot = JsonSerializer.Deserialize(
             json, AccountCloudJsonContext.Default.TreeVisitSnapshot);
@@ -137,7 +137,7 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         Assert.Equal("apple", Assert.Single(snapshot.Fruits));
         Assert.Equal(1, snapshot.FruitOnTreeCount);
         Assert.Equal("red-lantern", Assert.Single(snapshot.Placements).ItemId);
-        Assert.Equal("spring", snapshot.ActiveThemeId);
+        Assert.Null(snapshot.ActiveThemeId);
         Assert.Equal(180000, snapshot.TotalEnergy);
         Assert.Equal("butterfly", snapshot.WildlifeSpeciesId);
         Assert.Equal(12, snapshot.VisitCount);

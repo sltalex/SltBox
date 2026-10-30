@@ -56,15 +56,28 @@ def silhouette(source: str) -> str:
 def main() -> None:
     SOURCE.mkdir(parents=True, exist_ok=True)
     BLUR.mkdir(parents=True, exist_ok=True)
+    subcategories = [
+        "lanterns", "ribbons_signs", "wind_chime", "bird_home", "flora", "flora",
+        "stones", "containers", "containers", "lighting", "paths", "signs",
+        "celestial", "carving_masks", "hanging_garden", "ribbons_signs",
+        "seating", "seating", "seating", "water_features",
+    ]
     manifest = []
     for item_id, name, category, rarity, content in ITEMS:
         (SOURCE / f"{item_id}.svg").write_text(content, encoding="utf-8")
         (BLUR / f"{item_id}.svg").write_text(silhouette(content), encoding="utf-8")
+        if category == "theme":
+            continue  # Historical theme artwork stays available for old scene data.
         manifest.append({"id": item_id, "name": name, "category": category,
-                         "rarity": rarity, "assetKey": item_id})
-    (ROOT / "catalog.json").write_text(
-        json.dumps({"version": 1, "items": manifest}, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8")
+                         "subcategory": subcategories[len(manifest)],
+                         "rarity": rarity, "asset_key": item_id})
+    payload = json.dumps({"catalog_version": 3, "items": manifest}, ensure_ascii=False, indent=2) + "\n"
+    server = Path(__file__).resolve().parents[1] / "server" / "deskbox-api" / "config" / "tree-decorations.json"
+    for destination in (ROOT / "catalog.json", server):
+        temporary = destination.with_suffix(destination.suffix + ".tmp")
+        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(payload)
+        temporary.replace(destination)
 
 
 if __name__ == "__main__":

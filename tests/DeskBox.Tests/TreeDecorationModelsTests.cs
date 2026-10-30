@@ -9,12 +9,12 @@ public sealed class TreeDecorationModelsTests
     public void CatalogAndStateContractsPreserveFreePlacementAndDrawResults()
     {
         using JsonDocument catalogJson = JsonDocument.Parse("""
-            {"catalog_version":2,"single_price":200,"ten_price":1800,
+            {"catalog_version":3,"single_price":200,"ten_price":1800,
              "rates":{"common":70,"rare":25,"theme":5},"items":[
               {"id":"red-lantern","name":"红灯笼","category":"tree","rarity":"common","asset_key":"red-lantern"}]}
             """);
         TreeDecorationCatalog catalog = TreeDecorationJson.ReadCatalog(catalogJson.RootElement);
-        Assert.Equal(2, catalog.Version);
+        Assert.Equal(3, catalog.Version);
         Assert.Equal(200, catalog.SinglePrice);
         Assert.Equal(1800, catalog.TenPrice);
         Assert.Equal("red-lantern", Assert.Single(catalog.Items).Id);

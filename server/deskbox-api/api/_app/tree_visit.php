@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
+require_once __DIR__ . '/tree_decorations.php';
 
 function tree_visit_like_day(DateTimeImmutable $now): string
 {
@@ -117,12 +118,18 @@ function tree_visit_snapshot(PDO $pdo, string $account, ?string $viewer = null,
 
     $scene = null;
     if (strcasecmp((string)$tree['username'], 'sltalex') === 0) {
-        $decoration = $pdo->prepare('SELECT scene_json, active_theme_id '
+        $decoration = $pdo->prepare('SELECT scene_json '
             . 'FROM tree_decoration_profiles WHERE user_id=:user');
         $decoration->execute([':user' => $account]);
         $scene = $decoration->fetch(PDO::FETCH_ASSOC);
     }
     $placements = is_array($scene) ? json_decode((string)$scene['scene_json'], true) : null;
+    if (is_array($placements)) {
+        $activeItems = tree_decoration_catalog_definition()['by_id'];
+        $placements = array_values(array_filter($placements,
+            static fn($placement): bool => is_array($placement)
+                && isset($activeItems[$placement['item_id'] ?? ''])));
+    }
     $speciesId = null;
     try {
         $encounter = $pdo->prepare('SELECT species_id, expires_at FROM wildlife_encounter_state '
@@ -151,8 +158,7 @@ function tree_visit_snapshot(PDO $pdo, string $account, ?string $viewer = null,
         'fruit_on_tree_count' => $fruitOnTreeCount,
         'fruits' => $fruits,
         'placements' => is_array($placements) ? $placements : [],
-        'active_theme_id' => is_array($scene) && is_string($scene['active_theme_id'])
-            ? $scene['active_theme_id'] : null,
+        'active_theme_id' => null,
         'wildlife_species_id' => $speciesId,
     ];
 }

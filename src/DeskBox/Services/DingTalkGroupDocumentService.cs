@@ -796,10 +796,7 @@ public sealed class DingTalkGroupDocumentService
         {
             string legacyPath = Path.Combine(_stateDirectory, legacyFileName);
             if (File.Exists(legacyPath))
-            {
-                Directory.CreateDirectory(_stateDirectory);
-                File.Copy(legacyPath, _statePath, overwrite: false);
-            }
+                DingTalkGroupDocumentFileMigration.CopyIfAbsent(legacyPath, _statePath);
         }
         _loadedAccountKey = accountKey;
         _stateOwnerUserId = ownerUserId;

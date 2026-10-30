@@ -72,7 +72,10 @@ public sealed class TreeDecorationServiceTests : IDisposable
         using JsonDocument command = JsonDocument.Parse(Assert.Single(api.Commands));
         Assert.Equal("buy_pack", command.RootElement.GetProperty("action").GetString());
         Assert.Equal(10, command.RootElement.GetProperty("draw_count").GetInt32());
-        Assert.Equal(2, command.RootElement.GetProperty("catalog_version").GetInt32());
+        Assert.Equal(TreeDecorationService.SupportedAssetVersion,
+            command.RootElement.GetProperty("asset_version").GetInt32());
+        Assert.Equal(TreeDecorationService.SupportedAssetVersion,
+            command.RootElement.GetProperty("catalog_version").GetInt32());
     }
 
     [Fact]
@@ -188,9 +191,9 @@ public sealed class TreeDecorationServiceTests : IDisposable
         public Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativePath, byte[]? jsonBody,
             string? contentEncoding, CancellationToken cancellationToken = default)
         {
-            if (relativePath.EndsWith("catalog.php", StringComparison.Ordinal))
+            if (relativePath.StartsWith("../tree/decorations/catalog.php?asset_version=3", StringComparison.Ordinal))
                 return Task.FromResult(Response("""
-                    {"catalog_version":2,"single_price":200,"ten_price":1800,
+                    {"catalog_version":3,"single_price":200,"ten_price":1800,
                      "rates":{"common":70,"rare":25,"theme":5},"items":[
                       {"id":"red-lantern","name":"红灯笼","category":"tree","rarity":"common","asset_key":"red-lantern"}]}
                     """));

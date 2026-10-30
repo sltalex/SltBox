@@ -41,7 +41,7 @@ $insert->execute([':user' => 'private', ':enabled' => 0, ':time' => $now]);
 $pdo->prepare('INSERT INTO tree_decoration_profiles '
     . '(user_id,scene_json,active_theme_id,created_at,updated_at) '
     . 'VALUES (:user,:scene,:theme,:time,:time)')
-    ->execute([':user' => 'owner', ':scene' => '[{"item_id":"red-lantern","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1}]',
+    ->execute([':user' => 'owner', ':scene' => '[{"item_id":"red-lantern","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1},{"item_id":"spring-garden","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1}]',
         ':theme' => 'spring', ':time' => $now]);
 fruit_ensure_schema($pdo);
 $pdo->prepare('INSERT INTO user_fruit_pending (user_id,fruit_id,created_at) VALUES (:user,:fruit,:time)')
@@ -68,8 +68,10 @@ for ($index = 0; $index < 12; $index++)
 $manyFruits = tree_visit_snapshot($pdo, 'owner', 'other', $dayOne);
 visit_expect($manyFruits['fruit_on_tree_count'] === 13 && $manyFruits['fruits'] === array_fill(0, 13, 'apple'),
     'Visit shows every fruit beyond the former twelve-item limit.');
-visit_expect($snapshot['active_theme_id'] === 'spring' && count($snapshot['placements']) === 1,
-    'Saved scene appears in visit.');
+visit_expect($snapshot['active_theme_id'] === null && count($snapshot['placements']) === 1,
+    'Saved decorations appear in visits while retired themes are hidden.');
+visit_expect($pdo->query("SELECT active_theme_id FROM tree_decoration_profiles WHERE user_id='owner'")->fetchColumn() === 'spring',
+    'A read-only visit preserves the historical theme field in storage.');
 visit_expect($snapshot['wildlife_species_id'] === null, 'Absent wildlife state is safe.');
 $first = tree_visit_record($pdo, 'owner', 'viewer', 'visit-operation-0001');
 visit_expect($first['visit_count'] === 1, 'A successful visit increments the total.');

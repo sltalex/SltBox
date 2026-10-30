@@ -19,8 +19,6 @@ internal sealed partial class TreeVisitSceneView : UserControl
             IsHitTestVisible = false
         };
         var layers = Enumerable.Range(-2, 5).ToDictionary(index => index, _ => Layer());
-        Canvas themeLayer = Layer();
-        drawing.Children.Add(themeLayer);
         drawing.Children.Add(new Image
         {
             Source = Asset("ground.svg"), Width = TreeIllustrationLayout.Width,
@@ -91,14 +89,8 @@ internal sealed partial class TreeVisitSceneView : UserControl
                 .Select(item => new TreeDecorationPlacement(string.Empty, item.ItemId,
                     item.X, item.Y, item.Scale, item.Rotation, item.Layer))
                 .Where(TreeDecorationPlacementRules.IsValid).ToArray();
-            var state = new TreeDecorationState(true, 0, 0, 0, [], [], placements, snapshot.ActiveThemeId);
+            var state = new TreeDecorationState(true, 0, 0, 0, [], [], placements, null);
             TreeDecorationDisplayScene scene = TreeDecorationSceneProjection.ForDesktop(snapshot.Stage, state, catalog);
-            if (scene.Theme is { } theme)
-                themeLayer.Children.Add(new Image
-                {
-                    Width = TreeIllustrationLayout.Width, Height = TreeIllustrationLayout.ArtworkHeight,
-                    Stretch = Stretch.Fill, Source = TreeDecorationAssetCatalog.Source(theme.AssetKey), Opacity = .88
-                });
             foreach ((TreeDecorationPlacement placement, TreeDecorationCatalogItem item) in scene.Placements)
             {
                 double size = TreeDecorationAssetCatalog.VisualSize(item.Category);

@@ -1,173 +1,165 @@
 {
-  "version": 1,
+  "catalog_version": 3,
   "items": [
     {
       "id": "red-lantern",
       "name": "红灯笼",
       "category": "tree",
+      "subcategory": "lanterns",
       "rarity": "common",
-      "assetKey": "red-lantern"
+      "asset_key": "red-lantern"
     },
     {
       "id": "wishing-ribbons",
       "name": "祈愿带",
       "category": "tree",
+      "subcategory": "ribbons_signs",
       "rarity": "common",
-      "assetKey": "wishing-ribbons"
+      "asset_key": "wishing-ribbons"
     },
     {
       "id": "wind-chime",
       "name": "风铃",
       "category": "tree",
+      "subcategory": "wind_chime",
       "rarity": "common",
-      "assetKey": "wind-chime"
+      "asset_key": "wind-chime"
     },
     {
       "id": "birdhouse",
       "name": "鸟屋",
       "category": "tree",
+      "subcategory": "bird_home",
       "rarity": "common",
-      "assetKey": "birdhouse"
+      "asset_key": "birdhouse"
     },
     {
       "id": "mushroom-cluster",
       "name": "蘑菇簇",
       "category": "ground",
+      "subcategory": "flora",
       "rarity": "common",
-      "assetKey": "mushroom-cluster"
+      "asset_key": "mushroom-cluster"
     },
     {
       "id": "wildflower-bed",
       "name": "野花圃",
       "category": "ground",
+      "subcategory": "flora",
       "rarity": "common",
-      "assetKey": "wildflower-bed"
+      "asset_key": "wildflower-bed"
     },
     {
       "id": "stepping-stones",
       "name": "汀步石",
       "category": "ground",
+      "subcategory": "stones",
       "rarity": "common",
-      "assetKey": "stepping-stones"
+      "asset_key": "stepping-stones"
     },
     {
       "id": "watering-can",
       "name": "浇水壶",
       "category": "ground",
+      "subcategory": "containers",
       "rarity": "common",
-      "assetKey": "watering-can"
+      "asset_key": "watering-can"
     },
     {
       "id": "fruit-basket",
       "name": "果篮",
       "category": "ground",
+      "subcategory": "containers",
       "rarity": "common",
-      "assetKey": "fruit-basket"
+      "asset_key": "fruit-basket"
     },
     {
       "id": "stone-lantern",
       "name": "石灯",
       "category": "ground",
+      "subcategory": "lighting",
       "rarity": "common",
-      "assetKey": "stone-lantern"
+      "asset_key": "stone-lantern"
     },
     {
       "id": "low-fence",
       "name": "矮栅栏",
       "category": "ground",
+      "subcategory": "paths",
       "rarity": "common",
-      "assetKey": "low-fence"
+      "asset_key": "low-fence"
     },
     {
       "id": "small-mailbox",
       "name": "小邮箱",
       "category": "ground",
+      "subcategory": "signs",
       "rarity": "common",
-      "assetKey": "small-mailbox"
+      "asset_key": "small-mailbox"
     },
     {
       "id": "star-lights",
       "name": "星星彩灯",
       "category": "tree",
+      "subcategory": "celestial",
       "rarity": "rare",
-      "assetKey": "star-lights"
+      "asset_key": "star-lights"
     },
     {
       "id": "tree-door",
       "name": "树洞小门",
       "category": "tree",
+      "subcategory": "carving_masks",
       "rarity": "rare",
-      "assetKey": "tree-door"
+      "asset_key": "tree-door"
     },
     {
       "id": "evergreen-ivy",
       "name": "常青藤",
       "category": "tree",
+      "subcategory": "hanging_garden",
       "rarity": "rare",
-      "assetKey": "evergreen-ivy"
+      "asset_key": "evergreen-ivy"
     },
     {
       "id": "wooden-nameplate",
       "name": "木制铭牌",
       "category": "tree",
+      "subcategory": "ribbons_signs",
       "rarity": "rare",
-      "assetKey": "wooden-nameplate"
+      "asset_key": "wooden-nameplate"
     },
     {
       "id": "wooden-bench",
       "name": "长椅",
       "category": "large",
+      "subcategory": "seating",
       "rarity": "rare",
-      "assetKey": "wooden-bench"
+      "asset_key": "wooden-bench"
     },
     {
       "id": "branch-swing",
       "name": "秋千",
       "category": "large",
+      "subcategory": "seating",
       "rarity": "rare",
-      "assetKey": "branch-swing"
+      "asset_key": "branch-swing"
     },
     {
       "id": "picnic-rug",
       "name": "野餐垫",
       "category": "large",
+      "subcategory": "seating",
       "rarity": "rare",
-      "assetKey": "picnic-rug"
+      "asset_key": "picnic-rug"
     },
     {
       "id": "small-fountain",
       "name": "小喷泉",
       "category": "large",
+      "subcategory": "water_features",
       "rarity": "rare",
-      "assetKey": "small-fountain"
-    },
-    {
-      "id": "spring-garden",
-      "name": "春日花园",
-      "category": "theme",
-      "rarity": "theme",
-      "assetKey": "spring-garden"
-    },
-    {
-      "id": "midsummer-camp",
-      "name": "仲夏露营",
-      "category": "theme",
-      "rarity": "theme",
-      "assetKey": "midsummer-camp"
-    },
-    {
-      "id": "autumn-harvest",
-      "name": "秋收庭院",
-      "category": "theme",
-      "rarity": "theme",
-      "assetKey": "autumn-harvest"
-    },
-    {
-      "id": "winter-starlight",
-      "name": "冬日星光",
-      "category": "theme",
-      "rarity": "theme",
-      "assetKey": "winter-starlight"
+      "asset_key": "small-fountain"
     }
   ]
 }

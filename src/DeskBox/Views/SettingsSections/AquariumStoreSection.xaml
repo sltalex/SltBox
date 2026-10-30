@@ -6,7 +6,11 @@
     xmlns:svc="using:DeskBox.Services">
     <StackPanel Spacing="12">
         <TextBlock FontSize="24" FontWeight="SemiBold" svc:Localized.Key="Aquarium.Settings.Store" />
-        <TextBlock x:Name="CoinBalance" FontSize="22" FontWeight="SemiBold" />
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+            <TextBlock x:Name="CoinBalance" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button x:Name="TransactionsButton" Click="TransactionsButton_Click"
+                    MinWidth="0" Padding="10,5" svc:Localized.Key="Aquarium.Settings.Transactions" />
+        </StackPanel>
         <toolkit:SettingsCard
             ContentAlignment="Vertical"
             HorizontalContentAlignment="Stretch"

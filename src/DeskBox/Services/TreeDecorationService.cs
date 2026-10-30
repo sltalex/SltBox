@@ -9,6 +9,7 @@ namespace DeskBox.Services;
 /// <summary>Account-scoped mature-tree decoration catalog, wallet actions and versioned scene.</summary>
 internal sealed class TreeDecorationService : IAsyncDisposable
 {
+    internal const int SupportedAssetVersion = 3;
     private readonly IAuthSession _auth;
     private readonly IAuthenticatedAccountApi _api;
     private readonly string _cacheDirectory;
@@ -132,6 +133,7 @@ internal sealed class TreeDecorationService : IAsyncDisposable
                     writer.WriteStartObject();
                     writer.WriteString("action", action);
                     writer.WriteString("operation_id", Guid.NewGuid().ToString("N"));
+                    writer.WriteNumber("asset_version", SupportedAssetVersion);
                     if (drawCount is int count)
                     {
                         writer.WriteNumber("catalog_version", Catalog?.Version ?? 0);
@@ -237,7 +239,7 @@ internal sealed class TreeDecorationService : IAsyncDisposable
     private async Task ReadCloudAsync(string identity, long version, CancellationToken token)
     {
         using HttpResponseMessage catalogResponse = await _api.SendAsync(
-            HttpMethod.Get, "../tree/decorations/catalog.php", null, null, token);
+            HttpMethod.Get, $"../tree/decorations/catalog.php?asset_version={SupportedAssetVersion}", null, null, token);
         if (!catalogResponse.IsSuccessStatusCode) throw await ReadErrorAsync(catalogResponse, token);
         using JsonDocument catalogBody = await ReadDocumentAsync(catalogResponse, token);
         TreeDecorationCatalog catalog = TreeDecorationJson.ReadCatalog(catalogBody.RootElement);

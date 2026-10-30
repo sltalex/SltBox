@@ -3,7 +3,11 @@ using System.Text.Json;
 namespace DeskBox.Services;
 
 internal sealed record TreeDecorationCatalogItem(
-    string Id, string Name, string Category, string Rarity, string AssetKey);
+    string Id, string Name, string Category, string Rarity, string AssetKey)
+{
+    /// <summary>Visible product family within the placement category.</summary>
+    internal string Subcategory { get; init; } = Category;
+}
 
 internal sealed record TreeDecorationCatalog(
     int Version,
@@ -77,13 +81,17 @@ internal static class TreeDecorationJson
         root.GetProperty("catalog_version").GetInt32(),
         root.GetProperty("single_price").GetInt64(),
         root.GetProperty("ten_price").GetInt64(),
-        Array.AsReadOnly(root.GetProperty("items").EnumerateArray().Select(item =>
+        Array.AsReadOnly(root.GetProperty("items").EnumerateArray()
+            .Where(item => Text(item, "category") != "theme").Select(item =>
             new TreeDecorationCatalogItem(
                 Text(item, "id"),
                 Text(item, "name"),
                 Text(item, "category"),
                 Text(item, "rarity"),
-                Text(item, "asset_key"))).ToArray()));
+                Text(item, "asset_key"))
+            {
+                Subcategory = OptionalText(item, "subcategory") ?? Text(item, "category")
+            }).ToArray()));
 
     internal static TreeDecorationState ReadState(JsonElement root) => new(
         root.GetProperty("mature").GetBoolean(),
@@ -195,6 +203,7 @@ internal static class TreeDecorationJson
             writer.WriteString("id", item.Id);
             writer.WriteString("name", item.Name);
             writer.WriteString("category", item.Category);
+            writer.WriteString("subcategory", item.Subcategory);
             writer.WriteString("rarity", item.Rarity);
             writer.WriteString("asset_key", item.AssetKey);
             writer.WriteEndObject();

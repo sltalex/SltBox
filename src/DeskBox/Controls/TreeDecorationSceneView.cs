@@ -85,7 +85,8 @@ internal sealed partial class TreeDecorationSceneView : UserControl
         Func<TreeDecorationCatalogItem, string>? displayName = null)
     {
         _draft = draft;
-        _catalog = catalog.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        _catalog = catalog.Where(item => item.Category != "theme")
+            .ToDictionary(item => item.Id, StringComparer.Ordinal);
         _displayName = displayName ?? (item => item.Name);
         if (_selectedPlacementId is not null &&
             !draft.Placements.Any(item => item.PlacementId == _selectedPlacementId))
@@ -106,18 +107,6 @@ internal sealed partial class TreeDecorationSceneView : UserControl
         foreach (Canvas layer in _layers.Values) layer.Children.Clear();
         _visuals.Clear();
         if (_draft is null) return;
-        if (_draft.ActiveThemeId is string themeId && _catalog.TryGetValue(themeId, out var theme))
-        {
-            _themeLayer.Children.Add(new Image
-            {
-                Width = TreeIllustrationLayout.Width,
-                Height = TreeIllustrationLayout.ArtworkHeight,
-                Source = TreeDecorationAssetCatalog.Source(theme.AssetKey),
-                Stretch = Stretch.Fill,
-                IsHitTestVisible = false,
-                Opacity = .88
-            });
-        }
         foreach (TreeDecorationPlacement placement in _draft.Placements.OrderBy(item => item.Layer))
         {
             if (!_catalog.TryGetValue(placement.ItemId, out var item) || item.Category == "theme") continue;

@@ -109,6 +109,7 @@ public sealed class AquariumInventoryPresentationTests
         string settings = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsSections", "AquariumSettingsSection.cs"));
         string backpack = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsSections", "AquariumBackpackSection.xaml"));
         string store = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsSections", "AquariumStoreSection.xaml"));
+        string storeCode = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsSections", "AquariumStoreSection.xaml.cs"));
         string navigation = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.DeferredSections.cs"));
         string settingsShell = File.ReadAllText(Path.Combine(root, "src", "DeskBox", "Views", "SettingsWindow.xaml"));
 
@@ -129,6 +130,13 @@ public sealed class AquariumInventoryPresentationTests
         Assert.Contains("StoreCategories", store, StringComparison.Ordinal);
         Assert.Contains("StoreItems", store, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CoinBalance\"", store, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TransactionsButton\"", store, StringComparison.Ordinal);
+        Assert.Contains("Click=\"TransactionsButton_Click\"", store, StringComparison.Ordinal);
+        Assert.Contains("store.SetWallet(_service?.State?.Wallet ?? [], _service?.Catalog ?? [], App.Current.FruitService.Catalog)", settings,
+            StringComparison.Ordinal);
+        Assert.Contains("Aquarium.Settings.Transaction.Description", storeCode, StringComparison.Ordinal);
+        Assert.Contains("AddTableCell(table, FormatDelta(entry.Delta)", storeCode, StringComparison.Ordinal);
+        Assert.Contains("_transactionsFlyout.ShowAt(TransactionsButton)", storeCode, StringComparison.Ordinal);
         Assert.Contains("store.CoinBalanceLabel.Text", settings, StringComparison.Ordinal);
         Assert.Contains("FruitMarketSection", store, StringComparison.Ordinal);
         Assert.DoesNotContain("SaveLayout", backpack, StringComparison.Ordinal);

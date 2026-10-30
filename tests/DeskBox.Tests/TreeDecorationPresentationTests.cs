@@ -28,17 +28,25 @@ public sealed class TreeDecorationPresentationTests
     }
 
     [Fact]
-    public void DecorationAssets_ContainUniqueTwentyFourItemSourceAndSilhouettePairs()
+    public void DecorationAssets_KeepOriginalTwentyAndRemoveExpandedProducts()
     {
         string root = TestPaths.FromRepository("src/DeskBox/Assets/Tree/Decorations");
         using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "catalog.json")));
         JsonElement[] items = document.RootElement.GetProperty("items").EnumerateArray().ToArray();
 
-        Assert.Equal(24, items.Length);
-        Assert.Equal(24, items.Select(item => item.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(20, items.Length);
+        Assert.Equal(3, document.RootElement.GetProperty("catalog_version").GetInt32());
+        Assert.Equal(20, items.Select(item => item.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(8, items.Count(item => item.GetProperty("category").GetString() == "tree"));
+        Assert.Equal(8, items.Count(item => item.GetProperty("category").GetString() == "ground"));
+        Assert.Equal(4, items.Count(item => item.GetProperty("category").GetString() == "large"));
+        Assert.DoesNotContain(items, item => item.GetProperty("category").GetString() == "theme");
+        Assert.DoesNotContain(items, item => item.GetProperty("id").GetString() == "tree-jade-knot-01");
+        Assert.Equal(File.ReadAllText(Path.Combine(root, "catalog.json")),
+            File.ReadAllText(TestPaths.FromRepository("server/deskbox-api/config/tree-decorations.json")));
         foreach (JsonElement item in items)
         {
-            string key = item.GetProperty("assetKey").GetString()!;
+            string key = item.GetProperty("asset_key").GetString()!;
             Assert.True(File.Exists(Path.Combine(root, "Source", key + ".svg")), key);
             Assert.True(File.Exists(Path.Combine(root, "Blur", key + ".svg")), key);
         }

@@ -3,44 +3,121 @@ declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 
-const TREE_DECORATION_CATALOG_VERSION = 2;
+const TREE_DECORATION_CATALOG_VERSION = 3;
 const TREE_DECORATION_MAX_PLACEMENTS = 20;
+const TREE_DECORATION_RATES = ['common' => 75, 'rare' => 25];
+const TREE_DECORATION_SUBCATEGORIES = [
+    'tree' => [
+        'lanterns', 'hanging_garden', 'bird_home', 'wind_chime', 'ribbons_signs',
+        'fruit_seed', 'carving_masks', 'bird_cages', 'celestial', 'glass_charms',
+    ],
+    'ground' => [
+        'flora', 'stones', 'water', 'containers', 'furniture', 'lighting',
+        'signs', 'paths', 'play', 'craft',
+    ],
+    'large' => [
+        'gates', 'pavilions', 'bridges', 'seating', 'shelters', 'greenhouses',
+        'carts', 'towers', 'water_features', 'sculptures',
+    ],
+];
+const TREE_DECORATION_LEGACY_IDS = [
+    'red-lantern', 'wishing-ribbons', 'wind-chime', 'birdhouse', 'mushroom-cluster',
+    'wildflower-bed', 'stepping-stones', 'watering-can', 'fruit-basket', 'stone-lantern', 'low-fence',
+    'small-mailbox', 'star-lights', 'tree-door', 'evergreen-ivy', 'wooden-nameplate', 'wooden-bench',
+    'branch-swing', 'picnic-rug', 'small-fountain',
+];
 
-function tree_decoration_catalog(?PDO $pdo = null): array
+/** @return array{items:array,by_id:array,by_rarity:array,legacy_items:array,legacy_by_rarity:array} */
+function tree_decoration_catalog_definition(): array
+{
+    static $definition = null;
+    if ($definition !== null) { return $definition; }
+    $path = dirname(__DIR__, 2) . '/config/tree-decorations.json';
+    $contents = file_get_contents($path);
+    if ($contents === false) { throw new RuntimeException('Tree decoration catalog is unavailable.'); }
+    $document = json_decode($contents, true, 32, JSON_THROW_ON_ERROR);
+    if (!is_array($document) || ($document['catalog_version'] ?? null) !== TREE_DECORATION_CATALOG_VERSION
+        || !is_array($document['items'] ?? null) || !array_is_list($document['items'])) {
+        throw new RuntimeException('Tree decoration catalog is invalid.');
+    }
+    $items = [];
+    $byId = [];
+    $byRarity = ['common' => [], 'rare' => []];
+    $legacyItems = [];
+    $legacyByRarity = ['common' => [], 'rare' => []];
+    $legacyIds = array_fill_keys(TREE_DECORATION_LEGACY_IDS, true);
+    $names = [];
+    foreach ($document['items'] as $item) {
+        if (!is_array($item)) { throw new RuntimeException('Tree decoration catalog item is invalid.'); }
+        foreach (['id', 'name', 'category', 'rarity', 'asset_key'] as $field) {
+            if (!is_string($item[$field] ?? null) || trim($item[$field]) === '') {
+                throw new RuntimeException('Tree decoration catalog item has a missing field.');
+            }
+        }
+        // Subcategories were added to catalog v3 after the initial expansion.
+        // Keep a category fallback while old v3 catalogs are being rolled out,
+        // but require the new catalog to provide a stable slug when present.
+        $subcategory = tree_decoration_subcategory($item);
+        if (!preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/D', $item['id'])
+            || !preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/D', $item['asset_key'])
+            || !in_array($item['category'], ['tree', 'ground', 'large'], true)
+            || !isset($byRarity[$item['rarity']]) || isset($byId[$item['id']]) || isset($names[$item['name']])) {
+            throw new RuntimeException('Tree decoration catalog contains an invalid or duplicate item.');
+        }
+        if (array_key_exists('subcategory', $item)
+            && !in_array($subcategory, TREE_DECORATION_SUBCATEGORIES[$item['category']], true)) {
+            throw new RuntimeException('Tree decoration catalog contains an invalid subcategory.');
+        }
+        $entry = array_intersect_key($item, array_flip(['id', 'name', 'category', 'subcategory', 'rarity', 'asset_key']));
+        $entry['subcategory'] = $subcategory;
+        $items[] = $entry;
+        $byId[$entry['id']] = $entry;
+        $byRarity[$entry['rarity']][] = $entry['id'];
+        if (isset($legacyIds[$entry['id']])) {
+            $legacyItems[] = $entry;
+            $legacyByRarity[$entry['rarity']][] = $entry['id'];
+        }
+        $names[$entry['name']] = true;
+    }
+    if (count($legacyItems) !== count(TREE_DECORATION_LEGACY_IDS)) {
+        throw new RuntimeException('Tree decoration catalog is missing legacy products.');
+    }
+    foreach (array_merge(array_values($byRarity), array_values($legacyByRarity)) as $pool) {
+        if ($pool === []) { throw new RuntimeException('Tree decoration rarity pool is empty.'); }
+    }
+    $definition = ['items' => $items, 'by_id' => $byId, 'by_rarity' => $byRarity,
+        'legacy_items' => $legacyItems, 'legacy_by_rarity' => $legacyByRarity];
+    return $definition;
+}
+
+function tree_decoration_subcategory(array $item): string
+{
+    $subcategory = $item['subcategory'] ?? $item['category'] ?? null;
+    if (!is_string($subcategory) || trim($subcategory) === ''
+        || !preg_match('/\A[a-z0-9]+(?:[_-][a-z0-9]+)*\z/D', $subcategory)) {
+        throw new RuntimeException('Tree decoration catalog contains an invalid subcategory.');
+    }
+    return trim($subcategory);
+}
+
+function tree_decoration_catalog(?PDO $pdo = null, int $assetVersion = TREE_DECORATION_CATALOG_VERSION): array
 {
     $prices = tree_decoration_pack_prices($pdo);
     return [
         'catalog_version' => TREE_DECORATION_CATALOG_VERSION,
         'single_price' => $prices['single_price'],
         'ten_price' => $prices['ten_price'],
-        'rates' => ['common' => 70, 'rare' => 25, 'theme' => 5],
-        'items' => [
-            tree_decoration_entry('red-lantern', '红灯笼', 'tree', 'common'),
-            tree_decoration_entry('wishing-ribbons', '祈愿带', 'tree', 'common'),
-            tree_decoration_entry('wind-chime', '风铃', 'tree', 'common'),
-            tree_decoration_entry('birdhouse', '鸟屋', 'tree', 'common'),
-            tree_decoration_entry('mushroom-cluster', '蘑菇簇', 'ground', 'common'),
-            tree_decoration_entry('wildflower-bed', '野花圃', 'ground', 'common'),
-            tree_decoration_entry('stepping-stones', '汀步石', 'ground', 'common'),
-            tree_decoration_entry('watering-can', '浇水壶', 'ground', 'common'),
-            tree_decoration_entry('fruit-basket', '果篮', 'ground', 'common'),
-            tree_decoration_entry('stone-lantern', '石灯', 'ground', 'common'),
-            tree_decoration_entry('low-fence', '矮栅栏', 'ground', 'common'),
-            tree_decoration_entry('small-mailbox', '小邮箱', 'ground', 'common'),
-            tree_decoration_entry('star-lights', '星星彩灯', 'tree', 'rare'),
-            tree_decoration_entry('tree-door', '树洞小门', 'tree', 'rare'),
-            tree_decoration_entry('evergreen-ivy', '常青藤', 'tree', 'rare'),
-            tree_decoration_entry('wooden-nameplate', '木制铭牌', 'tree', 'rare'),
-            tree_decoration_entry('wooden-bench', '长椅', 'large', 'rare'),
-            tree_decoration_entry('branch-swing', '秋千', 'large', 'rare'),
-            tree_decoration_entry('picnic-rug', '野餐垫', 'large', 'rare'),
-            tree_decoration_entry('small-fountain', '小喷泉', 'large', 'rare'),
-            tree_decoration_entry('spring-garden', '春日花园', 'theme', 'theme'),
-            tree_decoration_entry('midsummer-camp', '仲夏露营', 'theme', 'theme'),
-            tree_decoration_entry('autumn-harvest', '秋收庭院', 'theme', 'theme'),
-            tree_decoration_entry('winter-starlight', '冬日星光', 'theme', 'theme'),
-        ],
+        'rates' => TREE_DECORATION_RATES,
+        'items' => tree_decoration_catalog_definition()[
+            $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? 'items' : 'legacy_items'],
     ];
+}
+
+function tree_decoration_asset_version(mixed $value): int
+{
+    if (is_int($value)) { return max(0, $value); }
+    if (is_string($value) && preg_match('/\A[0-9]{1,6}\z/D', $value)) { return (int)$value; }
+    return 0;
 }
 
 function tree_decoration_pack_prices(?PDO $pdo = null): array
@@ -54,17 +131,10 @@ function tree_decoration_pack_prices(?PDO $pdo = null): array
     ];
 }
 
-function tree_decoration_entry(string $id, string $name, string $category, string $rarity): array
-{
-    return ['id' => $id, 'name' => $name, 'category' => $category,
-        'rarity' => $rarity, 'asset_key' => $id];
-}
-
 function tree_decoration_item(string $id): array
 {
-    foreach (tree_decoration_catalog()['items'] as $item) {
-        if ($item['id'] === $id) { return $item; }
-    }
+    $item = tree_decoration_catalog_definition()['by_id'][$id] ?? null;
+    if ($item !== null) { return $item; }
     throw new ApiError('invalid_item', 'Unknown tree decoration.', 400);
 }
 
@@ -74,10 +144,13 @@ function tree_decoration_inventory_quantities(PDO $pdo, string $userId): array
     $query = $pdo->prepare('SELECT item_id, quantity FROM tree_decoration_inventory '
         . 'WHERE user_id = :user ORDER BY item_id');
     $query->execute([':user' => $userId]);
+    $activeItems = tree_decoration_catalog_definition()['by_id'];
     $inventory = [];
     foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $quantity = max(0, (int)$row['quantity']);
-        if ($quantity > 0) { $inventory[(string)$row['item_id']] = $quantity; }
+        if ($quantity > 0 && isset($activeItems[(string)$row['item_id']])) {
+            $inventory[(string)$row['item_id']] = $quantity;
+        }
     }
     return $inventory;
 }
@@ -110,7 +183,12 @@ function tree_decoration_read_state(PDO $pdo, string $userId): array
     $placements = [];
     if (is_array($decoration)) {
         $decoded = json_decode((string)$decoration['scene_json'], true);
-        if (is_array($decoded)) { $placements = $decoded; }
+        if (is_array($decoded)) {
+            $activeItems = tree_decoration_catalog_definition()['by_id'];
+            $placements = array_values(array_filter($decoded,
+                static fn($placement): bool => is_array($placement)
+                    && isset($activeItems[$placement['item_id'] ?? ''])));
+        }
     }
     return [
         'mature' => $stage >= 5,
@@ -121,9 +199,31 @@ function tree_decoration_read_state(PDO $pdo, string $userId): array
         'inventory' => $inventory,
         'card_packs' => $cardPacks,
         'placements' => $placements,
-        'active_theme_id' => is_array($decoration) && is_string($decoration['active_theme_id'])
-            ? $decoration['active_theme_id'] : null,
+        'active_theme_id' => null,
     ];
+}
+
+/** Completed operations remain idempotent while retired products stay out of current client state. */
+function tree_decoration_filter_retired_items(array $response, int $assetVersion = TREE_DECORATION_CATALOG_VERSION): array
+{
+    $definition = tree_decoration_catalog_definition();
+    $activeItems = $assetVersion >= TREE_DECORATION_CATALOG_VERSION
+        ? $definition['by_id'] : array_fill_keys(TREE_DECORATION_LEGACY_IDS, true);
+    foreach (['inventory', 'placements', 'draw_results'] as $field) {
+        if (isset($response[$field]) && is_array($response[$field])) {
+            $response[$field] = array_values(array_filter($response[$field],
+                static fn($entry): bool => is_array($entry) && isset($activeItems[$entry['item_id'] ?? ''])));
+        }
+    }
+    if (isset($response['owned_ids']) && is_array($response['owned_ids'])) {
+        $response['owned_ids'] = array_values(array_filter($response['owned_ids'],
+            static fn($id): bool => is_string($id) && isset($activeItems[$id])));
+    }
+    if (isset($response['redeemed_item_id']) && !isset($activeItems[$response['redeemed_item_id']])) {
+        unset($response['redeemed_item_id']);
+    }
+    $response['active_theme_id'] = null;
+    return $response;
 }
 
 /** @param null|callable(array, int):string $selector */
@@ -162,7 +262,8 @@ function tree_decoration_mutate(PDO $pdo, string $userId, array $body, callable 
             }
             $response = json_decode((string)$prior['response_json'], true, 32, JSON_THROW_ON_ERROR);
             $pdo->commit();
-            return $response;
+            return tree_decoration_filter_retired_items($response,
+                tree_decoration_asset_version($body['asset_version'] ?? null));
         }
         if ($stage < 5) {
             throw new ApiError('tree_not_mature', 'Tree decorations unlock at stage five.', 409);
@@ -187,7 +288,9 @@ function tree_decoration_mutate(PDO $pdo, string $userId, array $body, callable 
         } else {
             tree_decoration_save_scene($pdo, $userId, $body, $now);
         }
-        $response = tree_decoration_read_state($pdo, $userId) + $extra;
+        $response = tree_decoration_filter_retired_items(
+            tree_decoration_read_state($pdo, $userId) + $extra,
+            tree_decoration_asset_version($body['asset_version'] ?? null));
         $responseJson = json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $pdo->prepare('INSERT INTO tree_decoration_operations '
             . '(user_id, operation_id, action, request_hash, response_json, created_at) '
@@ -258,7 +361,8 @@ function tree_decoration_open_pack(PDO $pdo, string $userId, string $operationId
     if ($deleted->rowCount() !== 1) {
         throw new ApiError('pack_not_found', 'The tree card pack is no longer in the backpack.', 409);
     }
-    $results = tree_decoration_draw_rewards($pdo, $userId, (int)$count, $now, $selector);
+    $results = tree_decoration_draw_rewards($pdo, $userId, (int)$count, $now, $selector,
+        tree_decoration_asset_version($body['asset_version'] ?? null));
     aquarium_record_wallet($pdo, $userId, $operationId, 0, (int)$wallet['coins'],
         'tree_decoration_pack_open', 'tree-decoration-pack-' . (int)$count, $now);
     return $results;
@@ -266,68 +370,56 @@ function tree_decoration_open_pack(PDO $pdo, string $userId, string $operationId
 
 /** @param null|callable(array, int):string $selector */
 function tree_decoration_draw_rewards(PDO $pdo, string $userId, int $count,
-    DateTimeImmutable $now, ?callable $selector): array
+    DateTimeImmutable $now, ?callable $selector, int $assetVersion = TREE_DECORATION_CATALOG_VERSION): array
 {
-    $catalog = tree_decoration_catalog()['items'];
+    $catalog = tree_decoration_catalog(null, $assetVersion)['items'];
+    $allowedIds = array_fill_keys(array_column($catalog, 'id'), true);
     $owned = tree_decoration_inventory_quantities($pdo, $userId);
     $results = [];
-    $shards = 0;
     for ($draw = 0; $draw < $count; $draw++) {
         $itemId = $selector === null
-            ? tree_decoration_random_item_id($catalog)
+            ? tree_decoration_random_item_id(null, $assetVersion)
             : (string)$selector($catalog, $draw);
+        if (!isset($allowedIds[$itemId])) {
+            throw new ApiError('invalid_item', 'Unknown tree decoration for this client asset version.', 400);
+        }
         $item = tree_decoration_item($itemId);
         $isNew = !isset($owned[$itemId]);
-        $awarded = 0;
         if ($isNew) {
             $pdo->prepare('INSERT INTO tree_decoration_inventory (user_id,item_id,quantity,acquired_at) '
                 . 'VALUES (:user,:item,1,:created)')
                 ->execute([':user' => $userId, ':item' => $itemId, ':created' => auth_sql_time($now)]);
             $owned[$itemId] = 1;
-        } elseif ($item['category'] !== 'theme') {
+        } else {
             $pdo->prepare('UPDATE tree_decoration_inventory SET quantity=quantity+1 '
                 . 'WHERE user_id=:user AND item_id=:item')
                 ->execute([':user' => $userId, ':item' => $itemId]);
             $owned[$itemId]++;
-        } else {
-            $awarded = tree_decoration_duplicate_shards($item['rarity']);
-            $shards += $awarded;
         }
         $results[] = ['item_id' => $itemId, 'rarity' => $item['rarity'],
-            'is_new' => $isNew, 'shards_awarded' => $awarded, 'quantity' => $owned[$itemId]];
-    }
-    if ($shards > 0) {
-        $pdo->prepare('UPDATE tree_decoration_profiles SET shards=shards+:shards,updated_at=:now WHERE user_id=:user')
-            ->execute([':shards' => $shards, ':now' => auth_sql_time($now), ':user' => $userId]);
+            'is_new' => $isNew, 'shards_awarded' => 0, 'quantity' => $owned[$itemId]];
     }
     return $results;
 }
 
-function tree_decoration_random_item_id(array $catalog): string
+/** @param null|callable(int,int):int $random */
+function tree_decoration_random_item_id(?callable $random = null, int $assetVersion = TREE_DECORATION_CATALOG_VERSION): string
 {
-    $roll = random_int(1, 100);
-    $rarity = $roll <= 70 ? 'common' : ($roll <= 95 ? 'rare' : 'theme');
-    $items = array_values(array_filter($catalog,
-        static fn(array $item): bool => $item['rarity'] === $rarity));
-    return (string)$items[random_int(0, count($items) - 1)]['id'];
-}
-
-function tree_decoration_duplicate_shards(string $rarity): int
-{
-    return match ($rarity) { 'common' => 10, 'rare' => 30, 'theme' => 100,
-        default => throw new ApiError('invalid_rarity', 'Unknown decoration rarity.', 500) };
+    $random ??= 'random_int';
+    $roll = $random(1, 100);
+    $rarity = $roll <= TREE_DECORATION_RATES['common'] ? 'common' : 'rare';
+    $items = tree_decoration_catalog_definition()[
+        $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? 'by_rarity' : 'legacy_by_rarity'][$rarity];
+    return $items[$random(0, count($items) - 1)];
 }
 
 function tree_decoration_redeem(PDO $pdo, string $userId, array $body, DateTimeImmutable $now): string
 {
     $item = tree_decoration_item(aquarium_string($body, 'item_id'));
-    $cost = match ($item['rarity']) { 'common' => 80, 'rare' => 240, 'theme' => 800 };
+    $cost = match ($item['rarity']) { 'common' => 80, 'rare' => 240 };
     $owned = $pdo->prepare('SELECT quantity FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item');
     $owned->execute([':user' => $userId, ':item' => $item['id']]);
     $ownedQuantity = $owned->fetchColumn();
-    if ($ownedQuantity !== false && $item['category'] === 'theme') {
-        throw new ApiError('already_owned', 'Theme is already owned.', 409);
-    }
     $profile = $pdo->prepare('SELECT shards FROM tree_decoration_profiles WHERE user_id=:user');
     $profile->execute([':user' => $userId]);
     if ((int)$profile->fetchColumn() < $cost) { throw new ApiError('insufficient_shards', 'Not enough shards.', 409); }
@@ -366,7 +458,7 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
         $id = isset($placement['item_id']) && is_string($placement['item_id']) ? $placement['item_id'] : '';
         $item = tree_decoration_item($id);
         $placedCounts[$id] = ($placedCounts[$id] ?? 0) + 1;
-        if (!isset($owned[$id]) || $placedCounts[$id] > $owned[$id] || $item['category'] === 'theme') {
+        if (!isset($owned[$id]) || $placedCounts[$id] > $owned[$id]) {
             throw new ApiError('invalid_scene', 'Placed decorations cannot exceed the owned quantity.', 400);
         }
         $placementId = $placement['placement_id'] ?? null;
@@ -388,14 +480,8 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
         $normalized[] = ['placement_id' => $placementId, 'item_id' => $id, 'x' => $x, 'y' => $y,
             'scale' => $scale, 'rotation' => $rotation, 'layer' => $layer];
     }
-    $theme = $body['active_theme_id'] ?? null;
-    if ($theme !== null) {
-        if (!is_string($theme) || !isset($owned[$theme]) || tree_decoration_item($theme)['category'] !== 'theme') {
-            throw new ApiError('invalid_scene', 'Active theme must be an owned theme.', 400);
-        }
-    }
     $pdo->prepare('UPDATE tree_decoration_profiles SET scene_json=:scene,active_theme_id=:theme,scene_version=scene_version+1,updated_at=:now WHERE user_id=:user')
-        ->execute([':scene' => json_encode($normalized, JSON_THROW_ON_ERROR), ':theme' => $theme,
+        ->execute([':scene' => json_encode($normalized, JSON_THROW_ON_ERROR), ':theme' => null,
             ':now' => auth_sql_time($now), ':user' => $userId]);
 }
 

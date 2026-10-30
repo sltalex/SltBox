@@ -20,7 +20,7 @@ public sealed class TreeDecorationSceneProjectionTests
 
         TreeDecorationDisplayScene scene = TreeDecorationSceneProjection.ForDesktop(5, state, catalog);
 
-        Assert.Equal("spring", scene.Theme?.Id);
+        Assert.Null(scene.Theme);
         Assert.Equal(["second", "first"], scene.Placements.Select(x => x.Placement.PlacementId));
         Assert.Equal(placements[1], scene.Placements[0].Placement);
         Assert.Equal(placements[0], scene.Placements[1].Placement);

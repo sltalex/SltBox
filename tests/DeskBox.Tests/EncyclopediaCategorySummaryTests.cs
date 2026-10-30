@@ -87,7 +87,8 @@ public sealed class EncyclopediaCategorySummaryTests
         Assert.Contains("WildlifeAvailabilityPresentation.EncyclopediaDetails(species)", codeBehind, StringComparison.Ordinal);
         string wildlifeCode = codeBehind[codeBehind.IndexOf("WildlifeService wildlife", StringComparison.Ordinal)..];
         Assert.DoesNotContain("$\"拥有 {owned!.Quantity}\"", wildlifeCode, StringComparison.Ordinal);
-        string wildlifePanel = xaml[xaml.IndexOf("x:Name=\"WildlifePanel\"", StringComparison.Ordinal)..];
+        string wildlifePanel = xaml[xaml.IndexOf("x:Name=\"WildlifePanel\"", StringComparison.Ordinal)..
+            xaml.IndexOf("x:Name=\"TreeDecorationPanel\"", StringComparison.Ordinal)];
         Assert.Contains("MinHeight=\"196\"", wildlifePanel, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"Wrap\" TextAlignment=\"Left\"", wildlifePanel, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"WildlifePager\"", wildlifePanel, StringComparison.Ordinal);
@@ -116,5 +117,24 @@ public sealed class EncyclopediaCategorySummaryTests
 
         Assert.Equal(new EncyclopediaCategoryProgress("蝴蝶", 1, 2), result[0]);
         Assert.Equal(new EncyclopediaCategoryProgress("小动物", 1, 1), result[1]);
+    }
+
+    [Fact]
+    public void TreeDecorationCategories_CountOwnedTypesAndExcludeLegacyThemes()
+    {
+        TreeDecorationCatalogItem[] catalog =
+        [
+            new("lantern", "红灯笼", "tree", "common", "lantern"),
+            new("chime", "风铃", "tree", "common", "chime"),
+            new("garden", "春日花园", "theme", "theme", "garden")
+        ];
+        TreeDecorationInventoryItem[] inventory =
+        [new("lantern", 3), new("chime", 0), new("garden", 1)];
+
+        IReadOnlyList<EncyclopediaCategoryProgress> result =
+            EncyclopediaCategorySummary.TreeDecorations(catalog, inventory);
+
+        Assert.Equal(new EncyclopediaCategoryProgress("tree", 1, 2), result[0]);
+        Assert.Single(result);
     }
 }

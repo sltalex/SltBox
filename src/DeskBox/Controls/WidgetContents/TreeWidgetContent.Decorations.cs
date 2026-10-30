@@ -29,19 +29,6 @@ public sealed partial class TreeWidgetContent
         _decorationThemeLayer.Children.Clear();
         foreach (Canvas layer in _decorationLayers.Values) layer.Children.Clear();
         TreeDecorationDisplayScene scene = TreeDecorationSceneProjection.ForDesktop(treeStage, state, catalog);
-        if (scene.Theme is { } theme)
-        {
-            _decorationThemeLayer.Children.Add(new Image
-            {
-                Width = TreeIllustrationLayout.Width,
-                Height = TreeIllustrationLayout.ArtworkHeight,
-                Source = TreeDecorationAssetCatalog.Source(theme.AssetKey),
-                Stretch = Stretch.Fill,
-                IsHitTestVisible = false,
-                Opacity = .88
-            });
-        }
-
         foreach ((TreeDecorationPlacement placement, TreeDecorationCatalogItem item) in scene.Placements)
         {
             double size = TreeDecorationAssetCatalog.VisualSize(item.Category);

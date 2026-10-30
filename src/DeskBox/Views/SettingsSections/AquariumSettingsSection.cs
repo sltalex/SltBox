@@ -87,6 +87,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     private string _selectedStoreSubcategory = "all";
     private string _selectedBackpackHabitat = "all";
     private string _selectedExternalBackpackGroup = "general";
+    private string _selectedTreeDecorationSubcategory = string.Empty;
     private readonly ComboBox _layer = new() { Width = 125, IsEnabled = false };
 
     public AquariumSettingsSection()
@@ -352,6 +353,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
             _hasDraft = _dirty = _conflict = false;
             _selectedId = null;
             _noticeKey = null;
+            _selectedTreeDecorationSubcategory = string.Empty;
         }
         AquariumState? state = _service.State;
         if (state is not null && (!_hasDraft || !_dirty))
@@ -408,6 +410,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
     {
         if (_externalStore is not { } store) return;
         store.CoinBalanceLabel.Text = F("Aquarium.Settings.Coins", _service?.State?.Coins ?? 0);
+        store.SetWallet(_service?.State?.Wallet ?? [], _service?.Catalog ?? [], App.Current.FruitService.Catalog);
         store.CategoriesHost.Children.Clear();
         store.ItemsHost.Children.Clear();
         if (_service is null) return;
@@ -627,6 +630,31 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         }
         IReadOnlyList<TreeDecorationOwnedProduct> products = TreeDecorationInventoryPresentation.Summarize(
             state.Inventory, state.Placements, catalog.Items);
+        var ownedBySubcategory = products
+            .GroupBy(item => item.Product.Subcategory, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.OwnedCount),
+                StringComparer.Ordinal);
+        var subcategories = catalog.Items
+            .Where(item => item.Category != "theme")
+            .Select(item => item.Subcategory)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(item => item, StringComparer.Ordinal)
+            .ToArray();
+        var filter = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalSpacing = 6, VerticalSpacing = 6 };
+        filter.Children.Add(TreeDecorationSubcategoryButton(
+            $"全部 ({products.Sum(item => item.OwnedCount)})",
+            string.IsNullOrEmpty(_selectedTreeDecorationSubcategory), string.Empty));
+        foreach (string subcategory in subcategories)
+        {
+            ownedBySubcategory.TryGetValue(subcategory, out int count);
+            filter.Children.Add(TreeDecorationSubcategoryButton(
+                $"{TreeDecorationInventoryPresentation.SubcategoryName(subcategory, L)} ({count})",
+                string.Equals(_selectedTreeDecorationSubcategory, subcategory, StringComparison.Ordinal),
+                subcategory));
+        }
+        host.Children.Add(filter);
+        products = products.Where(item => string.IsNullOrEmpty(_selectedTreeDecorationSubcategory) ||
+            item.Product.Subcategory == _selectedTreeDecorationSubcategory).ToArray();
         var cards = new Grid
         {
             Width = TreeDecorationInventoryLayout.RowWidth,
@@ -650,6 +678,24 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         else host.Children.Add(Label("Aquarium.Settings.EmptyBackpack", 13, .7));
     }
 
+    private Button TreeDecorationSubcategoryButton(string text, bool selected, string subcategory)
+    {
+        var button = new Button
+        {
+            Content = text,
+            Padding = new Thickness(10, 5, 10, 5),
+            MinHeight = 30,
+            Opacity = selected ? 1 : .72,
+            FontWeight = selected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal
+        };
+        button.Click += (_, _) =>
+        {
+            _selectedTreeDecorationSubcategory = subcategory;
+            RenderExternalBackpack();
+        };
+        return button;
+    }
+
     private Border TreeDecorationBackpackCard(TreeDecorationOwnedProduct owned, Action openSettings)
     {
         TreeDecorationCatalogItem product = owned.Product;
@@ -667,7 +713,7 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         panel.Children.Add(imageHost);
         panel.Children.Add(new TextBlock
         {
-            Text = L("Tree.Decorations.Item." + product.Id),
+            Text = TreeDecorationInventoryPresentation.DisplayName(product, L),
             FontSize = 12,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap,
@@ -676,9 +722,14 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
         });
         panel.Children.Add(new TextBlock
         {
-            Text = product.Category == "theme"
-                ? L("Tree.Decorations.Rarity." + product.Rarity)
-                : $"{L("Aquarium.Settings.Placed")} {owned.PlacedCount}/{owned.OwnedCount}",
+            Text = TreeDecorationInventoryPresentation.SubcategoryName(product, L),
+            FontSize = 10,
+            Opacity = .68,
+            TextAlignment = TextAlignment.Center
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"{L("Aquarium.Settings.Placed")} {owned.PlacedCount}/{owned.OwnedCount}",
             FontSize = 11,
             Opacity = .72,
             TextAlignment = TextAlignment.Center
@@ -1164,7 +1215,10 @@ public sealed partial class AquariumSettingsSection : UserControl, IDisposable
                 !ReferenceEquals(service, _treeDecorations) || service.CurrentUserId != accountId) return;
             TreeDecorationDrawResult? first = results.FirstOrDefault();
             string summary = string.Join(" · ", results.Select(result =>
-                L("Tree.Decorations.Item." + result.ItemId)));
+            {
+                TreeDecorationCatalogItem? product = service.Catalog?.Items.FirstOrDefault(item => item.Id == result.ItemId);
+                return product is null ? result.ItemId : TreeDecorationInventoryPresentation.PackResultLabel(product, L);
+            }));
             if (results.Count > 4) summary = F("Tree.Decorations.CardPack.ResultSummary", results.Count, summary);
             ShowPackReveal(L("Tree.Decorations.CardPack.RevealTitle"), summary,
                 first is null ? null : TreeDecorationAssetCatalog.Source(first.ItemId));
