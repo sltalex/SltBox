@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026102702",
-  "releaseDate": "2026-10-27",
+  "version": "2026103002",
+  "releaseDate": "2026-10-30",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026102702/SltBox_Setup_2026102702_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026102702_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026103002/SltBox_Setup_2026103002_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026103002_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "8ee5e50e695232888173f7ac3e9f79bf38fd65a3451fc3f15b3cc8d6d18927bd",
-  "size": 156345551,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026102702",
+  "sha256": "aa37eb941c5ea13535743f4ded408004cafa1bdaf7e75a08a8d8c330c1cd78a9",
+  "size": 156380578,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026103002",
   "summary": {
-    "zh-CN": "SltBox 2026102702：会议显示参会人员，钉钉群文档支持多维表与 Office 文件并每页显示 5 条；种树设置新增到访、点赞和次数，优化装饰背包布局与商城森林卡牌。",
-    "en-US": "SltBox 2026102702 shows meeting attendees, adds DingTalk multidimensional tables and Office files with five documents per page, and introduces tree visits, daily likes, and improved tree decoration layouts."
+    "zh-CN": "SltBox 2026103002：沿用 2026103001 的钉钉文档、种树、动物图鉴、商城和树木装饰更新，并开放树木装饰给所有已登录用户。",
+    "en-US": "SltBox 2026103002 carries forward the 2026103001 DingTalk, tree, wildlife, store, and decoration updates and opens tree decorations to all signed-in users."
   }
 }
