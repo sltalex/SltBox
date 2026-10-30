@@ -1,4 +1,4 @@
-# SltBox 2026103001
+# SltBox 2026103002
 
 本次更新相对于正式版 **2026102702**。继续完善钉钉群文档、种树、动物图鉴和商城；树木装饰目录恢复为原有 20 件。
 
@@ -32,8 +32,8 @@
 
 ## 安装与兼容
 
-- 提供 Windows x64 Direct 版 Native AOT 安装包 `SltBox_Setup_2026103001_x64.exe`，适用于 Windows 10 21H2（19044）及以上 x64 系统。安装包未签名，可用同名 `.sha256` 文件核对。
+- 提供 Windows x64 Direct 版 Native AOT 安装包 `SltBox_Setup_2026103002_x64.exe`，适用于 Windows 10 21H2（19044）及以上 x64 系统。安装包未签名，可用同名 `.sha256` 文件核对。
 - 钉钉群文档云索引需要配套 PHP 接口和数据库表。账号须已登录 SltBox，且钉钉 DWS 授权须与绑定的钉钉账号一致。
 - 更新程序优先使用 GitHub 安装包，失败时使用 `http://sltbox.2leaves.cn/releases/` 镜像，并按更新清单中的 SHA-256 校验。本次不发布 ARM64 或 Microsoft Store 安装包。
 
-**完整变更对比：** https://github.com/sltalex/SltBox/compare/v2026102702...v2026103001
+**完整变更对比：** https://github.com/sltalex/SltBox/compare/v2026102702...v2026103002
