@@ -12,12 +12,12 @@ public sealed class TreeDecorationServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "DeskBoxTreeDecor", Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public async Task DecorationVisibilityFollowsSignedInUsernameWithoutChangingApiAvailability()
+    public async Task DecorationVisibilityIsAvailableToEverySignedInAccount()
     {
         var auth = new FakeAuth();
         await using var service = new TreeDecorationService(auth, new FakeApi(), _root);
 
-        Assert.False(service.IsVisibleToCurrentUser);
+        Assert.True(service.IsVisibleToCurrentUser);
         Assert.True(service.IsAvailable);
         Assert.True(await service.RefreshAsync());
 
@@ -28,7 +28,7 @@ public sealed class TreeDecorationServiceTests : IDisposable
         Assert.Equal(1, changed);
 
         auth.SetCurrentUser(new AuthUser("other-owner", "other"));
-        Assert.False(service.IsVisibleToCurrentUser);
+        Assert.True(service.IsVisibleToCurrentUser);
         Assert.True(service.IsAvailable);
 
         auth.SetCurrentUser(null);
