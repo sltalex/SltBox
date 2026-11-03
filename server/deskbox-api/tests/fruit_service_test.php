@@ -94,6 +94,17 @@ fruit_check((int)$pdo->query('SELECT COUNT(*) FROM user_fruit_discoveries')->fet
     'Selling fruit does not darken its encyclopedia entry.');
 fruit_check((int)$pdo->query("SELECT COUNT(*) FROM aquarium_wallet_entries WHERE reason='fruit_atlas_sale'")->fetchColumn() === 1,
     'Typed fruit sale records a wallet entry.');
+fruit_check((int)$pdo->query("SELECT sale_sequence FROM fruit_sale_operations WHERE operation_id='fruit-sale-test-0001'")->fetchColumn() === 1,
+    'A sale receives a per-user monotonic sequence for same-second ordering.');
+$saleInsert = $pdo->prepare('INSERT INTO fruit_sale_operations (user_id,operation_id,fruit_id,quantity,unit_price,total,created_at) VALUES (?,?,?,?,?,?,?)');
+for ($i = 1; $i <= 8; $i++) {
+    $saleInsert->execute([$user, sprintf('history-sale-%08d', $i), 'apple', 1, 20 + $i, 20 + $i, auth_sql_time($clock()->modify("+{$i} seconds"))]);
+}
+$state = fruit_state_read($pdo, $user);
+fruit_check(isset($state['sale_history']['apple']) && count($state['sale_history']['apple']) === 7,
+    'Fruit state returns only the seven latest sale prices for each fruit.');
+fruit_check(array_column($state['sale_history']['apple'], 'price') === [28, 27, 26, 25, 24, 23, 22],
+    'Fruit sale history is ordered from newest to oldest by unit price.');
 $other = auth_register($pdo, 'legacy_fruit', 'secret2', 'other-device', '127.0.0.2', $clock)['user']['id'];
 fruit_prepare_legacy($pdo,$other,2,$clock());
 fruit_record_spawn($pdo,$other,1,$clock());

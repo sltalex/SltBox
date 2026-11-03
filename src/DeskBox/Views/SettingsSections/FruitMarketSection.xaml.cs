@@ -78,6 +78,11 @@ public sealed partial class FruitMarketSection : UserControl
                 card.Children.Add(new TextBlock { Text = $"今日 {fruit.CurrentPrice} 金币 · 数量 {owned.Quantity}", FontSize = 11, Opacity = .75, TextWrapping = TextWrapping.Wrap });
                 var history = Service.PriceHistory.TryGetValue(fruit.Id, out var points) ? string.Join("  ", points.TakeLast(7).Select(x => x.Price)) : "暂无历史";
                 card.Children.Add(new TextBlock { Text = $"7日：{history}", FontSize = 10, Opacity = .65, TextWrapping = TextWrapping.Wrap });
+                if (Service.SalePriceHistory.TryGetValue(fruit.Id, out var salePoints) && salePoints.Count > 0)
+                {
+                    string salePrices = string.Join("  ", salePoints.Take(7).Select(x => x.Price));
+                    card.Children.Add(new TextBlock { Text = $"出售：{salePrices}", FontSize = 10, Opacity = .65, TextWrapping = TextWrapping.Wrap });
+                }
                 var cardBorder = new Border
                 {
                     MinHeight = 160, Padding = new Thickness(8), CornerRadius = new CornerRadius(10),

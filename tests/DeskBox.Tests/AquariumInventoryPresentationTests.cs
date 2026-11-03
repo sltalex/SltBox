@@ -174,6 +174,8 @@ public sealed class AquariumInventoryPresentationTests
         Assert.Contains("PlaceholderText = \"数量\", Width = 48", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Width = 210, MinHeight = 160", source, StringComparison.Ordinal);
         Assert.Contains("int columns = FruitCards.ColumnDefinitions.Count", source, StringComparison.Ordinal);
+        Assert.Contains("SalePriceHistory", source, StringComparison.Ordinal);
+        Assert.Contains("Text = $\"出售：{salePrices}\"", source, StringComparison.Ordinal);
         Assert.Contains("Grid.SetColumn(cardBorder, index % columns)", source, StringComparison.Ordinal);
         Assert.Contains("Grid.SetRow(cardBorder, index / columns)", source, StringComparison.Ordinal);
         Assert.Equal(3, xaml.Split("<ColumnDefinition Width=\"*\" />", StringSplitOptions.None).Length - 1);

@@ -24,6 +24,7 @@ internal sealed class FruitService : IAsyncDisposable
     internal IReadOnlyList<FruitCatalogItem> Catalog { get; private set; } = Array.Empty<FruitCatalogItem>();
     internal IReadOnlyList<FruitInventoryItem> Inventory { get; private set; } = Array.Empty<FruitInventoryItem>();
     internal IReadOnlyDictionary<string, IReadOnlyList<FruitPricePoint>> PriceHistory { get; private set; } = new Dictionary<string, IReadOnlyList<FruitPricePoint>>();
+    internal IReadOnlyDictionary<string, IReadOnlyList<FruitSalePricePoint>> SalePriceHistory { get; private set; } = new Dictionary<string, IReadOnlyList<FruitSalePricePoint>>();
     internal IReadOnlyList<FruitOnTreeItem> OnTree { get; private set; } = Array.Empty<FruitOnTreeItem>();
     internal bool IsAvailable => _auth.IsAuthenticated;
 
@@ -53,6 +54,9 @@ internal sealed class FruitService : IAsyncDisposable
             var history = new Dictionary<string, IReadOnlyList<FruitPricePoint>>(StringComparer.Ordinal);
             if (stateDoc.RootElement.TryGetProperty("history", out var all))
                 foreach (var p in all.EnumerateObject()) history[p.Name] = FruitJson.ReadHistory(p.Value);
+            var saleHistory = new Dictionary<string, IReadOnlyList<FruitSalePricePoint>>(StringComparer.Ordinal);
+            if (stateDoc.RootElement.TryGetProperty("sale_history", out var sales) && sales.ValueKind == JsonValueKind.Object)
+                foreach (var p in sales.EnumerateObject()) saleHistory[p.Name] = FruitJson.ReadSaleHistory(p.Value);
             lock (_stateGate)
             {
                 if (_auth.CurrentUser?.Id != ownerId) return false;
@@ -60,6 +64,7 @@ internal sealed class FruitService : IAsyncDisposable
                 Inventory = inventory;
                 OnTree = onTree;
                 PriceHistory = history;
+                SalePriceHistory = saleHistory;
                 SaveCache(ownerId);
             }
             Changed?.Invoke(); return true;
@@ -167,6 +172,7 @@ internal sealed class FruitService : IAsyncDisposable
         {
             Inventory = Array.Empty<FruitInventoryItem>();
             PriceHistory = new Dictionary<string, IReadOnlyList<FruitPricePoint>>();
+            SalePriceHistory = new Dictionary<string, IReadOnlyList<FruitSalePricePoint>>();
             OnTree = Array.Empty<FruitOnTreeItem>();
             _pendingPickOperation = null;
             _pendingSales.Clear();
@@ -206,6 +212,7 @@ internal sealed class FruitService : IAsyncDisposable
                 OwnerUserId = ownerId,
                 Inventory = Inventory.ToArray(),
                 History = PriceHistory.ToDictionary(x => x.Key, x => x.Value.ToArray(), StringComparer.Ordinal),
+                SaleHistory = SalePriceHistory.ToDictionary(x => x.Key, x => x.Value.ToArray(), StringComparer.Ordinal),
                 OnTree = OnTree.ToArray()
             };
             FruitCacheFileStore.Save(path, cache);
@@ -223,6 +230,8 @@ internal sealed class FruitService : IAsyncDisposable
             if (cache is null || _auth.CurrentUser?.Id != cache.OwnerUserId) return;
             Inventory = cache.Inventory;
             PriceHistory = cache.History.ToDictionary(x => x.Key, x => (IReadOnlyList<FruitPricePoint>)x.Value, StringComparer.Ordinal);
+            SalePriceHistory = (cache.SaleHistory ?? new Dictionary<string, FruitSalePricePoint[]>(StringComparer.Ordinal))
+                .ToDictionary(x => x.Key, x => (IReadOnlyList<FruitSalePricePoint>)x.Value, StringComparer.Ordinal);
             OnTree = cache.OnTree;
         }
         catch (Exception ex) when (ex is IOException || ex is JsonException) { }

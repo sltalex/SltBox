@@ -81,7 +81,13 @@ function fruit_ensure_schema(PDO $pdo): void
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_fruit_inventory (user_id VARCHAR(64) NOT NULL,fruit_id VARCHAR(80) NOT NULL,quantity BIGINT NOT NULL DEFAULT 0,discovered_at {$types[8]} NOT NULL,updated_at {$types[8]} NOT NULL,PRIMARY KEY(user_id,fruit_id))");
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_fruit_discoveries (user_id VARCHAR(64) NOT NULL,fruit_id VARCHAR(80) NOT NULL,discovered_at {$types[8]} NOT NULL,PRIMARY KEY(user_id,fruit_id))");
     $pdo->exec("CREATE TABLE IF NOT EXISTS fruit_daily_prices (fruit_id VARCHAR(80) NOT NULL,price_day DATE NOT NULL,price INT NOT NULL,PRIMARY KEY(fruit_id,price_day))");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS fruit_sale_operations (user_id VARCHAR(64) NOT NULL,operation_id VARCHAR(128) NOT NULL,fruit_id VARCHAR(80) NOT NULL,quantity BIGINT NOT NULL,unit_price INT NOT NULL,total BIGINT NOT NULL,created_at {$types[8]} NOT NULL,PRIMARY KEY(user_id,operation_id))");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS fruit_sale_operations (user_id VARCHAR(64) NOT NULL,operation_id VARCHAR(128) NOT NULL,fruit_id VARCHAR(80) NOT NULL,quantity BIGINT NOT NULL,unit_price INT NOT NULL,total BIGINT NOT NULL,created_at {$types[8]} NOT NULL,sale_sequence BIGINT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,operation_id))");
+    $saleColumns = $driver === 'sqlite'
+        ? array_map(static fn(array $row): string => (string)$row['name'], $pdo->query('PRAGMA table_info(fruit_sale_operations)')->fetchAll(PDO::FETCH_ASSOC))
+        : array_map('strval', $pdo->query('SHOW COLUMNS FROM fruit_sale_operations')->fetchAll(PDO::FETCH_COLUMN));
+    if (!in_array('sale_sequence', $saleColumns, true)) {
+        $pdo->exec('ALTER TABLE fruit_sale_operations ADD COLUMN sale_sequence BIGINT NOT NULL DEFAULT 0');
+    }
     $pdo->exec("CREATE TABLE IF NOT EXISTS fruit_pick_operations (user_id VARCHAR(64) NOT NULL,operation_id VARCHAR(128) NOT NULL,pending_id BIGINT NOT NULL,fruit_id VARCHAR(80) NOT NULL,quantity INT NOT NULL,created_at {$types[8]} NOT NULL,PRIMARY KEY(user_id,operation_id))");
     // The first pilot build did not persist the pending tree-fruit row. Add the
     // column in place so existing installations keep their idempotency records.
@@ -134,7 +140,18 @@ function fruit_state_read(PDO $pdo, string $userId): array
     $history=[];$h=$pdo->prepare('SELECT fruit_id,price_day,price FROM fruit_daily_prices WHERE fruit_id=:id AND price_day >= :day ORDER BY price_day');
     $cutoff=(new DateTimeImmutable($day . 'T00:00:00Z'))->modify('-6 days')->format('Y-m-d');
     foreach($catalog['items'] as $item){$h->execute([':id'=>$item['id'],':day'=>$cutoff]);$history[$item['id']]=array_map(fn($x)=>['day'=>$x['price_day'],'price'=>(int)$x['price']],$h->fetchAll(PDO::FETCH_ASSOC));}
-    return ['catalog'=>$catalog['items'],'inventory'=>array_map(fn($i)=>['fruit_id'=>$i['id'],'quantity'=>$seen[$i['id']]??0,'discovered'=>isset($discovered[$i['id']])],$catalog['items']),'history'=>$history,'on_tree'=>fruit_on_tree($pdo,$userId)];
+    $saleHistory=[];
+    $sales=$pdo->prepare('SELECT fruit_id,unit_price FROM (
+        SELECT fruit_id,unit_price,ROW_NUMBER() OVER (PARTITION BY fruit_id ORDER BY created_at DESC,sale_sequence DESC,operation_id DESC) AS sale_rank
+        FROM fruit_sale_operations WHERE user_id=:user
+    ) ranked WHERE sale_rank<=7 ORDER BY fruit_id,sale_rank');
+    $sales->execute([':user'=>$userId]);
+    foreach($sales->fetchAll(PDO::FETCH_ASSOC) as $sale){
+        $fruitId=(string)$sale['fruit_id'];
+        $saleHistory[$fruitId]??=[];
+        $saleHistory[$fruitId][]=['price'=>(int)$sale['unit_price']];
+    }
+    return ['catalog'=>$catalog['items'],'inventory'=>array_map(fn($i)=>['fruit_id'=>$i['id'],'quantity'=>$seen[$i['id']]??0,'discovered'=>isset($discovered[$i['id']])],$catalog['items']),'history'=>$history,'sale_history'=>$saleHistory,'on_tree'=>fruit_on_tree($pdo,$userId)];
 }
 
 function fruit_weighted_pick(PDO $pdo): ?array
@@ -262,12 +279,15 @@ function fruit_sell(PDO $pdo,string $userId,array $body,callable $clock): array
         $stock->execute([':user'=>$userId,':fruit'=>$id]);
         if((int)$stock->fetchColumn()<$quantity)throw new ApiError('insufficient_fruit','Not enough fruits in the backpack.',409);
         $price=fruit_daily_price($pdo,$fruit,$day);$total=$quantity*$price;
+        $sequence=$pdo->prepare('SELECT COALESCE(MAX(sale_sequence),0)+1 FROM fruit_sale_operations WHERE user_id=:user');
+        $sequence->execute([':user'=>$userId]);
+        $saleSequence=(int)$sequence->fetchColumn();
         $coins=(int)$profile['coins']+$total;
         if($coins>2147483647)throw new ApiError('coin_limit','The aquarium wallet limit was exceeded.',409);
         $pdo->prepare('UPDATE user_fruit_inventory SET quantity=quantity-:quantity,updated_at=:now WHERE user_id=:user AND fruit_id=:fruit')->execute([':quantity'=>$quantity,':now'=>auth_sql_time($now),':user'=>$userId,':fruit'=>$id]);
         $pdo->prepare('UPDATE aquarium_profiles SET coins=:coins,updated_at=:now WHERE user_id=:user')->execute([':coins'=>$coins,':now'=>auth_sql_time($now),':user'=>$userId]);
         aquarium_record_wallet($pdo,$userId,$operationId,$total,$coins,'fruit_atlas_sale',$id,$now);
-        $pdo->prepare('INSERT INTO fruit_sale_operations (user_id,operation_id,fruit_id,quantity,unit_price,total,created_at) VALUES (:user,:operation,:fruit,:quantity,:price,:total,:created)')->execute([':user'=>$userId,':operation'=>$operationId,':fruit'=>$id,':quantity'=>$quantity,':price'=>$price,':total'=>$total,':created'=>auth_sql_time($now)]);
+        $pdo->prepare('INSERT INTO fruit_sale_operations (user_id,operation_id,fruit_id,quantity,unit_price,total,created_at,sale_sequence) VALUES (:user,:operation,:fruit,:quantity,:price,:total,:created,:sequence)')->execute([':user'=>$userId,':operation'=>$operationId,':fruit'=>$id,':quantity'=>$quantity,':price'=>$price,':total'=>$total,':created'=>auth_sql_time($now),':sequence'=>$saleSequence]);
         $pdo->commit();
         return ['fruit_id'=>$id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$total,'duplicate'=>false];
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}

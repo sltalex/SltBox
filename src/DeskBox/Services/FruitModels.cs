@@ -7,6 +7,7 @@ internal sealed record FruitCatalogItem(string Id, string Name, string Category,
     double Probability, int MinPrice, int MaxPrice, int CurrentPrice, bool Enabled = true);
 internal sealed record FruitInventoryItem(string FruitId, int Quantity, bool Discovered);
 internal sealed record FruitPricePoint(string Day, int Price);
+internal sealed record FruitSalePricePoint(int Price);
 internal sealed record FruitOnTreeItem(long Id, string FruitId);
 internal sealed record FruitSellRequest(
     [property: JsonPropertyName("fruit_id")] string FruitId,
@@ -20,6 +21,7 @@ internal sealed class FruitCacheDto
     public string OwnerUserId { get; set; } = string.Empty;
     public FruitInventoryItem[] Inventory { get; set; } = [];
     public Dictionary<string, FruitPricePoint[]> History { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, FruitSalePricePoint[]> SaleHistory { get; set; } = new(StringComparer.Ordinal);
     public FruitOnTreeItem[] OnTree { get; set; } = [];
 }
 
@@ -50,6 +52,18 @@ internal static class FruitJson
             items = nested;
         else return Array.Empty<FruitPricePoint>();
         return items.EnumerateArray().Select(x => new FruitPricePoint(Text(x, "day"), Int(x, "price", 0))).ToArray();
+    }
+
+    internal static IReadOnlyList<FruitSalePricePoint> ReadSaleHistory(JsonElement root)
+    {
+        JsonElement items;
+        if (root.ValueKind == JsonValueKind.Array) items = root;
+        else if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("sales", out var nested) && nested.ValueKind == JsonValueKind.Array)
+            items = nested;
+        else return Array.Empty<FruitSalePricePoint>();
+        return items.EnumerateArray()
+            .Select(x => new FruitSalePricePoint(Int(x, "price", 0)))
+            .ToArray();
     }
 
     internal static IReadOnlyList<FruitOnTreeItem> ReadOnTree(JsonElement root)

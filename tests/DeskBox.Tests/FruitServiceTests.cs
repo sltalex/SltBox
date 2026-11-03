@@ -24,7 +24,7 @@ public sealed class FruitServiceTests
             }
             return path.EndsWith("catalog.php", StringComparison.Ordinal)
                 ? Response(HttpStatusCode.OK, "{\"items\":[]}")
-                : Response(HttpStatusCode.OK, "{\"inventory\":[],\"on_tree\":[]}");
+                : Response(HttpStatusCode.OK, "{\"inventory\":[],\"on_tree\":[],\"sale_history\":{}}");
         });
         await using var service = new FruitService(auth, api);
 
@@ -68,6 +68,7 @@ public sealed class FruitServiceTests
         Assert.False(await service.RefreshAsync());
         Assert.Empty(service.Inventory);
         Assert.Empty(service.PriceHistory);
+        Assert.Empty(service.SalePriceHistory);
     }
 
     private static string Operation(byte[] body)

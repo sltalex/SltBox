@@ -17,4 +17,16 @@ public sealed class FruitJsonTests
         Assert.Equal("2026-10-22", price.Day);
         Assert.Equal(18, price.Price);
     }
+
+    [Fact]
+    public void ServerSaleHistoryMapValuesAreLatestSalePriceArrays()
+    {
+        using JsonDocument response = JsonDocument.Parse("""
+            {"sale_history":{"apple":[{"price":21},{"price":19}]}}
+            """);
+        JsonElement apple = response.RootElement.GetProperty("sale_history").GetProperty("apple");
+
+        FruitSalePricePoint[] prices = FruitJson.ReadSaleHistory(apple).ToArray();
+        Assert.Equal([21, 19], prices.Select(x => x.Price));
+    }
 }

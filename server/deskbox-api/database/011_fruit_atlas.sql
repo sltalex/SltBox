@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS fruit_sale_operations (
     user_id VARCHAR(64) NOT NULL, operation_id VARCHAR(128) NOT NULL,
     fruit_id VARCHAR(80) NOT NULL, quantity BIGINT NOT NULL,
     unit_price INT NOT NULL, total BIGINT NOT NULL, created_at DATETIME NOT NULL,
+    sale_sequence BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY(user_id, operation_id)
 );
 CREATE TABLE IF NOT EXISTS fruit_pick_operations (
