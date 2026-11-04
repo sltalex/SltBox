@@ -32,9 +32,10 @@ public sealed partial class TreeWidgetContent
             treeStage, encounter.Id);
         bool skyFlight = WildlifeMotionCatalog.FliesAcrossSky(encounter.SpeciesId, species.Placement);
 
-        var transform = new CompositeTransform { ScaleX = motion.Frames[0].ScaleX };
+        var travel = new TranslateTransform();
+        var visualTransform = new CompositeTransform { ScaleX = motion.Frames[0].ScaleX };
         double visualSize = WildlifeMotionCatalog.VisualSize(encounter.SpeciesId, species.Category, treeStage);
-        double hitSize = Math.Max(visualSize, 56);
+        double hitSize = WildlifeMotionCatalog.HitTargetSize(visualSize, skyFlight);
         var captureScale = new ScaleTransform();
         var captureVisual = new Grid
         {
@@ -46,14 +47,15 @@ public sealed partial class TreeWidgetContent
         {
             Source = source, Width = visualSize, Height = visualSize, Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            IsHitTestVisible = false
+            IsHitTestVisible = false, RenderTransform = visualTransform,
+            RenderTransformOrigin = new Windows.Foundation.Point(.5, .5)
         };
         captureVisual.Children.Add(image);
         var hitTarget = new Border
         {
             Width = hitSize, Height = hitSize, Child = captureVisual,
             Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            RenderTransform = transform, RenderTransformOrigin = new Windows.Foundation.Point(.5, .5)
+            RenderTransform = travel
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(hitTarget, $"{species.Name}，点击收藏");
         hitTarget.Tapped += async (_, args) =>
@@ -99,12 +101,12 @@ public sealed partial class TreeWidgetContent
         _wildlifeLayer.Children.Add(hitTarget);
 
         if (!WindowsCompatibilityService.ShouldAnimate) return;
-        AddWildlifeTrack(transform, "TranslateX", motion, frame => frame.X,
+        AddWildlifeTrack(travel, "X", motion, frame => frame.X,
             linear: skyFlight);
-        AddWildlifeTrack(transform, "TranslateY", motion, frame => frame.Y);
-        AddWildlifeTrack(transform, "Rotation", motion, frame => frame.Rotation);
-        AddWildlifeTrack(transform, "ScaleX", motion, frame => frame.ScaleX);
-        AddWildlifeTrack(transform, "ScaleY", motion, frame => frame.ScaleY);
+        AddWildlifeTrack(travel, "Y", motion, frame => frame.Y);
+        AddWildlifeTrack(visualTransform, "Rotation", motion, frame => frame.Rotation);
+        AddWildlifeTrack(visualTransform, "ScaleX", motion, frame => frame.ScaleX);
+        AddWildlifeTrack(visualTransform, "ScaleY", motion, frame => frame.ScaleY);
         AddWildlifeTrack(image, "Opacity", motion, frame => frame.Opacity);
         if (_motionRunning) _wildlifeMotion.Begin();
     }

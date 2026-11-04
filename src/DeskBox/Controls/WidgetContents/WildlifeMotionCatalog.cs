@@ -250,13 +250,16 @@ internal static class WildlifeMotionCatalog
         bool rightward = (hash & 1) == 0;
         double direction = rightward ? 1 : -1;
         double center = TreeIllustrationLayout.Width / 2 - 18;
-        double offscreen = VisualSize(species.Id, species.Category, 5) + 6;
-        double start = rightward ? -offscreen : TreeIllustrationLayout.Width + 6;
-        double finish = rightward ? TreeIllustrationLayout.Width + 6 : -offscreen;
+        double visualSize = VisualSize(species.Id, species.Category, 5);
+        double hitSize = HitTargetSize(visualSize, skyFlight: true);
+        double offscreen = hitSize + 6;
+        double rightEdge = TreeIllustrationLayout.Width + (hitSize - visualSize) / 2 + 6;
+        double start = rightward ? -offscreen : rightEdge;
+        double finish = rightward ? rightEdge : -offscreen;
         double distance = finish - start;
         double bob = 2 + hash % 3;
         double y = 9 + hash % 7;
-        return M(species.Name + "·掠空飞越", center, y, 7.2 + hash % 12 * .22,
+        return M(species.Name + "·掠空飞越", center, y, 13.5 + hash % 12 * .2,
             F(0, start - center, 0, -3 * direction, direction),
             F(.22, start + distance * .22 - center, -bob, 2 * direction, direction, .82),
             F(.5, start + distance * .5 - center, bob, -2 * direction, direction, 1.06),
@@ -285,10 +288,13 @@ internal static class WildlifeMotionCatalog
             TreeIllustrationLayout.ArtworkWidth(treeStage) / TreeIllustrationLayout.ArtworkWidth(5);
     }
 
+    internal static double HitTargetSize(double visualSize, bool skyFlight) =>
+        Math.Max(visualSize, skyFlight ? 88 : 56);
+
     internal static (double Left, double Top) HitTargetPosition(WildlifeMotionProfile motion,
         double visualSize, bool skyFlight)
     {
-        double hitSize = Math.Max(visualSize, 56);
+        double hitSize = HitTargetSize(visualSize, skyFlight);
         double inset = (hitSize - visualSize) / 2;
         double left = motion.X - inset;
         double top = motion.Y - inset + (skyFlight ? 0 : TreeIllustrationLayout.TreeVerticalOffset);

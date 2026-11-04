@@ -19,10 +19,10 @@ public sealed class WildlifeMotionCatalogTests
         {
             WildlifeCatalogItem species = Assert.Single(WildlifeAssetCatalog.LocalCatalog, item => item.Id == id);
             double visualSize = WildlifeMotionCatalog.VisualSize(id, species.Category, 5);
-            double hitSize = Math.Max(visualSize, 56);
             bool skyFlight = WildlifeMotionCatalog.FliesAcrossSky(id);
+            double hitSize = WildlifeMotionCatalog.HitTargetSize(visualSize, skyFlight);
             (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(motion, visualSize, skyFlight);
-            Assert.InRange(motion.Seconds, 2, 11);
+            Assert.InRange(motion.Seconds, 2, skyFlight ? 16 : 11);
             Assert.InRange(motion.Frames.Count, 4, 7);
             Assert.Equal(0, motion.Frames[0].At);
             Assert.Equal(1, motion.Frames[^1].At);
@@ -72,6 +72,20 @@ public sealed class WildlifeMotionCatalogTests
     }
 
     [Fact]
+    public void SkyFlightsAllowAtLeastThreeSecondsToTapAtOnePosition()
+    {
+        foreach (WildlifeCatalogItem species in WildlifeAssetCatalog.LocalCatalog.Where(item => item.Placement == "sky"))
+        {
+            WildlifeMotionProfile motion = WildlifeMotionCatalog.Profiles[species.Id];
+            double visualSize = WildlifeMotionCatalog.VisualSize(species.Id, species.Category, 5);
+            double targetSize = WildlifeMotionCatalog.HitTargetSize(visualSize, skyFlight: true);
+            double travel = Math.Abs(motion.Frames[^1].X - motion.Frames[0].X);
+            double captureWindow = targetSize * motion.Seconds / travel;
+            Assert.True(captureWindow >= 3, $"{species.Id}: {captureWindow:F2} seconds");
+        }
+    }
+
+    [Fact]
     public void SpeciesSignatures_MatchRecognizableBehaviors()
     {
         IReadOnlyList<WildlifeMotionFrame> butterfly = WildlifeMotionCatalog.Profiles["blue-morpho"].Frames;
@@ -92,9 +106,9 @@ public sealed class WildlifeMotionCatalogTests
             {
                 double visualSize = WildlifeMotionCatalog.VisualSize(species.Id, species.Category, stage);
                 Assert.InRange(visualSize / treeWidth, .2, .42);
-                double hitSize = Math.Max(visualSize, 56);
                 WildlifeMotionProfile motion = WildlifeMotionCatalog.ForStage(species.Id, stage);
                 bool skyFlight = WildlifeMotionCatalog.FliesAcrossSky(species.Id);
+                double hitSize = WildlifeMotionCatalog.HitTargetSize(visualSize, skyFlight);
                 (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(motion, visualSize, skyFlight);
                 foreach (WildlifeMotionFrame frame in motion.Frames)
                 {
