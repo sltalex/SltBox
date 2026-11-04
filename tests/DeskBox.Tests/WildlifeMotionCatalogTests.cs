@@ -86,6 +86,26 @@ public sealed class WildlifeMotionCatalogTests
     }
 
     [Fact]
+    public void SkyCaptureLaneIncludesTheMovingBirdAndExcludesTheGround()
+    {
+        foreach (WildlifeCatalogItem species in WildlifeAssetCatalog.LocalCatalog.Where(item => item.Placement == "sky"))
+        {
+            WildlifeMotionProfile motion = WildlifeMotionCatalog.ForEncounter(species.Id, 5, "tap-lane-test");
+            double visualSize = WildlifeMotionCatalog.VisualSize(species.Id, species.Category, 5);
+            (double top, double bottom) = WildlifeMotionCatalog.SkyCaptureLane(motion, visualSize);
+            double hitTop = WildlifeMotionCatalog.HitTargetPosition(motion, visualSize, skyFlight: true).Top;
+            double hitSize = WildlifeMotionCatalog.HitTargetSize(visualSize, skyFlight: true);
+            Assert.InRange(top, 0, TreeIllustrationLayout.Height);
+            Assert.InRange(bottom, 0, TreeIllustrationLayout.Height - 1);
+            foreach (WildlifeMotionFrame frame in motion.Frames)
+            {
+                Assert.True(top <= hitTop + frame.Y, species.Id);
+                Assert.True(bottom >= hitTop + frame.Y + hitSize, species.Id);
+            }
+        }
+    }
+
+    [Fact]
     public void SpeciesSignatures_MatchRecognizableBehaviors()
     {
         IReadOnlyList<WildlifeMotionFrame> butterfly = WildlifeMotionCatalog.Profiles["blue-morpho"].Frames;

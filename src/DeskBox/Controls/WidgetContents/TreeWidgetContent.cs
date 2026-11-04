@@ -16,7 +16,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private readonly Grid _drawing = new() { Width = TreeIllustrationLayout.Width, Height = TreeIllustrationLayout.Height };
+    private readonly Grid _drawing = new()
+    {
+        Width = TreeIllustrationLayout.Width, Height = TreeIllustrationLayout.Height,
+        Background = new SolidColorBrush(Colors.Transparent)
+    };
     private readonly Grid _treeSurface = new()
     {
         Width = TreeIllustrationLayout.Width,
@@ -135,6 +139,16 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
                 _ = PickFruitAsync(pendingId, index, image);
                 args.Handled = true;
             }
+        };
+        _drawing.Tapped += async (_, args) =>
+        {
+            Func<Task>? capture = _skyFlightCapture;
+            if (capture is null || _disposed || !_visible) return;
+            double y = args.GetPosition(_drawing).Y;
+            if (y < _skyCaptureTop || y > _skyCaptureBottom) return;
+            args.Handled = true;
+            App.Log("[Wildlife] Sky capture fallback tapped.");
+            await capture();
         };
         _timer.Tick += (_, _) =>
         {

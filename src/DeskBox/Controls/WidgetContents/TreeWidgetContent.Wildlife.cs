@@ -9,6 +9,9 @@ namespace DeskBox.Controls.WidgetContents;
 public sealed partial class TreeWidgetContent
 {
     private string? _capturingEncounterId;
+    private Func<Task>? _skyFlightCapture;
+    private double _skyCaptureTop;
+    private double _skyCaptureBottom;
 
     private void RenderWildlife()
     {
@@ -21,6 +24,7 @@ public sealed partial class TreeWidgetContent
         _wildlifeMotion.Stop();
         _wildlifeMotion.Children.Clear();
         _wildlifeLayer.Children.Clear();
+        _skyFlightCapture = null;
         _renderedEncounterId = encounter?.Id;
         _renderedWildlifeStage = treeStage;
         if (encounter is null) return;
@@ -58,10 +62,10 @@ public sealed partial class TreeWidgetContent
             RenderTransform = travel
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(hitTarget, $"{species.Name}，点击收藏");
-        hitTarget.Tapped += async (_, args) =>
+        async Task CaptureAsync()
         {
-            args.Handled = true;
-            if (_capturingEncounterId is not null) return;
+            if (_capturingEncounterId is not null || _renderedEncounterId != encounter.Id ||
+                service.Encounter?.Id != encounter.Id) return;
             _capturingEncounterId = encounter.Id;
             hitTarget.IsHitTestVisible = false;
             Storyboard? feedback = null;
@@ -93,12 +97,22 @@ public sealed partial class TreeWidgetContent
                 if (!_disposed && _visible && IsLoaded && _motionRunning &&
                     _renderedEncounterId == encounter.Id) _wildlifeMotion.Resume();
             }
+        }
+        hitTarget.Tapped += async (_, args) =>
+        {
+            args.Handled = true;
+            await CaptureAsync();
         };
         (double left, double top) = WildlifeMotionCatalog.HitTargetPosition(
             motion, visualSize, skyFlight);
         Canvas.SetLeft(hitTarget, left);
         Canvas.SetTop(hitTarget, top);
         _wildlifeLayer.Children.Add(hitTarget);
+        if (skyFlight)
+        {
+            (_skyCaptureTop, _skyCaptureBottom) = WildlifeMotionCatalog.SkyCaptureLane(motion, visualSize);
+            _skyFlightCapture = CaptureAsync;
+        }
 
         if (!WindowsCompatibilityService.ShouldAnimate) return;
         AddWildlifeTrack(travel, "X", motion, frame => frame.X,

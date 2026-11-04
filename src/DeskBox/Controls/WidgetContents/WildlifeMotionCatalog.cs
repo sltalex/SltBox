@@ -291,6 +291,16 @@ internal static class WildlifeMotionCatalog
     internal static double HitTargetSize(double visualSize, bool skyFlight) =>
         Math.Max(visualSize, skyFlight ? 88 : 56);
 
+    internal static (double Top, double Bottom) SkyCaptureLane(WildlifeMotionProfile motion,
+        double visualSize)
+    {
+        double top = HitTargetPosition(motion, visualSize, skyFlight: true).Top;
+        double hitSize = HitTargetSize(visualSize, skyFlight: true);
+        return (Math.Max(0, top + motion.Frames.Min(frame => frame.Y) - 6),
+            Math.Min(TreeIllustrationLayout.Height,
+                top + hitSize + motion.Frames.Max(frame => frame.Y) + 6));
+    }
+
     internal static (double Left, double Top) HitTargetPosition(WildlifeMotionProfile motion,
         double visualSize, bool skyFlight)
     {
