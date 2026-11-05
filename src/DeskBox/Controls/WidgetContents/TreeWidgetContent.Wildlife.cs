@@ -10,6 +10,7 @@ public sealed partial class TreeWidgetContent
 {
     private string? _capturingEncounterId;
     private Func<Task>? _skyFlightCapture;
+    private Func<Task>? _wildlifeCapture;
     private double _skyCaptureTop;
     private double _skyCaptureBottom;
 
@@ -25,6 +26,7 @@ public sealed partial class TreeWidgetContent
         _wildlifeMotion.Children.Clear();
         _wildlifeLayer.Children.Clear();
         _skyFlightCapture = null;
+        _wildlifeCapture = null;
         _renderedEncounterId = encounter?.Id;
         _renderedWildlifeStage = treeStage;
         if (encounter is null) return;
@@ -67,6 +69,7 @@ public sealed partial class TreeWidgetContent
             if (_capturingEncounterId is not null || _renderedEncounterId != encounter.Id ||
                 service.Encounter?.Id != encounter.Id) return;
             _capturingEncounterId = encounter.Id;
+            PublishTree3DState(_counter.Snapshot);
             hitTarget.IsHitTestVisible = false;
             Storyboard? feedback = null;
             try
@@ -94,6 +97,7 @@ public sealed partial class TreeWidgetContent
                 captureScale.ScaleX = captureScale.ScaleY = 1;
                 hitTarget.IsHitTestVisible = true;
                 _capturingEncounterId = null;
+                if (!_disposed) PublishTree3DState(_counter.Snapshot);
                 if (!_disposed && _visible && IsLoaded && _motionRunning &&
                     _renderedEncounterId == encounter.Id) _wildlifeMotion.Resume();
             }
@@ -108,6 +112,7 @@ public sealed partial class TreeWidgetContent
         Canvas.SetLeft(hitTarget, left);
         Canvas.SetTop(hitTarget, top);
         _wildlifeLayer.Children.Add(hitTarget);
+        _wildlifeCapture = CaptureAsync;
         if (skyFlight)
         {
             (_skyCaptureTop, _skyCaptureBottom) = WildlifeMotionCatalog.SkyCaptureLane(motion, visualSize);

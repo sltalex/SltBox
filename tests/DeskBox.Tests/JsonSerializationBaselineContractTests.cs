@@ -63,6 +63,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             ["src/DeskBox/Services/TodoWidgetStore.cs"] = 3,
             ["src/DeskBox/Services/TreeProgressFileStore.cs"] = 2,
             ["src/DeskBox/Services/TreeCloudSyncService.cs"] = 14,
+            ["src/DeskBox/Controls/WidgetContents/Tree3DView.cs"] = 1,
+            ["src/DeskBox/Core/Persistence/TreeVisualSettingsFileStore.cs"] = 2,
             ["src/DeskBox/Services/UpdatePreferenceService.cs"] = 2,
             ["src/DeskBox/Services/WeatherService.cs"] = 5,
             ["src/DeskBox/Services/WildlifeCacheFileStore.cs"] = 2,
@@ -91,8 +93,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             Assert.Equal(expectedCount, actual[path]);
         }
 
-        Assert.Equal(53, actual.Count);
-        Assert.Equal(147, actual.Values.Sum());
+        Assert.Equal(55, actual.Count);
+        Assert.Equal(150, actual.Values.Sum());
 
         string[] expectedContextOwners =
         [
@@ -108,6 +110,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             "src/DeskBox/App.AotTodoNotificationForwardingSmoke.cs",
             "src/DeskBox/App.AotTodoNotificationLifecycleSmoke.cs",
             "src/DeskBox/App.AotTodoRecurrenceReminderSmoke.cs",
+            "src/DeskBox/Controls/WidgetContents/Tree3DSceneState.cs",
+            "src/DeskBox/Core/Persistence/TreeVisualSettingsFileStore.cs",
             "src/DeskBox/Services/AccountCloudJsonModels.cs",
             "src/DeskBox/Services/AppUpdateService.cs",
             "src/DeskBox/Services/AuthJsonModels.cs",
@@ -150,7 +154,7 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             .Order()
             .ToArray();
 
-        Assert.Equal(45, actualContextOwners.Length);
+        Assert.Equal(47, actualContextOwners.Length);
         Assert.Equal(expectedContextOwners, actualContextOwners);
     }
 

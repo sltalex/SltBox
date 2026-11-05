@@ -242,7 +242,8 @@ public abstract partial class WidgetWindowBase
                 RichEditBox or
                 PasswordBox or
                 AutoSuggestBox or
-                NumberBox)
+                NumberBox or
+                DeskBox.Controls.WidgetContents.Tree3DView)
             {
                 return true;
             }

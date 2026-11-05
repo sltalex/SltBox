@@ -14,6 +14,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
 {
     private readonly LocalizationService _localization;
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
+    private readonly TreeVisualSettingsService _visualSettings = TreeVisualSettingsService.Instance;
+    private Tree3DView? _tree3D;
+    private readonly Grid _threeDSurface = new() { Height = TreeIllustrationLayout.DisplayHeight };
+    private readonly RowDefinition _sceneRow = new() { Height = GridLength.Auto };
+    private readonly Viewbox _drawingViewbox;
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly Grid _drawing = new()
@@ -77,6 +82,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private long _lastFruitInventory = -1;
     private string _lastFruitSignature = string.Empty;
     private long _lastHarvested;
+    private bool _threeDFailed;
+    private static bool s_threeDFailureReported;
 
     public TreeWidgetContent(LocalizationService localization)
     {
@@ -114,13 +121,25 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _drawing.Children.Add(_weatherFrontLayer);
         ConfigureMotion();
 
-        var stack = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch };
+        HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        VerticalContentAlignment = VerticalAlignment.Stretch;
+        var layout = new Grid { RowSpacing = 2 };
+        layout.RowDefinitions.Add(_sceneRow);
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var footer = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch };
         _progress.Margin = new Thickness(16, 8, 16, 4);
-        stack.Children.Add(new Viewbox { Child = _drawing, Height = TreeIllustrationLayout.DisplayHeight, Stretch = Stretch.Uniform });
-        stack.Children.Add(_energyText);
-        stack.Children.Add(_captureStatus);
-        stack.Children.Add(_progress);
-        Content = stack;
+        _drawingViewbox = new Viewbox
+        {
+            Child = _drawing, Height = TreeIllustrationLayout.DisplayHeight, Stretch = Stretch.Uniform
+        };
+        _threeDSurface.Children.Add(_drawingViewbox);
+        layout.Children.Add(_threeDSurface);
+        footer.Children.Add(_energyText);
+        footer.Children.Add(_captureStatus);
+        footer.Children.Add(_progress);
+        Grid.SetRow(footer, 1);
+        layout.Children.Add(footer);
+        Content = layout;
         _treeSurface.Tapped += (_, args) =>
         {
             TreeProgress state = _counter.Snapshot;
@@ -160,12 +179,15 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         Loaded += (_, _) =>
         {
             _counter.Changed += CounterChanged;
+            _visualSettings.Changed += VisualSettingsChanged;
             App.Current.FruitService.Changed += FruitChanged;
             App.Current.WildlifeService.Changed += FruitChanged;
             App.Current.TreeDecorationService.Changed += DecorationChanged;
+            ApplyVisualMode();
             if (_visible && !_disposed) { _timer.Start(); Refresh(); }
         };
         Unloaded += (_, _) => { _counter.Changed -= CounterChanged; _timer.Stop(); StopMotion(); };
+        Unloaded += (_, _) => _visualSettings.Changed -= VisualSettingsChanged;
         Unloaded += (_, _) => ClearFruitPickVisuals();
         Unloaded += (_, _) =>
         {
@@ -180,6 +202,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     public void SetVisible(bool visible)
     {
         _visible = visible;
+        _tree3D?.SetVisible(visible && _visualSettings.UseThreeD && !_threeDFailed);
         if (visible && IsLoaded && !_disposed) { _timer.Start(); Refresh(); }
         else { _timer.Stop(); StopMotion(); }
         if (!visible) { ClearFruitPickVisuals(); App.Current.WildlifeService.SetVisible(false); RenderWildlife(); }
@@ -231,6 +254,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         RenderDecorations(p.Stage);
         RenderWildlife();
         UpdateMotion();
+        PublishTree3DState(p);
         if (celebrate && _motionRunning)
         {
             _celebration.Stop();
@@ -268,6 +292,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         try
         {
             visual = BeginFruitPickVisual(pendingId, fruitIndex, image);
+            PublishTree3DState(_counter.Snapshot);
             if (visual is null || !await AnimateFruitPickAsync(visual) || _disposed || !_visible || !IsLoaded) return;
             var fruitService = App.Current.FruitService;
             if (fruitService.IsAvailable)
@@ -316,6 +341,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
                 }
             }
             Volatile.Write(ref _pickInProgress, 0);
+            if (!_disposed) PublishTree3DState(_counter.Snapshot);
         }
     }
 
@@ -468,6 +494,8 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _visualSettings.Changed -= VisualSettingsChanged;
+        _tree3D?.Dispose();
         _counter.Changed -= CounterChanged;
         App.Current.FruitService.Changed -= FruitChanged;
         App.Current.WildlifeService.Changed -= FruitChanged;

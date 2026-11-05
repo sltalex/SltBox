@@ -13,6 +13,13 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly ToggleSwitch _showEnergy = new() { OnContent = "", OffContent = "", MinWidth = 0 };
+    private readonly ToggleSwitch _threeD = new() { OnContent = "", OffContent = "", MinWidth = 0 };
+    private readonly TextBlock _threeDLabel = new()
+    {
+        TextWrapping = TextWrapping.NoWrap,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        VerticalAlignment = VerticalAlignment.Center
+    };
     private readonly TextBlock _showEnergyLabel = new()
     {
         Width = 128,
@@ -48,6 +55,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly SettingsCard _switchesCard = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Border _leaderboardCard = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TreeDecorationSettingsSection _decorations = new();
+    private readonly TreeVisualSettingsService _visualSettings = TreeVisualSettingsService.Instance;
     private readonly Grid _participationRow;
     private LocalizationService? _localization;
     private IAuthSession? _auth;
@@ -79,6 +87,7 @@ public sealed partial class TreeSettingsSection : UserControl
         _participationLabel.TextWrapping = TextWrapping.NoWrap;
         _participationLabel.TextTrimming = TextTrimming.CharacterEllipsis;
         _showEnergy.VerticalAlignment = VerticalAlignment.Center;
+        _threeD.VerticalAlignment = VerticalAlignment.Center;
         _participation.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(_showEnergy, 1);
         Grid.SetColumn(_participationLabel, 2);
@@ -95,6 +104,14 @@ public sealed partial class TreeSettingsSection : UserControl
         _participationRow.Children.Add(_repairButton);
         var cardContent = new StackPanel { Spacing = 2 };
         cardContent.Children.Add(_participationRow);
+        var visualRow = new Grid { MinHeight = 40, ColumnSpacing = 8 };
+        visualRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        visualRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(_threeDLabel, 0);
+        Grid.SetColumn(_threeD, 1);
+        visualRow.Children.Add(_threeDLabel);
+        visualRow.Children.Add(_threeD);
+        cardContent.Children.Add(visualRow);
         cardContent.Children.Add(_syncStatus);
         _switchesCard.Content = cardContent;
 
@@ -130,6 +147,11 @@ public sealed partial class TreeSettingsSection : UserControl
             if (_updating) return;
             _counter.SetShowEnergy(_showEnergy.IsOn);
         };
+        _threeD.Toggled += (_, _) =>
+        {
+            if (_updating) return;
+            _visualSettings.SetUseThreeD(_threeD.IsOn);
+        };
         Loaded += TreeSettingsSection_Loaded;
         Unloaded += TreeSettingsSection_Unloaded;
     }
@@ -152,6 +174,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_auth is not null) _auth.SessionChanged += OnLeaderboardChanged;
         if (_cloud is not null) _cloud.LeaderboardChanged += OnLeaderboardChanged;
         _counter.Changed += OnCounterChanged;
+        _visualSettings.Changed += OnVisualSettingsChanged;
         RenderLabels();
         Refresh();
         if (_auth?.IsAuthenticated == true && _cloud is not null)
@@ -167,6 +190,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_auth is not null) _auth.SessionChanged -= OnLeaderboardChanged;
         if (_cloud is not null) _cloud.LeaderboardChanged -= OnLeaderboardChanged;
         _counter.Changed -= OnCounterChanged;
+        _visualSettings.Changed -= OnVisualSettingsChanged;
     }
 
     private void RenderLabels()
@@ -175,6 +199,7 @@ public sealed partial class TreeSettingsSection : UserControl
         _switchesCard.Header = _localization.T("Tree.Settings.Card.Switches");
         _leaderboardTitle.Text = _localization.T("Tree.Settings.Card.Leaderboard");
         _showEnergyLabel.Text = _localization.T("Tree.Settings.ShowEnergy");
+        _threeDLabel.Text = _localization.T("Tree.Settings.ThreeD.Toggle");
         _participationLabel.Text = _localization.T("Tree.Settings.Leaderboard.Participate");
         ToolTipService.SetToolTip(_todayKeysValue, _localization.T("Tree.Settings.TodayKeys"));
         _loginButton.Content = _localization.T("Tree.Settings.Leaderboard.SignInAction");
@@ -311,6 +336,7 @@ public sealed partial class TreeSettingsSection : UserControl
     {
         RefreshTodayKeys();
         RefreshShowEnergy();
+        RefreshThreeD();
         RefreshLeaderboardSurface();
     }
 
@@ -323,6 +349,20 @@ public sealed partial class TreeSettingsSection : UserControl
         bool wasUpdating = _updating;
         _updating = true;
         try { _showEnergy.IsOn = showEnergy; }
+        finally { _updating = wasUpdating; }
+    }
+
+    private void OnVisualSettingsChanged()
+    {
+        if (!_uiQueue.TryEnqueue(RefreshThreeD)) RefreshThreeD();
+    }
+
+    private void RefreshThreeD()
+    {
+        bool enabled = _visualSettings.UseThreeD;
+        bool wasUpdating = _updating;
+        _updating = true;
+        try { _threeD.IsOn = enabled; }
         finally { _updating = wasUpdating; }
     }
 
