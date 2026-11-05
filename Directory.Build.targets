@@ -1,0 +1,15 @@
+<Project>
+  <!-- Keep bundled runtimes and Native AOT on the Brotli security fix even
+       when the pinned SDK still defaults to an older runtime servicing level. -->
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp' and '$(TargetFrameworkVersion)' == 'v10.0'">
+    <KnownFrameworkReference Update="Microsoft.NETCore.App">
+      <LatestRuntimeFrameworkVersion>10.0.14</LatestRuntimeFrameworkVersion>
+    </KnownFrameworkReference>
+    <KnownRuntimePack Update="Microsoft.NETCore.App">
+      <LatestRuntimeFrameworkVersion>10.0.14</LatestRuntimeFrameworkVersion>
+    </KnownRuntimePack>
+    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler">
+      <ILCompilerPackVersion>10.0.14</ILCompilerPackVersion>
+    </KnownILCompilerPack>
+  </ItemGroup>
+</Project>

@@ -348,7 +348,7 @@ public sealed class TreeIllustrationTests
         Assert.DoesNotContain("_baseLabel", progressSource, StringComparison.Ordinal);
         Assert.DoesNotContain("_filledLabel", progressSource, StringComparison.Ordinal);
         Assert.DoesNotContain("$\"{next:0.00}%\"", progressSource, StringComparison.Ordinal);
-        Assert.Contains("stack.Children.Add(_progress)", source, StringComparison.Ordinal);
+        Assert.Contains("footer.Children.Add(_progress)", source, StringComparison.Ordinal);
         Assert.Contains("_progress.Margin = new Thickness(16, 8, 16, 4)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Text = \"🌱\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Grid.SetColumn(_percent, 2)", source, StringComparison.Ordinal);
