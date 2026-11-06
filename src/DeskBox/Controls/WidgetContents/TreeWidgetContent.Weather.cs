@@ -23,6 +23,7 @@ public sealed partial class TreeWidgetContent
     private readonly Storyboard _cloudMotion = new();
     private readonly Storyboard _sunMotion = new();
     private WeatherVisualSnapshot? _renderedWeather;
+    private bool _weatherRendered;
 
     private async Task RefreshTreeWeatherIfDueAsync()
     {
@@ -95,8 +96,9 @@ public sealed partial class TreeWidgetContent
     private void RenderWeatherEffects()
     {
         WeatherVisualSnapshot? weather = WeatherVisualStateService.Instance.Snapshot;
-        if (_renderedWeather == weather) return;
+        if (_weatherRendered && _renderedWeather == weather) return;
         _renderedWeather = weather;
+        _weatherRendered = true;
         StopWeatherMotion();
         _weatherMotion.Children.Clear();
         _cloudMotion.Children.Clear();
@@ -111,7 +113,11 @@ public sealed partial class TreeWidgetContent
             switch (snapshot.Condition)
             {
                 case WeatherCodeMapper.WeatherCondition.Clear:
-                    if (snapshot.IsDay) AddSunshine();
+                    if (snapshot.IsDay)
+                    {
+                        AddClouds(dark: false);
+                        AddSunshine();
+                    }
                     else AddNightSky();
                     break;
                 case WeatherCodeMapper.WeatherCondition.Cloudy:
@@ -144,6 +150,12 @@ public sealed partial class TreeWidgetContent
                     AddFallAnimation(2.2);
                     break;
             }
+        }
+        else
+        {
+            // Keep the tree scene visually complete while the first weather
+            // request is still in flight or unavailable.
+            AddClouds(dark: false);
         }
 
         UpdateFallingLeavesForWeather();
