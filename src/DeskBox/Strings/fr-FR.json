@@ -3608,5 +3608,9 @@
   ,"Tree.Decorations.Item.spring-garden":"Spring garden"
   ,"Tree.Decorations.Item.midsummer-camp":"Midsummer camp"
   ,"Tree.Decorations.Item.autumn-harvest":"Autumn harvest yard"
-  ,"Tree.Decorations.Item.winter-starlight":"Winter starlight"
+  ,"Tree.Decorations.Item.winter-starlight":"Winter starlight",
+  "Tree.Settings.Leaderboard.VisitFruitPickSuccess": "已摘取 1 个果实。",
+  "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "同类果实至少有 2 个时才能摘取。",
+  "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "今天已经摘取过这个果实了。",
+  "Tree.Settings.Leaderboard.VisitFruitPickError": "摘取失败，请稍后重试。"
 }

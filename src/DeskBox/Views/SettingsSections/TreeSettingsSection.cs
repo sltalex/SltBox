@@ -551,12 +551,55 @@ public sealed partial class TreeSettingsSection : UserControl
                 finally { like.IsEnabled = flyout.IsOpen && _auth?.CurrentUser?.Id == viewerId && !snapshot.LikedByMe; }
             };
             panel.Children.Remove(status);
-            panel.Children.Add(new TreeVisitSceneView(snapshot, _decorationService?.Catalog));
-            panel.Children.Add(new TextBlock
+            TreeVisitSceneView? scene = null;
+            var fruitCount = new TextBlock
             {
                 Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit", snapshot.FruitInventory),
                 HorizontalAlignment = HorizontalAlignment.Center
-            });
+            };
+            async Task PickVisitedFruitAsync(string fruitId)
+            {
+                if (_cloud is null || _auth?.CurrentUser?.Id != viewerId || !flyout.IsOpen) return;
+                if (snapshot.Fruits.Count(item => item == fruitId) < 2)
+                {
+                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
+                    if (status.Parent is null) panel.Children.Insert(1, status);
+                    return;
+                }
+                try
+                {
+                    TreeVisitFruitPickResponse result = await _cloud.PickVisitedFruitAsync(entry.Account, fruitId);
+                    await App.Current.FruitService.RefreshAsync();
+                    List<string> remaining = snapshot.Fruits.ToList();
+                    remaining.Remove(fruitId);
+                    snapshot.Fruits = remaining.ToArray();
+                    snapshot.FruitOnTreeCount = result.RemainingOnTree;
+                    scene?.RemoveFruit(fruitId);
+                    fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                        snapshot.FruitOnTreeCount);
+                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickSuccess");
+                    if (status.Parent is null) panel.Children.Insert(1, status);
+                }
+                catch (AuthApiException error) when (error.Code == "visit_fruit_daily_limit")
+                {
+                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday");
+                    if (status.Parent is null) panel.Children.Insert(1, status);
+                }
+                catch (AuthApiException error) when (error.Code == "visit_fruit_requires_two")
+                {
+                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
+                    if (status.Parent is null) panel.Children.Insert(1, status);
+                }
+                catch (Exception ex)
+                {
+                    App.Log($"[TreeCloud] Visited fruit pick failed: {ex.GetType().Name}");
+                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickError");
+                    if (status.Parent is null) panel.Children.Insert(1, status);
+                }
+            }
+            scene = new TreeVisitSceneView(snapshot, _decorationService?.Catalog, PickVisitedFruitAsync);
+            panel.Children.Add(scene);
+            panel.Children.Add(fruitCount);
         }
         catch (Exception ex)
         {

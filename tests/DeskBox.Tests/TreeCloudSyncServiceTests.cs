@@ -55,6 +55,25 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task PickingVisitedFruitUsesTheAuthenticatedOwnerAndFruitEndpoint()
+    {
+        var api = new FakeApi();
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("viewer", "Viewer"),
+            stateDirectory: _root);
+
+        TreeVisitFruitPickResponse result = await service.PickVisitedFruitAsync("friend", "apple");
+
+        Assert.Equal("apple", result.FruitId);
+        Assert.Equal(1, result.Quantity);
+        Assert.Equal(2, result.RemainingOnTree);
+        Assert.Contains("POST ../tree/fruit-pick.php", api.Requests);
+        using JsonDocument body = JsonDocument.Parse(Assert.Single(api.Bodies));
+        Assert.Equal("friend", body.RootElement.GetProperty("account").GetString());
+        Assert.Equal("apple", body.RootElement.GetProperty("fruit_id").GetString());
+        Assert.Equal(32, body.RootElement.GetProperty("operation_id").GetString()?.Length);
+    }
+
+    [Fact]
     public async Task VisitAsync_RejectsOwnTreeBeforeSendingRequest()
     {
         var api = new FakeApi();
@@ -570,6 +589,12 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
                 if (jsonBody is not null) Bodies.Add(jsonBody);
                 return Response(HttpStatusCode.OK,
                     "{\"like_count\":4,\"liked_by_me\":true}");
+            }
+            if (relativePath == "../tree/fruit-pick.php")
+            {
+                if (jsonBody is not null) Bodies.Add(jsonBody);
+                return Response(HttpStatusCode.OK,
+                    "{\"fruit_id\":\"apple\",\"quantity\":1,\"remaining_on_tree\":2,\"duplicate\":false}");
             }
             if (method == HttpMethod.Post)
             {

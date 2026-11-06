@@ -3602,5 +3602,9 @@
   "Tree.Decorations.Item.spring-garden": "Spring garden",
   "Tree.Decorations.Item.midsummer-camp": "Midsummer camp",
   "Tree.Decorations.Item.autumn-harvest": "Autumn harvest yard",
-  "Tree.Decorations.Item.winter-starlight": "Winter starlight"
+  "Tree.Decorations.Item.winter-starlight": "Winter starlight",
+  "Tree.Settings.Leaderboard.VisitFruitPickSuccess": "Picked 1 fruit.",
+  "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "At least 2 of this fruit must be on the tree before it can be picked.",
+  "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "You already picked this fruit today.",
+  "Tree.Settings.Leaderboard.VisitFruitPickError": "Could not pick the fruit. Try again later."
 }

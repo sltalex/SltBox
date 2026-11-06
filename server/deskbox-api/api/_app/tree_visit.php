@@ -11,6 +11,7 @@ function tree_visit_like_day(DateTimeImmutable $now): string
 
 function tree_visit_ensure_schema(PDO $pdo, ?DateTimeImmutable $now = null): void
 {
+    $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
     $pdo->exec('CREATE TABLE IF NOT EXISTS tree_visit_totals ('
         . 'user_id VARCHAR(64) PRIMARY KEY, visit_count BIGINT NOT NULL DEFAULT 0)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS tree_visit_operations ('
@@ -24,9 +25,13 @@ function tree_visit_ensure_schema(PDO $pdo, ?DateTimeImmutable $now = null): voi
         . 'PRIMARY KEY (user_id, visitor_id, like_day))');
     $pdo->exec('CREATE TABLE IF NOT EXISTS tree_visit_like_migrations ('
         . 'migration_name VARCHAR(64) PRIMARY KEY, like_day DATE NOT NULL)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS tree_visit_fruit_picks ('
+        . 'operation_id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(64) NOT NULL, '
+        . 'visitor_id VARCHAR(64) NOT NULL, fruit_id VARCHAR(80) NOT NULL, '
+        . 'pick_day DATE NOT NULL, created_at DATETIME NOT NULL, '
+        . 'UNIQUE (owner_id,visitor_id,fruit_id,pick_day))');
 
     // Legacy likes have no date. Preserve each as one like on the first migration day.
-    $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
     $ignore = $sqlite ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
     $pdo->prepare($ignore . ' INTO tree_visit_like_migrations (migration_name,like_day) '
         . 'VALUES (:name,:day)')->execute([
@@ -201,6 +206,96 @@ function tree_visit_record(PDO $pdo, string $account, string $viewer, string $op
             throw $error;
         }
     return tree_visit_snapshot($pdo, $account, $viewer);
+}
+
+function tree_visit_pick_fruit(PDO $pdo, string $account, string $viewer, string $fruitId,
+    string $operationId, ?DateTimeImmutable $now = null): array
+{
+    if (!preg_match('/\A[A-Za-z0-9_-]{16,128}\z/D', $operationId)) {
+        throw new ApiError('invalid_operation', 'A stable fruit-pick identifier is required.', 400);
+    }
+    if ($fruitId === '' || strlen($fruitId) > 80 || !preg_match('/\A[A-Za-z0-9_-]+\z/D', $fruitId)) {
+        throw new ApiError('invalid_fruit_pick', 'A valid fruit is required.', 400);
+    }
+    tree_visit_assert_other($account, $viewer);
+    tree_visit_assert_public($pdo, $account);
+    tree_visit_ensure_schema($pdo, $now);
+    fruit_ensure_schema($pdo);
+    $now ??= api_clock();
+    $day = tree_visit_like_day($now);
+    $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+    $pdo->beginTransaction();
+    try {
+        tree_visit_assert_public($pdo, $account, true);
+        $prior = $pdo->prepare('SELECT owner_id,visitor_id,fruit_id FROM tree_visit_fruit_picks '
+            . 'WHERE operation_id=:operation');
+        $prior->execute([':operation' => $operationId]);
+        $old = $prior->fetch(PDO::FETCH_ASSOC);
+        if (is_array($old)) {
+            if ($old['owner_id'] !== $account || $old['visitor_id'] !== $viewer ||
+                $old['fruit_id'] !== $fruitId) {
+                throw new ApiError('operation_conflict', 'Fruit-pick identifier was reused.', 409);
+            }
+            $remaining = $pdo->prepare('SELECT COUNT(*) FROM user_fruit_pending '
+                . 'WHERE user_id=:user AND fruit_id=:fruit');
+            $remaining->execute([':user' => $account, ':fruit' => $fruitId]);
+            $pdo->commit();
+            return ['fruit_id' => $fruitId, 'quantity' => 1,
+                'remaining_on_tree' => (int)$remaining->fetchColumn(), 'duplicate' => true];
+        }
+        $daily = $pdo->prepare('SELECT 1 FROM tree_visit_fruit_picks '
+            . 'WHERE owner_id=:owner AND visitor_id=:visitor AND fruit_id=:fruit AND pick_day=:day');
+        $daily->execute([':owner' => $account, ':visitor' => $viewer,
+            ':fruit' => $fruitId, ':day' => $day]);
+        if ($daily->fetchColumn() !== false) {
+            throw new ApiError('visit_fruit_daily_limit', 'This fruit was already picked today.', 409);
+        }
+
+        $pendingQuery = $pdo->prepare('SELECT id FROM user_fruit_pending '
+            . 'WHERE user_id=:user AND fruit_id=:fruit ORDER BY id' . ($sqlite ? '' : ' FOR UPDATE'));
+        $pendingQuery->execute([':user' => $account, ':fruit' => $fruitId]);
+        $pendingIds = array_map('intval', $pendingQuery->fetchAll(PDO::FETCH_COLUMN));
+        if (count($pendingIds) < 2) {
+            throw new ApiError('visit_fruit_requires_two', 'At least two of this fruit must be on the tree.', 409);
+        }
+        $pendingId = $pendingIds[0];
+        $pdo->prepare('DELETE FROM user_fruit_pending WHERE id=:id AND user_id=:user')
+            ->execute([':id' => $pendingId, ':user' => $account]);
+        $stamp = auth_sql_time($now);
+        $pdo->prepare('UPDATE tree_profiles SET harvested_total=harvested_total+1,'
+            . 'state_version=state_version+1,updated_at=:now WHERE user_id=:user')
+            ->execute([':now' => $stamp, ':user' => $account]);
+
+        $visitorArgs = [':user' => $viewer, ':fruit' => $fruitId, ':quantity' => 1,
+            ':created' => $stamp, ':updated' => $stamp];
+        $inventorySql = $sqlite
+            ? 'INSERT INTO user_fruit_inventory (user_id,fruit_id,quantity,discovered_at,updated_at) '
+                . 'VALUES (:user,:fruit,:quantity,:created,:updated) '
+                . 'ON CONFLICT(user_id,fruit_id) DO UPDATE SET quantity=quantity+excluded.quantity,updated_at=excluded.updated_at'
+            : 'INSERT INTO user_fruit_inventory (user_id,fruit_id,quantity,discovered_at,updated_at) '
+                . 'VALUES (:user,:fruit,:quantity,:created,:updated) '
+                . 'ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity),updated_at=VALUES(updated_at)';
+        $pdo->prepare($inventorySql)->execute($visitorArgs);
+        $pdo->prepare(($sqlite ? 'INSERT OR IGNORE' : 'INSERT IGNORE')
+            . ' INTO user_fruit_discoveries (user_id,fruit_id,discovered_at) '
+            . 'VALUES (:user,:fruit,:created)')->execute([
+                ':user' => $viewer, ':fruit' => $fruitId, ':created' => $stamp]);
+        $pick = $pdo->prepare(($sqlite ? 'INSERT OR IGNORE' : 'INSERT IGNORE')
+            . ' INTO tree_visit_fruit_picks '
+            . '(operation_id,owner_id,visitor_id,fruit_id,pick_day,created_at) '
+            . 'VALUES (:operation,:owner,:visitor,:fruit,:day,:created)');
+        $pick->execute([':operation' => $operationId, ':owner' => $account,
+            ':visitor' => $viewer, ':fruit' => $fruitId, ':day' => $day, ':created' => $stamp]);
+        if ($pick->rowCount() !== 1) {
+            throw new ApiError('visit_fruit_daily_limit', 'This fruit was already picked today.', 409);
+        }
+        $pdo->commit();
+        return ['fruit_id' => $fruitId, 'quantity' => 1,
+            'remaining_on_tree' => count($pendingIds) - 1, 'duplicate' => false];
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
 }
 
 function tree_visit_assert_other(string $account, string $viewer): void

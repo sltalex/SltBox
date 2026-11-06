@@ -10,13 +10,16 @@ namespace DeskBox.Views.SettingsSections;
 
 internal sealed partial class TreeVisitSceneView : UserControl
 {
-    internal TreeVisitSceneView(TreeVisitSnapshot snapshot, TreeDecorationCatalog? catalog)
+    private readonly Dictionary<string, List<Button>> _fruitButtons = new(StringComparer.Ordinal);
+
+    internal TreeVisitSceneView(TreeVisitSnapshot snapshot, TreeDecorationCatalog? catalog,
+        Func<string, Task>? fruitPicker = null)
     {
         var drawing = new Grid
         {
             Width = TreeIllustrationLayout.Width,
             Height = TreeIllustrationLayout.Height,
-            IsHitTestVisible = false
+            IsHitTestVisible = true
         };
         var layers = Enumerable.Range(-2, 5).ToDictionary(index => index, _ => Layer());
         drawing.Children.Add(new Image
@@ -32,26 +35,51 @@ internal sealed partial class TreeVisitSceneView : UserControl
             Width = TreeIllustrationLayout.Width,
             Height = TreeIllustrationLayout.ArtworkHeight,
             VerticalAlignment = VerticalAlignment.Top,
-            RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.TreeVerticalOffset }
+            RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.TreeVerticalOffset },
+            IsHitTestVisible = true
         };
         tree.Children.Add(new Image { Source = Asset(TreeIllustrationLayout.StageAssetName(snapshot.Stage)) });
         var canopy = new Grid();
         canopy.Children.Add(new Image { Source = Asset(TreeIllustrationLayout.CanopyAssetName(snapshot.Stage)) });
-        var fruitLayer = new Canvas();
+        var fruitLayer = new Canvas { IsHitTestVisible = fruitPicker is not null };
         if (snapshot.Stage == 5)
         {
             int count = snapshot.Fruits.Length;
             for (int index = 0; index < count; index++)
             {
                 (double x, double y) = TreeIllustrationLayout.FruitPositionAt(index);
-                var fruit = new Image
+                string fruitId = snapshot.Fruits[index];
+                var image = new Image
                 {
                     Width = 24, Height = 28, Stretch = Stretch.Uniform,
-                    Source = FruitAssetCatalog.GetImageSource(snapshot.Fruits[index])
+                    Source = FruitAssetCatalog.GetImageSource(fruitId),
+                    IsHitTestVisible = false
                 };
-                Canvas.SetLeft(fruit, x);
-                Canvas.SetTop(fruit, y);
+                if (fruitPicker is null)
+                {
+                    Canvas.SetLeft(image, x);
+                    Canvas.SetTop(image, y);
+                    fruitLayer.Children.Add(image);
+                    continue;
+                }
+                var fruit = new Button
+                {
+                    Width = 32, Height = 36, Padding = new Thickness(4),
+                    MinWidth = 0, MinHeight = 0, Content = image,
+                    Tag = fruitId
+                };
+                fruit.Click += async (_, _) =>
+                {
+                    fruit.IsEnabled = false;
+                    try { await fruitPicker(fruitId); }
+                    finally { fruit.IsEnabled = true; }
+                };
+                Canvas.SetLeft(fruit, x - 4);
+                Canvas.SetTop(fruit, y - 4);
                 fruitLayer.Children.Add(fruit);
+                if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons))
+                    _fruitButtons[fruitId] = buttons = [];
+                buttons.Add(fruit);
             }
         }
         canopy.Children.Add(fruitLayer);
@@ -111,11 +139,14 @@ internal sealed partial class TreeVisitSceneView : UserControl
             }
         }
 
-        var panel = new StackPanel { Spacing = 2, IsHitTestVisible = false };
+        // Keep the scene hit-testable so the fruit buttons can receive clicks.
+        // Individual visual layers remain non-hit-testable below, allowing only
+        // the explicit fruit buttons to handle pointer input.
+        var panel = new StackPanel { Spacing = 2, IsHitTestVisible = true };
         panel.Children.Add(new Viewbox
         {
             Width = 390, Height = 390, Stretch = Stretch.Uniform,
-            Child = drawing, IsHitTestVisible = false
+            Child = drawing, IsHitTestVisible = true
         });
         if (TreeIllustrationLayout.ShowsStageProgress(snapshot.Stage))
         {
@@ -129,6 +160,15 @@ internal sealed partial class TreeVisitSceneView : UserControl
             panel.Children.Add(progress);
         }
         Content = panel;
+    }
+
+    internal void RemoveFruit(string fruitId)
+    {
+        if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return;
+        Button? button = buttons.FirstOrDefault(item => item.Visibility == Visibility.Visible);
+        if (button is null) return;
+        button.Visibility = Visibility.Collapsed;
+        buttons.Remove(button);
     }
 
     private static SvgImageSource Asset(string name) => new(new Uri($"ms-appx:///Assets/Tree/{name}"));
