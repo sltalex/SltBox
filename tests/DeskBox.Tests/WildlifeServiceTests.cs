@@ -46,12 +46,18 @@ public sealed class WildlifeServiceTests : IDisposable
         Assert.Equal(["spring", "summer", "autumn", "winter"], butterfly.Seasons);
         Assert.Equal(["morning", "day"], butterfly.Periods);
         Assert.Equal(["clear", "cloudy"], butterfly.Weathers);
+        Assert.Equal(["clear"], butterfly.PreferredWeathers);
+        Assert.Equal("butterfly", butterfly.Motion);
         Assert.Equal("季节：春季、夏季、秋季、冬季", WildlifeAvailabilityPresentation.Seasons(butterfly));
         Assert.Equal("时段：清晨、白天", WildlifeAvailabilityPresentation.Periods(butterfly));
         Assert.Equal("天气：晴、多云", WildlifeAvailabilityPresentation.Weathers(butterfly));
         Assert.Equal("季节：春季、夏季、秋季、冬季\n时段：清晨、白天\n天气：晴、多云",
             WildlifeAvailabilityPresentation.EncyclopediaDetails(butterfly));
+        Assert.Equal("偏好天气：晴", WildlifeAvailabilityPresentation.PreferredWeathers(butterfly));
+        Assert.Equal("活动方式：轻盈飞舞", WildlifeAvailabilityPresentation.Activity(butterfly));
         Assert.Equal("地点：草地", WildlifeAvailabilityPresentation.Placement(butterfly));
+        Assert.All(service.Catalog, item =>
+            Assert.NotEqual("活动方式：移动", WildlifeAvailabilityPresentation.Activity(item)));
     }
 
     [Fact]

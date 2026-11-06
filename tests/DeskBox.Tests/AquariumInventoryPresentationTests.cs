@@ -126,7 +126,8 @@ public sealed class AquariumInventoryPresentationTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("_storeCategoryFilter", settings, StringComparison.Ordinal);
         Assert.Contains("BackpackPrimaryCategories", backpack, StringComparison.Ordinal);
-        Assert.DoesNotContain("BackpackCategories", backpack, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BackpackCategories\"", backpack, StringComparison.Ordinal);
+        Assert.Contains("page.CategoriesHost.Children.Clear()", settings, StringComparison.Ordinal);
         Assert.Contains("StoreCategories", store, StringComparison.Ordinal);
         Assert.Contains("StoreItems", store, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CoinBalance\"", store, StringComparison.Ordinal);

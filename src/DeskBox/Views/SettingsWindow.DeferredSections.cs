@@ -100,7 +100,9 @@ public sealed partial class SettingsWindow
                     {
                         _settingsService.Settings.WidgetLayout.AquariumAnimationsEnabled = enabled;
                         _settingsService.SaveDebounced();
-                    });
+                    },
+                    () => _settingsService.Settings.WidgetLayout.AquariumWallpaperEnabled,
+                    enabled => App.Current.AquariumWallpaperService?.SetEnabled(enabled));
                 break;
             case AquariumBackpackSection backpack:
                 backpack.AquariumRequested += () => NavigateToSettingsSection("AquariumSettings");

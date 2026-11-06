@@ -122,6 +122,8 @@ public sealed class Tree3DPresentationTests
             "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.ThreeD.cs"));
         Assert.Contains("_drawingViewbox", source, StringComparison.Ordinal);
         Assert.Contains("_tree3D", source, StringComparison.Ordinal);
+        Assert.Contains("layout.Children.Add(_drawingViewbox)", source, StringComparison.Ordinal);
+        Assert.Contains("layout.Children.Add(_threeDSurface)", source, StringComparison.Ordinal);
         Assert.Contains("_visualSettings.UseThreeD", bridge, StringComparison.Ordinal);
         Assert.Contains("PickFruitAsync", bridge, StringComparison.Ordinal);
         Assert.Contains("CaptureAsync", File.ReadAllText(TestPaths.FromRepository(

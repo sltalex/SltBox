@@ -8,6 +8,9 @@ public sealed class WidgetLayoutSettingsSlice
     /// <summary>Device-local aquarium animation preference.</summary>
     public bool AquariumAnimationsEnabled { get; set; } = true;
 
+    /// <summary>Device-local full-screen aquarium wallpaper preference.</summary>
+    public bool AquariumWallpaperEnabled { get; set; }
+
     /// <summary>System monitor chart presentation preferences.</summary>
     public string SystemMonitorChartStyle { get; set; } = "Bars";
     // Empty until explicitly chosen so older single-style settings keep their appearance.
@@ -93,6 +96,7 @@ public sealed class WidgetLayoutSettingsSlice
 
         FeatureWidgetEnabledStates = other.FeatureWidgetEnabledStates;
         AquariumAnimationsEnabled = other.AquariumAnimationsEnabled;
+        AquariumWallpaperEnabled = other.AquariumWallpaperEnabled;
         SystemMonitorChartStyle = other.SystemMonitorChartStyle;
         SystemMonitorCpuChartStyle = other.SystemMonitorCpuChartStyle;
         SystemMonitorMemoryChartStyle = other.SystemMonitorMemoryChartStyle;

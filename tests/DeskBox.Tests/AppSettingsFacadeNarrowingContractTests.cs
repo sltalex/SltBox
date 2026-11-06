@@ -51,7 +51,9 @@ public sealed class AppSettingsFacadeNarrowingContractTests
         // it drops a field from every file written henceforth. Either change
         // is a disk-schema decision — update this pin consciously alongside
         // the SettingsSliceContractBaselineTests order pin.
-        Assert.Equal(258, Passthroughs.Length);
+        // The device-local aquarium wallpaper preference joins the layout
+        // store; older documents omit it and retain the disabled default.
+        Assert.Equal(259, Passthroughs.Length);
         Assert.Equal(13, SliceAccessors.Length);
     }
 
@@ -70,7 +72,7 @@ public sealed class AppSettingsFacadeNarrowingContractTests
         Assert.True(
             SerializedMemberNames.SetEquals(expected),
             "Serialized member set must equal schemaVersion + the passthrough wire names.");
-        Assert.Equal(259, SerializedMemberNames.Count);
+        Assert.Equal(260, SerializedMemberNames.Count);
     }
 
     [Fact]

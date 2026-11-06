@@ -11,6 +11,7 @@
                               svc:Localized.HeaderKey="Settings.Nav.Backpack">
             <StackPanel Spacing="8">
                 <StackPanel x:Name="BackpackPrimaryCategories" Orientation="Horizontal" Spacing="6" />
+                <toolkit:WrapPanel x:Name="BackpackCategories" Orientation="Horizontal" HorizontalSpacing="6" VerticalSpacing="6" />
                 <StackPanel x:Name="BackpackItems" Spacing="10" />
             </StackPanel>
         </toolkit:SettingsCard>

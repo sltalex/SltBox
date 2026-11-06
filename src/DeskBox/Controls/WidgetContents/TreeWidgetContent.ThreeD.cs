@@ -30,6 +30,7 @@ public sealed partial class TreeWidgetContent
         SetSceneLayout(useThreeD);
         if (!useThreeD)
         {
+            _threeDSurface.Visibility = Visibility.Collapsed;
             _drawingViewbox.Visibility = Visibility.Visible;
             if (_tree3D is not null)
             {
@@ -40,6 +41,7 @@ public sealed partial class TreeWidgetContent
         }
         try
         {
+            _threeDSurface.Visibility = Visibility.Visible;
             if (_tree3D is null)
             {
                 _tree3D = new Tree3DView();
@@ -68,6 +70,7 @@ public sealed partial class TreeWidgetContent
             _tree3D.SetVisible(false);
             _tree3D.Visibility = Visibility.Collapsed;
         }
+        _threeDSurface.Visibility = Visibility.Collapsed;
         _drawingViewbox.Visibility = Visibility.Visible;
         App.Log($"[Tree3D] Falling back to 2D: {exception.GetType().Name}");
         if (s_threeDFailureReported) return;
