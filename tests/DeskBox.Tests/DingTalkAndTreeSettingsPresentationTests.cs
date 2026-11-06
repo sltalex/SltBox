@@ -65,6 +65,21 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
     }
 
     [Fact]
+    public void VisitedFruitUsesOptimisticQueueAndRestoresOnlyTheFailedFruit()
+    {
+        string settings = Read("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs");
+        string scene = Read("src/DeskBox/Views/SettingsSections/TreeVisitSceneView.cs");
+        Assert.Contains("fruitQueue.Enqueue(fruitId)", settings, StringComparison.Ordinal);
+        Assert.Contains("VisitFruitPickQueued", settings, StringComparison.Ordinal);
+        Assert.Contains("snapshot.FruitOnTreeCount - 1", settings, StringComparison.Ordinal);
+        Assert.Contains("scene?.RestoreFruit(fruitId)", settings, StringComparison.Ordinal);
+        Assert.Contains("scene.SetFruitTypeEnabled(fruitId, false)", settings, StringComparison.Ordinal);
+        Assert.Contains("internal bool RestoreFruit(string fruitId)", scene, StringComparison.Ordinal);
+        Assert.Contains("internal void SetFruitTypeEnabled(string fruitId, bool enabled)", scene, StringComparison.Ordinal);
+        Assert.DoesNotContain("buttons.Remove(button)", scene, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DingTalkAccount_UsesOneRowForDescriptionStatusAndActions()
     {
         XDocument document = XDocument.Parse(Read("src/DeskBox/Views/SettingsWindow.xaml"));

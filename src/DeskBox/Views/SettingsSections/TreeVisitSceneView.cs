@@ -162,13 +162,29 @@ internal sealed partial class TreeVisitSceneView : UserControl
         Content = panel;
     }
 
-    internal void RemoveFruit(string fruitId)
+    internal bool RemoveFruit(string fruitId)
+    {
+        if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return false;
+        Button? button = buttons.FirstOrDefault(item => item.Visibility == Visibility.Visible);
+        if (button is null) return false;
+        button.Visibility = Visibility.Collapsed;
+        return true;
+    }
+
+    internal bool RestoreFruit(string fruitId)
+    {
+        if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return false;
+        Button? button = buttons.FirstOrDefault(item => item.Visibility == Visibility.Collapsed);
+        if (button is null) return false;
+        button.Visibility = Visibility.Visible;
+        return true;
+    }
+
+    internal void SetFruitTypeEnabled(string fruitId, bool enabled)
     {
         if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return;
-        Button? button = buttons.FirstOrDefault(item => item.Visibility == Visibility.Visible);
-        if (button is null) return;
-        button.Visibility = Visibility.Collapsed;
-        buttons.Remove(button);
+        foreach (Button button in buttons.Where(item => item.Visibility == Visibility.Visible))
+            button.IsEnabled = enabled;
     }
 
     private static SvgImageSource Asset(string name) => new(new Uri($"ms-appx:///Assets/Tree/{name}"));

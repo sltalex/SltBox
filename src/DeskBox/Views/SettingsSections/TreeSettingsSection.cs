@@ -554,48 +554,115 @@ public sealed partial class TreeSettingsSection : UserControl
             TreeVisitSceneView? scene = null;
             var fruitCount = new TextBlock
             {
-                Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit", snapshot.FruitInventory),
+                Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                    snapshot.FruitOnTreeCount > 0 ? snapshot.FruitOnTreeCount : snapshot.FruitInventory),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
-            async Task PickVisitedFruitAsync(string fruitId)
+            var fruitQueue = new Queue<string>();
+            var queuedFruitTypes = new HashSet<string>(StringComparer.Ordinal);
+            bool drainingFruitQueue = false;
+
+            void SetFruitStatus(string key)
             {
-                if (_cloud is null || _auth?.CurrentUser?.Id != viewerId || !flyout.IsOpen) return;
-                if (snapshot.Fruits.Count(item => item == fruitId) < 2)
+                if (!flyout.IsOpen || _auth?.CurrentUser?.Id != viewerId) return;
+                status.Text = _localization.T(key);
+                if (status.Parent is null) panel.Children.Insert(1, status);
+            }
+
+            void RestoreQueuedFruit(string fruitId)
+            {
+                if (!snapshot.Fruits.Contains(fruitId, StringComparer.Ordinal))
                 {
-                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
-                    if (status.Parent is null) panel.Children.Insert(1, status);
-                    return;
+                    snapshot.Fruits = snapshot.Fruits.Append(fruitId).ToArray();
+                    snapshot.FruitOnTreeCount++;
                 }
+                scene?.RestoreFruit(fruitId);
+                scene?.SetFruitTypeEnabled(fruitId, true);
+                fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                    snapshot.FruitOnTreeCount);
+                queuedFruitTypes.Remove(fruitId);
+            }
+
+            async Task DrainFruitQueueAsync()
+            {
+                if (drainingFruitQueue) return;
+                drainingFruitQueue = true;
                 try
                 {
-                    TreeVisitFruitPickResponse result = await _cloud.PickVisitedFruitAsync(entry.Account, fruitId);
-                    await App.Current.FruitService.RefreshAsync();
-                    List<string> remaining = snapshot.Fruits.ToList();
-                    remaining.Remove(fruitId);
-                    snapshot.Fruits = remaining.ToArray();
-                    snapshot.FruitOnTreeCount = result.RemainingOnTree;
-                    scene?.RemoveFruit(fruitId);
-                    fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
-                        snapshot.FruitOnTreeCount);
-                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickSuccess");
-                    if (status.Parent is null) panel.Children.Insert(1, status);
+                    while (fruitQueue.Count > 0)
+                    {
+                        string fruitId = fruitQueue.Dequeue();
+                        try
+                        {
+                            if (_cloud is null) throw new InvalidOperationException("Cloud service unavailable.");
+                            await _cloud.PickVisitedFruitAsync(entry.Account, fruitId);
+                        }
+                        catch (AuthApiException error) when (error.Code == "visit_fruit_daily_limit")
+                        {
+                            RestoreQueuedFruit(fruitId);
+                            SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday");
+                            continue;
+                        }
+                        catch (AuthApiException error) when (error.Code == "visit_fruit_requires_two")
+                        {
+                            RestoreQueuedFruit(fruitId);
+                            SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
+                            continue;
+                        }
+                        catch (Exception ex)
+                        {
+                            App.Log($"[TreeCloud] Visited fruit pick failed: {ex.GetType().Name}");
+                            RestoreQueuedFruit(fruitId);
+                            SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickError");
+                            continue;
+                        }
+
+                        queuedFruitTypes.Remove(fruitId);
+                        try { await App.Current.FruitService.RefreshAsync(); }
+                        catch (Exception ex) { App.Log($"[Fruit] Visit pick refresh failed: {ex.GetType().Name}"); }
+                        SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickSuccess");
+                    }
                 }
-                catch (AuthApiException error) when (error.Code == "visit_fruit_daily_limit")
+                finally
                 {
-                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday");
-                    if (status.Parent is null) panel.Children.Insert(1, status);
+                    drainingFruitQueue = false;
                 }
-                catch (AuthApiException error) when (error.Code == "visit_fruit_requires_two")
+            }
+
+            Task PickVisitedFruitAsync(string fruitId)
+            {
+                if (_cloud is null || _auth?.CurrentUser?.Id != viewerId || !flyout.IsOpen)
+                    return Task.CompletedTask;
+                if (!queuedFruitTypes.Add(fruitId))
                 {
-                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
-                    if (status.Parent is null) panel.Children.Insert(1, status);
+                    SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickQueued");
+                    return Task.CompletedTask;
                 }
-                catch (Exception ex)
+
+                if (snapshot.Fruits.Count(item => item == fruitId) < 2)
                 {
-                    App.Log($"[TreeCloud] Visited fruit pick failed: {ex.GetType().Name}");
-                    status.Text = _localization.T("Tree.Settings.Leaderboard.VisitFruitPickError");
-                    if (status.Parent is null) panel.Children.Insert(1, status);
+                    queuedFruitTypes.Remove(fruitId);
+                    SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
+                    return Task.CompletedTask;
                 }
+
+                if (scene is null || !scene.RemoveFruit(fruitId))
+                {
+                    queuedFruitTypes.Remove(fruitId);
+                    return Task.CompletedTask;
+                }
+                scene.SetFruitTypeEnabled(fruitId, false);
+
+                List<string> remaining = snapshot.Fruits.ToList();
+                remaining.Remove(fruitId);
+                snapshot.Fruits = remaining.ToArray();
+                snapshot.FruitOnTreeCount = Math.Max(0, snapshot.FruitOnTreeCount - 1);
+                fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                    snapshot.FruitOnTreeCount);
+                fruitQueue.Enqueue(fruitId);
+                SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickQueued");
+                _ = DrainFruitQueueAsync();
+                return Task.CompletedTask;
             }
             scene = new TreeVisitSceneView(snapshot, _decorationService?.Catalog, PickVisitedFruitAsync);
             panel.Children.Add(scene);
