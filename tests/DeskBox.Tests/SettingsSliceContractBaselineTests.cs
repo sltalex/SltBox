@@ -446,6 +446,7 @@ public sealed class SettingsSliceContractBaselineTests
         "hideShortcutExtensionWhenShowingFileExtensions",
         "widgets",
         "aquariumAnimationsEnabled",
+        "aquariumWallpaperEnabled",
         "systemMonitorChartStyle",
         "systemMonitorCpuChartStyle",
         "systemMonitorMemoryChartStyle",

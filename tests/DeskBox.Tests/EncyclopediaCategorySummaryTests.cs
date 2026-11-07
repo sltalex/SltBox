@@ -1,5 +1,6 @@
 using DeskBox.Services;
 using DeskBox.Views.SettingsSections;
+using Microsoft.UI.Xaml;
 
 namespace DeskBox.Tests;
 
@@ -84,9 +85,9 @@ public sealed class EncyclopediaCategorySummaryTests
         Assert.DoesNotContain("未发现的仅显示模糊轮廓", xaml, StringComparison.Ordinal);
         Assert.Contains("\"Tree.FruitEncyclopedia\":\"图鉴\"", zh, StringComparison.Ordinal);
         Assert.Contains("{name} {progress.Obtained}/{progress.Total}", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("WildlifeAvailabilityPresentation.EncyclopediaDetails(species)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("entry.WithWildlifeDetails(species)", codeBehind, StringComparison.Ordinal);
         string wildlifeCode = codeBehind[codeBehind.IndexOf("WildlifeService wildlife", StringComparison.Ordinal)..];
-        Assert.DoesNotContain("$\"拥有 {owned!.Quantity}\"", wildlifeCode, StringComparison.Ordinal);
+        Assert.Contains("$\"拥有 {owned!.Quantity}\"", wildlifeCode, StringComparison.Ordinal);
         string wildlifePanel = xaml[xaml.IndexOf("x:Name=\"WildlifePanel\"", StringComparison.Ordinal)..
             xaml.IndexOf("x:Name=\"TreeDecorationPanel\"", StringComparison.Ordinal)];
         Assert.Contains("MinHeight=\"196\"", wildlifePanel, StringComparison.Ordinal);
@@ -136,5 +137,82 @@ public sealed class EncyclopediaCategorySummaryTests
 
         Assert.Equal(new EncyclopediaCategoryProgress("tree", 1, 2), result[0]);
         Assert.Single(result);
+    }
+
+    [Fact]
+    public void WildlifeAtlas_ShowsDiscoveredCardsBeforeUnknownCards()
+    {
+        WildlifeCatalogItem[] catalog =
+        [
+            new("unknown-bird", "未知鸟", "飞鸟", "tree"),
+            new("owned-bird", "已收集鸟", "飞鸟", "tree"),
+            new("unknown-animal", "未知动物", "小动物", "grass"),
+            new("discovered-animal", "已发现动物", "小动物", "grass")
+        ];
+        WildlifeInventoryItem[] inventory =
+        [new("owned-bird", 2, false), new("discovered-animal", 0, true)];
+
+        Assert.Equal(["owned-bird", "discovered-animal", "unknown-bird", "unknown-animal"],
+            EncyclopediaCategorySummary.OrderedWildlife(catalog, inventory, string.Empty)
+                .Select(item => item.Id));
+        Assert.Equal(["discovered-animal", "unknown-animal"],
+            EncyclopediaCategorySummary.OrderedWildlife(catalog, inventory, "小动物")
+                .Select(item => item.Id));
+    }
+
+    [Fact]
+    public void BackpackCategories_CountOnlyCurrentlyOwnedTypes()
+    {
+        WildlifeCatalogItem[] wildlife =
+        [
+            new("swallow", "燕子", "飞鸟", "sky"),
+            new("owl", "猫头鹰", "飞鸟", "tree"),
+            new("fox", "狐狸", "小动物", "grass")
+        ];
+        WildlifeInventoryItem[] animals =
+        [new("swallow", 2, true), new("owl", 0, true), new("fox", 1, false)];
+        Assert.Equal(
+            [new BackpackCategoryCount("飞鸟", 1), new BackpackCategoryCount("小动物", 1)],
+            BackpackCategorySummary.Wildlife(wildlife, animals));
+
+        FruitCatalogItem[] fruits =
+        [
+            new("apple", "苹果", "常见水果", 1, 1, 15, 20, 17),
+            new("pear", "梨", "常见水果", 2, 1, 15, 20, 17),
+            new("berry", "浆果", "浆果", 3, 1, 15, 20, 17)
+        ];
+        FruitInventoryItem[] inventory =
+        [new("apple", 5, true), new("pear", 0, true)];
+        Assert.Equal(
+            [new BackpackCategoryCount("常见水果", 1), new BackpackCategoryCount("浆果", 0)],
+            BackpackCategorySummary.Fruits(fruits, inventory));
+    }
+
+    [Fact]
+    public void WildlifeAtlasDetails_UseAvailabilityOnlyForDiscoveredSpecies()
+    {
+        var species = new WildlifeCatalogItem("swallow", "燕子", "飞鸟", "sky")
+        {
+            Seasons = ["spring"], Periods = ["morning"], Weathers = ["clear"],
+            PreferredWeathers = ["clear"], Motion = "glide"
+        };
+        var hidden = new AtlasEntry("尚未发现", species.Category, "未发现", () => null);
+        Assert.Equal(Visibility.Collapsed, hidden.WildlifeDetailsVisibility);
+
+        var discovered = new AtlasEntry(species.Name, species.Category, "拥有 1", () => null)
+            .WithWildlifeDetails(species);
+        Assert.Equal(Visibility.Visible, discovered.WildlifeDetailsVisibility);
+        Assert.Equal("季节：春季", discovered.SeasonsText);
+        Assert.Equal("时段：清晨", discovered.PeriodsText);
+        Assert.Equal("天气：晴", discovered.WeathersText);
+        Assert.Equal("偏好天气：晴", discovered.PreferredWeathersText);
+        Assert.Equal("活动方式：掠空飞行", discovered.ActivityText);
+        Assert.Equal("地点：天空", discovered.PlacementText);
+        Assert.Equal("燕子通常在春季的清晨出现在天空。可能遇见的天气包括晴。其中晴时更容易遇见。活动时常见掠空飞行的姿态。",
+            discovered.DescriptionText);
+
+        var incomplete = new AtlasEntry(species.Name, species.Category, "拥有 1", () => null)
+            .WithWildlifeDetails(new WildlifeCatalogItem("swallow", "燕子", "飞鸟", "sky"));
+        Assert.Equal("详细出没资料待同步。", incomplete.DescriptionText);
     }
 }

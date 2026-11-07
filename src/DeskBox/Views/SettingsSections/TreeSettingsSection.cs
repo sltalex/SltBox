@@ -10,6 +10,8 @@ namespace DeskBox.Views.SettingsSections;
 
 public sealed partial class TreeSettingsSection : UserControl
 {
+    private static readonly TimeSpan SyncCalibrationTimeout = TimeSpan.FromSeconds(20);
+    private const int SyncCalibrationMaxRetries = 3;
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly ToggleSwitch _showEnergy = new() { OnContent = "", OffContent = "", MinWidth = 0 };
@@ -219,21 +221,15 @@ public sealed partial class TreeSettingsSection : UserControl
         SetSyncStatus(_localization?.T("Tree.SyncCalibrating") ?? string.Empty);
         try
         {
-            bool synchronized = await _cloud.SyncProgressNowAsync();
-            if (_auth?.CurrentUser?.Id != ownerId) return;
-            SetSyncStatus(_localization?.T(synchronized
+            bool? synchronized = await RunManualCalibrationAsync(ownerId);
+            if (synchronized is null || _auth?.CurrentUser?.Id != ownerId) return;
+            SetSyncStatus(_localization?.T(synchronized.Value
                 ? "Tree.SyncCalibrateSuccess"
-                : "Tree.SyncCalibrateUnavailable") ?? string.Empty);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            App.Log($"[TreeCloud] Manual tree calibration failed: {ex.GetType().Name}");
-            if (_auth?.CurrentUser?.Id == ownerId)
-                SetSyncStatus(_localization?.T("Tree.SyncCalibrateError") ?? string.Empty);
+                : "Tree.SyncCalibrateNetworkFailed") ?? string.Empty);
         }
         catch (Exception ex)
         {
-            App.Log($"[TreeCloud] Manual tree calibration failed: {ex}");
+            App.Log($"[TreeCloud] Manual tree calibration failed: {ex.GetType().Name}");
             if (_auth?.CurrentUser?.Id == ownerId)
                 SetSyncStatus(_localization?.T("Tree.SyncCalibrateError") ?? string.Empty);
         }
@@ -242,6 +238,69 @@ public sealed partial class TreeSettingsSection : UserControl
             Interlocked.Exchange(ref _syncOperationInProgress, 0);
             RefreshSyncActions();
         }
+    }
+
+    private async Task<bool?> RunManualCalibrationAsync(string ownerId)
+    {
+        if (_cloud is null) return false;
+        int maxAttempts = SyncCalibrationMaxRetries + 1;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var timeout = new CancellationTokenSource(SyncCalibrationTimeout);
+            Task<bool> syncTask = _cloud.SyncProgressNowAsync(timeout.Token);
+            bool timedOut = false;
+            try
+            {
+                int seconds = (int)SyncCalibrationTimeout.TotalSeconds;
+                while (!syncTask.IsCompleted && seconds > 0)
+                {
+                    if (_auth?.CurrentUser?.Id != ownerId)
+                    {
+                        timeout.Cancel();
+                        return null;
+                    }
+                    SetSyncStatus(_localization?.Format(
+                        "Tree.SyncCalibratingCountdown", attempt, maxAttempts, seconds) ?? string.Empty);
+                    Task completed = await Task.WhenAny(syncTask, Task.Delay(TimeSpan.FromSeconds(1)));
+                    if (completed == syncTask) break;
+                    seconds--;
+                }
+
+                if (!syncTask.IsCompleted)
+                {
+                    timedOut = true;
+                    // Cancelling the request releases the HTTP connection and
+                    // the service gate before the next attempt starts.
+                    timeout.Cancel();
+                    App.Log($"[TreeCloud] Manual calibration attempt {attempt} timed out after 20 seconds.");
+                }
+
+                bool synchronized = await syncTask;
+                if (!timedOut && synchronized) return true;
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                timedOut = true;
+            }
+            catch (HttpRequestException ex)
+            {
+                App.Log($"[TreeCloud] Manual calibration attempt {attempt} failed: {ex.GetType().Name}");
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[TreeCloud] Manual calibration attempt {attempt} failed: {ex.GetType().Name}");
+            }
+
+            if (_auth?.CurrentUser?.Id != ownerId) return null;
+            if (attempt <= SyncCalibrationMaxRetries)
+            {
+                SetSyncStatus(_localization?.Format(
+                    "Tree.SyncCalibrateRetry", attempt, SyncCalibrationMaxRetries) ?? string.Empty);
+                await Task.Delay(250);
+            }
+        }
+
+        return false;
     }
 
     private async void RepairButton_Click(object sender, RoutedEventArgs e)
@@ -551,12 +610,122 @@ public sealed partial class TreeSettingsSection : UserControl
                 finally { like.IsEnabled = flyout.IsOpen && _auth?.CurrentUser?.Id == viewerId && !snapshot.LikedByMe; }
             };
             panel.Children.Remove(status);
-            panel.Children.Add(new TreeVisitSceneView(snapshot, _decorationService?.Catalog));
-            panel.Children.Add(new TextBlock
+            TreeVisitSceneView? scene = null;
+            var fruitCount = new TextBlock
             {
-                Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit", snapshot.FruitInventory),
+                Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                    snapshot.FruitOnTreeCount > 0 ? snapshot.FruitOnTreeCount : snapshot.FruitInventory),
                 HorizontalAlignment = HorizontalAlignment.Center
-            });
+            };
+            var fruitQueue = new Queue<string>();
+            var queuedFruitTypes = new HashSet<string>(StringComparer.Ordinal);
+            bool drainingFruitQueue = false;
+
+            void SetFruitStatus(string key)
+            {
+                if (!flyout.IsOpen || _auth?.CurrentUser?.Id != viewerId) return;
+                status.Text = _localization.T(key);
+                if (status.Parent is null) panel.Children.Insert(1, status);
+            }
+
+            void RestoreQueuedFruit(string fruitId)
+            {
+                if (!snapshot.Fruits.Contains(fruitId, StringComparer.Ordinal))
+                {
+                    snapshot.Fruits = snapshot.Fruits.Append(fruitId).ToArray();
+                    snapshot.FruitOnTreeCount++;
+                }
+                scene?.RestoreFruit(fruitId);
+                scene?.SetFruitTypeEnabled(fruitId, true);
+                fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                    snapshot.FruitOnTreeCount);
+                queuedFruitTypes.Remove(fruitId);
+            }
+
+            async Task DrainFruitQueueAsync()
+            {
+                if (drainingFruitQueue) return;
+                drainingFruitQueue = true;
+                try
+                {
+                    while (fruitQueue.Count > 0)
+                    {
+                        string fruitId = fruitQueue.Dequeue();
+                        try
+                        {
+                            if (_cloud is null) throw new InvalidOperationException("Cloud service unavailable.");
+                            await _cloud.PickVisitedFruitAsync(entry.Account, fruitId);
+                        }
+                        catch (AuthApiException error) when (error.Code == "visit_fruit_daily_limit")
+                        {
+                            RestoreQueuedFruit(fruitId);
+                            SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday");
+                            continue;
+                        }
+                        catch (AuthApiException error) when (error.Code == "visit_fruit_requires_two")
+                        {
+                            RestoreQueuedFruit(fruitId);
+                            SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
+                            continue;
+                        }
+                        catch (Exception ex)
+                        {
+                            App.Log($"[TreeCloud] Visited fruit pick failed: {ex.GetType().Name}");
+                            RestoreQueuedFruit(fruitId);
+                            SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickError");
+                            continue;
+                        }
+
+                        queuedFruitTypes.Remove(fruitId);
+                        try { await App.Current.FruitService.RefreshAsync(); }
+                        catch (Exception ex) { App.Log($"[Fruit] Visit pick refresh failed: {ex.GetType().Name}"); }
+                        SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickSuccess");
+                    }
+                }
+                finally
+                {
+                    drainingFruitQueue = false;
+                }
+            }
+
+            Task PickVisitedFruitAsync(string fruitId)
+            {
+                if (_cloud is null || _auth?.CurrentUser?.Id != viewerId || !flyout.IsOpen)
+                    return Task.CompletedTask;
+                if (!queuedFruitTypes.Add(fruitId))
+                {
+                    SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickQueued");
+                    return Task.CompletedTask;
+                }
+
+                if (snapshot.Fruits.Count(item => item == fruitId) < 2)
+                {
+                    queuedFruitTypes.Remove(fruitId);
+                    SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo");
+                    return Task.CompletedTask;
+                }
+
+                if (scene is null || !scene.RemoveFruit(fruitId))
+                {
+                    queuedFruitTypes.Remove(fruitId);
+                    return Task.CompletedTask;
+                }
+                scene.SetFruitTypeEnabled(fruitId, false);
+
+                List<string> remaining = snapshot.Fruits.ToList();
+                remaining.Remove(fruitId);
+                snapshot.Fruits = remaining.ToArray();
+                snapshot.FruitOnTreeCount = Math.Max(0, snapshot.FruitOnTreeCount - 1);
+                fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
+                    snapshot.FruitOnTreeCount);
+                fruitQueue.Enqueue(fruitId);
+                SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickQueued");
+                _ = DrainFruitQueueAsync();
+                return Task.CompletedTask;
+            }
+            scene = new TreeVisitSceneView(snapshot, _decorationService?.Catalog, PickVisitedFruitAsync);
+            panel.Children.Add(scene);
+            panel.Children.Add(fruitCount);
         }
         catch (Exception ex)
         {

@@ -628,6 +628,9 @@ public class AppSettings
     /// <inheritdoc cref="WidgetLayoutSettingsSlice.AquariumAnimationsEnabled"/>
     public bool AquariumAnimationsEnabled { get => WidgetLayout.AquariumAnimationsEnabled; set => WidgetLayout.AquariumAnimationsEnabled = value; }
 
+    /// <inheritdoc cref="WidgetLayoutSettingsSlice.AquariumWallpaperEnabled"/>
+    public bool AquariumWallpaperEnabled { get => WidgetLayout.AquariumWallpaperEnabled; set => WidgetLayout.AquariumWallpaperEnabled = value; }
+
     /// <inheritdoc cref="WidgetLayoutSettingsSlice.SystemMonitorChartStyle"/>
     public string SystemMonitorChartStyle { get => WidgetLayout.SystemMonitorChartStyle; set => WidgetLayout.SystemMonitorChartStyle = value; }
     public string SystemMonitorCpuChartStyle { get => WidgetLayout.SystemMonitorCpuChartStyle; set => WidgetLayout.SystemMonitorCpuChartStyle = value; }

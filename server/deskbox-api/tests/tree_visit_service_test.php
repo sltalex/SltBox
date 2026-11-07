@@ -68,6 +68,23 @@ for ($index = 0; $index < 12; $index++)
 $manyFruits = tree_visit_snapshot($pdo, 'owner', 'other', $dayOne);
 visit_expect($manyFruits['fruit_on_tree_count'] === 13 && $manyFruits['fruits'] === array_fill(0, 13, 'apple'),
     'Visit shows every fruit beyond the former twelve-item limit.');
+$picked = tree_visit_pick_fruit($pdo, 'owner', 'viewer', 'apple', 'visit-fruit-operation-0001', $dayOne);
+visit_expect($picked['fruit_id'] === 'apple' && $picked['quantity'] === 1
+    && $picked['remaining_on_tree'] === 12 && !$picked['duplicate'],
+    'A visitor can pick one fruit when at least two of that type are on the tree.');
+visit_expect((int)$pdo->query("SELECT COUNT(*) FROM user_fruit_pending WHERE user_id='owner' AND fruit_id='apple'")->fetchColumn() === 12,
+    'A visited pick removes exactly one fruit from the owner tree.');
+visit_expect((int)$pdo->query("SELECT quantity FROM user_fruit_inventory WHERE user_id='viewer' AND fruit_id='apple'")->fetchColumn() === 1,
+    'A visited pick adds one fruit to the visitor inventory.');
+try { tree_visit_pick_fruit($pdo, 'owner', 'viewer', 'apple', 'visit-fruit-operation-0002', $dayOne);
+    throw new RuntimeException('A visitor picked the same fruit type twice on one day.'); }
+catch (ApiError $error) { visit_expect($error->apiCode === 'visit_fruit_daily_limit', 'Daily fruit pick limit is enforced.'); }
+$tomorrowPick = tree_visit_pick_fruit($pdo, 'owner', 'viewer', 'apple', 'visit-fruit-operation-0003', $dayTwo);
+visit_expect($tomorrowPick['remaining_on_tree'] === 11, 'The same fruit type can be picked again on a new day.');
+$insertFruit->execute([':user' => 'owner', ':fruit' => 'pear', ':time' => $now]);
+try { tree_visit_pick_fruit($pdo, 'owner', 'viewer', 'pear', 'visit-fruit-operation-0004', $dayTwo);
+    throw new RuntimeException('A single remaining fruit was picked by a visitor.'); }
+catch (ApiError $error) { visit_expect($error->apiCode === 'visit_fruit_requires_two', 'A fruit needs two copies before visitors can pick it.'); }
 visit_expect($snapshot['active_theme_id'] === null && count($snapshot['placements']) === 1,
     'Saved decorations appear in visits while retired themes are hidden.');
 visit_expect($pdo->query("SELECT active_theme_id FROM tree_decoration_profiles WHERE user_id='owner'")->fetchColumn() === 'spring',

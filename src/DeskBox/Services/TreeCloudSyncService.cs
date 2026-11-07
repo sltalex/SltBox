@@ -483,6 +483,27 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
             ?? throw new InvalidDataException("The tree like response is empty.");
     }
 
+    internal async Task<TreeVisitFruitPickResponse> PickVisitedFruitAsync(string account, string fruitId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fruitId);
+        if (!_auth.IsAuthenticated) throw new InvalidOperationException("Sign in to pick a visited fruit.");
+        if (string.Equals(account, _auth.CurrentUser?.Id, StringComparison.Ordinal))
+            throw new InvalidOperationException("You cannot pick fruit from your own tree through a visit.");
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(new TreeVisitFruitPickRequest
+        {
+            Account = account, FruitId = fruitId, OperationId = Guid.NewGuid().ToString("N")
+        }, AccountCloudJsonContext.Default.TreeVisitFruitPickRequest);
+        using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post,
+            "../tree/fruit-pick.php", json, null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return await JsonSerializer.DeserializeAsync(stream,
+            AccountCloudJsonContext.Default.TreeVisitFruitPickResponse, cancellationToken)
+            ?? throw new InvalidDataException("The visited fruit response is empty.");
+    }
+
     internal async Task SetParticipationAsync(bool participating, CancellationToken cancellationToken = default)
     {
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(

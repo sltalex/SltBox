@@ -21,6 +21,21 @@ public sealed class TreeWeatherSceneLayoutTests
     }
 
     [Fact]
+    public void TreeKeepsDecorativeCloudsWhenWeatherIsClearOrNotYetAvailable()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.Weather.cs"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+        int clear = source.IndexOf("case WeatherCodeMapper.WeatherCondition.Clear:", StringComparison.Ordinal);
+        int cloudy = source.IndexOf("case WeatherCodeMapper.WeatherCondition.Cloudy:", clear, StringComparison.Ordinal);
+        Assert.True(clear >= 0 && cloudy > clear);
+        string clearBranch = source[clear..cloudy];
+        Assert.Contains("AddClouds(dark: false)", clearBranch, StringComparison.Ordinal);
+        Assert.Contains("else\n        {\n            // Keep the tree scene", source, StringComparison.Ordinal);
+        Assert.Contains("_weatherRendered && _renderedWeather == weather", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CloudLanesHaveStaggeredShapesPositionsAndSpeeds()
     {
         var lanes = TreeWeatherSceneLayout.CloudLanes;

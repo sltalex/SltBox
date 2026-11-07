@@ -12,6 +12,8 @@ internal sealed record WildlifeCatalogItem(string Id, string Name, string Catego
     public IReadOnlyList<string> Seasons { get; init; } = [];
     public IReadOnlyList<string> Periods { get; init; } = [];
     public IReadOnlyList<string> Weathers { get; init; } = [];
+    public IReadOnlyList<string> PreferredWeathers { get; init; } = [];
+    public string Motion { get; init; } = string.Empty;
 }
 internal sealed record WildlifeInventoryItem(string SpeciesId, long Quantity, bool Discovered);
 internal sealed record WildlifeEncounter(string Id, string SpeciesId, DateTimeOffset ExpiresAtUtc);

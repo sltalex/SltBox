@@ -50,11 +50,20 @@
                 <GridView x:Name="WildlifeItems" Height="400" SelectionMode="None" ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid MaximumRowsOrColumns="5" Orientation="Horizontal" /></ItemsPanelTemplate></GridView.ItemsPanel>
                     <GridView.ItemTemplate><DataTemplate x:DataType="sections:AtlasEntry">
-                        <Border Width="132" MinHeight="196" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Border Width="192" MinHeight="196" Margin="4" Padding="8" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                             <StackPanel Spacing="4">
                                 <Image Source="{x:Bind Image}" Width="72" Height="72" Stretch="Uniform" />
                                 <TextBlock Text="{x:Bind Name}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{x:Bind QuantityText}" FontSize="11" Opacity="0.75" HorizontalAlignment="Stretch" TextWrapping="Wrap" TextAlignment="Left" />
+                                <StackPanel Spacing="2" Visibility="{x:Bind WildlifeDetailsVisibility}">
+                                    <TextBlock Text="{x:Bind SeasonsText}" FontSize="11" Opacity="0.72" TextWrapping="Wrap" TextAlignment="Left" />
+                                    <TextBlock Text="{x:Bind PeriodsText}" FontSize="11" Opacity="0.72" TextWrapping="Wrap" TextAlignment="Left" />
+                                    <TextBlock Text="{x:Bind WeathersText}" FontSize="11" Opacity="0.72" TextWrapping="Wrap" TextAlignment="Left" />
+                                    <TextBlock Text="{x:Bind PreferredWeathersText}" FontSize="11" Opacity="0.72" TextWrapping="Wrap" TextAlignment="Left" />
+                                    <TextBlock Text="{x:Bind PlacementText}" FontSize="11" Opacity="0.72" TextWrapping="Wrap" TextAlignment="Left" />
+                                    <TextBlock Text="{x:Bind ActivityText}" FontSize="11" Opacity="0.72" TextWrapping="Wrap" TextAlignment="Left" />
+                                    <TextBlock Text="{x:Bind DescriptionText}" FontSize="11" Opacity="0.9" TextWrapping="Wrap" TextAlignment="Left" Margin="0,4,0,0" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </DataTemplate></GridView.ItemTemplate>

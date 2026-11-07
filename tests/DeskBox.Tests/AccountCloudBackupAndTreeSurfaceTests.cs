@@ -51,7 +51,12 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         string treeSettings = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
         Assert.DoesNotContain("Settings.Account.SyncData", treeSettings, StringComparison.Ordinal);
         Assert.Contains("_syncButton.Click += SyncButton_Click", treeSettings, StringComparison.Ordinal);
-        Assert.Contains("_cloud.SyncProgressNowAsync()", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("_cloud.SyncProgressNowAsync(", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("SyncCalibrationTimeout", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("SyncCalibrationMaxRetries", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("Tree.SyncCalibratingCountdown", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("Tree.SyncCalibrateRetry", treeSettings, StringComparison.Ordinal);
+        Assert.Contains("Tree.SyncCalibrateNetworkFailed", treeSettings, StringComparison.Ordinal);
         Assert.Contains("Tree.SyncCalibrate", treeSettings, StringComparison.Ordinal);
         Assert.Contains("Tree.SyncRepair", treeSettings, StringComparison.Ordinal);
         string treeWidget = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
@@ -269,6 +274,7 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
             "Tree.Settings.Leaderboard.SignIn", "Tree.Settings.Leaderboard.Offline", "Tree.Settings.Leaderboard.Me",
             "Tree.Settings.Leaderboard.CurrentRank", "Tree.SyncCalibrate", "Tree.SyncCalibrating",
             "Tree.SyncCalibrateSuccess", "Tree.SyncCalibrateUnavailable", "Tree.SyncCalibrateError",
+            "Tree.SyncCalibratingCountdown", "Tree.SyncCalibrateRetry", "Tree.SyncCalibrateNetworkFailed",
             "Tree.SyncRepair", "Tree.SyncRepairTitle",
             "Tree.SyncRepairBody", "Tree.SyncRepairConfirm", "Tree.SyncRepairFailed",
             "Tree.SyncRepairRestartFailed"

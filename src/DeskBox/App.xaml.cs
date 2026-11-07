@@ -178,6 +178,7 @@ public partial class App : Application
     internal AccountCloudBackupService AccountCloudBackupService { get; private set; } = null!;
     internal TreeCloudSyncService TreeCloudSyncService { get; private set; } = null!;
     internal AquariumService AquariumService { get; private set; } = null!;
+    internal AquariumWallpaperService? AquariumWallpaperService { get; private set; }
     internal TreeDecorationService TreeDecorationService { get; private set; } = null!;
     internal FruitService FruitService { get; private set; } = null!;
     internal WildlifeService WildlifeService { get; private set; } = null!;
@@ -1288,6 +1289,12 @@ public partial class App : Application
                         titleKey,
                         bodyKey,
                         NotificationIcon.Warning)));
+            RunOptionalStartupStep("aquarium-wallpaper", () =>
+            {
+                AquariumWallpaperService = new AquariumWallpaperService(
+                    AquariumService, SettingsService, UiDispatcherQueue);
+                AquariumWallpaperService.Start();
+            });
 
             // Configure taskbar Jump List with quick actions
             SafeFireAndForget(
@@ -1507,6 +1514,7 @@ public partial class App : Application
 
             // Invalidate the desktop icon view cache since work areas may have changed
             WidgetLayerService.InvalidateDesktopIconViewCache();
+            AquariumWallpaperService?.Reconcile();
 
             RequestDisplayTopologyRestore("display-area-watcher");
             VirtualDisplayAdvisor.WarnIfPrimaryDisplayIsVirtual(
@@ -5022,6 +5030,11 @@ public partial class App : Application
             ShutdownStep.Bounded("backup-runtime", () =>
                 _backupRuntime?.StopAsync() ?? Task.CompletedTask,
                 shutdownGrace),
+            ShutdownStep.Sync("aquarium-wallpaper", () =>
+            {
+                AquariumWallpaperService?.Dispose();
+                AquariumWallpaperService = null;
+            }),
             ShutdownStep.Bounded("account-cloud-services", async () =>
             {
                 await DingTalkGroupDocumentSyncService.DisposeAsync();

@@ -53,18 +53,15 @@ internal static class ShortcutLaunchPolicy
 
     /// <summary>
     /// Decides whether a drag that started inside a DeskBox file surface may
-    /// also resolve as a launch. Internal drags normally keep their reorder
-    /// semantics, but a drop on an application-shortcut tile means the same
-    /// thing it means for an external drag: open these files with the linked
-    /// application. Stack-popover member drags stay excluded because their
+    /// also resolve as a launch. Internal file drags can open with the linked
+    /// application, while dragging a shortcut tile keeps the grid's manual
+    /// reorder gesture. Stack-popover member drags stay excluded because their
     /// paths address stack membership, not the files to open. A drag whose
     /// paths are all virtual (a browser drop carrying no filesystem path)
     /// stays excluded too: there is nothing on disk to hand the application.
     ///
-    /// The dragged shortcut itself is excluded: a shortcut tile being dragged
-    /// onto its own position means "put it back here", not "open it with
-    /// itself". Without this the release opened the .lnk as a file and the
-    /// linked application reported a broken image.
+    /// Shortcut sources are excluded because users drag them within the grid
+    /// to arrange application icons, including onto another shortcut tile.
     /// </summary>
     internal static ShortcutLaunchDecision EvaluateInternalDrag(
         bool isDeskBoxFileDrag,
@@ -76,7 +73,8 @@ internal static class ShortcutLaunchPolicy
         return isDeskBoxFileDrag &&
             !isStackPopoverMemberDrag &&
             paths.Count > 0 &&
-            !ContainsSameFile(paths, shortcutPath)
+            !ContainsSameFile(paths, shortcutPath) &&
+            !paths.Any(ShortcutHelper.IsShortcutPath)
                 ? ShortcutLaunchDecision.Launch
                 : ShortcutLaunchDecision.None;
     }

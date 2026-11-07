@@ -132,17 +132,20 @@ public sealed class ShortcutLaunchPolicyTests
                 shortcutPath: @"C:\Grid\Photoshop.lnk"));
     }
 
-    [Fact]
-    public void DraggingAShortcutOntoADifferentShortcut_Launches()
+    [Theory]
+    [InlineData(@"C:\grid\Photoshop.lnk")]
+    [InlineData(@"C:\grid\WebApp.url")]
+    public void DraggingAShortcutOntoADifferentShortcut_KeepsTheReorder(
+        string draggedPath)
     {
-        // Only the shortcut being dragged is excluded; another shortcut tile is
-        // still a launch target.
+        // App shortcuts are arranged by dragging their icons in the grid.
+        // Dropping one onto another must keep that reorder gesture.
         Assert.Equal(
-            ShortcutLaunchDecision.Launch,
+            ShortcutLaunchDecision.None,
             ShortcutLaunchPolicy.EvaluateInternalDrag(
                 isDeskBoxFileDrag: true,
                 isStackPopoverMemberDrag: false,
-                paths: [@"C:\grid\Photoshop.lnk"],
+                paths: [draggedPath],
                 shortcutPath: @"C:\grid\Editor.lnk"));
     }
 

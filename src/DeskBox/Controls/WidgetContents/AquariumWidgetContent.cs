@@ -9,17 +9,18 @@ public sealed partial class AquariumWidgetContent : UserControl, IDisposable
 {
     private readonly AquariumService _service;
     private readonly Func<bool> _animationEnabled;
-    private readonly AquariumSceneView _scene = new();
+    private readonly AquariumSceneView _scene;
     private readonly DispatcherQueue _queue = DispatcherQueue.GetForCurrentThread();
     private readonly DispatcherTimer _motionPolicy = new() { Interval = TimeSpan.FromSeconds(5) };
     private bool _visible = true;
     private bool _disposed;
     private bool _subscribed;
 
-    internal AquariumWidgetContent(AquariumService service, Func<bool> animationEnabled)
+    internal AquariumWidgetContent(AquariumService service, Func<bool> animationEnabled, bool wallpaper = false)
     {
         _service = service;
         _animationEnabled = animationEnabled;
+        _scene = new AquariumSceneView(wallpaper);
         Content = _scene;
         // Subscribe as soon as the leaf is created.  The widget host can
         // materialize a view before it attaches it to the window; waiting for

@@ -350,6 +350,9 @@ public static partial class Win32Helper
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetParent(IntPtr hWnd);
 
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial IntPtr SetParent(IntPtr hWnd, IntPtr parent);
+
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
 

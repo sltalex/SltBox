@@ -314,14 +314,16 @@ public sealed partial class FruitEncyclopediaSection : UserControl
             {
                 var inventory = wildlife.Inventory.ToDictionary(item => item.SpeciesId, StringComparer.Ordinal);
                 var entries = new List<AtlasEntry>();
-                foreach (WildlifeCatalogItem species in wildlife.Catalog.Where(item =>
-                             _selectedWildlifeCategory == AllCategories || item.Category == _selectedWildlifeCategory))
+                foreach (WildlifeCatalogItem species in EncyclopediaCategorySummary.OrderedWildlife(
+                             wildlife.Catalog, wildlife.Inventory, _selectedWildlifeCategory))
                 {
                     bool discovered = inventory.TryGetValue(species.Id, out WildlifeInventoryItem? owned) &&
                         (owned.Discovered || owned.Quantity > 0);
-                    entries.Add(new AtlasEntry(discovered ? species.Name : "尚未发现", species.Category,
-                        discovered ? WildlifeAvailabilityPresentation.EncyclopediaDetails(species) : "未发现",
-                        () => WildlifeAssetCatalog.GetImage(species.Id, blurred: !discovered)));
+                    var entry = new AtlasEntry(discovered ? species.Name : "尚未发现", species.Category,
+                        discovered ? $"拥有 {owned!.Quantity}" : "未发现",
+                        () => WildlifeAssetCatalog.GetImage(species.Id, blurred: !discovered));
+                    if (discovered) entry.WithWildlifeDetails(species);
+                    entries.Add(entry);
                 }
                 _wildlifeEntries = entries;
                 _wildlifePage = 0;
@@ -441,6 +443,28 @@ public sealed class AtlasEntry
     public string Name { get; }
     public string Category { get; }
     public string QuantityText { get; }
+    public Visibility WildlifeDetailsVisibility { get; private set; } = Visibility.Collapsed;
+    public string SeasonsText { get; private set; } = string.Empty;
+    public string PeriodsText { get; private set; } = string.Empty;
+    public string WeathersText { get; private set; } = string.Empty;
+    public string PreferredWeathersText { get; private set; } = string.Empty;
+    public string ActivityText { get; private set; } = string.Empty;
+    public string PlacementText { get; private set; } = string.Empty;
+    public string DescriptionText { get; private set; } = string.Empty;
+
+    internal AtlasEntry WithWildlifeDetails(WildlifeCatalogItem species)
+    {
+        SeasonsText = WildlifeAvailabilityPresentation.Seasons(species);
+        PeriodsText = WildlifeAvailabilityPresentation.Periods(species);
+        WeathersText = WildlifeAvailabilityPresentation.Weathers(species);
+        PreferredWeathersText = WildlifeAvailabilityPresentation.PreferredWeathers(species);
+        ActivityText = WildlifeAvailabilityPresentation.Activity(species);
+        PlacementText = WildlifeAvailabilityPresentation.Placement(species);
+        DescriptionText = WildlifeAvailabilityPresentation.Description(species);
+        WildlifeDetailsVisibility = Visibility.Visible;
+        return this;
+    }
+
     public ImageSource? Image
     {
         get

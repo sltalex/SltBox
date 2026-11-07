@@ -252,6 +252,28 @@ internal sealed class TreeVisitLikeResponse
     public bool LikedByMe { get; set; }
 }
 
+internal sealed class TreeVisitFruitPickRequest
+{
+    [JsonPropertyName("account")]
+    public string Account { get; set; } = string.Empty;
+    [JsonPropertyName("fruit_id")]
+    public string FruitId { get; set; } = string.Empty;
+    [JsonPropertyName("operation_id")]
+    public string OperationId { get; set; } = string.Empty;
+}
+
+internal sealed class TreeVisitFruitPickResponse
+{
+    [JsonPropertyName("fruit_id")]
+    public string FruitId { get; set; } = string.Empty;
+    [JsonPropertyName("quantity")]
+    public int Quantity { get; set; }
+    [JsonPropertyName("remaining_on_tree")]
+    public int RemainingOnTree { get; set; }
+    [JsonPropertyName("duplicate")]
+    public bool Duplicate { get; set; }
+}
+
 internal sealed class TreeLeaderboardCurrentUserDto
 {
     [JsonPropertyName("rank")]
@@ -342,6 +364,8 @@ internal sealed class TreeProgressPendingUpload
 [JsonSerializable(typeof(TreeVisitOpenRequest))]
 [JsonSerializable(typeof(TreeVisitLikeRequest))]
 [JsonSerializable(typeof(TreeVisitLikeResponse))]
+[JsonSerializable(typeof(TreeVisitFruitPickRequest))]
+[JsonSerializable(typeof(TreeVisitFruitPickResponse))]
 [JsonSerializable(typeof(TreeVisitSnapshot))]
 [JsonSerializable(typeof(TreeCloudState))]
 [JsonSerializable(typeof(FruitCacheDto))]

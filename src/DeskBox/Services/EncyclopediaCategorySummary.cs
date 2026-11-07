@@ -72,4 +72,16 @@ internal static class EncyclopediaCategorySummary
             .OrderBy(item => item.Category, StringComparer.Ordinal)
             .ToArray();
     }
+
+    internal static IReadOnlyList<WildlifeCatalogItem> OrderedWildlife(
+        IReadOnlyList<WildlifeCatalogItem> catalog,
+        IReadOnlyList<WildlifeInventoryItem> inventory,
+        string category)
+    {
+        HashSet<string> discovered = inventory
+            .Where(item => item.Discovered || item.Quantity > 0)
+            .Select(item => item.SpeciesId).ToHashSet(StringComparer.Ordinal);
+        return catalog.Where(item => category.Length == 0 || item.Category == category)
+            .OrderByDescending(item => discovered.Contains(item.Id)).ToArray();
+    }
 }

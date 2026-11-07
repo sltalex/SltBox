@@ -17,9 +17,13 @@ namespace DeskBox.Controls.WidgetContents;
 /// <summary>A bounded bitmap scene shared by the desktop and the layout editor.</summary>
 public sealed partial class AquariumSceneView : UserControl, IDisposable
 {
-    private const double SceneWidth = 840;
+    private double SceneWidth = 840;
     private const double SceneHeight = 600;
-    private readonly Canvas _canvas = new() { Width = SceneWidth, Height = SceneHeight };
+    private readonly Canvas _canvas = new() { Width = 840, Height = SceneHeight };
+    private readonly bool _wallpaper;
+    private IReadOnlyList<AquariumPlacement> _placements = [];
+    private IReadOnlyList<AquariumInventoryItem> _inventory = [];
+    private IReadOnlyList<AquariumCatalogItem> _catalog = [];
     private readonly Grid _root = new() { Background = new SolidColorBrush(ColorHelper.FromArgb(255, 9, 42, 49)) };
     private readonly List<(Visual Visual, string Property, CompositionAnimation Animation)> _motions = [];
     private readonly List<DepthMotion> _depthMotions = [];
@@ -54,11 +58,22 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
     internal event Action<AquariumPlacement>? PlacementChanged;
     internal bool IsEditing { get; set; }
 
-    public AquariumSceneView()
+    public AquariumSceneView() : this(false) { }
+
+    internal AquariumSceneView(bool wallpaper)
     {
+        _wallpaper = wallpaper;
         _root.Children.Add(new Viewbox { Child = _canvas, Stretch = Stretch.Uniform });
         Content = _root;
-        _root.SizeChanged += (_, _) => _root.Clip = new RectangleGeometry { Rect = new Rect(0, 0, _root.ActualWidth, _root.ActualHeight) };
+        _root.SizeChanged += (_, _) =>
+        {
+            _root.Clip = new RectangleGeometry { Rect = new Rect(0, 0, _root.ActualWidth, _root.ActualHeight) };
+            if (!_wallpaper || _root.ActualHeight <= 0) return;
+            double width = AquariumWallpaperPresentation.SceneWidth(_root.ActualWidth, _root.ActualHeight);
+            if (Math.Abs(width - SceneWidth) < 1) return;
+            SceneWidth = _canvas.Width = width;
+            Render(_placements, _inventory, _catalog);
+        };
         _policyTimer.Tick += (_, _) => UpdateMotion();
         _depthTimer.Tick += (_, _) => UpdateDepthLayers();
         Loaded += (_, _) => UpdateMotion();
@@ -70,12 +85,26 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         IReadOnlyList<AquariumInventoryItem> inventory, IReadOnlyList<AquariumCatalogItem> catalog)
     {
         if (_disposed) return;
+        _placements = placements;
+        _inventory = inventory;
+        _catalog = catalog;
         App.Log($"[Aquarium] Scene render placements={placements.Count} inventory={inventory.Count} catalog={catalog.Count} loaded={IsLoaded} visible={_visible}");
         ClearScene();
-        var background = new Image { Width = SceneWidth, Height = SceneHeight, Source = Asset("background"), Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
+        double bleed = _wallpaper ? 28 : 0;
+        var background = new Image { Width = SceneWidth + bleed * 2, Height = SceneHeight + bleed * 2, Source = Asset("background"), Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
+        Canvas.SetLeft(background, -bleed);
+        Canvas.SetTop(background, -bleed);
         Canvas.SetZIndex(background, -100);
         _images.Add(background);
         _canvas.Children.Add(background);
+        if (_wallpaper)
+        {
+            ElementCompositionPreview.SetIsTranslationEnabled(background, true);
+            var visual = ElementCompositionPreview.GetElementVisual(background);
+            AddScalar(visual, "Translation.X", 70, (0, -12), (.5f, 12), (1, -12));
+            AddScalar(visual, "Translation.Y", 90, (0, -5), (.5f, 5), (1, -5));
+            AddWaterHaze();
+        }
         AddCausticLights();
         var products = catalog.ToDictionary(item => item.Id, StringComparer.Ordinal);
         var owned = inventory.ToDictionary(item => item.Id, StringComparer.Ordinal);
@@ -97,6 +126,47 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         AddBubbles();
         Select(_objects.ContainsKey(_selected ?? string.Empty) ? _selected : null, notify: false);
         UpdateMotion();
+    }
+
+    private void AddWaterHaze()
+    {
+        var haze = new Rectangle
+        {
+            Width = SceneWidth,
+            Height = SceneHeight,
+            IsHitTestVisible = false,
+            Fill = new LinearGradientBrush
+            {
+                StartPoint = new Point(.5, 0),
+                EndPoint = new Point(.5, 1),
+                GradientStops =
+                {
+                    new GradientStop { Offset = 0, Color = ColorHelper.FromArgb(42, 134, 233, 232) },
+                    new GradientStop { Offset = .45, Color = ColorHelper.FromArgb(12, 8, 85, 110) },
+                    new GradientStop { Offset = 1, Color = ColorHelper.FromArgb(95, 2, 26, 45) }
+                }
+            }
+        };
+        Canvas.SetZIndex(haze, 90);
+        _canvas.Children.Add(haze);
+        for (int index = 0; index < 24; index++)
+        {
+            double size = 1 + index % 3;
+            var particle = new Ellipse
+            {
+                Width = size, Height = size, IsHitTestVisible = false,
+                Fill = new SolidColorBrush(ColorHelper.FromArgb(110, 196, 237, 225)),
+                Opacity = .2 + index % 4 * .12
+            };
+            Canvas.SetLeft(particle, (index * .61803398875 % 1) * SceneWidth);
+            Canvas.SetTop(particle, 20 + index * 23 % 560);
+            Canvas.SetZIndex(particle, index % 2 == 0 ? -90 : 80);
+            _canvas.Children.Add(particle);
+            ElementCompositionPreview.SetIsTranslationEnabled(particle, true);
+            var visual = ElementCompositionPreview.GetElementVisual(particle);
+            AddScalar(visual, "Translation.X", 21 + index, (0, -14), (.5f, 14), (1, -14));
+            AddScalar(visual, "Translation.Y", 18 + index, (0, 8), (.5f, -8), (1, 8));
+        }
     }
 
     private void AddCausticLights()
@@ -125,7 +195,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
                     }
                 }
             };
-            Canvas.SetLeft(light, -180 + index * 250);
+            Canvas.SetLeft(light, -180 + index * (_wallpaper ? (SceneWidth + 180) / 4 : 250));
             Canvas.SetTop(light, -60);
             Canvas.SetZIndex(light, -99);
             _canvas.Children.Add(light);
@@ -222,6 +292,14 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         }
         else if (product.Category is "plant" or "algae")
             AddPlantSway(visual, placement);
+        if (_wallpaper && !animatedCreature)
+        {
+            ElementCompositionPreview.SetIsTranslationEnabled(image, true);
+            Visual parallax = ElementCompositionPreview.GetElementVisual(image);
+            float amplitude = (float)(2 + AquariumWallpaperPresentation.DepthOpacity(placement.Layer) * 4);
+            AddScalar(parallax, "Translation.X", 70,
+                (0, -amplitude), (.5f, amplitude), (1, -amplitude));
+        }
     }
 
     private static int StableSeed(string value)
@@ -254,7 +332,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
 
     private int NextMotionSeed() => unchecked(_motionSeed++);
 
-    private static void Arrange(SceneObject item)
+    private void Arrange(SceneObject item)
     {
         double width = item.Width * item.Placement.Scale;
         double height = item.Height * item.Placement.Scale;
@@ -263,6 +341,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
         Canvas.SetLeft(item.Host, item.Placement.X * SceneWidth - width / 2);
         Canvas.SetTop(item.Host, item.Placement.Y * SceneHeight - height *
             AquariumArtworkCatalog.VerticalAnchor(item.Product.AssetKey, IsAnimatedCreature(item.Product.Category)));
+        if (_wallpaper) item.Host.Opacity = AquariumWallpaperPresentation.DepthOpacity(item.Placement.Layer);
     }
 
     private void BeginDrag(SceneObject item, PointerRoutedEventArgs args)
@@ -312,7 +391,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
                 Stroke = new SolidColorBrush(ColorHelper.FromArgb(150, 205, 246, 247)), StrokeThickness = 1.1,
                 Fill = new SolidColorBrush(ColorHelper.FromArgb(22, 225, 255, 255))
             };
-            Canvas.SetLeft(bubble, 40 + index * 57 % 760);
+            Canvas.SetLeft(bubble, 40 + (_wallpaper ? index * (SceneWidth - 80) / 14 : index * 57 % 760));
             Canvas.SetTop(bubble, SceneHeight + 20);
             Canvas.SetZIndex(bubble, 100);
             _canvas.Children.Add(bubble);
@@ -416,6 +495,7 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             }
             int layer = motion.Plan.LayerAt(elapsed);
             if (Canvas.GetZIndex(motion.Host) != layer) Canvas.SetZIndex(motion.Host, layer);
+            if (_wallpaper) motion.Host.Opacity = AquariumWallpaperPresentation.DepthOpacity(layer);
         }
     }
 
@@ -429,7 +509,10 @@ public sealed partial class AquariumSceneView : UserControl, IDisposable
             else if (motion.Property == "RotationAngleInDegrees") motion.Visual.RotationAngleInDegrees = 0;
         }
         foreach (DepthMotion motion in _depthMotions)
+        {
             Canvas.SetZIndex(motion.Host, motion.Plan.LayerChanges[0].Layer);
+            if (_wallpaper) motion.Host.Opacity = AquariumWallpaperPresentation.DepthOpacity(motion.Plan.LayerChanges[0].Layer);
+        }
         _motionRunning = false;
     }
 

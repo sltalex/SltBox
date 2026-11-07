@@ -183,7 +183,9 @@ internal sealed class WildlifeService : IAsyncDisposable
         {
             Seasons = ReadConditions(item, "seasons"),
             Periods = ReadConditions(item, "periods"),
-            Weathers = ReadConditions(item, "weathers")
+            Weathers = ReadConditions(item, "weathers"),
+            PreferredWeathers = ReadConditions(item, "preferred_weathers"),
+            Motion = item.TryGetProperty("motion", out JsonElement motion) ? motion.GetString() ?? string.Empty : string.Empty
         }).ToArray();
 
     private static string[] ReadConditions(JsonElement item, string name) =>

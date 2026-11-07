@@ -3059,6 +3059,7 @@
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"Buy items, place them from your backpack, then save the scene to apply fish, plants, invertebrates and decorations to the desktop."
   ,"Aquarium.Settings.Animation":"Aquarium animation"
+  ,"Aquarium.Settings.Wallpaper":"Animated desktop wallpaper"
   ,"Aquarium.Settings.Save":"Save scene"
   ,"Aquarium.Settings.Refresh":"Refresh"
   ,"Aquarium.Settings.Discard":"Discard draft"
@@ -3601,5 +3602,13 @@
   "Tree.Decorations.Item.spring-garden": "Spring garden",
   "Tree.Decorations.Item.midsummer-camp": "Midsummer camp",
   "Tree.Decorations.Item.autumn-harvest": "Autumn harvest yard",
-  "Tree.Decorations.Item.winter-starlight": "Winter starlight"
+  "Tree.Decorations.Item.winter-starlight": "Winter starlight",
+  "Tree.Settings.Leaderboard.VisitFruitPickSuccess": "Picked 1 fruit.",
+  "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "At least 2 of this fruit must be on the tree before it can be picked.",
+  "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "You already picked this fruit today.",
+  "Tree.Settings.Leaderboard.VisitFruitPickError": "Could not pick the fruit. Try again later.",
+  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "Fruit added to the pick queue; sending in the background.",
+  "Tree.SyncCalibratingCountdown": "Calibrating tree data (attempt {0}/{1}, {2} seconds left)…",
+  "Tree.SyncCalibrateRetry": "Sync timed out; retrying {0}/{1}…",
+  "Tree.SyncCalibrateNetworkFailed": "Sync failed after several attempts. Check the network or use Tree Error Repair."
 }

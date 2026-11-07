@@ -3025,6 +3025,7 @@
   ,"Aquarium.Settings.Preview":"Scene preview"
   ,"Aquarium.Settings.Hint":"購買後從背包放入；拖動水草、蝦蟹、貝類或裝飾，保存場景後套用到桌面。"
   ,"Aquarium.Settings.Animation":"Aquarium animation"
+  ,"Aquarium.Settings.Wallpaper":"動態桌面背景"
   ,"Aquarium.Settings.Save":"Save scene"
   ,"Aquarium.Settings.Refresh":"Refresh"
   ,"Aquarium.Settings.Discard":"Discard draft"
@@ -3601,5 +3602,13 @@
   ,"Tree.Decorations.Item.spring-garden":"Spring garden"
   ,"Tree.Decorations.Item.midsummer-camp":"Midsummer camp"
   ,"Tree.Decorations.Item.autumn-harvest":"Autumn harvest yard"
-  ,"Tree.Decorations.Item.winter-starlight":"Winter starlight"
+  ,"Tree.Decorations.Item.winter-starlight":"Winter starlight",
+  "Tree.Settings.Leaderboard.VisitFruitPickSuccess": "已摘取 1 个果实。",
+  "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "同类果实至少有 2 个时才能摘取。",
+  "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "今天已经摘取过这个果实了。",
+  "Tree.Settings.Leaderboard.VisitFruitPickError": "摘取失败，请稍后重试。",
+  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "已加入採摘佇列，正在背景傳送。",
+  "Tree.SyncCalibratingCountdown": "正在同步校準種樹資料（第 {0}/{1} 次，剩餘 {2} 秒）…",
+  "Tree.SyncCalibrateRetry": "同步逾時，正在中斷連線並進行第 {0}/{1} 次重試…",
+  "Tree.SyncCalibrateNetworkFailed": "連續多次同步失敗，請檢查網路，或點擊「種樹異常修復」停止目前同步。"
 }
