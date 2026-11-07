@@ -15,7 +15,7 @@ internal sealed record Tree3DSceneState(
     bool AnimationEnabled);
 
 internal sealed record Tree3DFruitState(int Index, string PendingId, string FruitId, string Asset,
-    double X, double Y, bool Picking);
+    double X, double Y, bool Picking, string Quantity = "1");
 
 internal sealed record Tree3DWildlifeState(
     string EncounterId,

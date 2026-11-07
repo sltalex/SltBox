@@ -163,16 +163,12 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             TreeProgress state = _counter.Snapshot;
             Windows.Foundation.Point point = args.GetPosition(_treeSurface);
             FruitService fruitService = App.Current.FruitService;
-            int visible = fruitService.IsAvailable
-                ? fruitService.OnTree.Count
-                : TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory);
-            int index = state.Stage == 5 ? TreeIllustrationLayout.FruitIndexAt(visible, point.X, point.Y) : -1;
+            IReadOnlyList<FruitOnTreeGroup> groups = fruitService.OnTreeGroups;
+            int index = state.Stage == 5 && fruitService.IsAvailable ? FruitGroupIndexAt(groups, point.X, point.Y) : -1;
             if (index >= 0)
             {
-                long pendingId = fruitService.IsAvailable ? fruitService.OnTree[index].Id : 0;
-                ImageSource image = fruitService.IsAvailable
-                    ? FruitAssetCatalog.GetImageSource(fruitService.OnTree[index].FruitId)
-                    : Asset("fruit.svg");
+                long pendingId = groups[index].Id;
+                ImageSource image = FruitAssetCatalog.GetImageSource(groups[index].FruitId);
                 _ = PickFruitAsync(pendingId, index, image);
                 args.Handled = true;
             }
@@ -261,7 +257,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_treeSurface, _localization.T($"Tree.Stage.{p.Stage}"));
             ConfigureFallingLeaves(p.Stage);
         }
-        string fruitSignature = string.Join(',', App.Current.FruitService.OnTree.Select(x => x.Id));
+        string fruitSignature = string.Join(',', App.Current.FruitService.OnTreeGroups.Select(x => $"{x.FruitId}:{x.Id}:{x.Quantity}"));
         if (_lastStage != p.Stage || _lastFruitInventory != p.FruitInventory || _lastFruitSignature != fruitSignature)
             DrawFruit(p);
         _lastStage = p.Stage;
@@ -320,7 +316,14 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
                     App.Log("[Tree] Fruit pick needs a successful tree sync; local tree state was unchanged.");
                     return;
                 }
-                var picked = await fruitService.PickAsync(pendingId);
+                string selectedFruitId = fruitService.OnTreeGroups.FirstOrDefault(group => group.Id == pendingId)?.FruitId ?? string.Empty;
+                if (string.IsNullOrEmpty(selectedFruitId))
+                {
+                    await fruitService.RefreshAsync();
+                    App.Log("[Tree] The selected fruit type is no longer available.");
+                    return;
+                }
+                var picked = await fruitService.PickAsync(pendingId, selectedFruitId);
                 if (picked.Success)
                 {
                     CompleteFruitPickVisual(visual, picked.Quantity);
@@ -329,16 +332,6 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
                     await App.Current.TreeCloudSyncService.SyncProgressNowAsync();
                 }
                 else App.Log("[Tree] Fruit pick was rejected; local tree state was unchanged.");
-            }
-            else
-            {
-                long reward = _counter.Harvest();
-                if (reward > 0)
-                {
-                    CompleteFruitPickVisual(visual, reward);
-                    pickedSuccessfully = true;
-                    App.Log($"[Tree] Picked one fruit; credited {reward} fruit(s) to the local backpack.");
-                }
             }
             Refresh();
         }
@@ -368,24 +361,31 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _fruitLayer.Children.Clear();
         if (state.Stage != 5) return;
         FruitService fruitService = App.Current.FruitService;
-        IReadOnlyList<FruitOnTreeItem> onTree = fruitService.OnTree;
-        int visible = fruitService.IsAvailable
-            ? onTree.Count
-            : TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory);
-        for (int i = 0; i < visible; i++)
+        IReadOnlyList<FruitOnTreeGroup> groups = fruitService.OnTreeGroups;
+        for (int i = 0; i < groups.Count; i++)
         {
-            (double x, double y) = TreeIllustrationLayout.FruitPositionAt(i);
-            ImageSource source = onTree.Count > i
-                ? FruitAssetCatalog.GetImageSource(onTree[i].FruitId)
-                : Asset("fruit.svg");
-            bool picking = _fruitPickVisuals.Any(visual => visual.Index == i ||
-                (fruitService.IsAvailable && onTree[i].Id == visual.PendingId));
-            var fruit = new Image { Width = 24, Height = 28, Source = source, Stretch = Stretch.Uniform,
-                Opacity = picking ? 0 : 1 };
+            FruitOnTreeGroup group = groups[i];
+            (double x, double y) = TreeIllustrationLayout.FruitPositionAt(group.PositionIndex);
+            var fruit = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(group.FruitId), group.Quantity);
+            fruit.Opacity = _fruitPickVisuals.Any(visual => visual.PendingId == group.Id) ? 0 : 1;
             Canvas.SetLeft(fruit, x);
             Canvas.SetTop(fruit, y);
             _fruitLayer.Children.Add(fruit);
         }
+    }
+
+    private static int FruitGroupIndexAt(IReadOnlyList<FruitOnTreeGroup> groups, double x, double y)
+    {
+        int nearest = -1;
+        double distance = double.PositiveInfinity;
+        for (int i = groups.Count - 1; i >= 0; i--)
+        {
+            (double left, double top) = TreeIllustrationLayout.FruitPositionAt(groups[i].PositionIndex);
+            if (x < left - 8 || x > left + 32 || y < top - 8 || y > top + 38) continue;
+            double d = (x - left - 12) * (x - left - 12) + (y - top - 14) * (y - top - 14);
+            if (d < distance) { distance = d; nearest = i; }
+        }
+        return nearest;
     }
 
     private void ConfigureMotion()

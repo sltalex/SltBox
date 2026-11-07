@@ -293,7 +293,8 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
     $fruit = data_delta($body, 'fruit_delta');
     $harvested = data_delta($body, 'harvested_delta');
     $typedFruit = ($body['typed_fruit'] ?? false) === true;
-    if ($typedFruit) fruit_ensure_schema($pdo);
+    require_once __DIR__ . '/fruit.php';
+    fruit_ensure_schema($pdo);
     if ($energy === 0 && $growth === 0 && $fruit === 0 && $harvested === 0) {
         throw new ApiError('empty_operation', 'Progress operation contains no changes.', 400);
     }
@@ -323,17 +324,17 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
             $maturity = 4 * TREE_STAGE_INTERVAL;
             $newFruitEnergy = $fruitEnergy + max(0, $afterEnergy - max($beforeEnergy, $maturity));
             $spawnCount = intdiv($newFruitEnergy,TREE_FRUIT_COST);
-            if ($typedFruit && ($harvested !== 0 || $fruit !== $spawnCount))
-                throw new ApiError('invalid_fruit_progress','New fruits must match the mature energy gain.',409);
+            // Client fruit counters are legacy estimates. Only energy creates fruit;
+            // picks use their own idempotent transactions, never uploaded counters.
+            $spawned = fruit_record_spawn($pdo,$userId,$spawnCount,$now,true);
             $newFruitEnergy %= TREE_FRUIT_COST;
             $update = $pdo->prepare(
                 'UPDATE tree_profiles SET total_energy = total_energy + :energy, fruit_total = fruit_total + :fruit, '
                 . 'harvested_total = harvested_total + :harvested, fruit_energy = :fruit_energy, '
                 . 'state_version = state_version + 1, updated_at = :updated_at WHERE user_id = :user_id'
             );
-            $update->execute([':energy' => $energy, ':fruit' => $fruit, ':harvested' => $harvested,
+            $update->execute([':energy' => $energy, ':fruit' => $spawned, ':harvested' => 0,
                 ':fruit_energy' => $newFruitEnergy, ':updated_at' => auth_sql_time($now), ':user_id' => $userId]);
-            if ($typedFruit && $spawnCount>0) fruit_record_spawn($pdo,$userId,$spawnCount,$now);
             if ($growth > 0) {
                 $dailySql = $driver === 'sqlite'
                     ? 'INSERT INTO tree_daily_progress (user_id, progress_day, growth) VALUES (:user_id, :day, :growth) ON CONFLICT(user_id, progress_day) DO UPDATE SET growth = growth + excluded.growth'
@@ -403,9 +404,10 @@ function tree_apply_state(PDO $pdo, string $userId, array $body, callable $clock
     try {
         $pdo->beginTransaction();
         tree_ensure_profile($pdo, $userId, $now, $driver);
-        $lock = $pdo->prepare('SELECT state_version FROM tree_profiles WHERE user_id = :user_id' . ($driver === 'sqlite' ? '' : ' FOR UPDATE'));
+        $lock = $pdo->prepare('SELECT state_version,fruit_total,harvested_total,fruit_energy FROM tree_profiles WHERE user_id = :user_id' . ($driver === 'sqlite' ? '' : ' FOR UPDATE'));
         $lock->execute([':user_id' => $userId]);
-        $currentVersion = (int)$lock->fetchColumn();
+        $current = $lock->fetch(PDO::FETCH_ASSOC);
+        $currentVersion = (int)$current['state_version'];
         $existing = $pdo->prepare('SELECT 1 FROM tree_progress_operations WHERE user_id = :user_id AND operation_id = :operation_id');
         $existing->execute([':user_id' => $userId, ':operation_id' => $operationId]);
         if ($existing->fetchColumn() !== false) {
@@ -420,8 +422,8 @@ function tree_apply_state(PDO $pdo, string $userId, array $body, callable $clock
         $insert->execute([':user_id' => $userId, ':operation_id' => $operationId, ':device_id' => $deviceId, ':day' => $serverDay, ':created_at' => auth_sql_time($now)]);
         $update = $pdo->prepare('UPDATE tree_profiles SET total_energy = :energy, fruit_total = :fruit, harvested_total = :harvested, stage = :stage, fruit_energy = :fruit_energy, state_version = state_version + 1, updated_at = :updated_at WHERE user_id = :user_id');
         $update->execute([
-            ':energy' => $totalEnergy, ':fruit' => $fruitTotal, ':harvested' => $harvested,
-            ':stage' => $stage, ':fruit_energy' => $fruitEnergy, ':updated_at' => auth_sql_time($now), ':user_id' => $userId,
+            ':energy' => $totalEnergy, ':fruit' => (int)$current['fruit_total'], ':harvested' => (int)$current['harvested_total'],
+            ':stage' => $stage, ':fruit_energy' => (int)$current['fruit_energy'], ':updated_at' => auth_sql_time($now), ':user_id' => $userId,
         ]);
         $daily = $driver === 'sqlite'
             ? 'INSERT INTO tree_daily_progress (user_id, progress_day, growth) VALUES (:user_id, :day, :growth) ON CONFLICT(user_id, progress_day) DO UPDATE SET growth = excluded.growth'

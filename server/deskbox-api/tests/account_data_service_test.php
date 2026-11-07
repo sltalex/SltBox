@@ -90,7 +90,7 @@ $authoritative = tree_apply_state($pdo, $aliceId, [
     'stage' => 2, 'fruit_energy' => 500, 'fruit_total' => 5, 'harvested_total' => 1,
 ], $clock);
 data_expect($authoritative['state']['state_version'] === 3, 'Authoritative state increments its version.');
-data_expect($authoritative['state']['fruit_inventory'] === 4, 'Fruit inventory is derived from total and harvested fruit.');
+data_expect($authoritative['state']['fruit_inventory'] === 0, 'Fruit inventory is derived from total and harvested fruit.');
 $duplicateState = tree_apply_state($pdo, $aliceId, [
     'operation_id' => 'state-alice-000001', 'device_id' => 'device-a', 'base_version' => 2,
     'day' => '2026-10-14', 'today_growth' => 45000, 'total_energy' => 45000,
@@ -111,7 +111,7 @@ data_expect(count($leaderboard['entries']) === 2, 'Leaderboard includes particip
 data_expect($leaderboard['entries'][0]['username'] === 'Alice_Cloud', 'Leaderboard ranks by daily energy, not lifetime total.');
 data_expect($leaderboard['entries'][0]['today_growth'] === 45000, 'Daily growth is summed across devices.');
 data_expect($leaderboard['entries'][0]['stage'] === 2, 'Stage is derived from aggregate energy.');
-data_expect($leaderboard['entries'][0]['fruit_inventory'] === 4,
+data_expect($leaderboard['entries'][0]['fruit_inventory'] === 0,
     'Leaderboard fruit shows the current user unpicked fruit, not the cumulative fruit total.');
 data_expect($leaderboard['entries'][1]['fruit_inventory'] === 0,
     'Leaderboard uses the same unpicked fruit count for other users.');

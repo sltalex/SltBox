@@ -110,11 +110,9 @@ public sealed partial class TreeWidgetContent
             _counter.Snapshot.Stage != 5) return;
         TreeProgress state = _counter.Snapshot;
         FruitService fruitService = App.Current.FruitService;
-        IReadOnlyList<FruitOnTreeItem> onTree = fruitService.OnTree;
+        IReadOnlyList<FruitOnTreeGroup> onTree = fruitService.OnTreeGroups;
         bool fruitAvailable = fruitService.IsAvailable;
-        int visible = fruitAvailable
-            ? onTree.Count
-            : TreeIllustrationLayout.VisibleFruitCount(state.FruitInventory);
+        int visible = fruitAvailable ? onTree.Count : 0;
         if (index < 0 || index >= visible) return;
         long pendingId = fruitAvailable ? onTree[index].Id : 0;
         if (expectedPendingId != pendingId.ToString(System.Globalization.CultureInfo.InvariantCulture)) return;
@@ -135,21 +133,20 @@ public sealed partial class TreeWidgetContent
     {
         if (!_visualSettings.UseThreeD || _threeDFailed || _tree3D is null) return;
         FruitService fruitService = App.Current.FruitService;
-        IReadOnlyList<FruitOnTreeItem> onTree = fruitService.OnTree;
+        IReadOnlyList<FruitOnTreeGroup> onTree = fruitService.OnTreeGroups;
         bool fruitAvailable = fruitService.IsAvailable;
-        int visible = progress.Stage != 5 ? 0 : fruitAvailable
-            ? onTree.Count
-            : TreeIllustrationLayout.VisibleFruitCount(progress.FruitInventory);
+        int visible = progress.Stage == 5 && fruitAvailable ? onTree.Count : 0;
         var fruits = Enumerable.Range(0, visible).Select(index =>
         {
-            (double x, double y) = TreeIllustrationLayout.FruitPositionAt(index);
+            (double x, double y) = TreeIllustrationLayout.FruitPositionAt(onTree[index].PositionIndex);
             string fruitId = fruitAvailable ? onTree[index].FruitId : "fruit";
             long pendingId = fruitAvailable ? onTree[index].Id : 0;
             string asset = FruitAssetCatalog.ResolveRelativePath(fruitId)?.Replace('\\', '/') ?? "fruit.svg";
-            bool picking = _fruitPickVisuals.Any(item => item.Index == index || pendingId != 0 && item.PendingId == pendingId);
+            bool picking = _fruitPickVisuals.Any(item => pendingId != 0 && item.PendingId == pendingId);
             return new Tree3DFruitState(index,
                 pendingId.ToString(System.Globalization.CultureInfo.InvariantCulture), fruitId, asset,
-                x + 12, y + 14 + TreeIllustrationLayout.TreeVerticalOffset, picking);
+                x + 12, y + 14 + TreeIllustrationLayout.TreeVerticalOffset, picking,
+                onTree[index].Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }).ToArray();
 
         Tree3DWildlifeState? wildlife = null;

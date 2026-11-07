@@ -43,8 +43,8 @@ public sealed class FruitServiceTests
 
         Assert.False(await service.SellAsync("apple", 2));
         Assert.False(await service.SellAsync("apple", 2));
-        Assert.False((await service.PickAsync(42)).Success);
-        Assert.False((await service.PickAsync(42)).Success);
+        Assert.False((await service.PickAsync(42, "apple")).Success);
+        Assert.False((await service.PickAsync(42, "apple")).Success);
 
         Assert.Equal(4, api.Bodies.Count);
         Assert.Equal(Operation(api.Bodies[0]), Operation(api.Bodies[1]));
@@ -69,6 +69,46 @@ public sealed class FruitServiceTests
         Assert.Empty(service.Inventory);
         Assert.Empty(service.PriceHistory);
         Assert.Empty(service.SalePriceHistory);
+    }
+
+    [Fact]
+    public async Task LostPickResponseRetainsOperationAcrossServiceRestart()
+    {
+        var auth = new FakeAuth("pick-restart-" + Guid.NewGuid().ToString("N"));
+        var api = new FakeApi((_, path) => path.EndsWith("pick.php", StringComparison.Ordinal)
+            ? throw new HttpRequestException("response lost") : Response(HttpStatusCode.OK, "{}"));
+        await using (var first = new FruitService(auth, api))
+            await Assert.ThrowsAsync<HttpRequestException>(() => first.PickAsync(91, "apple"));
+        await using (var second = new FruitService(auth, api))
+            await Assert.ThrowsAsync<HttpRequestException>(() => second.PickAsync(91, "apple"));
+        Assert.Equal(Operation(api.Bodies[0]), Operation(api.Bodies[1]));
+    }
+
+    [Fact]
+    public async Task WholeTypePickAcceptsLongQuantityAndKeepsOtherTreeTypes()
+    {
+        var auth = new FakeAuth("pick-long-" + Guid.NewGuid().ToString("N"));
+        bool picked = false;
+        var api = new FakeApi((_, path) =>
+        {
+            if (path.EndsWith("pick.php", StringComparison.Ordinal))
+            {
+                picked = true;
+                return Response(HttpStatusCode.OK, """{"fruit_id":"apple","quantity":3000000000}""");
+            }
+            if (path.EndsWith("catalog.php", StringComparison.Ordinal))
+                return Response(HttpStatusCode.OK, """{"items":[]}""");
+            return Response(HttpStatusCode.OK, picked
+                ? """{"inventory":[{"fruit_id":"apple","quantity":3000000000,"discovered":true}],"on_tree":[{"id":3,"fruit_id":"pear"}]}"""
+                : """{"inventory":[],"on_tree":[{"id":1,"fruit_id":"apple"},{"id":2,"fruit_id":"apple"},{"id":3,"fruit_id":"pear"}]}""");
+        });
+        await using var service = new FruitService(auth, api);
+        Assert.True(await service.RefreshAsync());
+        var result = await service.PickAsync(1, "apple");
+        Assert.True(result.Success);
+        Assert.Equal(3_000_000_000L, result.Quantity);
+        Assert.Equal("pear", Assert.Single(service.OnTreeGroups).FruitId);
+        Assert.Equal(3_000_000_000L, Assert.Single(service.Inventory).Quantity);
     }
 
     private static string Operation(byte[] body)

@@ -10,7 +10,8 @@ namespace DeskBox.Views.SettingsSections;
 
 internal sealed partial class TreeVisitSceneView : UserControl
 {
-    private readonly Dictionary<string, List<Button>> _fruitButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _fruitButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _fruitQuantities = new(StringComparer.Ordinal);
 
     internal TreeVisitSceneView(TreeVisitSnapshot snapshot, TreeDecorationCatalog? catalog,
         Func<string, Task>? fruitPicker = null)
@@ -44,17 +45,16 @@ internal sealed partial class TreeVisitSceneView : UserControl
         var fruitLayer = new Canvas { IsHitTestVisible = fruitPicker is not null };
         if (snapshot.Stage == 5)
         {
-            int count = snapshot.Fruits.Length;
-            for (int index = 0; index < count; index++)
+            IReadOnlyList<FruitOnTreeGroup> groups = FruitTreeGroups.Create(
+                snapshot.Fruits.Select((fruitId, index) => new FruitOnTreeItem(index + 1, fruitId)),
+                App.Current.FruitService.Catalog);
+            for (int index = 0; index < groups.Count; index++)
             {
-                (double x, double y) = TreeIllustrationLayout.FruitPositionAt(index);
-                string fruitId = snapshot.Fruits[index];
-                var image = new Image
-                {
-                    Width = 24, Height = 28, Stretch = Stretch.Uniform,
-                    Source = FruitAssetCatalog.GetImageSource(fruitId),
-                    IsHitTestVisible = false
-                };
+                FruitOnTreeGroup group = groups[index];
+                (double x, double y) = TreeIllustrationLayout.FruitPositionAt(group.PositionIndex);
+                string fruitId = group.FruitId;
+                _fruitQuantities[fruitId] = group.Quantity;
+                var image = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(fruitId), group.Quantity);
                 if (fruitPicker is null)
                 {
                     Canvas.SetLeft(image, x);
@@ -71,18 +71,11 @@ internal sealed partial class TreeVisitSceneView : UserControl
                     BorderThickness = new Thickness(0),
                     Tag = fruitId
                 };
-                fruit.Click += async (_, _) =>
-                {
-                    fruit.IsEnabled = false;
-                    try { await fruitPicker(fruitId); }
-                    finally { fruit.IsEnabled = true; }
-                };
+                fruit.Click += async (_, _) => await fruitPicker(fruitId);
                 Canvas.SetLeft(fruit, x - 4);
                 Canvas.SetTop(fruit, y - 4);
                 fruitLayer.Children.Add(fruit);
-                if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons))
-                    _fruitButtons[fruitId] = buttons = [];
-                buttons.Add(fruit);
+                _fruitButtons[fruitId] = fruit;
             }
         }
         canopy.Children.Add(fruitLayer);
@@ -167,27 +160,29 @@ internal sealed partial class TreeVisitSceneView : UserControl
 
     internal bool RemoveFruit(string fruitId)
     {
-        if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return false;
-        Button? button = buttons.FirstOrDefault(item => item.Visibility == Visibility.Visible);
-        if (button is null) return false;
-        button.Visibility = Visibility.Collapsed;
+        if (!_fruitQuantities.TryGetValue(fruitId, out long quantity) || quantity < 2) return false;
+        SetFruitQuantity(fruitId, quantity - 1);
         return true;
     }
 
     internal bool RestoreFruit(string fruitId)
     {
-        if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return false;
-        Button? button = buttons.FirstOrDefault(item => item.Visibility == Visibility.Collapsed);
-        if (button is null) return false;
-        button.Visibility = Visibility.Visible;
+        if (!_fruitQuantities.TryGetValue(fruitId, out long quantity)) return false;
+        SetFruitQuantity(fruitId, quantity + 1);
         return true;
+    }
+
+    internal void SetFruitQuantity(string fruitId, long quantity)
+    {
+        _fruitQuantities[fruitId] = Math.Max(0, quantity);
+        if (!_fruitButtons.TryGetValue(fruitId, out Button? button)) return;
+        button.Content = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(fruitId), quantity);
+        button.Visibility = quantity > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     internal void SetFruitTypeEnabled(string fruitId, bool enabled)
     {
-        if (!_fruitButtons.TryGetValue(fruitId, out List<Button>? buttons)) return;
-        foreach (Button button in buttons.Where(item => item.Visibility == Visibility.Visible))
-            button.IsEnabled = enabled;
+        if (_fruitButtons.TryGetValue(fruitId, out Button? button)) button.IsEnabled = enabled;
     }
 
     private static SvgImageSource Asset(string name) => new(new Uri($"ms-appx:///Assets/Tree/{name}"));

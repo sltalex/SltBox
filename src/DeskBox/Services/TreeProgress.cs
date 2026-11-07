@@ -51,7 +51,6 @@ public sealed class TreeProgress
         {
             long fruitGain = wasMature ? amount : Math.Max(0, TotalEnergy - MaturityThreshold);
             FruitEnergy = checked(FruitEnergy + fruitGain);
-            FruitInventory = checked(FruitInventory + FruitEnergy / FruitCost);
             FruitEnergy %= FruitCost;
         }
     }
@@ -63,22 +62,10 @@ public sealed class TreeProgress
         HighestStage = Math.Max(HighestStage, StageFor(TotalEnergy));
         if (HighestStage == 5)
         {
-            FruitInventory = checked(FruitInventory + FruitEnergy / FruitCost);
             FruitEnergy %= FruitCost;
         }
     }
 
-    /// <summary>
-    /// Picks exactly one fruit from the tree and credits a random 1-5 fruit
-    /// reward to the account inventory.  The inventory count is the number of
-    /// fruits still on the tree; HarvestedFruit is the account backpack total.
-    /// </summary>
-    public long Harvest(Random? random = null)
-    {
-        if (FruitInventory <= 0) return 0;
-        int reward = (random ?? Random.Shared).Next(1, 6);
-        FruitInventory--;
-        HarvestedFruit = checked(HarvestedFruit + reward);
-        return reward;
-    }
+    /// <summary>Fruit rewards are granted by the account service, never by a local fallback.</summary>
+    public long Harvest(Random? random = null) => 0;
 }

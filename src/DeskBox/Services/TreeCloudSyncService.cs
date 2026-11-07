@@ -22,6 +22,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
     private PeriodicTimer? _timer;
     private Task? _timerTask;
     private int _disposed;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string Viewer, string Owner, string Fruit), string> _visitFruitOperations = new();
 
     internal TreeCloudSyncService(
         IAuthenticatedAccountApi api,
@@ -42,7 +43,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
         _applyAuthoritativeCloudState = applyAuthoritativeCloudState
             ?? (usesProcessCounter && applyCloudState is null
                 ? (state, preserve) => TreeCounterService.Instance.ApplyAuthoritativeCloudState(state, preserve)
-                : (state, preserve) => { TreeProgress latest = _readProgress(); preserve(latest); _applyCloudState(state, latest); });
+                : (state, preserve) => { TreeProgress latest = _readProgress(); preserve(latest); (applyCloudState ?? applyAuthoritativeIfUnchanged ?? _applyCloudState)(state, latest); });
         _applyAuthoritativeIfUnchanged = applyAuthoritativeIfUnchanged
             ?? (usesProcessCounter ? TreeCounterService.Instance.TryApplyAuthoritativeCloudState :
                 (state, expected) => { _applyCloudState(state, expected); return true; });
@@ -134,7 +135,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 : CalculateDelta(local, baseline);
             if (state.PendingProgress is null && !delta.HasChanges)
             {
-                _applyAuthoritativeIfUnchanged(cloud, local);
+                MergeConfirmedState(cloud, local);
                 state.Acknowledged = cloud;
                 state.StateVersion = cloud.StateVersion;
                 state.Pending = null;
@@ -152,9 +153,10 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                 Day = cloud.Day,
                 EnergyDelta = delta.Energy,
                 DayGrowthDelta = delta.TodayGrowth,
-                FruitDelta = delta.Fruit,
-                HarvestedDelta = delta.Harvested,
-                TypedFruit = IsNewTypedGrowth(cloud, delta)
+                FruitDelta = 0,
+                HarvestedDelta = 0,
+                TypedFruit = true,
+                FruitRulesVersion = 2
             };
             state.Pending = new TreeStateSyncRequest { OperationId = request.OperationId, BaseVersion = cloud.StateVersion };
             if (state.PendingProgress is null)
@@ -185,8 +187,8 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                     await response.Content.ReadAsStreamAsync(cancellationToken),
                     AccountCloudJsonContext.Default.TreeProgressUploadResponse, cancellationToken)
                     ?? throw new InvalidDataException("The tree progress response is empty.");
-            bool appliedToLocal = _applyAuthoritativeIfUnchanged(body.State, local);
-            state.Acknowledged = appliedToLocal ? body.State : ProjectedAcknowledgement(baseline, delta, body.State, local.LocalDay);
+            MergeConfirmedState(body.State, local);
+            state.Acknowledged = body.State;
             state.StateVersion = body.State.StateVersion;
             state.Pending = null;
             state.PendingProgress = null;
@@ -252,48 +254,51 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
 
     private static bool IsBehind(TreeProgress local, TreeStateDto baseline) =>
         local.TotalEnergy < baseline.TotalEnergy ||
-        (local.LocalDay == baseline.Day && local.TodayKeys < baseline.TodayGrowth)
-        || local.FruitInventory + local.HarvestedFruit < baseline.FruitTotal
-        || local.HarvestedFruit < baseline.HarvestedTotal;
+        (local.LocalDay == baseline.Day && local.TodayKeys < baseline.TodayGrowth);
 
-    private static TreeStateDto ProjectedAcknowledgement(TreeStateDto baseline, TreeProgressDelta delta, TreeStateDto cloud, string localDay) => new()
+    private void MergeConfirmedState(TreeStateDto cloud, TreeProgress submitted)
     {
-        Day = localDay,
-        StateVersion = cloud.StateVersion,
-        TodayGrowth = (baseline.Day == localDay ? baseline.TodayGrowth : 0) + delta.TodayGrowth,
-        TotalEnergy = baseline.TotalEnergy + delta.Energy,
-        Stage = TreeProgress.StageFor(baseline.TotalEnergy + delta.Energy),
-        FruitEnergy = cloud.FruitEnergy,
-        FruitTotal = baseline.FruitTotal + delta.Fruit,
-        HarvestedTotal = baseline.HarvestedTotal + delta.Harvested,
-        FruitInventory = Math.Max(0, baseline.FruitTotal + delta.Fruit - baseline.HarvestedTotal - delta.Harvested)
-    };
+        var merged = new TreeStateDto
+        {
+            Day = cloud.Day, StateVersion = cloud.StateVersion, FruitCost = cloud.FruitCost,
+            TotalEnergy = cloud.TotalEnergy, TodayGrowth = cloud.TodayGrowth, Stage = cloud.Stage,
+            FruitEnergy = cloud.FruitEnergy, FruitTotal = cloud.FruitTotal,
+            HarvestedTotal = cloud.HarvestedTotal, FruitInventory = cloud.FruitInventory
+        };
+        // The counter invokes this callback under its lock. Preserve only input
+        // since the submitted snapshot; confirmed fruit counts stay authoritative.
+        _applyAuthoritativeCloudState(merged, latest =>
+        {
+            long extra = Math.Max(0, latest.TotalEnergy - submitted.TotalEnergy);
+            merged.TotalEnergy = checked(cloud.TotalEnergy + extra);
+            merged.Stage = TreeProgress.StageFor(merged.TotalEnergy);
+            if (string.CompareOrdinal(latest.LocalDay, cloud.Day) > 0)
+            {
+                merged.Day = latest.LocalDay;
+                merged.TodayGrowth = latest.TodayKeys;
+            }
+            else merged.TodayGrowth = checked(cloud.TodayGrowth +
+                (latest.LocalDay == cloud.Day ? Math.Max(0, latest.TodayKeys -
+                    (submitted.LocalDay == latest.LocalDay ? submitted.TodayKeys : 0)) : 0));
+            const long maturity = 4L * TreeProgress.StageEnergyInterval;
+            long matureExtra = Math.Max(0, merged.TotalEnergy - Math.Max(cloud.TotalEnergy, maturity));
+            merged.FruitEnergy = (cloud.FruitEnergy + matureExtra) % TreeProgress.CloudFruitCost;
+        });
+    }
 
     private static TreeProgressDelta CalculateDelta(TreeProgress local, TreeStateDto baseline)
     {
-        long localFruitTotal = local.FruitInventory + local.HarvestedFruit;
         long baseGrowth = string.Equals(local.LocalDay, baseline.Day, StringComparison.Ordinal) ? baseline.TodayGrowth : 0;
         return new TreeProgressDelta(
             Math.Max(0, local.TotalEnergy - baseline.TotalEnergy),
             Math.Max(0, local.TodayKeys - baseGrowth),
-            Math.Max(0, localFruitTotal - baseline.FruitTotal),
-            Math.Max(0, local.HarvestedFruit - baseline.HarvestedTotal));
+            0, 0);
     }
 
     private readonly record struct TreeProgressDelta(long Energy, long TodayGrowth, long Fruit, long Harvested)
     {
         public bool HasChanges => Energy != 0 || TodayGrowth != 0 || Fruit != 0 || Harvested != 0;
     }
-
-    private static bool IsNewTypedGrowth(TreeStateDto cloud, TreeProgressDelta delta)
-    {
-        if (delta.Energy <= 0 || delta.Fruit <= 0 || delta.Harvested != 0)
-            return false;
-        const long maturity = 4L * TreeProgress.StageEnergyInterval;
-        long matureGain = Math.Max(0, cloud.TotalEnergy + delta.Energy - Math.Max(cloud.TotalEnergy, maturity));
-        return delta.Fruit == (cloud.FruitEnergy + matureGain) / TreeProgress.CloudFruitCost;
-    }
-
 
     private TreeStateSyncRequest CreateRequest(TreeCloudState state, TreeProgress local) => new()
     {
@@ -491,17 +496,23 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
         if (!_auth.IsAuthenticated) throw new InvalidOperationException("Sign in to pick a visited fruit.");
         if (string.Equals(account, _auth.CurrentUser?.Id, StringComparison.Ordinal))
             throw new InvalidOperationException("You cannot pick fruit from your own tree through a visit.");
+        string viewer = _auth.CurrentUser!.Id;
+        var operationKey = (viewer, account, fruitId);
+        string operationId = _visitFruitOperations.GetOrAdd(operationKey, _ => Guid.NewGuid().ToString("N"));
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(new TreeVisitFruitPickRequest
         {
-            Account = account, FruitId = fruitId, OperationId = Guid.NewGuid().ToString("N")
+            Account = account, FruitId = fruitId, OperationId = operationId
         }, AccountCloudJsonContext.Default.TreeVisitFruitPickRequest);
         using HttpResponseMessage response = await _api.SendAsync(HttpMethod.Post,
             "../tree/fruit-pick.php", json, null, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonSerializer.DeserializeAsync(stream,
+        TreeVisitFruitPickResponse result = await JsonSerializer.DeserializeAsync(stream,
             AccountCloudJsonContext.Default.TreeVisitFruitPickResponse, cancellationToken)
-            ?? throw new InvalidDataException("The visited fruit response is empty.");
+            ?? throw new InvalidDataException("The fruit pick response is empty.");
+        _visitFruitOperations.TryRemove(operationKey, out _);
+        if (_auth.CurrentUser?.Id != viewer) throw new OperationCanceledException("Account changed during fruit pick.");
+        return result;
     }
 
     internal async Task SetParticipationAsync(bool participating, CancellationToken cancellationToken = default)

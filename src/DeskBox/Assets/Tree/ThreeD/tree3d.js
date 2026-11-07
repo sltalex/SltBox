@@ -80,7 +80,10 @@ function clear(group) {
       node.geometry?.dispose();
       if (node.material) {
         const materials = Array.isArray(node.material) ? node.material : [node.material];
-        materials.forEach(material => material.dispose());
+        materials.forEach(material => {
+          if (material.map?.userData.fruitBadge) material.map.dispose();
+          material.dispose();
+        });
       }
     });
   }
@@ -239,6 +242,23 @@ function makeFruits(items) {
     object.userData = { type: 'fruit', index: item.index, pendingId: String(item.pendingId || '0') };
     object.material.opacity = item.picking ? .35 : 1;
     object.userData.disabled = !!item.picking;
+    const label = document.createElement('canvas');
+    label.width = 384; label.height = 96;
+    const context = label.getContext('2d');
+    context.fillStyle = 'rgba(35,64,35,.85)';
+    context.beginPath(); context.roundRect(0, 0, 384, 96, 20); context.fill();
+    context.fillStyle = '#fff'; context.textAlign = 'center'; context.textBaseline = 'middle';
+    context.font = 'bold 64px sans-serif';
+    context.fillText('×' + String(item.quantity || '1'), 192, 50, 370);
+    const map = new THREE.CanvasTexture(label);
+    map.colorSpace = THREE.SRGBColorSpace; map.userData.fruitBadge = true;
+    const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthTest: true, depthWrite: false }));
+    badge.scale.set(42 / 24, 11 / 28, 1);
+    badge.position.set(0, -.52, .03);
+    badge.renderOrder = object.renderOrder + 1;
+    badge.userData = { ...object.userData };
+    badge.material.opacity = item.picking ? .35 : 1;
+    object.add(badge);
   }
 }
 function makeAnimal(item) {

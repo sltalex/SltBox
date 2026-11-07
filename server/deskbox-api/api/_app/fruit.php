@@ -88,7 +88,7 @@ function fruit_ensure_schema(PDO $pdo): void
     if (!in_array('sale_sequence', $saleColumns, true)) {
         $pdo->exec('ALTER TABLE fruit_sale_operations ADD COLUMN sale_sequence BIGINT NOT NULL DEFAULT 0');
     }
-    $pdo->exec("CREATE TABLE IF NOT EXISTS fruit_pick_operations (user_id VARCHAR(64) NOT NULL,operation_id VARCHAR(128) NOT NULL,pending_id BIGINT NOT NULL,fruit_id VARCHAR(80) NOT NULL,quantity INT NOT NULL,created_at {$types[8]} NOT NULL,PRIMARY KEY(user_id,operation_id))");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS fruit_pick_operations (user_id VARCHAR(64) NOT NULL,operation_id VARCHAR(128) NOT NULL,pending_id BIGINT NOT NULL,fruit_id VARCHAR(80) NOT NULL,quantity BIGINT NOT NULL,created_at {$types[8]} NOT NULL,PRIMARY KEY(user_id,operation_id))");
     // The first pilot build did not persist the pending tree-fruit row. Add the
     // column in place so existing installations keep their idempotency records.
     $columns = $driver === 'sqlite'
@@ -104,7 +104,7 @@ function fruit_ensure_schema(PDO $pdo): void
     $count = (int)$pdo->query('SELECT COUNT(*) FROM fruit_catalog')->fetchColumn();
     if ($count > 0 || !is_file(FRUIT_MANIFEST_PATH)) return;
     $manifest = json_decode((string)file_get_contents(FRUIT_MANIFEST_PATH), true, 512, JSON_THROW_ON_ERROR);
-    $now = auth_sql_time(api_clock());
+    $now = auth_sql_time(function_exists('api_clock') ? api_clock() : new DateTimeImmutable('now',new DateTimeZone('UTC')));
     $insert = $pdo->prepare('INSERT INTO fruit_catalog (id,name,category,atlas_index,enabled,probability,min_price,max_price,created_at,updated_at) VALUES (:id,:name,:category,:atlas,1,:prob,:min,:max,:created,:updated)');
     foreach ($manifest['items'] ?? [] as $item) $insert->execute([':id'=>$item['id'],':name'=>$item['name'],':category'=>$item['category'],':atlas'=>(int)$item['atlasIndex'],':prob'=>(float)$item['probability'],':min'=>(int)$item['minPrice'],':max'=>(int)$item['maxPrice'],':created'=>$now,':updated'=>$now]);
 }
@@ -159,14 +159,21 @@ function fruit_weighted_pick(PDO $pdo): ?array
     $items=$pdo->query('SELECT * FROM fruit_catalog WHERE enabled=1 AND probability>0 ORDER BY id')->fetchAll(PDO::FETCH_ASSOC); $total=array_sum(array_map(fn($x)=>(float)$x['probability'],$items)); if($total<=0)return null; $needle=(random_int(0,PHP_INT_MAX)/PHP_INT_MAX)*$total; foreach($items as $item){$needle-=(float)$item['probability'];if($needle<=0)return $item;} return $items[array_key_last($items)]??null;
 }
 
-function fruit_record_spawn(PDO $pdo,string $userId,int $quantity,DateTimeImmutable $now): void
+function fruit_record_spawn(PDO $pdo,string $userId,int $quantity,DateTimeImmutable $now,bool $batchRewards=false): int
 {
-    if($quantity<=0)return;
+    if($quantity<=0)return 0;
     $insert=$pdo->prepare('INSERT INTO user_fruit_pending (user_id,fruit_id,created_at) VALUES (:user,:fruit,:created)');
+    $spawned=0;
     for($i=0;$i<$quantity;$i++){
-        $item=fruit_weighted_pick($pdo);if(!$item)break;
-        $insert->execute([':user'=>$userId,':fruit'=>$item['id'],':created'=>auth_sql_time($now)]);
+        $item=fruit_weighted_pick($pdo);
+        if(!$item)throw new ApiError('fruit_catalog_unavailable','No enabled fruit is available.',503);
+        $batch=$batchRewards?random_int(1,5):1;
+        for($unit=0;$unit<$batch;$unit++){
+            $insert->execute([':user'=>$userId,':fruit'=>$item['id'],':created'=>auth_sql_time($now)]);
+        }
+        $spawned+=$batch;
     }
+    return $spawned;
 }
 
 function fruit_prepare_legacy(PDO $pdo,string $userId,int $onTree,DateTimeImmutable $now): void
@@ -217,6 +224,9 @@ function fruit_pick(PDO $pdo,string $userId,array $body,callable $clock): array
     $operationId=data_string($body,'operation_id');
     if(!preg_match('/\A[A-Za-z0-9_-]{16,128}\z/D',$operationId)) throw new ApiError('invalid_operation','A stable operation identifier is required.',400);
     $pendingId=data_nonnegative_int($body,'pending_id');
+    $expectedFruit=isset($body['fruit_id'])&&is_string($body['fruit_id'])?$body['fruit_id']:'';
+    if($expectedFruit!==''&&!preg_match('/\A[a-z0-9-]{1,80}\z/D',$expectedFruit))
+        throw new ApiError('invalid_fruit_pick','A valid fruit type is required.',400);
     if($pendingId<1) throw new ApiError('invalid_fruit_pick','A tree fruit identifier is required.',400);
     fruit_ensure_schema($pdo); $now=$clock(); $mysql=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql';
     $pdo->beginTransaction();
@@ -227,7 +237,7 @@ function fruit_pick(PDO $pdo,string $userId,array $body,callable $clock): array
         $prior=$pdo->prepare('SELECT pending_id,fruit_id,quantity FROM fruit_pick_operations WHERE user_id=:user AND operation_id=:operation');
         $prior->execute([':user'=>$userId,':operation'=>$operationId]); $old=$prior->fetch(PDO::FETCH_ASSOC);
         if(is_array($old)){
-            if((int)$old['pending_id']!==$pendingId) throw new ApiError('operation_conflict','Operation id was used for a different fruit.',409);
+            if((int)$old['pending_id']!==$pendingId||($expectedFruit!==''&&$old['fruit_id']!==$expectedFruit)) throw new ApiError('operation_conflict','Operation id was used for a different fruit.',409);
             $pdo->commit(); return ['fruit_id'=>$old['fruit_id'],'quantity'=>(int)$old['quantity'],'duplicate'=>true];
         }
         $onTree=(int)$profile['fruit_total']-(int)$profile['harvested_total'];
@@ -237,11 +247,24 @@ function fruit_pick(PDO $pdo,string $userId,array $body,callable $clock): array
             throw new ApiError('fruit_state_conflict','Sync the tree before picking a typed fruit.',409);
         $pending=$pdo->prepare('SELECT id,fruit_id FROM user_fruit_pending WHERE user_id=:user AND id=:id'.($mysql?' FOR UPDATE':''));
         $pending->execute([':user'=>$userId,':id'=>$pendingId]); $row=$pending->fetch(PDO::FETCH_ASSOC);
+        // A visitor may have consumed the representative row since the owner
+        // clicked. The optional type lets the owner drain the remaining units.
+        if(!is_array($row)&&$expectedFruit!==''){
+            $pending=$pdo->prepare('SELECT id,fruit_id FROM user_fruit_pending WHERE user_id=:user AND fruit_id=:fruit ORDER BY id LIMIT 1'.($mysql?' FOR UPDATE':''));
+            $pending->execute([':user'=>$userId,':fruit'=>$expectedFruit]);
+            $row=$pending->fetch(PDO::FETCH_ASSOC);
+        }
         if(!is_array($row)) throw new ApiError('no_fruit_on_tree','No typed fruit is ready to pick.',409);
-        $quantity=random_int(1,5); $fruitId=(string)$row['fruit_id'];
-        $pdo->prepare('UPDATE tree_profiles SET fruit_total=fruit_total+:extra,harvested_total=harvested_total+:quantity,state_version=state_version+1,updated_at=:now WHERE user_id=:user')
-            ->execute([':extra'=>$quantity-1,':quantity'=>$quantity,':now'=>auth_sql_time($now),':user'=>$userId]);
-        $pdo->prepare('DELETE FROM user_fruit_pending WHERE id=:id')->execute([':id'=>$row['id']]);
+        $fruitId=(string)$row['fruit_id'];
+        if($expectedFruit!==''&&$expectedFruit!==$fruitId)
+            throw new ApiError('invalid_fruit_pick','The selected fruit type has changed.',409);
+        $sameType=$pdo->prepare('SELECT id FROM user_fruit_pending WHERE user_id=:user AND fruit_id=:fruit'.($mysql?' FOR UPDATE':''));
+        $sameType->execute([':user'=>$userId,':fruit'=>$fruitId]);
+        $quantity=count($sameType->fetchAll(PDO::FETCH_COLUMN));
+        $pdo->prepare('UPDATE tree_profiles SET harvested_total=harvested_total+:quantity,state_version=state_version+1,updated_at=:now WHERE user_id=:user')
+            ->execute([':quantity'=>$quantity,':now'=>auth_sql_time($now),':user'=>$userId]);
+        $pdo->prepare('DELETE FROM user_fruit_pending WHERE user_id=:user AND fruit_id=:fruit')
+            ->execute([':user'=>$userId,':fruit'=>$fruitId]);
         $args=[':user'=>$userId,':fruit'=>$fruitId,':created'=>auth_sql_time($now)];
         $sql=$mysql ? 'INSERT INTO user_fruit_inventory (user_id,fruit_id,quantity,discovered_at,updated_at) VALUES (:user,:fruit,:quantity,:created,:updated) ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity),updated_at=VALUES(updated_at)' : 'INSERT INTO user_fruit_inventory (user_id,fruit_id,quantity,discovered_at,updated_at) VALUES (:user,:fruit,:quantity,:created,:updated) ON CONFLICT(user_id,fruit_id) DO UPDATE SET quantity=quantity+excluded.quantity,updated_at=excluded.updated_at';
         $pdo->prepare($sql)->execute($args+[':quantity'=>$quantity,':updated'=>auth_sql_time($now)]);

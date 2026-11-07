@@ -111,6 +111,9 @@ internal sealed class TreeProgressUploadRequest
     public long HarvestedDelta { get; set; }
     [JsonPropertyName("typed_fruit")]
     public bool TypedFruit { get; set; }
+    [JsonPropertyName("fruit_rules_version")]
+    public int FruitRulesVersion { get; set; }
+
 }
 
 internal sealed class TreeStateSyncRequest
@@ -269,7 +272,7 @@ internal sealed class TreeVisitFruitPickResponse
     [JsonPropertyName("quantity")]
     public int Quantity { get; set; }
     [JsonPropertyName("remaining_on_tree")]
-    public int RemainingOnTree { get; set; }
+    public long RemainingOnTree { get; set; }
     [JsonPropertyName("duplicate")]
     public bool Duplicate { get; set; }
 }

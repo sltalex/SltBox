@@ -46,7 +46,7 @@ public sealed partial class FruitMarketSection : UserControl
                 Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(amount, $"{fruit.Name}出售数量");
                 var custom = new Button { Content = "卖", Width = 38, MinWidth = 0, IsEnabled = Service.IsAvailable };
                 var all = new Button { Content = "全卖", Width = 90, MinWidth = 0, IsEnabled = Service.IsAvailable };
-                async Task SellAsync(int quantity)
+                async Task SellAsync(long quantity)
                 {
                     all.IsEnabled = custom.IsEnabled = amount.IsEnabled = false;
                     try
@@ -69,7 +69,7 @@ public sealed partial class FruitMarketSection : UserControl
                         Status.Text = $"请输入 1 到 {owned.Quantity} 的整数数量。";
                         return;
                     }
-                    await SellAsync((int)value);
+                    await SellAsync((long)value);
                 };
                 customRow.Children.Add(amount); customRow.Children.Add(custom);
                 actions.Children.Add(customRow); actions.Children.Add(all);

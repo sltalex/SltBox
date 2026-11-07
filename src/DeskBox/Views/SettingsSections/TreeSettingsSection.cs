@@ -619,6 +619,7 @@ public sealed partial class TreeSettingsSection : UserControl
             };
             var fruitQueue = new Queue<string>();
             var queuedFruitTypes = new HashSet<string>(StringComparer.Ordinal);
+            var pickedFruitTypes = new HashSet<string>(StringComparer.Ordinal);
             bool drainingFruitQueue = false;
 
             void SetFruitStatus(string key)
@@ -630,11 +631,8 @@ public sealed partial class TreeSettingsSection : UserControl
 
             void RestoreQueuedFruit(string fruitId)
             {
-                if (!snapshot.Fruits.Contains(fruitId, StringComparer.Ordinal))
-                {
-                    snapshot.Fruits = snapshot.Fruits.Append(fruitId).ToArray();
-                    snapshot.FruitOnTreeCount++;
-                }
+                snapshot.Fruits = snapshot.Fruits.Append(fruitId).ToArray();
+                snapshot.FruitOnTreeCount++;
                 scene?.RestoreFruit(fruitId);
                 scene?.SetFruitTypeEnabled(fruitId, true);
                 fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit",
@@ -653,12 +651,24 @@ public sealed partial class TreeSettingsSection : UserControl
                         string fruitId = fruitQueue.Dequeue();
                         try
                         {
+                            if (_auth?.CurrentUser?.Id != viewerId) return;
                             if (_cloud is null) throw new InvalidOperationException("Cloud service unavailable.");
-                            await _cloud.PickVisitedFruitAsync(entry.Account, fruitId);
+                            TreeVisitFruitPickResponse result = await _cloud.PickVisitedFruitAsync(entry.Account, fruitId);
+                            if (_auth?.CurrentUser?.Id != viewerId) return;
+                            // Replace only this type with the confirmed remaining units.
+                            snapshot.Fruits = snapshot.Fruits.Where(item => item != fruitId)
+                                .Concat(Enumerable.Repeat(fruitId, checked((int)result.RemainingOnTree))).ToArray();
+                            snapshot.FruitOnTreeCount = snapshot.Fruits.LongLength;
+                            scene?.SetFruitQuantity(fruitId, result.RemainingOnTree);
+                            scene?.SetFruitTypeEnabled(fruitId, false);
+                            pickedFruitTypes.Add(fruitId);
+                            fruitCount.Text = _localization.Format("Tree.Settings.Leaderboard.VisitFruit", snapshot.FruitOnTreeCount);
                         }
                         catch (AuthApiException error) when (error.Code == "visit_fruit_daily_limit")
                         {
                             RestoreQueuedFruit(fruitId);
+                            pickedFruitTypes.Add(fruitId);
+                            scene?.SetFruitTypeEnabled(fruitId, false);
                             SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday");
                             continue;
                         }
@@ -692,6 +702,11 @@ public sealed partial class TreeSettingsSection : UserControl
             {
                 if (_cloud is null || _auth?.CurrentUser?.Id != viewerId || !flyout.IsOpen)
                     return Task.CompletedTask;
+                if (pickedFruitTypes.Contains(fruitId))
+                {
+                    SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday");
+                    return Task.CompletedTask;
+                }
                 if (!queuedFruitTypes.Add(fruitId))
                 {
                     SetFruitStatus("Tree.Settings.Leaderboard.VisitFruitPickQueued");

@@ -13,19 +13,19 @@ internal sealed class FruitService : IAsyncDisposable
     private readonly IAuthenticatedAccountApi _api;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _stateGate = new();
-    private readonly Dictionary<(string FruitId, int Quantity), string> _pendingSales = new();
+    private readonly Dictionary<(string FruitId, long Quantity), string> _pendingSales = new();
     private string? CachePath => _auth.CurrentUser is { } user
         ? Path.Combine(DeskBoxDataPathService.Current.DataDirectory, "fruit", $"fruit-state-account-{AccountBackupFileCatalog.SafeAccountId(user.Id)}.json")
         : null;
-    private long _pendingPickId;
-    private string? _pendingPickOperation;
-    internal FruitService(IAuthSession auth, IAuthenticatedAccountApi api) { _auth = auth; _api = api; _auth.SessionChanged += OnSessionChanged; }
+    private readonly Dictionary<long, string> _pendingPicks = new();
+    internal FruitService(IAuthSession auth, IAuthenticatedAccountApi api) { _auth = auth; _api = api; _auth.SessionChanged += OnSessionChanged; TryLoadCache(); }
     internal event Action? Changed;
     internal IReadOnlyList<FruitCatalogItem> Catalog { get; private set; } = Array.Empty<FruitCatalogItem>();
     internal IReadOnlyList<FruitInventoryItem> Inventory { get; private set; } = Array.Empty<FruitInventoryItem>();
     internal IReadOnlyDictionary<string, IReadOnlyList<FruitPricePoint>> PriceHistory { get; private set; } = new Dictionary<string, IReadOnlyList<FruitPricePoint>>();
     internal IReadOnlyDictionary<string, IReadOnlyList<FruitSalePricePoint>> SalePriceHistory { get; private set; } = new Dictionary<string, IReadOnlyList<FruitSalePricePoint>>();
     internal IReadOnlyList<FruitOnTreeItem> OnTree { get; private set; } = Array.Empty<FruitOnTreeItem>();
+    internal IReadOnlyList<FruitOnTreeGroup> OnTreeGroups => FruitTreeGroups.Create(OnTree, Catalog);
     internal bool IsAvailable => _auth.IsAuthenticated;
 
     internal async Task<bool> RefreshAsync(CancellationToken cancellationToken = default)
@@ -77,7 +77,7 @@ internal sealed class FruitService : IAsyncDisposable
         finally { _gate.Release(); }
     }
 
-    internal async Task<bool> SellAsync(string fruitId, int quantity, CancellationToken cancellationToken = default)
+    internal async Task<bool> SellAsync(string fruitId, long quantity, CancellationToken cancellationToken = default)
     {
         string? ownerId = _auth.CurrentUser?.Id;
         if (ownerId is null || string.IsNullOrWhiteSpace(fruitId) || quantity < 1) return false;
@@ -121,17 +121,20 @@ internal sealed class FruitService : IAsyncDisposable
         await RefreshAsync(cancellationToken); return true;
     }
 
-    internal async Task<(bool Success, string FruitId, int Quantity)> PickAsync(long pendingId, CancellationToken cancellationToken = default)
+    internal async Task<(bool Success, string FruitId, long Quantity)> PickAsync(long pendingId, string? expectedFruitId = null, CancellationToken cancellationToken = default)
     {
         string? ownerId = _auth.CurrentUser?.Id;
         if (ownerId is null || pendingId < 1) return (false, string.Empty, 0);
-        if (_pendingPickId != pendingId || _pendingPickOperation is null)
+        string operationId;
+        lock (_stateGate)
         {
-            _pendingPickId = pendingId;
-            _pendingPickOperation = Guid.NewGuid().ToString("N");
+            if (!_pendingPicks.TryGetValue(pendingId, out string? pending))
+                _pendingPicks[pendingId] = pending = Guid.NewGuid().ToString("N");
+            operationId = pending;
+            SaveCache(ownerId);
         }
         byte[] body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
-            new FruitPickRequest(pendingId, _pendingPickOperation),
+            new FruitPickRequest(pendingId, operationId, expectedFruitId ?? OnTree.FirstOrDefault(item => item.Id == pendingId)?.FruitId),
             FruitRequestJsonContext.Default.FruitPickRequest));
         using var response = await SendAsync(HttpMethod.Post, "../fruit/pick.php", body, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -152,16 +155,31 @@ internal sealed class FruitService : IAsyncDisposable
             }
             catch (JsonException) { }
             App.Log($"[Fruit] Pick rejected status={(int)response.StatusCode} code={errorCode}");
+            if (errorCode is "no_fruit_on_tree" or "fruit_state_conflict")
+                await RefreshAsync(cancellationToken);
             return (false, string.Empty, 0);
         }
         using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var root = document.RootElement;
         string fruitId = root.TryGetProperty("fruit_id", out var id) ? id.GetString() ?? string.Empty : string.Empty;
-        int quantity = root.TryGetProperty("quantity", out var count) && count.TryGetInt32(out var n) ? n : 0;
+        long quantity = root.TryGetProperty("quantity", out var count) && count.TryGetInt64(out var n) ? n : 0;
         if (fruitId.Length == 0 || quantity < 1) return (false, string.Empty, 0);
         if (_auth.CurrentUser?.Id != ownerId) return (false, string.Empty, 0);
-        _pendingPickOperation = null;
+        lock (_stateGate)
+        {
+            if (_auth.CurrentUser?.Id != ownerId) return (false, string.Empty, 0);
+            OnTree = OnTree.Where(item => item.FruitId != fruitId).ToArray();
+            long owned = Inventory.FirstOrDefault(item => item.FruitId == fruitId)?.Quantity ?? 0;
+            Inventory = Inventory.Where(item => item.FruitId != fruitId)
+                .Append(new FruitInventoryItem(fruitId, checked(owned + quantity), true)).ToArray();
+            SaveCache(ownerId);
+        }
         await RefreshAsync(cancellationToken);
+        lock (_stateGate)
+        {
+            _pendingPicks.Remove(pendingId);
+            SaveCache(ownerId);
+        }
         return (true, fruitId, quantity);
     }
 
@@ -174,7 +192,7 @@ internal sealed class FruitService : IAsyncDisposable
             PriceHistory = new Dictionary<string, IReadOnlyList<FruitPricePoint>>();
             SalePriceHistory = new Dictionary<string, IReadOnlyList<FruitSalePricePoint>>();
             OnTree = Array.Empty<FruitOnTreeItem>();
-            _pendingPickOperation = null;
+            _pendingPicks.Clear();
             _pendingSales.Clear();
         }
         LoadLocalCatalog();
@@ -213,7 +231,8 @@ internal sealed class FruitService : IAsyncDisposable
                 Inventory = Inventory.ToArray(),
                 History = PriceHistory.ToDictionary(x => x.Key, x => x.Value.ToArray(), StringComparer.Ordinal),
                 SaleHistory = SalePriceHistory.ToDictionary(x => x.Key, x => x.Value.ToArray(), StringComparer.Ordinal),
-                OnTree = OnTree.ToArray()
+                OnTree = OnTree.ToArray(),
+                PendingPicks = new(_pendingPicks)
             };
             FruitCacheFileStore.Save(path, cache);
         }
@@ -233,6 +252,7 @@ internal sealed class FruitService : IAsyncDisposable
             SalePriceHistory = (cache.SaleHistory ?? new Dictionary<string, FruitSalePricePoint[]>(StringComparer.Ordinal))
                 .ToDictionary(x => x.Key, x => (IReadOnlyList<FruitSalePricePoint>)x.Value, StringComparer.Ordinal);
             OnTree = cache.OnTree;
+            foreach (var pick in cache.PendingPicks ?? new()) _pendingPicks.TryAdd(pick.Key, pick.Value);
         }
         catch (Exception ex) when (ex is IOException || ex is JsonException) { }
     }

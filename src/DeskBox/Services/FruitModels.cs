@@ -5,17 +5,37 @@ namespace DeskBox.Services;
 
 internal sealed record FruitCatalogItem(string Id, string Name, string Category, int AtlasIndex,
     double Probability, int MinPrice, int MaxPrice, int CurrentPrice, bool Enabled = true);
-internal sealed record FruitInventoryItem(string FruitId, int Quantity, bool Discovered);
+internal sealed record FruitInventoryItem(string FruitId, long Quantity, bool Discovered);
 internal sealed record FruitPricePoint(string Day, int Price);
 internal sealed record FruitSalePricePoint(int Price);
 internal sealed record FruitOnTreeItem(long Id, string FruitId);
+internal sealed record FruitOnTreeGroup(long Id, string FruitId, long Quantity, int PositionIndex);
+internal static class FruitTreeGroups
+{
+    internal static IReadOnlyList<FruitOnTreeGroup> Create(IEnumerable<FruitOnTreeItem> items,
+        IReadOnlyList<FruitCatalogItem> catalog) => items.GroupBy(item => item.FruitId, StringComparer.Ordinal)
+        .OrderBy(group => group.Key, StringComparer.Ordinal)
+        .Select(group => new FruitOnTreeGroup(group.Min(item => item.Id), group.Key,
+            group.LongCount(), PositionIndex(group.Key, catalog))).ToArray();
+
+    internal static int PositionIndex(string fruitId, IReadOnlyList<FruitCatalogItem> catalog)
+    {
+        FruitCatalogItem? item = catalog.FirstOrDefault(item => item.Id == fruitId);
+        if (item is not null) return Math.Clamp(item.AtlasIndex, 0, 199);
+        uint hash = 2166136261;
+        foreach (char ch in fruitId) hash = unchecked((hash ^ ch) * 16777619);
+        return (int)(hash % 200);
+    }
+}
+
 internal sealed record FruitSellRequest(
     [property: JsonPropertyName("fruit_id")] string FruitId,
-    [property: JsonPropertyName("quantity")] int Quantity,
+    [property: JsonPropertyName("quantity")] long Quantity,
     [property: JsonPropertyName("operation_id")] string OperationId);
 internal sealed record FruitPickRequest(
     [property: JsonPropertyName("pending_id")] long PendingId,
-    [property: JsonPropertyName("operation_id")] string OperationId);
+    [property: JsonPropertyName("operation_id")] string OperationId,
+    [property: JsonPropertyName("fruit_id")] string? FruitId = null);
 internal sealed class FruitCacheDto
 {
     public string OwnerUserId { get; set; } = string.Empty;
@@ -23,6 +43,7 @@ internal sealed class FruitCacheDto
     public Dictionary<string, FruitPricePoint[]> History { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, FruitSalePricePoint[]> SaleHistory { get; set; } = new(StringComparer.Ordinal);
     public FruitOnTreeItem[] OnTree { get; set; } = [];
+    public Dictionary<long, string> PendingPicks { get; set; } = new();
 }
 
 internal static class FruitJson
@@ -41,7 +62,7 @@ internal static class FruitJson
     {
         if (!root.TryGetProperty("inventory", out var items)) return Array.Empty<FruitInventoryItem>();
         return items.EnumerateArray().Select(x => new FruitInventoryItem(
-            Text(x, "fruit_id"), Int(x, "quantity", 0), Bool(x, "discovered", false))).ToArray();
+            Text(x, "fruit_id"), x.TryGetProperty("quantity", out var q) && q.TryGetInt64(out long quantity) ? Math.Max(0, quantity) : 0, Bool(x, "discovered", false))).ToArray();
     }
 
     internal static IReadOnlyList<FruitPricePoint> ReadHistory(JsonElement root)

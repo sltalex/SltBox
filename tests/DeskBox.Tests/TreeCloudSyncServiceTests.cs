@@ -191,7 +191,8 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         Assert.True(await service.SyncNowAsync());
         using JsonDocument request = JsonDocument.Parse(Assert.Single(api.Bodies));
         Assert.True(request.RootElement.GetProperty("typed_fruit").GetBoolean());
-        Assert.Equal(1, request.RootElement.GetProperty("fruit_delta").GetInt64());
+        Assert.Equal(0, request.RootElement.GetProperty("fruit_delta").GetInt64());
+        Assert.Equal(2, request.RootElement.GetProperty("fruit_rules_version").GetInt32());
     }
 
     [Fact]
@@ -235,7 +236,7 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
 
         Assert.True(await service.SyncNowAsync());
         Assert.Equal(144150, local.TotalEnergy);
-        Assert.Equal(0, local.HarvestedFruit);
+        Assert.Equal(3, local.HarvestedFruit);
         Assert.True(await service.SyncNowAsync());
         Assert.Equal(144150, local.TotalEnergy);
         Assert.Equal(0, local.FruitInventory);
@@ -508,6 +509,36 @@ public sealed class TreeCloudSyncServiceTests : IDisposable
         Assert.True(await service.SyncNowAsync());
         Assert.Equal(1, conflictApi.Methods.Count(method => method == "POST"));
         Assert.Equal(4, ReadAcknowledgedVersion(_root));
+    }
+
+    [Fact]
+    public async Task ServerBatchQuantityAndConcurrentInputAreMergedWithoutReuploadingFruit()
+    {
+        TreeProgress local = Progress(147000, 3000, 0, 0);
+        var api = new FakeApi
+        {
+            State = State(1, 144000, 0, 5, 0, 0, 0),
+            UploadState = State(2, 147000, 3000, 5, 0, 5, 0)
+        };
+        api.OnPost = () => { local = Progress(147250, 3250, 0, 0); api.OnPost = null; };
+        await using var service = new TreeCloudSyncService(api, new FakeAuth("batch-race", "Tree"),
+            () => local, _root, applyAuthoritativeCloudState: (state, preserve) =>
+            {
+                preserve(local);
+                local = Progress(state.TotalEnergy, state.TodayGrowth, state.FruitInventory, state.HarvestedTotal, state);
+            });
+        Assert.True(await service.SyncProgressNowAsync());
+        Assert.Equal(147250, local.TotalEnergy);
+        Assert.Equal(3250, local.TodayKeys);
+        Assert.Equal(5, local.FruitInventory);
+        Assert.Equal(250, local.FruitEnergy);
+        api.State = api.UploadState;
+        api.UploadState = State(3, 147250, 3250, 5, 250, 5, 0);
+        Assert.True(await service.SyncProgressNowAsync());
+        using var body = JsonDocument.Parse(api.Bodies[1]);
+        Assert.Equal(250, body.RootElement.GetProperty("energy_delta").GetInt64());
+        Assert.Equal(0, body.RootElement.GetProperty("fruit_delta").GetInt64());
+        Assert.Equal(0, body.RootElement.GetProperty("harvested_delta").GetInt64());
     }
 
     private static TreeProgress Progress(long energy, long today, long inventory, long harvested, TreeStateDto? state = null) => new()

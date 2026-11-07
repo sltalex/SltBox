@@ -53,32 +53,25 @@ public sealed class TreeProgressTests
     }
 
     [Fact]
-    public void PickingOneFruitCreditsRandomRewardAndLeavesOtherTreeFruit()
+    public void OfflineEnergyKeepsRemainderWithoutInventingFruit()
     {
         var tree = new TreeProgress();
         tree.AddEnergy(143999, Day);
         tree.AddEnergy(6002, Day);
         Assert.Equal(5, tree.Stage);
-        Assert.Equal(2, tree.FruitInventory);
-        Assert.Equal(1, tree.FruitEnergy);
-        Assert.Equal(5, tree.Harvest(new FixedRandom(5)));
-        Assert.Equal(1, tree.FruitInventory);
-        Assert.Equal(5, tree.HarvestedFruit);
-        Assert.Equal(1, tree.Harvest(new FixedRandom(1)));
         Assert.Equal(0, tree.FruitInventory);
+        Assert.Equal(1, tree.FruitEnergy);
+        Assert.Equal(0, tree.Harvest());
+        Assert.Equal(0, tree.HarvestedFruit);
     }
 
     [Fact]
-    public void HarvestRewardIsAlwaysBetweenOneAndFive()
+    public void LocalHarvestCannotMultiplyOrConsumeConfirmedFruit()
     {
-        for (int seed = 0; seed < 20; seed++)
-        {
-            var tree = new TreeProgress { FruitInventory = 1 };
-            long reward = tree.Harvest(new Random(seed));
-            Assert.InRange(reward, 1, 5);
-            Assert.Equal(0, tree.FruitInventory);
-            Assert.Equal(reward, tree.HarvestedFruit);
-        }
+        var tree = new TreeProgress { FruitInventory = 7, HarvestedFruit = 2 };
+        Assert.Equal(0, tree.Harvest(new Random(5)));
+        Assert.Equal(7, tree.FruitInventory);
+        Assert.Equal(2, tree.HarvestedFruit);
     }
 
     [Fact]
@@ -88,11 +81,11 @@ public sealed class TreeProgressTests
         tree.AddEnergy(147500, Day);
         tree.SetGoal(20000);
         Assert.Equal(5, tree.Stage);
-        Assert.Equal(1, tree.FruitInventory);
+        Assert.Equal(0, tree.FruitInventory);
         Assert.Equal(500, tree.FruitEnergy);
         tree.AddEnergy(4500, Day.AddDays(1));
         Assert.Equal(4500, tree.TodayKeys);
-        Assert.Equal(2, tree.FruitInventory);
+        Assert.Equal(0, tree.FruitInventory);
         Assert.Equal(2000, tree.FruitEnergy);
     }
 
@@ -105,9 +98,9 @@ public sealed class TreeProgressTests
         Assert.Equal(3000, tree.FruitCost);
         tree.AddEnergy((int)tree.MaturityThreshold, Day);
         tree.AddEnergy(3000, Day);
-        Assert.Equal(1, tree.FruitInventory);
+        Assert.Equal(0, tree.FruitInventory);
         tree.AddEnergy(1, Day);
-        Assert.Equal(1, tree.FruitInventory);
+        Assert.Equal(0, tree.FruitInventory);
     }
 
     [Fact]
@@ -164,7 +157,7 @@ public sealed class TreeProgressTests
             store.Save(state);
             state.AddEnergy(3000, Day.AddDays(1));
             store.Save(state);
-            Assert.Equal(1, new TreeProgressFileStore(path).Load().FruitInventory);
+            Assert.Equal(0, new TreeProgressFileStore(path).Load().FruitInventory);
             File.WriteAllText(path, "{broken");
             TreeProgress recovered = new TreeProgressFileStore(path).Load();
             Assert.Equal(144001, recovered.TotalEnergy);

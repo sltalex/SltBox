@@ -17,7 +17,7 @@ public sealed partial class TreeWidgetContent
         if (_disposed || !_visible || index < 0)
             return null;
 
-        (double x, double y) = TreeIllustrationLayout.FruitPositionAt(index);
+        (double x, double y) = TreeIllustrationLayout.FruitPositionAt(App.Current.FruitService.OnTreeGroups.ElementAtOrDefault(index)?.PositionIndex ?? index);
         var glowScale = new ScaleTransform { ScaleX = .55, ScaleY = .55 };
         var glow = new Ellipse
         {
@@ -64,7 +64,7 @@ public sealed partial class TreeWidgetContent
         Canvas.SetLeft(reward, x - 12);
         Canvas.SetTop(reward, y - 2);
 
-        Image? original = index < _fruitLayer.Children.Count ? _fruitLayer.Children[index] as Image : null;
+        UIElement? original = index < _fruitLayer.Children.Count ? _fruitLayer.Children[index] : null;
         var visual = new FruitPickVisual(pendingId, index, original, fruit, fruitScale,
             glow, glowScale, sparkle, reward, rewardRise, y);
         _fruitPickLayer.Children.Add(glow);
@@ -168,7 +168,7 @@ public sealed partial class TreeWidgetContent
         storyboard.Children.Add(animation);
     }
 
-    private sealed record FruitPickVisual(long PendingId, int Index, Image? Original,
+    private sealed record FruitPickVisual(long PendingId, int Index, UIElement? Original,
         Image Fruit, ScaleTransform FruitScale,
         Ellipse Glow, ScaleTransform GlowScale, TextBlock Sparkle, TextBlock Reward,
         TranslateTransform RewardRise, double Y)
