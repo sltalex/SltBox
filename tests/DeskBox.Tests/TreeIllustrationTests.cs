@@ -24,19 +24,18 @@ public sealed class TreeIllustrationTests
     [Fact]
     public void SeedlingLeafMotionRemainsVisibleAtTheCompactDisplaySize()
     {
-        // The stage-1 tip (176,96) rotates around (130,142).
-        double radius = Math.Sqrt(46 * 46 + 46 * 46);
-        double angle = TreeIllustrationLayout.SwayAmplitudeDegrees(1) * Math.PI / 180;
-        double screenTravel = 2 * radius * Math.Sin(angle) *
+        // The stage-1 tree receives a small horizontal drift at compact size.
+        double screenTravel = 2 * TreeIllustrationLayout.SwayOffsetPixels(1) *
             TreeIllustrationLayout.DisplayHeight / TreeIllustrationLayout.Height;
-        Assert.InRange(screenTravel, 4, 9);
+        Assert.InRange(screenTravel, 3, 5);
 
         string source = File.ReadAllText(TestPaths.FromRepository(
             "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
         Assert.Contains("Height = TreeIllustrationLayout.DisplayHeight", source);
-        Assert.Contains("TreeIllustrationLayout.SwayAmplitudeDegrees(p.Stage)", source);
-        Assert.Contains("_swayRotation.From = -swayAmplitude", source);
-        Assert.Contains("_swayRotation.To = swayAmplitude", source);
+        Assert.Contains("TreeIllustrationLayout.SwayOffsetPixels(p.Stage)", source);
+        Assert.Contains("_swayOffset.From = -swayOffset", source);
+        Assert.Contains("_swayOffset.To = swayOffset", source);
+        Assert.Contains("Storyboard.SetTargetProperty(sway, \"TranslateX\")", source);
     }
 
     [Theory]
@@ -332,8 +331,25 @@ public sealed class TreeIllustrationTests
         Assert.Contains("_celebration.Stop();", source);
         Assert.Contains("_fallingLeaves.Stop();", source);
         Assert.Contains("_fallingLeafLayer.Visibility = Visibility.Collapsed;", source);
-        Assert.Contains("Storyboard.SetTarget(sway, _canopyTransform);", source);
+        Assert.Contains("_sway.Begin();", source);
+        Assert.Contains("Storyboard.SetTarget(sway, _treeTransform);", source);
+        Assert.DoesNotContain("Storyboard.SetTarget(sway, _canopyTransform);", source);
         Assert.DoesNotContain("new UISettings()", source);
+    }
+
+    [Fact]
+    public void TwoDimensionalTreeKeepsCloudsVisibleAcrossTheTreeSurface()
+    {
+        string source = File.ReadAllText(TestPaths.FromRepository(
+            "src/DeskBox/Controls/WidgetContents/TreeWidgetContent.cs"));
+        int sky = source.IndexOf("_drawing.Children.Add(_weatherSkyLayer)", StringComparison.Ordinal);
+        int tree = source.IndexOf("_drawing.Children.Add(_treeSurface)", StringComparison.Ordinal);
+        int front = source.IndexOf("_drawing.Children.Add(_weatherFrontLayer)", StringComparison.Ordinal);
+
+        Assert.True(sky >= 0 && tree >= 0 && front >= 0, "Tree and weather layers must be added to the scene.");
+        Assert.True(tree < sky, "The sky cloud layer must remain visible above the tree surface.");
+        Assert.True(tree < front, "The front weather layer must remain above the tree surface.");
+        Assert.Contains("CacheMode = new BitmapCache()", source, StringComparison.Ordinal);
     }
 
     [Fact]

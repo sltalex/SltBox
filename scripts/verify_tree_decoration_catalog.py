@@ -123,14 +123,14 @@ def main() -> int:
     if doc.get("catalog_version") != 3:
         fail(f"expected catalog_version 3, got {doc.get('catalog_version')!r}")
     items = doc.get("items")
-    if not isinstance(items, list) or len(items) != 20:
-        fail("catalog must contain only the original twenty decorations")
-    if Counter(item.get("category") for item in items) != Counter({"tree": 8, "ground": 8, "large": 4}):
+    if not isinstance(items, list) or len(items) != 50:
+        fail("catalog must contain 50 decorations: 20 legacy plus 30 flora products")
+    if Counter(item.get("category") for item in items) != Counter({"tree": 8, "ground": 38, "large": 4}):
         fail("unexpected category counts or retired theme in catalog")
     for field in ("id", "name", "asset_key"):
-        if len({item.get(field) for item in items}) != 20:
+        if len({item.get(field) for item in items}) != 50:
             fail(f"catalog {field} values are not unique")
-    for index, item in enumerate(items):
+    for index, item in enumerate(items[:len(LEGACY)]):
         legacy = LEGACY[index]
         actual = (item.get("id"), item.get("name"), item.get("category"),
                   item.get("rarity"), item.get("asset_key"))
@@ -146,6 +146,18 @@ def main() -> int:
             expected = LEGACY_HASHES[item["id"]][0 if folder == "Source" else 1]
             if sha256(path) != expected:
                 fail(f"original artwork changed: {path.name}")
+    additions = items[len(LEGACY):]
+    if len(additions) != 30 or any(item.get("category") != "ground"
+                                   or item.get("subcategory") != "flora"
+                                   for item in additions):
+        fail("the thirty new decorations must all be ground/ flora products")
+    if len({item.get("id") for item in additions}) != 30 \
+            or len({item.get("name") for item in additions}) != 30:
+        fail("new flora decoration identifiers and names are not unique")
+    source_signatures = [geometry_signature(CLIENT / "Source" / f"{item['asset_key']}.svg")
+                         for item in additions]
+    if len(set(source_signatures)) != 30:
+        fail("new flora artwork contains duplicate geometry signatures")
     theme_keys = {"spring-garden", "midsummer-camp", "autumn-harvest", "winter-starlight"}
     expected_files = {f"{item['asset_key']}.svg" for item in items} | {f"{key}.svg" for key in theme_keys}
     for folder in ("Source", "Blur"):
@@ -153,8 +165,8 @@ def main() -> int:
         if actual_files != expected_files:
             fail(f"{folder} includes removed artwork or is missing original artwork: "
                  f"extra={sorted(actual_files - expected_files)[:5]}, missing={sorted(expected_files - actual_files)[:5]}")
-    print("ok: 20 original decorations (tree=8, ground=8, large=4), "
-          "1500 generated items removed, Source/Blur retain four historical themes, "
+    print("ok: 50 decorations (tree=8, ground=38, large=4), "
+          "30 new flora products, Source/Blur retain four historical themes, "
           f"catalog sha256={hashlib.sha256(client_bytes).hexdigest()}")
     return 0
 

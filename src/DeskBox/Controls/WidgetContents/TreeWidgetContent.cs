@@ -16,7 +16,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly TreeVisualSettingsService _visualSettings = TreeVisualSettingsService.Instance;
     private Tree3DView? _tree3D;
-    private readonly Grid _threeDSurface = new() { Height = TreeIllustrationLayout.DisplayHeight };
+    private readonly Grid _threeDSurface = new()
+    {
+        Height = TreeIllustrationLayout.DisplayHeight,
+        Visibility = Visibility.Collapsed
+    };
     private readonly RowDefinition _sceneRow = new() { Height = GridLength.Auto };
     private readonly Viewbox _drawingViewbox;
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
@@ -35,7 +39,14 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         RenderTransformOrigin = new Windows.Foundation.Point(.5, .86)
     };
     private readonly Image _treeImage = new() { Stretch = Stretch.Uniform, IsHitTestVisible = false };
-    private readonly Grid _canopySurface = new() { IsHitTestVisible = false };
+    private readonly Grid _canopySurface = new()
+    {
+        IsHitTestVisible = false,
+        // Flatten the SVG canopy and its fruit overlay before applying the
+        // sway transform. This prevents the compositor from reusing a stale
+        // transformed vector surface for one frame at the cloud boundary.
+        CacheMode = new BitmapCache()
+    };
     private readonly Image _canopyImage = new() { Stretch = Stretch.Uniform, IsHitTestVisible = false };
     private readonly Canvas _fruitLayer = new() { IsHitTestVisible = false };
     private readonly Canvas _fruitPickLayer = new() { IsHitTestVisible = false };
@@ -55,7 +66,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
     private readonly CompositeTransform _treeTransform = new();
     private readonly CompositeTransform _canopyTransform = new();
     private readonly Storyboard _sway = new();
-    private readonly DoubleAnimation _swayRotation = new();
+    private readonly DoubleAnimation _swayOffset = new();
     private readonly Storyboard _celebration = new();
     private readonly Storyboard _fallingLeaves = new()
     {
@@ -109,6 +120,11 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _drawing.Children.Add(_decorationLayers[-2]);
         _drawing.Children.Add(_decorationLayers[-1]);
         _drawing.Children.Add(_treeSurface);
+        // Clouds occupy the same upper scene coordinates as the canopy. Keep
+        // them above the tree so they remain visible; the tree now uses only a
+        // horizontal translation, so this no longer exercises the SVG rotation
+        // composition path that caused the former stretched-frame artifact.
+        _drawing.Children.Add(_weatherSkyLayer);
         _drawing.Children.Add(_decorationLayers[0]);
         _drawing.Children.Add(_wildlifeLayer);
         _drawing.Children.Add(_decorationLayers[1]);
@@ -116,7 +132,6 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _drawing.Children.Add(_decorationLayers[2]);
         _weatherGroundLayer.RenderTransform = new TranslateTransform { Y = TreeIllustrationLayout.GroundVerticalOffset };
         _drawing.Children.Add(_weatherGroundLayer);
-        _drawing.Children.Add(_weatherSkyLayer);
         _weatherFrontLayer.RenderTransform = _weatherTransform;
         _drawing.Children.Add(_weatherFrontLayer);
         ConfigureMotion();
@@ -132,7 +147,10 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         {
             Child = _drawing, Height = TreeIllustrationLayout.DisplayHeight, Stretch = Stretch.Uniform
         };
-        _threeDSurface.Children.Add(_drawingViewbox);
+        // Keep the 2D renderer as a direct scene child. The 3D host is a
+        // separate sibling so a hidden WebView surface cannot participate in
+        // 2D layout or leave a stale composition surface behind the clouds.
+        layout.Children.Add(_drawingViewbox);
         layout.Children.Add(_threeDSurface);
         footer.Children.Add(_energyText);
         footer.Children.Add(_captureStatus);
@@ -233,9 +251,9 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         if (_lastStage != p.Stage)
         {
             StopMotion();
-            double swayAmplitude = TreeIllustrationLayout.SwayAmplitudeDegrees(p.Stage);
-            _swayRotation.From = -swayAmplitude;
-            _swayRotation.To = swayAmplitude;
+            double swayOffset = TreeIllustrationLayout.SwayOffsetPixels(p.Stage);
+            _swayOffset.From = -swayOffset;
+            _swayOffset.To = swayOffset;
             _treeImage.Source = Asset(TreeIllustrationLayout.StageAssetName(p.Stage));
             _canopyImage.Source = Asset(TreeIllustrationLayout.CanopyAssetName(p.Stage));
             _canopySurface.RenderTransformOrigin = new Windows.Foundation.Point(
@@ -372,13 +390,16 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
 
     private void ConfigureMotion()
     {
-        DoubleAnimation sway = _swayRotation;
+        DoubleAnimation sway = _swayOffset;
         sway.Duration = new Duration(TimeSpan.FromSeconds(2.8));
         sway.AutoReverse = true;
         sway.RepeatBehavior = RepeatBehavior.Forever;
         sway.EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut };
-        Storyboard.SetTarget(sway, _canopyTransform);
-        Storyboard.SetTargetProperty(sway, "Rotation");
+        // Translate the complete tree surface instead of rotating SVG content.
+        // Rotation was triggering a stretched compositor frame at the cloud
+        // boundary on some WinUI hardware paths.
+        Storyboard.SetTarget(sway, _treeTransform);
+        Storyboard.SetTargetProperty(sway, "TranslateX");
         _sway.Children.Add(sway);
         foreach (string property in new[] { "ScaleX", "ScaleY" })
         {
@@ -487,6 +508,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         _fallingLeafLayer.Visibility = Visibility.Collapsed;
         _canopyTransform.Rotation = 0;
         _treeTransform.Rotation = 0;
+        _treeTransform.TranslateX = 0;
         _treeTransform.ScaleX = _treeTransform.ScaleY = TreeIllustrationLayout.TreeArtworkScale;
         _motionRunning = false;
     }

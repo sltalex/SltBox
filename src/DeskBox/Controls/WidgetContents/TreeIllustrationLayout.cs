@@ -100,6 +100,20 @@ internal static class TreeIllustrationLayout
         _ => 3
     };
 
+    /// <summary>
+    /// Small horizontal motion used by the 2D renderer. Translating the
+    /// complete surface avoids rotating SVG textures, which can leave a
+    /// stretched compositor frame in the sky on some WinUI hardware paths.
+    /// </summary>
+    public static double SwayOffsetPixels(int stage) => Math.Clamp(stage, 1, 5) switch
+    {
+        1 => 4,
+        2 => 3.5,
+        3 => 3,
+        4 => 2.5,
+        _ => 2
+    };
+
     public static double CanopyPivotY(int stage) => Math.Clamp(stage, 1, 5) switch
     {
         1 => 142,
