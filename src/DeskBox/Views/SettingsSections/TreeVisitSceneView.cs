@@ -66,6 +66,9 @@ internal sealed partial class TreeVisitSceneView : UserControl
                 {
                     Width = 32, Height = 36, Padding = new Thickness(4),
                     MinWidth = 0, MinHeight = 0, Content = image,
+                    Background = new SolidColorBrush(Colors.Transparent),
+                    BorderBrush = new SolidColorBrush(Colors.Transparent),
+                    BorderThickness = new Thickness(0),
                     Tag = fruitId
                 };
                 fruit.Click += async (_, _) =>

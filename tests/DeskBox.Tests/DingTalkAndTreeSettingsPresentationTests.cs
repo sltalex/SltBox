@@ -80,6 +80,15 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
     }
 
     [Fact]
+    public void VisitedFruitHitTargetsHaveNoVisibleButtonChrome()
+    {
+        string scene = Read("src/DeskBox/Views/SettingsSections/TreeVisitSceneView.cs");
+        Assert.Contains("Background = new SolidColorBrush(Colors.Transparent)", scene, StringComparison.Ordinal);
+        Assert.Contains("BorderBrush = new SolidColorBrush(Colors.Transparent)", scene, StringComparison.Ordinal);
+        Assert.Contains("BorderThickness = new Thickness(0)", scene, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DingTalkAccount_UsesOneRowForDescriptionStatusAndActions()
     {
         XDocument document = XDocument.Parse(Read("src/DeskBox/Views/SettingsWindow.xaml"));
