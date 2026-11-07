@@ -10,6 +10,8 @@ namespace DeskBox.Views.SettingsSections;
 
 public sealed partial class TreeSettingsSection : UserControl
 {
+    private static readonly TimeSpan SyncCalibrationTimeout = TimeSpan.FromSeconds(20);
+    private const int SyncCalibrationMaxRetries = 3;
     private readonly DispatcherQueue _uiQueue = DispatcherQueue.GetForCurrentThread();
     private readonly TreeCounterService _counter = TreeCounterService.Instance;
     private readonly ToggleSwitch _showEnergy = new() { OnContent = "", OffContent = "", MinWidth = 0 };
@@ -219,21 +221,15 @@ public sealed partial class TreeSettingsSection : UserControl
         SetSyncStatus(_localization?.T("Tree.SyncCalibrating") ?? string.Empty);
         try
         {
-            bool synchronized = await _cloud.SyncProgressNowAsync();
-            if (_auth?.CurrentUser?.Id != ownerId) return;
-            SetSyncStatus(_localization?.T(synchronized
+            bool? synchronized = await RunManualCalibrationAsync(ownerId);
+            if (synchronized is null || _auth?.CurrentUser?.Id != ownerId) return;
+            SetSyncStatus(_localization?.T(synchronized.Value
                 ? "Tree.SyncCalibrateSuccess"
-                : "Tree.SyncCalibrateUnavailable") ?? string.Empty);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            App.Log($"[TreeCloud] Manual tree calibration failed: {ex.GetType().Name}");
-            if (_auth?.CurrentUser?.Id == ownerId)
-                SetSyncStatus(_localization?.T("Tree.SyncCalibrateError") ?? string.Empty);
+                : "Tree.SyncCalibrateNetworkFailed") ?? string.Empty);
         }
         catch (Exception ex)
         {
-            App.Log($"[TreeCloud] Manual tree calibration failed: {ex}");
+            App.Log($"[TreeCloud] Manual tree calibration failed: {ex.GetType().Name}");
             if (_auth?.CurrentUser?.Id == ownerId)
                 SetSyncStatus(_localization?.T("Tree.SyncCalibrateError") ?? string.Empty);
         }
@@ -242,6 +238,69 @@ public sealed partial class TreeSettingsSection : UserControl
             Interlocked.Exchange(ref _syncOperationInProgress, 0);
             RefreshSyncActions();
         }
+    }
+
+    private async Task<bool?> RunManualCalibrationAsync(string ownerId)
+    {
+        if (_cloud is null) return false;
+        int maxAttempts = SyncCalibrationMaxRetries + 1;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var timeout = new CancellationTokenSource(SyncCalibrationTimeout);
+            Task<bool> syncTask = _cloud.SyncProgressNowAsync(timeout.Token);
+            bool timedOut = false;
+            try
+            {
+                int seconds = (int)SyncCalibrationTimeout.TotalSeconds;
+                while (!syncTask.IsCompleted && seconds > 0)
+                {
+                    if (_auth?.CurrentUser?.Id != ownerId)
+                    {
+                        timeout.Cancel();
+                        return null;
+                    }
+                    SetSyncStatus(_localization?.Format(
+                        "Tree.SyncCalibratingCountdown", attempt, maxAttempts, seconds) ?? string.Empty);
+                    Task completed = await Task.WhenAny(syncTask, Task.Delay(TimeSpan.FromSeconds(1)));
+                    if (completed == syncTask) break;
+                    seconds--;
+                }
+
+                if (!syncTask.IsCompleted)
+                {
+                    timedOut = true;
+                    // Cancelling the request releases the HTTP connection and
+                    // the service gate before the next attempt starts.
+                    timeout.Cancel();
+                    App.Log($"[TreeCloud] Manual calibration attempt {attempt} timed out after 20 seconds.");
+                }
+
+                bool synchronized = await syncTask;
+                if (!timedOut && synchronized) return true;
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                timedOut = true;
+            }
+            catch (HttpRequestException ex)
+            {
+                App.Log($"[TreeCloud] Manual calibration attempt {attempt} failed: {ex.GetType().Name}");
+            }
+            catch (Exception ex)
+            {
+                App.Log($"[TreeCloud] Manual calibration attempt {attempt} failed: {ex.GetType().Name}");
+            }
+
+            if (_auth?.CurrentUser?.Id != ownerId) return null;
+            if (attempt <= SyncCalibrationMaxRetries)
+            {
+                SetSyncStatus(_localization?.Format(
+                    "Tree.SyncCalibrateRetry", attempt, SyncCalibrationMaxRetries) ?? string.Empty);
+                await Task.Delay(250);
+            }
+        }
+
+        return false;
     }
 
     private async void RepairButton_Click(object sender, RoutedEventArgs e)

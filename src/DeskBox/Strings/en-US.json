@@ -3607,5 +3607,8 @@
   "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "At least 2 of this fruit must be on the tree before it can be picked.",
   "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "You already picked this fruit today.",
   "Tree.Settings.Leaderboard.VisitFruitPickError": "Could not pick the fruit. Try again later.",
-  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "Fruit added to the pick queue; sending in the background."
+  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "Fruit added to the pick queue; sending in the background.",
+  "Tree.SyncCalibratingCountdown": "Calibrating tree data (attempt {0}/{1}, {2} seconds left)…",
+  "Tree.SyncCalibrateRetry": "Sync timed out; retrying {0}/{1}…",
+  "Tree.SyncCalibrateNetworkFailed": "Sync failed after several attempts. Check the network or use Tree Error Repair."
 }

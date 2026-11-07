@@ -3607,5 +3607,8 @@
   "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "同类果实至少有 2 个时才能摘取。",
   "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "今天已经摘取过这个果实了。",
   "Tree.Settings.Leaderboard.VisitFruitPickError": "摘取失败，请稍后重试。",
-  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "फल चुनने की कतार में जोड़ दिया गया है; इसे बैकग्राउंड में भेजा जाएगा।"
+  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "फल चुनने की कतार में जोड़ दिया गया है; इसे बैकग्राउंड में भेजा जाएगा।",
+  "Tree.SyncCalibratingCountdown": "पेड़ का डेटा कैलिब्रेट हो रहा है (प्रयास {0}/{1}, {2} सेकंड शेष)…",
+  "Tree.SyncCalibrateRetry": "सिंक का समय समाप्त; {0}/{1} बार फिर कोशिश हो रही है…",
+  "Tree.SyncCalibrateNetworkFailed": "कई प्रयासों के बाद सिंक विफल। नेटवर्क जाँचें या पेड़ की त्रुटि सुधार चलाएँ।"
 }

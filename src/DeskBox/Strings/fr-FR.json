@@ -3613,5 +3613,8 @@
   "Tree.Settings.Leaderboard.VisitFruitPickRequiresTwo": "同类果实至少有 2 个时才能摘取。",
   "Tree.Settings.Leaderboard.VisitFruitPickAlreadyToday": "今天已经摘取过这个果实了。",
   "Tree.Settings.Leaderboard.VisitFruitPickError": "摘取失败，请稍后重试。",
-  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "Fruit ajouté à la file de collecte ; envoi en arrière-plan."
+  "Tree.Settings.Leaderboard.VisitFruitPickQueued": "Fruit ajouté à la file de collecte ; envoi en arrière-plan.",
+  "Tree.SyncCalibratingCountdown": "Étalonnage des données de l’arbre (tentative {0}/{1}, {2} secondes restantes)…",
+  "Tree.SyncCalibrateRetry": "Délai de synchronisation dépassé ; nouvelle tentative {0}/{1}…",
+  "Tree.SyncCalibrateNetworkFailed": "Échec après plusieurs tentatives. Vérifiez le réseau ou utilisez la réparation de l’arbre."
 }
