@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs><filter id="shadow"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity=".22"/></filter></defs>
+  <g opacity=".62" filter="url(#shadow)" stroke-linejoin="round" stroke-linecap="round"><path d="M8 104q52-21 104 0" fill="#64748b" stroke="#64748b" stroke-width="5"/><g stroke="#64748b" stroke-width="8"><path d="M20 101V20m24 81V11m25 90V25m25 76V15"/></g><g fill="#64748b" stroke="#64748b" stroke-width="2"><path d="M22 35Q3 23 8 8q19 1 14 27zM43 52q21-19 32-7-12 18-32 7zM67 40Q47 28 52 13q19 3 15 27zM92 50q21-18 28-4-12 17-28 4z"/></g><g stroke="#64748b" stroke-width="3"><path d="M20 43h24m-24 17h24m1-37h25m0 18h25m-25 17h25m0 18h25"/></g></g>
+</svg>

@@ -160,6 +160,246 @@
       "subcategory": "water_features",
       "rarity": "rare",
       "asset_key": "small-fountain"
+    },
+    {
+      "id": "lavender-clump",
+      "name": "薰衣草花丛",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "lavender-clump"
+    },
+    {
+      "id": "sunflower-patch",
+      "name": "向日葵花田",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "sunflower-patch"
+    },
+    {
+      "id": "tulip-border",
+      "name": "郁金香花带",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "tulip-border"
+    },
+    {
+      "id": "daisy-cluster",
+      "name": "雏菊花簇",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "daisy-cluster"
+    },
+    {
+      "id": "peony-bush",
+      "name": "牡丹花丛",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "peony-bush"
+    },
+    {
+      "id": "hydrangea-bloom",
+      "name": "绣球花球",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "hydrangea-bloom"
+    },
+    {
+      "id": "potted-lotus",
+      "name": "荷花盆栽",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "potted-lotus"
+    },
+    {
+      "id": "iris-reed",
+      "name": "菖蒲水草",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "iris-reed"
+    },
+    {
+      "id": "reed-clump",
+      "name": "芦苇丛",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "reed-clump"
+    },
+    {
+      "id": "fern-pot",
+      "name": "蕨叶盆",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "fern-pot"
+    },
+    {
+      "id": "monstera-pot",
+      "name": "龟背竹盆",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "monstera-pot"
+    },
+    {
+      "id": "cactus-pot",
+      "name": "仙人掌盆",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "cactus-pot"
+    },
+    {
+      "id": "succulent-bowl",
+      "name": "多肉花盆",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "succulent-bowl"
+    },
+    {
+      "id": "bamboo-shoots",
+      "name": "竹笋簇",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "bamboo-shoots"
+    },
+    {
+      "id": "bamboo-grove",
+      "name": "小竹林",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "bamboo-grove"
+    },
+    {
+      "id": "flower-vine-arch",
+      "name": "藤本花架",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "flower-vine-arch"
+    },
+    {
+      "id": "morning-glory-trellis",
+      "name": "牵牛花架",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "morning-glory-trellis"
+    },
+    {
+      "id": "rose-arch",
+      "name": "玫瑰拱门",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "rose-arch"
+    },
+    {
+      "id": "garden-rose-wall",
+      "name": "蔷薇花墙",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "rare",
+      "asset_key": "garden-rose-wall"
+    },
+    {
+      "id": "jasmine-trellis",
+      "name": "茉莉花架",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "jasmine-trellis"
+    },
+    {
+      "id": "mint-planter",
+      "name": "薄荷花盆",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "mint-planter"
+    },
+    {
+      "id": "herb-crate",
+      "name": "香草木箱",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "herb-crate"
+    },
+    {
+      "id": "aloe-planter",
+      "name": "芦荟盆",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "aloe-planter"
+    },
+    {
+      "id": "tea-shrub",
+      "name": "茶树苗",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "tea-shrub"
+    },
+    {
+      "id": "blueberry-bush",
+      "name": "蓝莓灌木",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "blueberry-bush"
+    },
+    {
+      "id": "strawberry-row",
+      "name": "草莓垄",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "strawberry-row"
+    },
+    {
+      "id": "pumpkin-vine",
+      "name": "南瓜藤架",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "pumpkin-vine"
+    },
+    {
+      "id": "corn-stalk-bed",
+      "name": "玉米花圃",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "corn-stalk-bed"
+    },
+    {
+      "id": "wheat-bundle",
+      "name": "麦穗花束",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "wheat-bundle"
+    },
+    {
+      "id": "botanical-basket",
+      "name": "竹编花篮",
+      "category": "ground",
+      "subcategory": "flora",
+      "rarity": "common",
+      "asset_key": "botanical-basket"
     }
   ]
 }
