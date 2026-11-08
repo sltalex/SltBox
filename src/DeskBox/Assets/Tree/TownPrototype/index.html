@@ -13,14 +13,14 @@
 <body>
   <div class="town-shell">
     <header class="topbar">
-      <div class="identity"><span class="town-mark" aria-hidden="true">❧</span><div><h1>小镇预览</h1><span class="account" id="account">我的小镇</span></div><span class="demo-badge">演示数据</span></div>
+      <div class="identity"><span class="town-mark" aria-hidden="true">❧</span><div><h1>小镇预览</h1><span class="account" id="account">我的小镇</span></div><span class="demo-badge" id="demo-badge">灰度开放</span></div>
       <div class="top-actions"><button id="reload" class="quiet" title="读取当前账号的云端布局">重新载入</button><button id="save" class="primary" disabled>保存小镇</button></div>
     </header>
     <div class="workspace">
       <aside class="materials" aria-label="装饰材料">
-        <div class="material-heading"><h2>装饰材料</h2><span id="placed-count">0 / 48</span></div>
+        <div class="material-heading"><h2>共享装饰</h2><span id="placed-count">0 件</span></div><div class="material-search"><input id="search" type="search" placeholder="搜索 1500 种装饰" aria-label="搜索装饰"><select id="subcategory" aria-label="子分类"><option value="all">全部子分类</option></select></div>
         <div class="categories" role="group" aria-label="材料分类"><button data-category="all" class="active">全部</button><button data-category="building">建筑</button><button data-category="flora">花草</button><button data-category="prop">摆件</button></div>
-        <div id="material-list" class="material-list"></div>
+        <div id="material-list" class="material-list"></div><div class="material-pagination"><button id="page-prev" class="quiet" aria-label="上一页">‹</button><span id="page-label">1 / 1</span><button id="page-next" class="quiet" aria-label="下一页">›</button></div>
         <div class="selection-panel"><span class="eyebrow">当前选择</span><strong id="selection-name">尚未选择</strong><div class="selection-actions"><button id="delete" class="quiet" disabled>移除</button><button id="undo" class="quiet" disabled>撤销</button></div></div>
       </aside>
       <main class="map-pane">
@@ -33,7 +33,7 @@
         <footer class="map-footer"><span id="mode-description">漫游模式</span><span id="coordinates">24, 30</span></footer>
       </main>
     </div>
-    <footer class="statusbar"><span class="save-state" id="save-state" role="status">正在载入…</span><span id="version-label">场景版本 —</span></footer>
+    <footer class="statusbar"><span class="save-state" id="save-state" role="status">正在载入…</span><span id="version-label">共享小镇 · 灰度开放</span><span id="online-count">0 人在线</span></footer>
   </div>
   <dialog id="confirmation"><h2 id="confirm-title">确认操作</h2><p id="confirm-message"></p><div class="dialog-actions"><button id="confirm-cancel" class="quiet">取消</button><button id="confirm-accept" class="primary">确认</button></div></dialog>
 </body>

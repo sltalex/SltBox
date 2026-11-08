@@ -1,103 +1,274 @@
 {
-  "template_version": 1,
-  "catalog_version": 1,
+  "template_version": 2,
+  "catalog_version": 4,
+  "world_id": "main",
   "demo_stage": 5,
   "placements": [
     {
-      "instance_id": "preset-shed",
-      "asset_id": "shed",
-      "tile_x": 13,
-      "tile_y": 23
+      "object_id": "demo-1",
+      "instance_id": "demo-1",
+      "asset_id": "red-lantern",
+      "decoration_id": "red-lantern",
+      "owner_id": "demo",
+      "tile_x": 10,
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-coop",
-      "asset_id": "coop",
-      "tile_x": 29,
-      "tile_y": 23
+      "object_id": "demo-2",
+      "instance_id": "demo-2",
+      "asset_id": "wishing-ribbons",
+      "decoration_id": "wishing-ribbons",
+      "owner_id": "demo",
+      "tile_x": 20,
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-mill",
-      "asset_id": "mill",
-      "tile_x": 14,
-      "tile_y": 32
-    },
-    {
-      "instance_id": "preset-well",
-      "asset_id": "well",
+      "object_id": "demo-3",
+      "instance_id": "demo-3",
+      "asset_id": "wind-chime",
+      "decoration_id": "wind-chime",
+      "owner_id": "demo",
       "tile_x": 30,
-      "tile_y": 31
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-fern",
-      "asset_id": "flora_fern",
+      "object_id": "demo-4",
+      "instance_id": "demo-4",
+      "asset_id": "birdhouse",
+      "decoration_id": "birdhouse",
+      "owner_id": "demo",
+      "tile_x": 40,
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-5",
+      "instance_id": "demo-5",
+      "asset_id": "mushroom-cluster",
+      "decoration_id": "mushroom-cluster",
+      "owner_id": "demo",
+      "tile_x": 10,
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-6",
+      "instance_id": "demo-6",
+      "asset_id": "wildflower-bed",
+      "decoration_id": "wildflower-bed",
+      "owner_id": "demo",
       "tile_x": 20,
-      "tile_y": 20
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-flowerpot",
-      "asset_id": "flora_flowerpot",
-      "tile_x": 28,
-      "tile_y": 26
+      "object_id": "demo-7",
+      "instance_id": "demo-7",
+      "asset_id": "stepping-stones",
+      "decoration_id": "stepping-stones",
+      "owner_id": "demo",
+      "tile_x": 30,
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-cactus",
-      "asset_id": "flora_cactus",
+      "object_id": "demo-8",
+      "instance_id": "demo-8",
+      "asset_id": "watering-can",
+      "decoration_id": "watering-can",
+      "owner_id": "demo",
+      "tile_x": 40,
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-9",
+      "instance_id": "demo-9",
+      "asset_id": "fruit-basket",
+      "decoration_id": "fruit-basket",
+      "owner_id": "demo",
+      "tile_x": 10,
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-10",
+      "instance_id": "demo-10",
+      "asset_id": "stone-lantern",
+      "decoration_id": "stone-lantern",
+      "owner_id": "demo",
       "tile_x": 20,
-      "tile_y": 28
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-bush",
-      "asset_id": "flora_bush",
-      "tile_x": 29,
-      "tile_y": 33
+      "object_id": "demo-11",
+      "instance_id": "demo-11",
+      "asset_id": "low-fence",
+      "decoration_id": "low-fence",
+      "owner_id": "demo",
+      "tile_x": 30,
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-mushroom",
-      "asset_id": "flora_mushroom",
+      "object_id": "demo-12",
+      "instance_id": "demo-12",
+      "asset_id": "small-mailbox",
+      "decoration_id": "small-mailbox",
+      "owner_id": "demo",
+      "tile_x": 40,
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    }
+  ],
+  "objects": [
+    {
+      "object_id": "demo-1",
+      "instance_id": "demo-1",
+      "asset_id": "red-lantern",
+      "decoration_id": "red-lantern",
+      "owner_id": "demo",
+      "tile_x": 10,
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-2",
+      "instance_id": "demo-2",
+      "asset_id": "wishing-ribbons",
+      "decoration_id": "wishing-ribbons",
+      "owner_id": "demo",
       "tile_x": 20,
-      "tile_y": 24
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-reeds",
-      "asset_id": "flora_reeds",
-      "tile_x": 34,
-      "tile_y": 26
+      "object_id": "demo-3",
+      "instance_id": "demo-3",
+      "asset_id": "wind-chime",
+      "decoration_id": "wind-chime",
+      "owner_id": "demo",
+      "tile_x": 30,
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-bench",
-      "asset_id": "prop_bench",
-      "tile_x": 18,
-      "tile_y": 32
+      "object_id": "demo-4",
+      "instance_id": "demo-4",
+      "asset_id": "birdhouse",
+      "decoration_id": "birdhouse",
+      "owner_id": "demo",
+      "tile_x": 40,
+      "tile_y": 10,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-lamp",
-      "asset_id": "prop_lamp",
-      "tile_x": 31,
-      "tile_y": 27
+      "object_id": "demo-5",
+      "instance_id": "demo-5",
+      "asset_id": "mushroom-cluster",
+      "decoration_id": "mushroom-cluster",
+      "owner_id": "demo",
+      "tile_x": 10,
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-barrel",
-      "asset_id": "prop_barrel",
+      "object_id": "demo-6",
+      "instance_id": "demo-6",
+      "asset_id": "wildflower-bed",
+      "decoration_id": "wildflower-bed",
+      "owner_id": "demo",
       "tile_x": 20,
-      "tile_y": 30
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-scarecrow",
-      "asset_id": "prop_scarecrow",
-      "tile_x": 31,
-      "tile_y": 35
+      "object_id": "demo-7",
+      "instance_id": "demo-7",
+      "asset_id": "stepping-stones",
+      "decoration_id": "stepping-stones",
+      "owner_id": "demo",
+      "tile_x": 30,
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-fence",
-      "asset_id": "prop_fence",
+      "object_id": "demo-8",
+      "instance_id": "demo-8",
+      "asset_id": "watering-can",
+      "decoration_id": "watering-can",
+      "owner_id": "demo",
+      "tile_x": 40,
+      "tile_y": 20,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-9",
+      "instance_id": "demo-9",
+      "asset_id": "fruit-basket",
+      "decoration_id": "fruit-basket",
+      "owner_id": "demo",
+      "tile_x": 10,
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-10",
+      "instance_id": "demo-10",
+      "asset_id": "stone-lantern",
+      "decoration_id": "stone-lantern",
+      "owner_id": "demo",
       "tile_x": 20,
-      "tile_y": 21
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     },
     {
-      "instance_id": "preset-sign",
-      "asset_id": "prop_sign",
-      "tile_x": 21,
-      "tile_y": 35
+      "object_id": "demo-11",
+      "instance_id": "demo-11",
+      "asset_id": "low-fence",
+      "decoration_id": "low-fence",
+      "owner_id": "demo",
+      "tile_x": 30,
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
+    },
+    {
+      "object_id": "demo-12",
+      "instance_id": "demo-12",
+      "asset_id": "small-mailbox",
+      "decoration_id": "small-mailbox",
+      "owner_id": "demo",
+      "tile_x": 40,
+      "tile_y": 30,
+      "object_version": 1,
+      "owner_display": "示例玩家"
     }
   ]
 }

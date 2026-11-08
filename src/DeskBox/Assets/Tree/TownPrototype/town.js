@@ -4,12 +4,12 @@ import { clone, validateLayout, validatePlacement, playerCanStand } from './town
 const $ = id => document.getElementById(id);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
-  catalog: null, initial: null, layout: null, scene: null, game: null,
+  catalog: null, initial: null, layout: null, scene: null, game: null, world: null, chunks: new Map(), objects: new Map(), presence: new Map(), inventory: new Map(), cursor: 0, graylisted: false, requestedChunks: new Set(), shared: true,
   mode: 'roam', category: 'all', selectedAsset: null, selectedInstance: null,
   dirty: false, authenticated: false, canSave: false, saving: false, conflict: false,
   version: 0, epoch: 0, history: [], revision: 0, saveRevision: -1,
   visible: !document.hidden, hostActive: true, noticeTimer: null, pendingState: null,
-  status: '正在载入…', fatal: false, zoom: 2, modal: false
+  status: '正在载入…', fatal: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1
 };
 
 function host(message) {
@@ -65,51 +65,53 @@ function updateUI() {
   $('roam').setAttribute('aria-pressed', String(state.mode === 'roam'));
   $('edit').setAttribute('aria-pressed', String(state.mode === 'edit'));
   $('stage').value = String(state.layout.demo_stage);
-  $('placed-count').textContent = `${state.layout.placements.length} / 48`;
+  $('placed-count').textContent = `${state.layout.placements.length} 件`;
   $('undo').disabled = !state.history.length;
   $('delete').disabled = !state.selectedInstance;
   const selected = state.selectedInstance ? state.layout.placements.find(item => item.instance_id === state.selectedInstance)?.asset_id : state.selectedAsset;
   $('selection-name').textContent = state.catalog.items.find(item => item.id === selected)?.name || '尚未选择';
   $('mode-description').textContent = state.mode === 'roam' ? '漫游模式' : state.selectedAsset ? '点击地图放置 · 拖动物件移动' : '编辑模式 · 选择材料或已摆放物件';
-  $('save').disabled = !state.authenticated || !state.canSave || state.saving || state.conflict || state.fatal;
+  $('save').disabled = !state.authenticated || !state.graylisted || !state.canSave || state.saving || state.conflict || state.fatal;
   $('save').textContent = state.saving ? '正在保存…' : '保存小镇';
   $('reload').disabled = state.saving;
-  $('version-label').textContent = state.authenticated ? `场景版本 ${state.version}` : '未登录 · 仅演示';
+  $('version-label').textContent = state.graylisted ? `共享版本 ${state.version}` : '共享小镇 · 灰度开放';
   $('save-state').textContent = state.status;
   $('save-state').className = `save-state${state.conflict || state.status.includes('失败') || state.status.includes('超时') ? ' error' : state.dirty ? ' dirty' : state.version > 0 ? ' saved' : ''}`;
   const counts = new Map();
   for (const item of state.layout.placements) counts.set(item.asset_id, (counts.get(item.asset_id) || 0) + 1);
   for (const button of $('material-list').children) {
-    const remaining = 3 - (counts.get(button.dataset.id) || 0);
+    const remaining = Math.max(0, state.inventory.get(button.dataset.id) || 0);
     button.classList.toggle('chosen', button.dataset.id === state.selectedAsset);
     button.classList.toggle('depleted', remaining <= 0);
-    button.querySelector('.remaining').textContent = `剩余 ${remaining}`;
+    button.querySelector('.remaining').textContent = `可用 ${remaining}`;
     button.setAttribute('aria-pressed', String(button.dataset.id === state.selectedAsset));
   }
   for (const button of document.querySelectorAll('[data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
 }
 
 function renderMaterials() {
-  const elements = state.catalog.items.filter(item => state.category === 'all' || item.category === state.category).map(item => {
+  const list = state.catalog.items.filter(item => (state.category === 'all' || item.category === state.category) && (state.subcategory === 'all' || item.subcategory === state.subcategory) && (!state.search || `${item.name} ${item.id}`.toLowerCase().includes(state.search.toLowerCase())));
+  const pages = Math.max(1, Math.ceil(list.length / 24));
+  state.page = Math.max(1, Math.min(state.page, pages));
+  const elements = list.slice((state.page - 1) * 24, state.page * 24).map(item => {
     const button = document.createElement('button');
-    button.className = 'material-item';
-    button.dataset.id = item.id;
-    button.title = `${item.name} · 占地 ${item.footprint.width}×${item.footprint.height}`;
-    const image = Object.assign(document.createElement('img'), { src: item.asset, alt: '', draggable: false });
-    const name = Object.assign(document.createElement('span'), { className: 'item-name', textContent: item.name });
-    const count = Object.assign(document.createElement('span'), { className: 'remaining' });
-    button.append(image, name, count);
+    button.className = 'material-item'; button.dataset.id = item.id;
+    button.title = `${item.name} · ${item.subcategory || item.category} · 占地 ${item.footprint.width}×${item.footprint.height}`;
+    const image = Object.assign(document.createElement('img'), { src: item.asset, alt: '', draggable: false, loading: 'lazy' });
+    button.append(image, Object.assign(document.createElement('span'), { className: 'item-name', textContent: item.name }), Object.assign(document.createElement('span'), { className: 'remaining' }));
     button.addEventListener('click', () => {
-      const used = state.layout.placements.filter(placement => placement.asset_id === item.id).length;
-      if (used >= 3) { notice('这种材料已全部使用，可移动或移除已有物件'); return; }
+      if (!state.graylisted) { notice('共享小镇正在灰度开放'); return; }
+      if ((state.inventory.get(item.id) ?? 0) <= 0) { notice('这种材料暂无可用库存'); return; }
       state.mode = 'edit'; state.selectedAsset = item.id; state.selectedInstance = null;
-      state.scene?.cameras.main.stopFollow();
-      state.scene?.cancelDrag(); state.scene?.refreshGhost(); updateUI();
-      $('game').focus({ preventScroll: true });
-    });
-    return button;
+      state.scene?.loadItemTexture(item); state.scene?.cameras.main.stopFollow(); state.scene?.cancelDrag(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true });
+    }); return button;
   });
   $('material-list').replaceChildren(...elements);
+  if ($('page-label')) $('page-label').textContent = `${state.page} / ${pages} · ${list.length} 项`;
+  if ($('page-prev')) $('page-prev').disabled = state.page <= 1;
+  if ($('page-next')) $('page-next').disabled = state.page >= pages;
+  const subs = [...new Set(state.catalog.items.filter(item => state.category === 'all' || item.category === state.category).map(item => item.subcategory).filter(Boolean))];
+  if ($('subcategory')) { const selected = state.subcategory; $('subcategory').replaceChildren(Object.assign(document.createElement('option'), { value: 'all', textContent: '全部子分类' }), ...subs.map(sub => Object.assign(document.createElement('option'), { value: sub, textContent: sub }))); $('subcategory').value = selected; }
   updateUI();
 }
 
@@ -161,6 +163,7 @@ function loadState(payload) {
   const error = validateLayout(state.catalog, payload.layout);
   if (error) { notice(error); host({ type: 'error', message: error }); return; }
   const previousEpoch = state.epoch;
+  state.graylisted = !!(payload.graylisted ?? state.graylisted);
   state.epoch = Number.isSafeInteger(payload.session_epoch) ? payload.session_epoch : state.epoch;
   state.scene.cancelDrag();
   state.layout = clone(payload.layout);
@@ -209,7 +212,7 @@ function diagnostics() {
 }
 
 window.DeskBoxTownPrototype = {
-  loadState,
+  loadState, loadWorld, loadChunks, applyChanges, setPresence, setInventory, applyActionResult,
   setSaveStatus,
   setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
   setHostActive(active) { state.hostActive = !!active; applyVisibility(); },
@@ -230,7 +233,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.load.on('loaderror', file => this.failedAssets.push(file.key));
     const catalog = state.catalog;
     for (const [name, asset] of Object.entries(catalog.terrain)) this.load.image(`terrain-${name}`, asset);
-    for (const item of catalog.items) this.load.image(`item-${item.id}`, item.asset);
+    // Shared decorations are loaded on demand for visible chunks only.
     catalog.tree_stages.forEach((stage, index) => this.load.image(`tree-${index + 1}`, stage.asset));
     this.load.spritesheet('player', catalog.player.asset, { frameWidth: catalog.player.frame_width, frameHeight: catalog.player.frame_height });
   }
@@ -244,7 +247,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.tree = this.add.image(0, 0, 'tree-5').setOrigin(.5, 1);
     this.selectionGraphics = this.add.graphics().setDepth(10001);
     this.gridGraphics = this.add.graphics().setDepth(10000);
-    this.ghost = this.add.image(0, 0, 'item-shed').setOrigin(.5, 1).setAlpha(.62).setDepth(9999).setVisible(false);
+    this.ghost = this.add.image(0, 0, 'tree-1').setOrigin(.5, 1).setAlpha(.62).setDepth(9999).setVisible(false);
     this.footGhost = this.add.graphics().setDepth(10002);
     this.player = this.add.sprite(0, 0, 'player', 0).setOrigin(.5, 1);
     this.playerShadow = this.add.ellipse(0, 0, 11, 5, 0x234223, .22);
@@ -272,23 +275,23 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     $('loading').hidden = true;
     renderMaterials();
     if (state.pendingState) { const payload = state.pendingState; state.pendingState = null; loadState(payload); }
-    host({ type: 'ready' });
+    host({ type: 'ready', shared: true }); host({ type: 'worldRequested' });
     applyVisibility();
   }
 
   drawTerrain() {
     const size = 16, width = state.catalog.map_width * size, height = state.catalog.map_height * size;
     this.add.tileSprite(0, 0, width, height, 'terrain-grass').setOrigin(0).setDepth(-100);
-    const road = (x, y, w, h) => this.add.tileSprite(x * size, y * size, w * size, h * size, 'terrain-path').setOrigin(0).setDepth(-90);
-    road(23, 6, 3, 39); road(6, 27, 36, 3); road(9, 17, 15, 2); road(26, 18, 11, 2);
-    const pond = state.catalog.world.pond;
-    const rim = this.add.graphics().setDepth(-81);
-    rim.fillStyle(0x9ba457, 1); rim.fillRect(pond.x * size - 3, pond.y * size - 3, pond.width * size + 6, pond.height * size + 6);
-    this.water = this.add.tileSprite(pond.x * size, pond.y * size, pond.width * size, pond.height * size, 'terrain-water').setOrigin(0).setDepth(-80);
-    const bank = this.add.graphics().setDepth(-79);
-    bank.lineStyle(2, 0xc1bd77, .8); bank.strokeRect(pond.x * size, pond.y * size, pond.width * size, pond.height * size);
-    const edge = this.add.graphics().setDepth(-70);
-    edge.lineStyle(16, 0x41623b, .12); edge.strokeRect(8, 8, width - 16, height - 16);
+    const g = this.add.graphics().setDepth(-90), world = state.catalog.world || {};
+    const road = (x, y, w, h, color = 0xd6c184) => { g.fillStyle(color, 1); g.fillRect(x * size, y * size, w * size, h * size); };
+    road(88, 0, 16, 192); road(0, 88, 192, 16); road(64, 94, 40, 4, 0xe1cf91);
+    const river = world.river;
+    if (river) { g.fillStyle(0x6faec0, 1); g.fillRect(river.x * size, river.y * size, river.width * size, river.height * size); g.fillStyle(0x9ed0c9, 1); g.fillRect((river.x - 2) * size, 0, 2 * size, height); g.fillRect((river.x + river.width) * size, 0, 2 * size, height); }
+    const bridge = world.bridge;
+    if (bridge) { g.fillStyle(0x9b6f48, 1); g.fillRect(bridge.x * size, bridge.y * size, bridge.width * size, bridge.height * size); for (let x = bridge.x; x < bridge.x + bridge.width; x += 2) { g.lineStyle(1, 0x6f4a34, .55); g.lineBetween(x * size, bridge.y * size, x * size, (bridge.y + bridge.height) * size); } }
+    const forest = world.forest;
+    if (forest) { g.fillStyle(0x5c854c, .94); g.fillRect(forest.x * size, forest.y * size, forest.width * size, forest.height * size); for (let y = forest.y + 3; y < forest.y + forest.height - 2; y += 6) for (let x = forest.x + 3; x < forest.x + forest.width - 2; x += 6) { g.fillStyle(0x356344, .92); g.fillCircle(x * size, y * size, 8); g.fillStyle(0x7eaa5d, .9); g.fillCircle((x - 1) * size, (y - 1) * size, 5); } }
+    const square = world.center_square || { x: 84, y: 84, width: 24, height: 24 }; g.fillStyle(0xe6d4a0, .95); g.fillRect(square.x * size, square.y * size, square.width * size, square.height * size); g.lineStyle(2, 0xa88e5c, .65); g.strokeRect(square.x * size, square.y * size, square.width * size, square.height * size);
   }
 
   spawnPlayer() {
@@ -304,6 +307,19 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.playerShadow.setPosition(this.player.x, this.player.y - 1).setDepth(this.player.y - .2);
   }
 
+  loadItemTexture(item) {
+    const key = `item-${item.id}`;
+    if (this.textures.exists(key)) return true;
+    this.loadingItems ||= new Set();
+    if (!this.loadingItems.has(item.id)) {
+      this.loadingItems.add(item.id);
+      this.load.image(key, item.asset);
+      this.load.once('complete', () => { this.renderObjects(); this.refreshGhost(); });
+      this.load.start();
+    }
+    return false;
+  }
+
   renderObjects() {
     if (!state.layout || !this.tree) return;
     const ids = new Set(state.layout.placements.map(item => item.instance_id));
@@ -311,6 +327,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.objectShadows.clear();
     for (const placement of state.layout.placements) {
       const item = state.catalog.items.find(value => value.id === placement.asset_id);
+      if (!item || !this.loadItemTexture(item)) continue;
       let image = this.objectImages.get(placement.instance_id);
       if (!image) { image = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1); this.objectImages.set(placement.instance_id, image); }
       const x = (placement.tile_x + item.footprint.width / 2) * 16;
@@ -322,7 +339,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       }
     }
     this.objectShadows.setDepth(-10);
-    const area = state.catalog.world.tree, stage = state.catalog.tree_stages[state.layout.demo_stage - 1];
+    const area = state.catalog.world.main_tree || state.catalog.world.tree, stage = state.catalog.tree_stages[state.layout.demo_stage - 1];
     const treeX = (area.x + area.width / 2) * 16, treeY = (area.y + area.height) * 16;
     this.tree.setTexture(`tree-${state.layout.demo_stage}`).setPosition(treeX, treeY).setDisplaySize(stage.width, stage.height).setDepth(treeY);
     this.treeShadow.setPosition(treeX, treeY - 3).setDepth(treeY - .5).setScale(state.layout.demo_stage <= 2 ? .35 : state.layout.demo_stage === 3 ? .5 : 1);
@@ -349,7 +366,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   }
 
   itemAt(x, y) {
-    const values = [...state.layout.placements].sort((a, b) => this.objectImages.get(b.instance_id).depth - this.objectImages.get(a.instance_id).depth);
+    const values = [...state.layout.placements].filter(value => this.objectImages.has(value.instance_id)).sort((a, b) => this.objectImages.get(b.instance_id).depth - this.objectImages.get(a.instance_id).depth);
     for (const placement of values) {
       const image = this.objectImages.get(placement.instance_id);
       if (!image.getBounds().contains(x, y)) continue;
@@ -484,14 +501,78 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     } else { this.player.anims.stop(); this.player.setFrame(state.catalog.player.frames[this.facing][0]); }
     this.syncPlayerDepth();
     $('coordinates').textContent = `${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.y / 16)}`;
-    if (!reducedMotion.matches) this.water.tilePositionX = Math.floor(time / 700) % 16;
+    if (!reducedMotion.matches && this.water) this.water.tilePositionX = Math.floor(time / 700) % 16;
   }
 }
 
+function objectFromRemote(value) {
+  return { ...value, instance_id: value.instance_id || value.object_id, object_id: value.object_id || value.instance_id, asset_id: value.asset_id || value.decoration_id, tile_x: Number(value.tile_x), tile_y: Number(value.tile_y), owner_id: value.owner_id || value.owner || '', object_version: Number(value.object_version || value.version || 1) };
+}
+function syncObjectLayout() {
+  state.layout = { ...(state.layout || {}), template_version: 2, catalog_version: state.catalog?.version || 4, world_id: 'main', placements: [...state.objects.values()], objects: [...state.objects.values()] };
+}
+function loadWorld(payload) {
+  if (!payload) return;
+  state.world = payload.world || payload;
+  state.graylisted = !!(payload.graylisted ?? state.world.graylisted ?? false);
+  state.authenticated = !!(payload.authenticated ?? state.world.authenticated ?? state.authenticated);
+  state.canSave = state.graylisted && state.authenticated;
+  if (Number.isSafeInteger(payload.scene_version)) state.version = payload.scene_version;
+  if (payload.inventory) setInventory(payload);
+  if (payload.presence) setPresence(payload);
+  if (payload.layout) loadState(payload);
+  if (payload.chunks) loadChunks(payload);
+  state.status = state.graylisted ? '共享小镇已开放，正在加载区块' : '当前账号尚未开放共享小镇';
+  updateUI();
+  if (state.graylisted) host({ type: 'chunksRequested', chunks: [{ chunk_x: 3, chunk_y: 3 }, { chunk_x: 4, chunk_y: 3 }, { chunk_x: 3, chunk_y: 4 }, { chunk_x: 4, chunk_y: 4 }] });
+}
+function loadChunks(payload) {
+  const chunks = Array.isArray(payload) ? payload : payload?.chunks || [];
+  for (const chunk of chunks) {
+    const key = `${chunk.chunk_x},${chunk.chunk_y}`;
+    state.chunks.set(key, chunk);
+    for (const value of chunk.objects || []) state.objects.set(value.object_id || value.instance_id, objectFromRemote(value));
+  }
+  if (Number.isSafeInteger(payload?.next_cursor)) state.cursor = payload.next_cursor;
+  syncObjectLayout(); state.scene?.renderObjects(); updateUI();
+}
+function applyChanges(payload) {
+  for (const change of payload?.changes || payload?.events || []) {
+    const id = change.object_id;
+    if (change.action === 'delete' || change.type === 'delete') state.objects.delete(id);
+    else state.objects.set(id, objectFromRemote(change.object || change));
+  }
+  if (Number.isSafeInteger(payload?.next_cursor)) state.cursor = payload.next_cursor;
+  syncObjectLayout(); state.scene?.renderObjects(); updateUI();
+}
+function setPresence(payload) {
+  state.presence.clear();
+  for (const value of payload?.presence || payload?.players || []) state.presence.set(value.account_id || value.user_id || value.id, value);
+  state.scene?.renderPresence?.();
+  if ($('online-count')) $('online-count').textContent = `${state.presence.size} 人在线`;
+}
+function setInventory(payload) {
+  state.inventory.clear();
+  for (const value of payload?.inventory || payload?.items || []) state.inventory.set(value.item_id || value.asset_id || value.decoration_id, Number(value.quantity) || 0);
+  renderMaterials();
+}
+function applyActionResult(payload) {
+  if (!payload) return;
+  if (payload.object) state.objects.set(payload.object.object_id || payload.object.instance_id, objectFromRemote(payload.object));
+  if (payload.deleted_object_id) state.objects.delete(payload.deleted_object_id);
+  if (Number.isSafeInteger(payload.scene_version)) state.version = payload.scene_version;
+  state.saving = false; state.conflict = !!payload.conflict; state.dirty = payload.ok === false ? state.dirty : false; state.status = payload.ok === false ? (payload.message || '保存失败，请稍后重试') : '共享小镇已保存';
+  syncObjectLayout(); state.scene?.renderObjects(); updateUI();
+}
+
 function setupControls() {
+  $('search')?.addEventListener('input', event => { state.search = event.target.value; state.page = 1; renderMaterials(); });
+  $('subcategory')?.addEventListener('change', event => { state.subcategory = event.target.value; state.page = 1; renderMaterials(); });
+  $('page-prev')?.addEventListener('click', () => { state.page--; renderMaterials(); });
+  $('page-next')?.addEventListener('click', () => { state.page++; renderMaterials(); });
   $('roam').addEventListener('click', () => { state.mode = 'roam'; state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.startFollow(state.scene.player, true, .12, .12, 0, 48); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
   $('edit').addEventListener('click', () => { state.mode = 'edit'; clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
-  for (const button of document.querySelectorAll('[data-category]')) button.addEventListener('click', () => { state.category = button.dataset.category; renderMaterials(); });
+  for (const button of document.querySelectorAll('[data-category]')) button.addEventListener('click', () => { state.category = button.dataset.category; state.subcategory = 'all'; state.page = 1; renderMaterials(); });
   $('stage').addEventListener('change', () => window.DeskBoxTownPrototype.setStage(Number($('stage').value)));
   $('save').addEventListener('click', save);
   $('delete').addEventListener('click', removeSelected);
@@ -532,12 +613,12 @@ async function boot() {
   setupControls();
   if (!window.Phaser || !Phaser.VERSION.startsWith('3.90.')) throw new Error('本地地图引擎未加载');
   [state.catalog, state.initial] = await Promise.all([readLocalJson('catalog.json'), readLocalJson('default-layout.json')]);
-  if (state.catalog.version !== 1 || state.catalog.tile_size !== 16 || state.catalog.map_width !== 48 || state.catalog.map_height !== 48 || state.catalog.items.length !== 16 || state.catalog.tree_stages.length !== 5) throw new Error('素材目录版本或地图尺寸不兼容');
-  for (const asset of [...Object.values(state.catalog.terrain), state.catalog.player.asset, ...state.catalog.tree_stages.map(stage => stage.asset), ...state.catalog.items.map(item => item.asset)]) if (!/^sprites\/[a-zA-Z0-9_.-]+\.png$/.test(asset)) throw new Error('素材路径不在原型目录中');
+  if (state.catalog.version !== 4 || state.catalog.tile_size !== 16 || state.catalog.map_width !== 192 || state.catalog.map_height !== 192 || state.catalog.items.length !== 1500 || state.catalog.tree_stages.length !== 5) throw new Error('素材目录版本或地图尺寸不兼容');
+  for (const asset of [...Object.values(state.catalog.terrain), state.catalog.player.asset, ...state.catalog.tree_stages.map(stage => stage.asset), ...state.catalog.items.map(item => item.asset)]) if (!/^(?:sprites\/|\.\.\/Decorations\/Source\/)[a-zA-Z0-9_./-]+\.(?:png|svg)$/.test(asset)) throw new Error('素材路径不在原型目录中');
   const error = validateLayout(state.catalog, state.initial);
   if (error) throw new Error(`示例布局无效：${error}`);
   state.layout = clone(state.initial);
-  state.status = '登录后可保存小镇';
+  state.status = '等待共享小镇权限与区块数据';
   state.game = new Phaser.Game({
     type: Phaser.AUTO, parent: 'game', backgroundColor: '#8bab56', pixelArt: true, roundPixels: true,
     audio: { noAudio: true }, banner: false, antialias: false,
