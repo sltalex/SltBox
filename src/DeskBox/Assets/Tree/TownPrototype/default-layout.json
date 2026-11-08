@@ -120,8 +120,8 @@
       "asset_id": "low-fence",
       "decoration_id": "low-fence",
       "owner_id": "demo",
-      "tile_x": 84,
-      "tile_y": 84,
+      "tile_x": 76,
+      "tile_y": 86,
       "object_version": 1,
       "owner_display": "示例玩家"
     },
@@ -131,8 +131,8 @@
       "asset_id": "small-mailbox",
       "decoration_id": "small-mailbox",
       "owner_id": "demo",
-      "tile_x": 88,
-      "tile_y": 84,
+      "tile_x": 80,
+      "tile_y": 86,
       "object_version": 1,
       "owner_display": "示例玩家"
     }
