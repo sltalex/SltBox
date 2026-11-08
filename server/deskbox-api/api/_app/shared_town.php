@@ -92,25 +92,23 @@ function shared_town_world(PDO $pdo): array
 function shared_town_tile_type(int $x, int $y): string
 {
     if ($x < 0 || $x >= SHARED_TOWN_MAP_SIZE || $y < 0 || $y >= SHARED_TOWN_MAP_SIZE) { return 'void'; }
-    // A vertical river with two banks and a pair of crossing roads/bridges.
-    $bridge = ($y >= 88 && $y <= 103) || ($x >= 88 && $x <= 103 && $y >= 88 && $y <= 103);
-    if ($x >= 94 && $x <= 97) { return $bridge ? 'bridge' : 'river'; }
-    if ($x >= 92 && $x <= 93 || $x >= 98 && $x <= 99) { return $bridge ? 'bridge' : 'riverbank'; }
-    if (($y >= 94 && $y <= 97) || ($x >= 94 && $x <= 97 && $y >= 94 && $y <= 97)) { return 'road'; }
-    // Forest belts in all four corners leave a clearing between the village and river.
-    $forest = ($x < 42 && $y < 62) || ($x >= 150 && $y < 62)
-        || ($x < 42 && $y >= 130) || ($x >= 150 && $y >= 130);
-    if ($forest) { return 'forest'; }
-    if ($x >= 82 && $x <= 109 && $y >= 82 && $y <= 109) {
-        if ($x >= 94 && $x <= 97 && $y >= 94 && $y <= 97) { return 'main_tree'; }
+    // Keep the server collision map in lockstep with the packaged catalog:
+    // river x=64..75, bridge x=61..78/y=88..99 and the north-east forest.
+    $bridge = $x >= 61 && $x <= 78 && $y >= 88 && $y <= 99;
+    if ($x >= 64 && $x <= 75) { return $bridge ? 'bridge' : 'river'; }
+    if (($x >= 62 && $x <= 63) || ($x >= 76 && $x <= 77)) { return $bridge ? 'bridge' : 'riverbank'; }
+    if ($x >= 136 && $x <= 180 && $y >= 18 && $y <= 87) { return 'forest'; }
+    if ($x >= 84 && $x <= 107 && $y >= 84 && $y <= 107) {
+        if ($x >= 94 && $x <= 97 && $y >= 88 && $y <= 91) { return 'main_tree'; }
         return 'plaza';
     }
+    if ($y >= 94 && $y <= 97) { return 'road'; }
     return 'plain';
 }
 
 function shared_town_tile_allowed(int $x, int $y): bool
 {
-    return in_array(shared_town_tile_type($x, $y), ['plain', 'road', 'plaza'], true);
+    return in_array(shared_town_tile_type($x, $y), ['plain', 'road'], true);
 }
 
 function shared_town_chunk_coords(int $tileX, int $tileY): array
