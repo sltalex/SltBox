@@ -229,6 +229,14 @@ function shared_town_adjust_reservation(PDO $pdo, string $userId, string $itemId
     }
 }
 
+function shared_town_lock_inventory(PDO $pdo, string $userId, string $itemId): void
+{
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') { return; }
+    $query = $pdo->prepare('SELECT quantity FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item FOR UPDATE');
+    $query->execute([':user' => $userId, ':item' => $itemId]);
+    $query->fetchColumn();
+}
+
 function shared_town_change(PDO $pdo, array $object, string $action, DateTimeImmutable $now): int
 {
     $payload = $action === 'delete' ? ['object_id' => $object['object_id']] : shared_town_object_public($object);
@@ -311,6 +319,7 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
             if (!is_int($body['object_version'] ?? null) || (int)$body['object_version'] !== (int)$row['object_version']) { throw new ApiError('object_conflict', 'The town object changed. Reload the chunk.', 409); }
             $oldObject = $row; $assetId = (string)$row['asset_id'];
             if ($action === 'delete') {
+                shared_town_lock_inventory($pdo, $userId, $assetId);
                 $pdo->prepare('UPDATE town_objects SET deleted_at=:deleted,updated_at=:updated WHERE object_id=:id')->execute([':deleted' => auth_sql_time($now), ':updated' => auth_sql_time($now), ':id' => $objectId]);
                 shared_town_adjust_reservation($pdo, $userId, $assetId, -1, $now); $cursor = shared_town_change($pdo, $row, 'delete', $now);
                 $response = ['action' => 'delete', 'object_id' => $objectId, 'change_cursor' => $cursor];
