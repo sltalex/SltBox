@@ -66,6 +66,7 @@ function shared_town_catalog(): array
             || !isset($allowedSubcategories[$category]) || $subcategory === ''
             || !preg_match('/\A[a-z0-9]+(?:[_-][a-z0-9]+)*\z/D', $subcategory)
             || !in_array($subcategory, $allowedSubcategories[$category], true)
+            || !in_array(trim($item['rarity']), ['common', 'rare'], true)
             || $category === 'theme' || $subcategory === 'theme') {
             throw new RuntimeException('Tree decoration catalog contains a duplicate or invalid item.');
         }
