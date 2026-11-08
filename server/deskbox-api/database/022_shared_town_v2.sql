@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS town_operations (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS town_change_log (
-    cursor BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    change_cursor BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     world_id VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     chunk_x SMALLINT NOT NULL,
     chunk_y SMALLINT NOT NULL,
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS town_change_log (
     object_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     payload_json MEDIUMTEXT NOT NULL,
     created_at DATETIME NOT NULL,
-    PRIMARY KEY (cursor),
-    KEY ix_town_changes_world (world_id, cursor),
+    PRIMARY KEY (change_cursor),
+    KEY ix_town_changes_world (world_id, change_cursor),
     CONSTRAINT fk_town_change_world FOREIGN KEY (world_id)
         REFERENCES town_worlds (world_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
