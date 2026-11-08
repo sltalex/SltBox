@@ -10,5 +10,6 @@ api_run('GET', static function (PDO $pdo): array {
     shared_town_require_access($pdo, (string)$actor['user_id']);
     $cursor = filter_var($_GET['cursor'] ?? 0, FILTER_VALIDATE_INT);
     if ($cursor === false || $cursor < 0) { throw new ApiError('invalid_cursor', 'The change cursor is invalid.', 400); }
-    return ['ok' => true] + shared_town_changes($pdo, (int)$cursor);
+    $chunks = shared_town_parse_chunks($_GET['chunks'] ?? null);
+    return ['ok' => true] + shared_town_changes($pdo, (int)$cursor, $chunks);
 });

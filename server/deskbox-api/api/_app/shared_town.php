@@ -11,6 +11,26 @@ const SHARED_TOWN_CHUNK_SIZE = 24;
 const SHARED_TOWN_MAX_CHUNKS = 16;
 const SHARED_TOWN_MAX_CHANGES = 500;
 const SHARED_TOWN_PRESENCE_TTL = 30;
+const SHARED_TOWN_CATALOG_SIZE = 1500;
+
+/**
+ * Shared-town uses the same decoration catalog as the tree screen, but it is
+ * loaded by endpoints that do not include tree_decorations.php. Keep the
+ * allow-list here so a malformed or accidentally reintroduced theme entry
+ * cannot be placed in the global map.
+ */
+function shared_town_allowed_subcategories(): array
+{
+    return [
+        'tree' => ['lanterns', 'hanging_garden', 'bird_home', 'wind_chime', 'ribbons_signs',
+            'fruit_seed', 'carving_masks', 'bird_cages', 'celestial', 'glass_charms'],
+        'ground' => ['flora', 'stones', 'water', 'containers', 'furniture', 'lighting',
+            'signs', 'paths', 'play', 'craft', 'garden', 'water_features'],
+        'large' => ['gates', 'pavilions', 'bridges', 'seating', 'shelters', 'greenhouses',
+            'carts', 'towers', 'water_features', 'sculptures', 'building', 'furniture',
+            'pathways', 'pavilion'],
+    ];
+}
 
 function shared_town_catalog(): array
 {
@@ -25,6 +45,9 @@ function shared_town_catalog(): array
     }
     $items = [];
     $byId = [];
+    $names = [];
+    $assetKeys = [];
+    $allowedSubcategories = shared_town_allowed_subcategories();
     foreach ($document['items'] as $item) {
         if (!is_array($item)) { throw new RuntimeException('Tree decoration catalog item is invalid.'); }
         foreach (['id', 'name', 'category', 'rarity', 'asset_key'] as $field) {
@@ -33,7 +56,17 @@ function shared_town_catalog(): array
             }
         }
         $id = trim($item['id']);
-        if (!preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/D', $id) || isset($byId[$id])) {
+        $category = trim($item['category']);
+        $name = trim($item['name']);
+        $assetKey = trim($item['asset_key']);
+        $subcategory = is_string($item['subcategory'] ?? null) ? trim((string)$item['subcategory']) : '';
+        if (!preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/D', $id)
+            || !preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/D', $assetKey)
+            || isset($byId[$id]) || isset($names[$name]) || isset($assetKeys[$assetKey])
+            || !isset($allowedSubcategories[$category]) || $subcategory === ''
+            || !preg_match('/\A[a-z0-9]+(?:[_-][a-z0-9]+)*\z/D', $subcategory)
+            || !in_array($subcategory, $allowedSubcategories[$category], true)
+            || $category === 'theme' || $subcategory === 'theme') {
             throw new RuntimeException('Tree decoration catalog contains a duplicate or invalid item.');
         }
         $footprint = $item['footprint'] ?? ['width' => 1, 'height' => 1];
@@ -42,17 +75,21 @@ function shared_town_catalog(): array
             throw new RuntimeException('Tree decoration footprint is invalid.');
         }
         $entry = [
-            'id' => $id, 'name' => trim($item['name']), 'category' => trim($item['category']),
-            'subcategory' => is_string($item['subcategory'] ?? null) ? trim((string)$item['subcategory']) : trim($item['category']),
-            'rarity' => trim($item['rarity']), 'asset_key' => trim($item['asset_key']),
+            'id' => $id, 'name' => $name, 'category' => $category,
+            'subcategory' => $subcategory,
+            'rarity' => trim($item['rarity']), 'asset_key' => $assetKey,
             'footprint' => ['width' => $footprint['width'], 'height' => $footprint['height']],
             'anchor' => is_array($item['anchor'] ?? null) ? $item['anchor'] : ['x' => .5, 'y' => 1],
             'collision' => is_array($item['collision'] ?? null) ? $item['collision'] : $footprint,
         ];
         $items[] = $entry;
         $byId[$id] = $entry;
+        $names[$name] = true;
+        $assetKeys[$assetKey] = true;
     }
-    if (count($items) < 50) { throw new RuntimeException('Shared town catalog is unexpectedly small.'); }
+    if (count($items) !== SHARED_TOWN_CATALOG_SIZE) {
+        throw new RuntimeException('Shared town catalog must contain exactly ' . SHARED_TOWN_CATALOG_SIZE . ' items.');
+    }
     $catalog = ['catalog_version' => max(4, (int)($document['catalog_version'] ?? 0)),
         'items' => $items, 'by_id' => $byId];
     return $catalog;
@@ -114,6 +151,25 @@ function shared_town_tile_allowed(int $x, int $y): bool
 function shared_town_chunk_coords(int $tileX, int $tileY): array
 {
     return [intdiv($tileX, SHARED_TOWN_CHUNK_SIZE), intdiv($tileY, SHARED_TOWN_CHUNK_SIZE)];
+}
+
+/** @return list<array{0:int,1:int}> */
+function shared_town_parse_chunks(mixed $value): array
+{
+    if ($value === null || $value === '') { return []; }
+    if (!is_string($value)) { throw new ApiError('invalid_chunks', 'The chunk filter is invalid.', 400); }
+    $chunks = [];
+    foreach (explode(',', $value) as $part) {
+        if (!preg_match('/\A([0-7]):([0-7])\z/D', trim($part), $match)) {
+            throw new ApiError('invalid_chunks', 'The chunk filter is invalid.', 400);
+        }
+        $key = $match[1] . ':' . $match[2];
+        if (!isset($chunks[$key])) { $chunks[$key] = [(int)$match[1], (int)$match[2]]; }
+        if (count($chunks) > SHARED_TOWN_MAX_CHUNKS) {
+            throw new ApiError('invalid_chunks', 'Too many chunks were requested.', 400);
+        }
+    }
+    return array_values($chunks);
 }
 
 function shared_town_rectangle(array $object): array
@@ -344,11 +400,19 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
                 $occupied = $pdo->query('SELECT * FROM town_objects WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' AND deleted_at IS NULL AND object_id<>' . $pdo->quote($objectId))->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($occupied as $other) { if (shared_town_intersects($rect, shared_town_rectangle($other))) { throw new ApiError('position_conflict', 'The selected tiles are already occupied.', 409); } }
                 [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']); $version = (int)$row['object_version'] + 1;
+                $oldChunkX = (int)$row['chunk_x']; $oldChunkY = (int)$row['chunk_y'];
                 $pdo->prepare('UPDATE town_objects SET chunk_x=:cx,chunk_y=:cy,tile_x=:tx,tile_y=:ty,object_version=:version,updated_at=:updated WHERE object_id=:id')->execute([':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'], ':version' => $version, ':updated' => auth_sql_time($now), ':id' => $objectId]);
                 $row['chunk_x'] = $chunkX; $row['chunk_y'] = $chunkY; $row['tile_x'] = (int)$body['tile_x']; $row['tile_y'] = (int)$body['tile_y']; $row['object_version'] = $version;
+                // A cross-chunk move must remove the old instance before the new
+                // chunk receives it; otherwise a viewport that unloads/reloads
+                // chunks can retain a stale copy indefinitely.
+                if ($oldChunkX !== $chunkX || $oldChunkY !== $chunkY) {
+                    $cursor = shared_town_change($pdo, $oldObject, 'delete', $now);
+                }
                 $cursor = shared_town_change($pdo, $row, 'move', $now); $response = ['action' => 'move', 'object' => shared_town_object_public($row), 'change_cursor' => $cursor];
             }
         }
+        $response['operation_id'] = $operationId;
         $response['inventory'] = shared_town_inventory_payload($pdo, $userId);
         $responseJson = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $pdo->prepare('INSERT INTO town_operations (user_id,operation_id,action,request_hash,response_json,created_at) VALUES (:user,:operation,:action,:hash,:response,:created)')->execute([':user' => $userId, ':operation' => $operationId, ':action' => $action, ':hash' => $hash, ':response' => $responseJson, ':created' => auth_sql_time($now)]);
@@ -358,8 +422,18 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
 
 function shared_town_changes(PDO $pdo, int $cursor, array $chunks = []): array
 {
-    $query = $pdo->prepare('SELECT change_cursor,chunk_x,chunk_y,action,object_id,payload_json FROM town_change_log WHERE world_id=:world AND change_cursor>:cursor ORDER BY change_cursor LIMIT ' . SHARED_TOWN_MAX_CHANGES);
-    $query->execute([':world' => SHARED_TOWN_WORLD_ID, ':cursor' => max(0, $cursor)]); $items = []; $next = $cursor;
+    $sql = 'SELECT change_cursor,chunk_x,chunk_y,action,object_id,payload_json FROM town_change_log WHERE world_id=:world AND change_cursor>:cursor';
+    $params = [':world' => SHARED_TOWN_WORLD_ID, ':cursor' => max(0, $cursor)];
+    if ($chunks !== []) {
+        $clauses = [];
+        foreach (array_values($chunks) as $index => $chunk) {
+            $clauses[] = '(chunk_x=:chunk_x_' . $index . ' AND chunk_y=:chunk_y_' . $index . ')';
+            $params[':chunk_x_' . $index] = (int)$chunk[0]; $params[':chunk_y_' . $index] = (int)$chunk[1];
+        }
+        $sql .= ' AND (' . implode(' OR ', $clauses) . ')';
+    }
+    $query = $pdo->prepare($sql . ' ORDER BY change_cursor LIMIT ' . SHARED_TOWN_MAX_CHANGES);
+    $query->execute($params); $items = []; $next = $cursor;
     foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $rowCursor = (int)$row['change_cursor']; $next = max($next, $rowCursor); $items[] = ['cursor' => $rowCursor, 'chunk_x' => (int)$row['chunk_x'], 'chunk_y' => (int)$row['chunk_y'], 'action' => (string)$row['action'], 'object_id' => (string)$row['object_id'], 'object' => json_decode((string)$row['payload_json'], true)]; }
     return ['changes' => $items, 'next_cursor' => $next];
 }
