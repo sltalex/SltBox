@@ -358,9 +358,9 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
 
 function shared_town_changes(PDO $pdo, int $cursor, array $chunks = []): array
 {
-    $query = $pdo->prepare('SELECT change_cursor AS cursor,chunk_x,chunk_y,action,object_id,payload_json FROM town_change_log WHERE world_id=:world AND change_cursor>:cursor ORDER BY change_cursor LIMIT ' . SHARED_TOWN_MAX_CHANGES);
+    $query = $pdo->prepare('SELECT change_cursor,chunk_x,chunk_y,action,object_id,payload_json FROM town_change_log WHERE world_id=:world AND change_cursor>:cursor ORDER BY change_cursor LIMIT ' . SHARED_TOWN_MAX_CHANGES);
     $query->execute([':world' => SHARED_TOWN_WORLD_ID, ':cursor' => max(0, $cursor)]); $items = []; $next = $cursor;
-    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $next = max($next, (int)$row['cursor']); $items[] = ['cursor' => (int)$row['cursor'], 'chunk_x' => (int)$row['chunk_x'], 'chunk_y' => (int)$row['chunk_y'], 'action' => (string)$row['action'], 'object_id' => (string)$row['object_id'], 'object' => json_decode((string)$row['payload_json'], true)]; }
+    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $rowCursor = (int)$row['change_cursor']; $next = max($next, $rowCursor); $items[] = ['cursor' => $rowCursor, 'chunk_x' => (int)$row['chunk_x'], 'chunk_y' => (int)$row['chunk_y'], 'action' => (string)$row['action'], 'object_id' => (string)$row['object_id'], 'object' => json_decode((string)$row['payload_json'], true)]; }
     return ['changes' => $items, 'next_cursor' => $next];
 }
 
