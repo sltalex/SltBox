@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 
-const TREE_DECORATION_CATALOG_VERSION = 3;
+const TREE_DECORATION_CATALOG_VERSION = 4;
+const TREE_DECORATION_COMPAT_VERSION = 3;
 const TREE_DECORATION_MAX_PLACEMENTS = 20;
 const TREE_DECORATION_RATES = ['common' => 75, 'rare' => 25];
 const TREE_DECORATION_SUBCATEGORIES = [
@@ -13,11 +14,12 @@ const TREE_DECORATION_SUBCATEGORIES = [
     ],
     'ground' => [
         'flora', 'stones', 'water', 'containers', 'furniture', 'lighting',
-        'signs', 'paths', 'play', 'craft',
+        'signs', 'paths', 'play', 'craft', 'garden', 'water_features',
     ],
     'large' => [
         'gates', 'pavilions', 'bridges', 'seating', 'shelters', 'greenhouses',
-        'carts', 'towers', 'water_features', 'sculptures',
+        'carts', 'towers', 'water_features', 'sculptures', 'building', 'furniture',
+        'pathways', 'pavilion',
     ],
 ];
 const TREE_DECORATION_LEGACY_IDS = [
@@ -44,6 +46,7 @@ function tree_decoration_catalog_definition(): array
     $byId = [];
     $byRarity = ['common' => [], 'rare' => []];
     $legacyItems = [];
+    $compatItems = [];
     $legacyByRarity = ['common' => [], 'rare' => []];
     $legacyIds = array_fill_keys(TREE_DECORATION_LEGACY_IDS, true);
     $names = [];
@@ -71,6 +74,7 @@ function tree_decoration_catalog_definition(): array
         $entry = array_intersect_key($item, array_flip(['id', 'name', 'category', 'subcategory', 'rarity', 'asset_key']));
         $entry['subcategory'] = $subcategory;
         $items[] = $entry;
+        if (count($compatItems) < 50) { $compatItems[] = $entry; }
         $byId[$entry['id']] = $entry;
         $byRarity[$entry['rarity']][] = $entry['id'];
         if (isset($legacyIds[$entry['id']])) {
@@ -85,7 +89,11 @@ function tree_decoration_catalog_definition(): array
     foreach (array_merge(array_values($byRarity), array_values($legacyByRarity)) as $pool) {
         if ($pool === []) { throw new RuntimeException('Tree decoration rarity pool is empty.'); }
     }
+    if (count($compatItems) < 50) { throw new RuntimeException('Tree decoration catalog is missing compatibility products.'); }
+    $compatByRarity = ['common' => [], 'rare' => []];
+    foreach ($compatItems as $item) { $compatByRarity[$item['rarity']][] = $item['id']; }
     $definition = ['items' => $items, 'by_id' => $byId, 'by_rarity' => $byRarity,
+        'compat_items' => $compatItems, 'compat_by_rarity' => $compatByRarity,
         'legacy_items' => $legacyItems, 'legacy_by_rarity' => $legacyByRarity];
     return $definition;
 }
@@ -103,13 +111,14 @@ function tree_decoration_subcategory(array $item): string
 function tree_decoration_catalog(?PDO $pdo = null, int $assetVersion = TREE_DECORATION_CATALOG_VERSION): array
 {
     $prices = tree_decoration_pack_prices($pdo);
+    $catalogItems = $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? 'items'
+        : ($assetVersion >= TREE_DECORATION_COMPAT_VERSION ? 'compat_items' : 'legacy_items');
     return [
         'catalog_version' => TREE_DECORATION_CATALOG_VERSION,
         'single_price' => $prices['single_price'],
         'ten_price' => $prices['ten_price'],
         'rates' => TREE_DECORATION_RATES,
-        'items' => tree_decoration_catalog_definition()[
-            $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? 'items' : 'legacy_items'],
+        'items' => tree_decoration_catalog_definition()[$catalogItems],
     ];
 }
 
@@ -207,8 +216,9 @@ function tree_decoration_read_state(PDO $pdo, string $userId): array
 function tree_decoration_filter_retired_items(array $response, int $assetVersion = TREE_DECORATION_CATALOG_VERSION): array
 {
     $definition = tree_decoration_catalog_definition();
-    $activeItems = $assetVersion >= TREE_DECORATION_CATALOG_VERSION
-        ? $definition['by_id'] : array_fill_keys(TREE_DECORATION_LEGACY_IDS, true);
+    $activeItems = $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? $definition['by_id']
+        : array_fill_keys(array_column($assetVersion >= TREE_DECORATION_COMPAT_VERSION
+            ? $definition['compat_items'] : $definition['legacy_items'], 'id'), true);
     foreach (['inventory', 'placements', 'draw_results'] as $field) {
         if (isset($response[$field]) && is_array($response[$field])) {
             $response[$field] = array_values(array_filter($response[$field],
@@ -409,8 +419,9 @@ function tree_decoration_random_item_id(?callable $random = null, int $assetVers
     $random ??= 'random_int';
     $roll = $random(1, 100);
     $rarity = $roll <= TREE_DECORATION_RATES['common'] ? 'common' : 'rare';
-    $items = tree_decoration_catalog_definition()[
-        $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? 'by_rarity' : 'legacy_by_rarity'][$rarity];
+    $pool = $assetVersion >= TREE_DECORATION_CATALOG_VERSION ? 'by_rarity'
+        : ($assetVersion >= TREE_DECORATION_COMPAT_VERSION ? 'compat_by_rarity' : 'legacy_by_rarity');
+    $items = tree_decoration_catalog_definition()[$pool][$rarity];
     return $items[$random(0, count($items) - 1)];
 }
 
