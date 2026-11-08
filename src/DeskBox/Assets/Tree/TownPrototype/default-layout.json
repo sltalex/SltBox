@@ -1,0 +1,103 @@
+{
+  "template_version": 1,
+  "catalog_version": 1,
+  "demo_stage": 5,
+  "placements": [
+    {
+      "instance_id": "preset-shed",
+      "asset_id": "shed",
+      "tile_x": 13,
+      "tile_y": 23
+    },
+    {
+      "instance_id": "preset-coop",
+      "asset_id": "coop",
+      "tile_x": 29,
+      "tile_y": 23
+    },
+    {
+      "instance_id": "preset-mill",
+      "asset_id": "mill",
+      "tile_x": 14,
+      "tile_y": 32
+    },
+    {
+      "instance_id": "preset-well",
+      "asset_id": "well",
+      "tile_x": 30,
+      "tile_y": 31
+    },
+    {
+      "instance_id": "preset-fern",
+      "asset_id": "flora_fern",
+      "tile_x": 20,
+      "tile_y": 20
+    },
+    {
+      "instance_id": "preset-flowerpot",
+      "asset_id": "flora_flowerpot",
+      "tile_x": 28,
+      "tile_y": 26
+    },
+    {
+      "instance_id": "preset-cactus",
+      "asset_id": "flora_cactus",
+      "tile_x": 20,
+      "tile_y": 28
+    },
+    {
+      "instance_id": "preset-bush",
+      "asset_id": "flora_bush",
+      "tile_x": 29,
+      "tile_y": 33
+    },
+    {
+      "instance_id": "preset-mushroom",
+      "asset_id": "flora_mushroom",
+      "tile_x": 20,
+      "tile_y": 24
+    },
+    {
+      "instance_id": "preset-reeds",
+      "asset_id": "flora_reeds",
+      "tile_x": 34,
+      "tile_y": 26
+    },
+    {
+      "instance_id": "preset-bench",
+      "asset_id": "prop_bench",
+      "tile_x": 18,
+      "tile_y": 32
+    },
+    {
+      "instance_id": "preset-lamp",
+      "asset_id": "prop_lamp",
+      "tile_x": 31,
+      "tile_y": 27
+    },
+    {
+      "instance_id": "preset-barrel",
+      "asset_id": "prop_barrel",
+      "tile_x": 20,
+      "tile_y": 30
+    },
+    {
+      "instance_id": "preset-scarecrow",
+      "asset_id": "prop_scarecrow",
+      "tile_x": 31,
+      "tile_y": 35
+    },
+    {
+      "instance_id": "preset-fence",
+      "asset_id": "prop_fence",
+      "tile_x": 20,
+      "tile_y": 21
+    },
+    {
+      "instance_id": "preset-sign",
+      "asset_id": "prop_sign",
+      "tile_x": 21,
+      "tile_y": 35
+    }
+  ]
+}

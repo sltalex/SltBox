@@ -1332,6 +1332,10 @@ public partial class App : Application
             EnsureStartupPipeline().WriteSummary();
             Log("OnLaunched completed successfully");
 #if DEBUG
+            if (Environment.GetEnvironmentVariable("DESKBOX_TOWN_PREVIEW") == "1")
+            {
+                TreeTownPrototypeWindow.ShowPreview();
+            }
             if (Environment.GetEnvironmentVariable("DESKBOX_DEV_DATA_ROOT") is { } probeRoot &&
                 probeRoot.Contains("architecture-shutdown-ownership-20260925",
                     StringComparison.OrdinalIgnoreCase) &&

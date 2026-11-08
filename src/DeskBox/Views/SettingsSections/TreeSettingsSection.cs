@@ -114,6 +114,15 @@ public sealed partial class TreeSettingsSection : UserControl
         visualRow.Children.Add(_threeDLabel);
         visualRow.Children.Add(_threeD);
         cardContent.Children.Add(visualRow);
+#if DEBUG
+        var townPreview = new Button
+        {
+            Content = "小镇预览", HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 4, 0, 4)
+        };
+        townPreview.Click += (_, _) => TreeTownPrototypeWindow.ShowPreview();
+        cardContent.Children.Add(townPreview);
+#endif
         cardContent.Children.Add(_syncStatus);
         _switchesCard.Content = cardContent;
 

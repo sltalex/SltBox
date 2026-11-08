@@ -1,0 +1,272 @@
+#if DEBUG
+using System.Text.Json;
+using DeskBox.Contracts;
+using DeskBox.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.Web.WebView2.Core;
+using Windows.Graphics;
+
+namespace DeskBox.Views;
+
+internal sealed partial class TreeTownPrototypeWindow : Window
+{
+    private const string VirtualHost = "deskbox-town-prototype.local";
+    private static TreeTownPrototypeWindow? _current;
+    private readonly WebView2 _web = new();
+    private readonly Grid _root = new();
+    private readonly TextBlock _message = new()
+    {
+        Text = "正在打开小镇预览…", Margin = new Thickness(28),
+        TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
+        HorizontalAlignment = HorizontalAlignment.Center
+    };
+    private readonly TownPrototypeSession _session;
+    private bool _ready;
+    private bool _closed;
+    private bool _allowClose;
+    private bool _askingClose;
+
+    internal static void ShowPreview()
+    {
+        if (_current is not null)
+        {
+            if (_current.AppWindow.Presenter is OverlappedPresenter presenter) presenter.Restore();
+            _current.Activate();
+            return;
+        }
+        try
+        {
+            _current = new TreeTownPrototypeWindow();
+            _current.Activate();
+        }
+        catch (Exception ex)
+        {
+            _current = null;
+            App.Log($"[TownPrototype] Open failed: {ex.GetType().Name}");
+        }
+    }
+
+    private TreeTownPrototypeWindow()
+    {
+        Title = "小镇预览 · 实验";
+        string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Tree", "TownPrototype");
+        string defaultLayout = File.ReadAllText(Path.Combine(assets, "default-layout.json"));
+        _session = new TownPrototypeSession(
+            App.Current.Services.GetRequiredService<IAuthSession>(),
+            App.Current.Services.GetRequiredService<IAuthenticatedAccountApi>(),
+            defaultLayout, Path.Combine(DeskBoxDataPathService.Current.DataDirectory, "cache", "town-prototype"));
+        _root.Children.Add(_web);
+        _root.Children.Add(_message);
+        Content = _root;
+        _web.DefaultBackgroundColor = Windows.UI.Color.FromArgb(255, 236, 239, 218);
+        _web.NavigationStarting += OnNavigationStarting;
+        _web.NavigationCompleted += OnNavigationCompleted;
+        _web.WebMessageReceived += OnWebMessage;
+        _root.Loaded += OnLoaded;
+        _session.Changed += OnStateChanged;
+        Activated += OnActivated;
+        Closed += OnClosed;
+        AppWindow.Closing += OnClosing;
+        AppWindow.Changed += OnWindowChanged;
+        SizeInt32 size = new(1100, 760);
+        RectInt32 work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+        size.Width = Math.Min(size.Width, Math.Max(400, work.Width - 48));
+        size.Height = Math.Min(size.Height, Math.Max(320, work.Height - 48));
+        AppWindow.Resize(size);
+        AppWindow.Move(new PointInt32(work.X + (work.Width - size.Width) / 2,
+            work.Y + (work.Height - size.Height) / 2));
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsResizable = true;
+            presenter.IsMaximizable = true;
+            presenter.IsMinimizable = true;
+        }
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs args)
+    {
+        _root.Loaded -= OnLoaded;
+        try
+        {
+            string userData = Path.Combine(DeskBoxDataPathService.Current.RootPath, "town-prototype", "webview2");
+            CoreWebView2Environment environment = await CoreWebView2Environment.CreateWithOptionsAsync(null, userData, null);
+            if (_closed) return;
+            await _web.EnsureCoreWebView2Async(environment);
+            if (_closed) return;
+            CoreWebView2 core = _web.CoreWebView2;
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.AreHostObjectsAllowed = false;
+            core.SetVirtualHostNameToFolderMapping(VirtualHost,
+                Path.Combine(AppContext.BaseDirectory, "Assets", "Tree", "TownPrototype"),
+                CoreWebView2HostResourceAccessKind.DenyCors);
+            core.NewWindowRequested += OnNewWindow;
+            core.ProcessFailed += OnProcessFailed;
+            _web.Source = new Uri($"https://{VirtualHost}/index.html");
+            _ = CheckReadyAsync();
+        }
+        catch (Exception ex) { ShowFailure(ex); }
+    }
+
+    private async Task CheckReadyAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(20));
+        if (!_closed && !_ready) ShowFailure(new TimeoutException("Local town page did not become ready."));
+    }
+
+    private void OnNavigationStarting(WebView2 sender, CoreWebView2NavigationStartingEventArgs args)
+    {
+        if (!Uri.TryCreate(args.Uri, UriKind.Absolute, out Uri? uri) ||
+            uri.Scheme != "https" || uri.Host != VirtualHost) args.Cancel = true;
+    }
+
+    private void OnNavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
+    {
+        if (!args.IsSuccess) ShowFailure(new InvalidOperationException("Local town page navigation failed."));
+    }
+
+    private void OnNewWindow(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args) => args.Handled = true;
+    private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs args) =>
+        ShowFailure(new InvalidOperationException("Town rendering process stopped."));
+
+    private async void OnWebMessage(WebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        if (_closed || !args.Source.StartsWith($"https://{VirtualHost}/", StringComparison.Ordinal)) return;
+        try
+        {
+            if (args.WebMessageAsJson.Length > 150000) throw new InvalidDataException("Town message is too large.");
+            using JsonDocument document = JsonDocument.Parse(args.WebMessageAsJson);
+            JsonElement message = document.RootElement;
+            string? type = message.GetProperty("type").GetString();
+            if (type == "ready")
+            {
+                _ready = true;
+                _message.Visibility = Visibility.Collapsed;
+                await PostAsync("loadState", _session.BridgeJson());
+                await _session.LoadAsync();
+                App.Log("[TownPrototype] Local map ready.");
+                _ = RunOptionalProbeAsync();
+                return;
+            }
+            if (type == "error")
+            {
+                ShowFailure(new InvalidDataException(message.TryGetProperty("message", out JsonElement detail)
+                    ? detail.GetString() : "Town page failed."));
+                return;
+            }
+            if (!message.TryGetProperty("session_epoch", out JsonElement identity) ||
+                !identity.TryGetInt64(out long epoch) || epoch != _session.Epoch) return;
+            switch (type)
+            {
+                case "layoutChanged":
+                    _session.UpdateLayout(message.GetProperty("layout").GetRawText(), epoch);
+                    break;
+                case "saveRequested":
+                    if (_session.UpdateLayout(message.GetProperty("layout").GetRawText(), epoch))
+                        await _session.SaveAsync(epoch);
+                    break;
+                case "reloadRequested":
+                    await _session.LoadAsync(discardDraft: true);
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or KeyNotFoundException or InvalidOperationException)
+        { App.Log($"[TownPrototype] Ignored a failed map message: {ex.GetType().Name}"); }
+    }
+
+    private void OnStateChanged(bool replaceLayout)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (!_closed && _ready)
+                await PostAsync(replaceLayout ? "loadState" : "setSaveStatus", _session.BridgeJson());
+        });
+    }
+
+    private async Task PostAsync(string method, string json)
+    {
+        if (_closed || !_ready) return;
+        try { await _web.ExecuteScriptAsync($"window.DeskBoxTownPrototype?.{method}({json})"); }
+        catch (Exception ex) { if (!_closed) ShowFailure(ex); }
+    }
+
+    private async void OnActivated(object sender, WindowActivatedEventArgs args)
+    {
+        await PostAsync("setVisibility", args.WindowActivationState != WindowActivationState.Deactivated ? "true" : "false");
+        if (args.WindowActivationState == WindowActivationState.Deactivated) await PostAsync("clearKeys", "");
+    }
+
+    private async void OnWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidPresenterChange || args.DidVisibilityChange)
+        {
+            bool visible = AppWindow.IsVisible &&
+                (AppWindow.Presenter is not OverlappedPresenter presenter || presenter.State != OverlappedPresenterState.Minimized);
+            await PostAsync("setVisibility", visible ? "true" : "false");
+        }
+    }
+
+    private async void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_allowClose || !_session.IsDirty) return;
+        args.Cancel = true;
+        if (_askingClose) return;
+        _askingClose = true;
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = _root.XamlRoot, Title = "小镇布置尚未保存",
+                Content = _session.IsAuthenticated
+                    ? "保存到当前账号后，下次打开可以继续查看。"
+                    : "当前未登录，关闭后不会保留本次演示布置。",
+                PrimaryButtonText = "保存并关闭",
+                SecondaryButtonText = _session.IsAuthenticated ? "保留草稿并关闭" : "关闭演示",
+                CloseButtonText = "继续编辑",
+                IsPrimaryButtonEnabled = _session.IsAuthenticated,
+                DefaultButton = _session.IsAuthenticated ? ContentDialogButton.Primary : ContentDialogButton.Close
+            };
+            ContentDialogResult result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.None) return;
+            if (result == ContentDialogResult.Primary &&
+                (!await _session.SaveAsync(_session.Epoch) || _session.IsDirty)) return;
+            _allowClose = true;
+            Close();
+        }
+        catch (Exception ex) { App.Log($"[TownPrototype] Close prompt failed: {ex.GetType().Name}"); }
+        finally { _askingClose = false; }
+    }
+
+    private void ShowFailure(Exception exception)
+    {
+        if (_closed) return;
+        App.Log($"[TownPrototype] Preview failed: {exception.GetType().Name}: {exception.Message}");
+        _message.Text = "小镇预览未能启动，请关闭后重试。原有种树界面不受影响。";
+        _message.Visibility = Visibility.Visible;
+    }
+
+    private void OnClosed(object sender, WindowEventArgs args)
+    {
+        _closed = true;
+        _ready = false;
+        _current = null;
+        _session.Changed -= OnStateChanged;
+        _session.Dispose();
+        Activated -= OnActivated;
+        Closed -= OnClosed;
+        AppWindow.Closing -= OnClosing;
+        AppWindow.Changed -= OnWindowChanged;
+        _web.NavigationStarting -= OnNavigationStarting;
+        _web.NavigationCompleted -= OnNavigationCompleted;
+        _web.WebMessageReceived -= OnWebMessage;
+        if (_web.CoreWebView2 is { } core)
+        {
+            core.NewWindowRequested -= OnNewWindow;
+            core.ProcessFailed -= OnProcessFailed;
+        }
+        _web.Close();
+    }
+}
+#endif

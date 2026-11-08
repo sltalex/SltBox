@@ -1,0 +1,982 @@
+{
+  "version": 1,
+  "source_directory": "D:\\work\\C#\\星露谷物语素材\\Stardew valley",
+  "pixel_processing": "RGBA fixed rectangles, no resampling; mill assembly and actor atlas preserve source pixels",
+  "cuts": [
+    {
+      "id": "shed",
+      "source": "Buildings/Shed..png",
+      "source_sha256": "d7b82a609a62b983e2c61463e3d1a2a821482d704dc09de2c54525502d17648c",
+      "source_size": [
+        112,
+        128
+      ],
+      "rectangle": [
+        0,
+        0,
+        112,
+        128
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "well",
+      "source": "Buildings/Well..png",
+      "source_sha256": "9511e545e848f2f7b98c96e07673045824db341200868f4a70f4b90869e9de73",
+      "source_size": [
+        48,
+        80
+      ],
+      "rectangle": [
+        0,
+        0,
+        48,
+        80
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "flora_fern",
+      "source": "TileSheets/furniture..png",
+      "source_sha256": "0b41b88c4607aa5687be029631221c412ff1d1cac4de54c19de9301c35fd911f",
+      "source_size": [
+        512,
+        1024
+      ],
+      "rectangle": [
+        96,
+        688,
+        112,
+        720
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "flora_flowerpot",
+      "source": "TileSheets/furniture..png",
+      "source_sha256": "0b41b88c4607aa5687be029631221c412ff1d1cac4de54c19de9301c35fd911f",
+      "source_size": [
+        512,
+        1024
+      ],
+      "rectangle": [
+        48,
+        688,
+        64,
+        720
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "flora_cactus",
+      "source": "TileSheets/furniture..png",
+      "source_sha256": "0b41b88c4607aa5687be029631221c412ff1d1cac4de54c19de9301c35fd911f",
+      "source_size": [
+        512,
+        1024
+      ],
+      "rectangle": [
+        208,
+        688,
+        224,
+        720
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "flora_bush",
+      "source": "TileSheets/furniture..png",
+      "source_sha256": "0b41b88c4607aa5687be029631221c412ff1d1cac4de54c19de9301c35fd911f",
+      "source_size": [
+        512,
+        1024
+      ],
+      "rectangle": [
+        64,
+        688,
+        80,
+        720
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "flora_mushroom",
+      "source": "TerrainFeatures/upperCavePlants..png",
+      "source_sha256": "a522fb2efef7fa0b61aa9bedb14a48f6a93548ad27578488fc04d3f2510bf9ba",
+      "source_size": [
+        576,
+        96
+      ],
+      "rectangle": [
+        384,
+        0,
+        448,
+        96
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "flora_reeds",
+      "source": "TerrainFeatures/grass..png",
+      "source_sha256": "23ee0552acc6255b2fd4534292da20a7932bbee8b71a66ca9ec6af6987c7974b",
+      "source_size": [
+        66,
+        120
+      ],
+      "rectangle": [
+        0,
+        0,
+        16,
+        20
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "prop_bench",
+      "source": "TileSheets/furniture..png",
+      "source_sha256": "0b41b88c4607aa5687be029631221c412ff1d1cac4de54c19de9301c35fd911f",
+      "source_size": [
+        512,
+        1024
+      ],
+      "rectangle": [
+        0,
+        96,
+        32,
+        128
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "prop_lamp",
+      "source": "TileSheets/Craftables..png",
+      "source_sha256": "b2391e4894452cfcdc8ccdda2e927caa94cb72cde85fb219739efe3c4a3fa08e",
+      "source_size": [
+        128,
+        736
+      ],
+      "rectangle": [
+        48,
+        192,
+        64,
+        224
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "prop_barrel",
+      "source": "TileSheets/Craftables..png",
+      "source_sha256": "b2391e4894452cfcdc8ccdda2e927caa94cb72cde85fb219739efe3c4a3fa08e",
+      "source_size": [
+        128,
+        736
+      ],
+      "rectangle": [
+        112,
+        32,
+        128,
+        64
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "prop_scarecrow",
+      "source": "TileSheets/Craftables..png",
+      "source_sha256": "b2391e4894452cfcdc8ccdda2e927caa94cb72cde85fb219739efe3c4a3fa08e",
+      "source_size": [
+        128,
+        736
+      ],
+      "rectangle": [
+        0,
+        32,
+        16,
+        64
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "prop_fence",
+      "source": "TileSheets/Craftables..png",
+      "source_sha256": "b2391e4894452cfcdc8ccdda2e927caa94cb72cde85fb219739efe3c4a3fa08e",
+      "source_size": [
+        128,
+        736
+      ],
+      "rectangle": [
+        16,
+        320,
+        32,
+        352
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "prop_sign",
+      "source": "TileSheets/furniture..png",
+      "source_sha256": "0b41b88c4607aa5687be029631221c412ff1d1cac4de54c19de9301c35fd911f",
+      "source_size": [
+        512,
+        1024
+      ],
+      "rectangle": [
+        0,
+        0,
+        16,
+        32
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "grass",
+      "source": "spring_outdoorsTileSheet..png",
+      "source_sha256": "54821199cefa330128856eeba9e1263cda3716121cc64420264d127800932a36",
+      "source_size": [
+        400,
+        1264
+      ],
+      "rectangle": [
+        0,
+        256,
+        16,
+        272
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "path",
+      "source": "spring_outdoorsTileSheet..png",
+      "source_sha256": "54821199cefa330128856eeba9e1263cda3716121cc64420264d127800932a36",
+      "source_size": [
+        400,
+        1264
+      ],
+      "rectangle": [
+        96,
+        352,
+        112,
+        368
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "water",
+      "source": "spring_outdoorsTileSheet..png",
+      "source_sha256": "54821199cefa330128856eeba9e1263cda3716121cc64420264d127800932a36",
+      "source_size": [
+        400,
+        1264
+      ],
+      "rectangle": [
+        144,
+        208,
+        160,
+        224
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "tree-stage-1",
+      "source": "TerrainFeatures/tree1_spring..png",
+      "source_sha256": "437230e79962810679dcb9870648a555dff53dc2e913aa9d09691ae8ca372968",
+      "source_size": [
+        48,
+        160
+      ],
+      "rectangle": [
+        32,
+        128,
+        48,
+        140
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "tree-stage-2",
+      "source": "TerrainFeatures/tree1_spring..png",
+      "source_sha256": "437230e79962810679dcb9870648a555dff53dc2e913aa9d09691ae8ca372968",
+      "source_size": [
+        48,
+        160
+      ],
+      "rectangle": [
+        0,
+        128,
+        16,
+        140
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "tree-stage-3",
+      "source": "TerrainFeatures/tree1_spring..png",
+      "source_sha256": "437230e79962810679dcb9870648a555dff53dc2e913aa9d09691ae8ca372968",
+      "source_size": [
+        48,
+        160
+      ],
+      "rectangle": [
+        16,
+        128,
+        32,
+        143
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "tree-stage-4",
+      "source": "TerrainFeatures/tree1_spring..png",
+      "source_sha256": "437230e79962810679dcb9870648a555dff53dc2e913aa9d09691ae8ca372968",
+      "source_size": [
+        48,
+        160
+      ],
+      "rectangle": [
+        0,
+        96,
+        16,
+        127
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "tree-stage-5",
+      "source": "TerrainFeatures/tree1_spring..png",
+      "source_sha256": "437230e79962810679dcb9870648a555dff53dc2e913aa9d09691ae8ca372968",
+      "source_size": [
+        48,
+        160
+      ],
+      "rectangle": [
+        0,
+        0,
+        48,
+        84
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "coop:body",
+      "source": "Buildings/Coop..png",
+      "source_sha256": "7c1f5e6981366eb233bf19c968e0410debc15070638821c64bb1bc4c03602219",
+      "source_size": [
+        96,
+        128
+      ],
+      "rectangle": [
+        0,
+        0,
+        96,
+        112
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "coop:base",
+      "source": "Buildings/Coop..png",
+      "source_sha256": "7c1f5e6981366eb233bf19c968e0410debc15070638821c64bb1bc4c03602219",
+      "source_size": [
+        96,
+        128
+      ],
+      "rectangle": [
+        0,
+        112,
+        64,
+        128
+      ],
+      "destination_position": [
+        0,
+        112
+      ]
+    },
+    {
+      "id": "mill:body",
+      "source": "Buildings/Mill..png",
+      "source_sha256": "997c207ee2372b93e5d14957dcc9050f7900004e25483559b8260bb4ba7eef9a",
+      "source_size": [
+        224,
+        128
+      ],
+      "rectangle": [
+        0,
+        0,
+        48,
+        128
+      ],
+      "destination_position": [
+        8,
+        0
+      ]
+    },
+    {
+      "id": "mill:sails",
+      "source": "Buildings/Mill..png",
+      "source_sha256": "997c207ee2372b93e5d14957dcc9050f7900004e25483559b8260bb4ba7eef9a",
+      "source_size": [
+        224,
+        128
+      ],
+      "rectangle": [
+        64,
+        0,
+        96,
+        32
+      ],
+      "destination_position": [
+        16,
+        32
+      ]
+    },
+    {
+      "id": "player:down:0",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        0,
+        0,
+        16,
+        32
+      ],
+      "destination_position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "player:down:1",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        16,
+        0,
+        32,
+        32
+      ],
+      "destination_position": [
+        16,
+        0
+      ]
+    },
+    {
+      "id": "player:down:2",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        32,
+        0,
+        48,
+        32
+      ],
+      "destination_position": [
+        32,
+        0
+      ]
+    },
+    {
+      "id": "player:down:3",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        48,
+        0,
+        64,
+        32
+      ],
+      "destination_position": [
+        48,
+        0
+      ]
+    },
+    {
+      "id": "player:right:0",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        0,
+        32,
+        16,
+        64
+      ],
+      "destination_position": [
+        0,
+        32
+      ]
+    },
+    {
+      "id": "player:right:1",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        16,
+        32,
+        32,
+        64
+      ],
+      "destination_position": [
+        16,
+        32
+      ]
+    },
+    {
+      "id": "player:right:2",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        32,
+        32,
+        48,
+        64
+      ],
+      "destination_position": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "player:right:3",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        48,
+        32,
+        64,
+        64
+      ],
+      "destination_position": [
+        48,
+        32
+      ]
+    },
+    {
+      "id": "player:up:0",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        0,
+        64,
+        16,
+        96
+      ],
+      "destination_position": [
+        0,
+        64
+      ]
+    },
+    {
+      "id": "player:up:1",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        16,
+        64,
+        32,
+        96
+      ],
+      "destination_position": [
+        16,
+        64
+      ]
+    },
+    {
+      "id": "player:up:2",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        32,
+        64,
+        48,
+        96
+      ],
+      "destination_position": [
+        32,
+        64
+      ]
+    },
+    {
+      "id": "player:up:3",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        48,
+        64,
+        64,
+        96
+      ],
+      "destination_position": [
+        48,
+        64
+      ]
+    },
+    {
+      "id": "player:left:0",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        0,
+        96,
+        16,
+        128
+      ],
+      "destination_position": [
+        0,
+        96
+      ]
+    },
+    {
+      "id": "player:left:1",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        16,
+        96,
+        32,
+        128
+      ],
+      "destination_position": [
+        16,
+        96
+      ]
+    },
+    {
+      "id": "player:left:2",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        32,
+        96,
+        48,
+        128
+      ],
+      "destination_position": [
+        32,
+        96
+      ]
+    },
+    {
+      "id": "player:left:3",
+      "source": "Characters/Alex..png",
+      "source_sha256": "1f31f9e94004f133ce2cf93e642a398388f94f3c0674e297008fd724dcabc794",
+      "source_size": [
+        64,
+        416
+      ],
+      "rectangle": [
+        48,
+        96,
+        64,
+        128
+      ],
+      "destination_position": [
+        48,
+        96
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": "shed",
+      "file": "sprites/shed.png",
+      "width": 112,
+      "height": 128,
+      "sha256": "aa07ce4b8df0a0627f92c812f1ebc03e72c907a6c7198d5518549a2bd5eb63e5"
+    },
+    {
+      "id": "well",
+      "file": "sprites/well.png",
+      "width": 48,
+      "height": 80,
+      "sha256": "980c3980f1befac0064f70d12338c978865a869456edc967e9b5b838e780b23e"
+    },
+    {
+      "id": "flora_fern",
+      "file": "sprites/flora_fern.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "298acf93114f11655ea9e63f5ee58655106e34f0aa0e863cdd4aa692672c01c8"
+    },
+    {
+      "id": "flora_flowerpot",
+      "file": "sprites/flora_flowerpot.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "c5352a6fd78ec24d36ab450115a3e2afbc2cf60198a7adc507d07868108e1960"
+    },
+    {
+      "id": "flora_cactus",
+      "file": "sprites/flora_cactus.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "1d6c815489fb9ea7ff657fd7f82648be32a019ce4b725ee9d6c592b0ded51b6c"
+    },
+    {
+      "id": "flora_bush",
+      "file": "sprites/flora_bush.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "504713f106b026531abe67ef0ec59fa97e230bef62a556889d4aa35ee6a096de"
+    },
+    {
+      "id": "flora_mushroom",
+      "file": "sprites/flora_mushroom.png",
+      "width": 64,
+      "height": 96,
+      "sha256": "3a176419779678156644c45545a6197ea7cb4549eea38769a6eb1d86d3b43c67"
+    },
+    {
+      "id": "flora_reeds",
+      "file": "sprites/flora_reeds.png",
+      "width": 16,
+      "height": 20,
+      "sha256": "b705f8bb0ed2bb013c3e53b9343d1f6181f6b94b7abbbb8d862ebdbd8092a92c"
+    },
+    {
+      "id": "prop_bench",
+      "file": "sprites/prop_bench.png",
+      "width": 32,
+      "height": 32,
+      "sha256": "b7be1fc9f701e3ee06d7425b517931833374ecd430d12e15783b7ad69f0d336e"
+    },
+    {
+      "id": "prop_lamp",
+      "file": "sprites/prop_lamp.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "8d9388d4ab862031069a9e87431809c5656c247a5c586891620f669377ae7513"
+    },
+    {
+      "id": "prop_barrel",
+      "file": "sprites/prop_barrel.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "92e57842e033a96b7001123d587f25b29f4f3adc7d9f0a131414febfc2fa01d7"
+    },
+    {
+      "id": "prop_scarecrow",
+      "file": "sprites/prop_scarecrow.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "939e42ea26bd7ba288364854b978ace5a7b5c375c6362f57bfda3dc1e1f77204"
+    },
+    {
+      "id": "prop_fence",
+      "file": "sprites/prop_fence.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "4327621f7ffbda1348ecc400bd702b786247913c87b9a8b7b3dbff4cf2bf5e07"
+    },
+    {
+      "id": "prop_sign",
+      "file": "sprites/prop_sign.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "81ee48d6f1db4b86fbbab9a9fe5904b554be4459d37b4316f7ca9a7deff1d23a"
+    },
+    {
+      "id": "grass",
+      "file": "sprites/grass.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "a765f6ab5aded276b6b9f6e475995cce1e8c155bfa283e5f30b1f98a926160ff"
+    },
+    {
+      "id": "path",
+      "file": "sprites/path.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "9165f3676903594dc945b0421e7c6169e44c9e792b7ad869ee7982c5377b147e"
+    },
+    {
+      "id": "water",
+      "file": "sprites/water.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "e52ec3948de7a26d63dea6c7eaa96d6ccbbe5e04ea79b26c04439d3759de6103"
+    },
+    {
+      "id": "tree-stage-1",
+      "file": "sprites/tree-stage-1.png",
+      "width": 16,
+      "height": 12,
+      "sha256": "c20293feacc180d797d3609caeaa566cb8b01b543dbb89f8cf9cc73f01f6888e"
+    },
+    {
+      "id": "tree-stage-2",
+      "file": "sprites/tree-stage-2.png",
+      "width": 16,
+      "height": 12,
+      "sha256": "c26f1ce91e163f8789a6e0a60df8c33bc76aa5ac480b61109248c37406918702"
+    },
+    {
+      "id": "tree-stage-3",
+      "file": "sprites/tree-stage-3.png",
+      "width": 16,
+      "height": 15,
+      "sha256": "9fd319e3d4f4c26e3081ded3f9aa42581285baa9ae7b6db68d319dd5f92699cd"
+    },
+    {
+      "id": "tree-stage-4",
+      "file": "sprites/tree-stage-4.png",
+      "width": 16,
+      "height": 31,
+      "sha256": "ee506508e64538a7f6b7bab5ed00152ced3559d8ae9e92d99cf6021bd28d889b"
+    },
+    {
+      "id": "tree-stage-5",
+      "file": "sprites/tree-stage-5.png",
+      "width": 48,
+      "height": 84,
+      "sha256": "326bfe8f465982854630fd81b658063adcfc50ad55fc36dd557244ab3ba10043"
+    },
+    {
+      "id": "coop",
+      "file": "sprites/coop.png",
+      "width": 96,
+      "height": 128,
+      "sha256": "3504c9da4ccb636859e36413b875e82e5119014fc64cddb30c4c70829b59cc64"
+    },
+    {
+      "id": "mill",
+      "file": "sprites/mill.png",
+      "width": 64,
+      "height": 128,
+      "sha256": "3c41caedb3bff1aa86b4f567d8d04e63ae7e6dd7c32913c70a8c9cc57dd0479e"
+    },
+    {
+      "id": "player",
+      "file": "sprites/player.png",
+      "width": 64,
+      "height": 128,
+      "sha256": "b761df05a134abe14dfcecfaef0abaaed5f906d06e75c35b49b86f32aa99df06"
+    }
+  ]
+}

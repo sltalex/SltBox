@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "tile_size": 16,
+  "map_width": 48,
+  "map_height": 48,
+  "world": {
+    "pond": {
+      "x": 34,
+      "y": 8,
+      "width": 9,
+      "height": 8
+    },
+    "tree": {
+      "x": 23,
+      "y": 22,
+      "width": 3,
+      "height": 3
+    },
+    "spawn": {
+      "x": 23,
+      "y": 29,
+      "width": 3,
+      "height": 3
+    }
+  },
+  "terrain": {
+    "grass": "sprites/grass.png",
+    "path": "sprites/path.png",
+    "water": "sprites/water.png"
+  },
+  "player": {
+    "asset": "sprites/player.png",
+    "frame_width": 16,
+    "frame_height": 32,
+    "frames": {
+      "down": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "right": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "up": [
+        8,
+        9,
+        10,
+        11
+      ],
+      "left": [
+        12,
+        13,
+        14,
+        15
+      ]
+    }
+  },
+  "tree_stages": [
+    {
+      "asset": "sprites/tree-stage-1.png",
+      "width": 16,
+      "height": 12
+    },
+    {
+      "asset": "sprites/tree-stage-2.png",
+      "width": 16,
+      "height": 12
+    },
+    {
+      "asset": "sprites/tree-stage-3.png",
+      "width": 16,
+      "height": 15
+    },
+    {
+      "asset": "sprites/tree-stage-4.png",
+      "width": 16,
+      "height": 31
+    },
+    {
+      "asset": "sprites/tree-stage-5.png",
+      "width": 48,
+      "height": 84
+    }
+  ],
+  "items": [
+    {
+      "id": "shed",
+      "name": "红顶储物屋",
+      "category": "building",
+      "asset": "sprites/shed.png",
+      "display_width": 112,
+      "display_height": 128,
+      "footprint": {
+        "width": 6,
+        "height": 3
+      },
+      "solid": true
+    },
+    {
+      "id": "coop",
+      "name": "乡间鸡舍",
+      "category": "building",
+      "asset": "sprites/coop.png",
+      "display_width": 96,
+      "display_height": 128,
+      "footprint": {
+        "width": 5,
+        "height": 3
+      },
+      "solid": true
+    },
+    {
+      "id": "mill",
+      "name": "木制风车",
+      "category": "building",
+      "asset": "sprites/mill.png",
+      "display_width": 64,
+      "display_height": 128,
+      "footprint": {
+        "width": 4,
+        "height": 3
+      },
+      "solid": true
+    },
+    {
+      "id": "well",
+      "name": "石砌水井",
+      "category": "building",
+      "asset": "sprites/well.png",
+      "display_width": 48,
+      "display_height": 80,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "solid": true
+    },
+    {
+      "id": "flora_fern",
+      "name": "阔叶观叶盆栽",
+      "category": "flora",
+      "asset": "sprites/flora_fern.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": false
+    },
+    {
+      "id": "flora_flowerpot",
+      "name": "橙花陶盆",
+      "category": "flora",
+      "asset": "sprites/flora_flowerpot.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": false
+    },
+    {
+      "id": "flora_cactus",
+      "name": "蓝盆仙人掌",
+      "category": "flora",
+      "asset": "sprites/flora_cactus.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": false
+    },
+    {
+      "id": "flora_bush",
+      "name": "匍匐绿植",
+      "category": "flora",
+      "asset": "sprites/flora_bush.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": false
+    },
+    {
+      "id": "flora_mushroom",
+      "name": "红伞野生蘑菇",
+      "category": "flora",
+      "asset": "sprites/flora_mushroom.png",
+      "display_width": 32,
+      "display_height": 48,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": false
+    },
+    {
+      "id": "flora_reeds",
+      "name": "春日草丛",
+      "category": "flora",
+      "asset": "sprites/flora_reeds.png",
+      "display_width": 32,
+      "display_height": 40,
+      "footprint": {
+        "width": 2,
+        "height": 1
+      },
+      "solid": false
+    },
+    {
+      "id": "prop_bench",
+      "name": "木制长椅",
+      "category": "prop",
+      "asset": "sprites/prop_bench.png",
+      "display_width": 32,
+      "display_height": 32,
+      "footprint": {
+        "width": 2,
+        "height": 1
+      },
+      "solid": true
+    },
+    {
+      "id": "prop_lamp",
+      "name": "庭院立灯",
+      "category": "prop",
+      "asset": "sprites/prop_lamp.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": true
+    },
+    {
+      "id": "prop_barrel",
+      "name": "箍木酒桶",
+      "category": "prop",
+      "asset": "sprites/prop_barrel.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": true
+    },
+    {
+      "id": "prop_scarecrow",
+      "name": "草帽稻草人",
+      "category": "prop",
+      "asset": "sprites/prop_scarecrow.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": true
+    },
+    {
+      "id": "prop_fence",
+      "name": "木制栅门",
+      "category": "prop",
+      "asset": "sprites/prop_fence.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 2,
+        "height": 1
+      },
+      "solid": true
+    },
+    {
+      "id": "prop_sign",
+      "name": "木制靠背椅",
+      "category": "prop",
+      "asset": "sprites/prop_sign.png",
+      "display_width": 16,
+      "display_height": 32,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "solid": true
+    }
+  ]
+}

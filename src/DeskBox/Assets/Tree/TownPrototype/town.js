@@ -1,0 +1,551 @@
+import { clone, validateLayout, validatePlacement, playerCanStand } from './town-rules.js';
+
+// One isolated town prototype: material editing and visual exploration use demo data.
+const $ = id => document.getElementById(id);
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const state = {
+  catalog: null, initial: null, layout: null, scene: null, game: null,
+  mode: 'roam', category: 'all', selectedAsset: null, selectedInstance: null,
+  dirty: false, authenticated: false, canSave: false, saving: false, conflict: false,
+  version: 0, epoch: 0, history: [], revision: 0, saveRevision: -1,
+  visible: !document.hidden, hostActive: true, noticeTimer: null, pendingState: null,
+  status: '正在载入…', fatal: false, zoom: 2, modal: false
+};
+
+function host(message) {
+  const value = { ...message, session_epoch: state.epoch };
+  if (window.chrome?.webview) window.chrome.webview.postMessage(value);
+  else window.dispatchEvent(new CustomEvent('townPrototypeMessage', { detail: value }));
+}
+
+function reportError(error) {
+  const message = String(error?.message || error);
+  state.fatal = true;
+  $('loading').hidden = false;
+  $('loading').classList.add('error');
+  $('loading').replaceChildren(Object.assign(document.createElement('strong'), { textContent: '小镇暂时无法打开' }), Object.assign(document.createElement('span'), { textContent: message }));
+  $('save').disabled = true;
+  host({ type: 'error', message });
+}
+
+function notice(message, duration = 2600) {
+  window.clearTimeout(state.noticeTimer);
+  $('notice').textContent = message;
+  $('notice').hidden = false;
+  state.noticeTimer = window.setTimeout(() => { $('notice').hidden = true; }, duration);
+}
+
+function confirmAction(title, message) {
+  clearKeys();
+  const dialog = $('confirmation');
+  if (dialog.open) return Promise.resolve(false);
+  $('confirm-title').textContent = title;
+  $('confirm-message').textContent = message;
+  state.modal = true;
+  return new Promise(resolve => {
+    const finish = accepted => {
+      dialog.close(); state.modal = false;
+      $('confirm-cancel').onclick = null;
+      $('confirm-accept').onclick = null;
+      dialog.oncancel = null;
+      resolve(accepted);
+      $('game').focus({ preventScroll: true });
+    };
+    $('confirm-cancel').onclick = () => finish(false);
+    $('confirm-accept').onclick = () => finish(true);
+    dialog.oncancel = event => { event.preventDefault(); finish(false); };
+    dialog.showModal();
+  });
+}
+
+function updateUI() {
+  if (!state.catalog || !state.layout) return;
+  $('roam').classList.toggle('active', state.mode === 'roam');
+  $('edit').classList.toggle('active', state.mode === 'edit');
+  $('roam').setAttribute('aria-pressed', String(state.mode === 'roam'));
+  $('edit').setAttribute('aria-pressed', String(state.mode === 'edit'));
+  $('stage').value = String(state.layout.demo_stage);
+  $('placed-count').textContent = `${state.layout.placements.length} / 48`;
+  $('undo').disabled = !state.history.length;
+  $('delete').disabled = !state.selectedInstance;
+  const selected = state.selectedInstance ? state.layout.placements.find(item => item.instance_id === state.selectedInstance)?.asset_id : state.selectedAsset;
+  $('selection-name').textContent = state.catalog.items.find(item => item.id === selected)?.name || '尚未选择';
+  $('mode-description').textContent = state.mode === 'roam' ? '漫游模式' : state.selectedAsset ? '点击地图放置 · 拖动物件移动' : '编辑模式 · 选择材料或已摆放物件';
+  $('save').disabled = !state.authenticated || !state.canSave || state.saving || state.conflict || state.fatal;
+  $('save').textContent = state.saving ? '正在保存…' : '保存小镇';
+  $('reload').disabled = state.saving;
+  $('version-label').textContent = state.authenticated ? `场景版本 ${state.version}` : '未登录 · 仅演示';
+  $('save-state').textContent = state.status;
+  $('save-state').className = `save-state${state.conflict || state.status.includes('失败') || state.status.includes('超时') ? ' error' : state.dirty ? ' dirty' : state.version > 0 ? ' saved' : ''}`;
+  const counts = new Map();
+  for (const item of state.layout.placements) counts.set(item.asset_id, (counts.get(item.asset_id) || 0) + 1);
+  for (const button of $('material-list').children) {
+    const remaining = 3 - (counts.get(button.dataset.id) || 0);
+    button.classList.toggle('chosen', button.dataset.id === state.selectedAsset);
+    button.classList.toggle('depleted', remaining <= 0);
+    button.querySelector('.remaining').textContent = `剩余 ${remaining}`;
+    button.setAttribute('aria-pressed', String(button.dataset.id === state.selectedAsset));
+  }
+  for (const button of document.querySelectorAll('[data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
+}
+
+function renderMaterials() {
+  const elements = state.catalog.items.filter(item => state.category === 'all' || item.category === state.category).map(item => {
+    const button = document.createElement('button');
+    button.className = 'material-item';
+    button.dataset.id = item.id;
+    button.title = `${item.name} · 占地 ${item.footprint.width}×${item.footprint.height}`;
+    const image = Object.assign(document.createElement('img'), { src: item.asset, alt: '', draggable: false });
+    const name = Object.assign(document.createElement('span'), { className: 'item-name', textContent: item.name });
+    const count = Object.assign(document.createElement('span'), { className: 'remaining' });
+    button.append(image, name, count);
+    button.addEventListener('click', () => {
+      const used = state.layout.placements.filter(placement => placement.asset_id === item.id).length;
+      if (used >= 3) { notice('这种材料已全部使用，可移动或移除已有物件'); return; }
+      state.mode = 'edit'; state.selectedAsset = item.id; state.selectedInstance = null;
+      state.scene?.cameras.main.stopFollow();
+      state.scene?.cancelDrag(); state.scene?.refreshGhost(); updateUI();
+      $('game').focus({ preventScroll: true });
+    });
+    return button;
+  });
+  $('material-list').replaceChildren(...elements);
+  updateUI();
+}
+
+function recordHistory() {
+  state.history.push(clone(state.layout));
+  if (state.history.length > 64) state.history.shift();
+}
+
+function markChanged() {
+  state.revision++; state.dirty = true;
+  if (!state.conflict) state.status = state.saving ? '正在保存上一份布局，新修改尚未保存' : state.authenticated ? '布局已修改，点击“保存小镇”同步' : '演示布局已修改，登录后可保存';
+  host({ type: 'layoutChanged', layout: clone(state.layout), edit_revision: state.revision });
+  state.scene?.renderObjects();
+  updateUI();
+}
+
+function removeSelected() {
+  if (!state.selectedInstance) return;
+  recordHistory();
+  state.layout.placements = state.layout.placements.filter(item => item.instance_id !== state.selectedInstance);
+  state.selectedInstance = null; state.scene?.cancelDrag(); markChanged();
+}
+
+function save() {
+  if (!state.authenticated) { notice('请先在软件中登录，再保存小镇'); return; }
+  if (!state.canSave || state.saving || state.conflict) return;
+  state.saveRevision = state.revision; state.saving = true;
+  state.status = '正在保存小镇…'; updateUI();
+  host({ type: 'saveRequested', layout: clone(state.layout), edit_revision: state.revision });
+}
+
+function clearKeys() {
+  const scene = state.scene;
+  if (scene?.keys) for (const key of Object.values(scene.keys)) key.reset();
+  scene?.player?.anims.stop();
+}
+
+function applyVisibility() {
+  clearKeys();
+  if (!state.game?.isBooted) return;
+  const visible = state.visible && state.hostActive && !document.hidden;
+  if (visible) state.game.loop.wake();
+  else state.game.loop.sleep();
+}
+
+function loadState(payload) {
+  if (!state.scene || !state.catalog) { state.pendingState = clone(payload); return; }
+  if (!payload?.layout) throw new Error('服务器未返回小镇布局');
+  const error = validateLayout(state.catalog, payload.layout);
+  if (error) { notice(error); host({ type: 'error', message: error }); return; }
+  const previousEpoch = state.epoch;
+  state.epoch = Number.isSafeInteger(payload.session_epoch) ? payload.session_epoch : state.epoch;
+  state.scene.cancelDrag();
+  state.layout = clone(payload.layout);
+  state.version = Number.isSafeInteger(payload.scene_version) ? payload.scene_version : 0;
+  state.authenticated = !!payload.authenticated;
+  state.canSave = !!payload.can_save;
+  state.conflict = !!payload.conflict;
+  state.dirty = !!payload.dirty;
+  state.saving = false; state.saveRevision = -1; state.revision = 0; state.history = [];
+  state.selectedAsset = null; state.selectedInstance = null;
+  state.status = typeof payload.status === 'string' ? payload.status : state.dirty ? '有尚未保存的布局' : state.authenticated ? '云端布局已载入' : '登录后可保存小镇';
+  $('account').textContent = payload.account_label || (state.authenticated ? '当前账号的小镇' : '我的小镇 · 未登录');
+  state.scene.renderObjects(); state.scene.spawnPlayer();
+  if (previousEpoch !== state.epoch) clearKeys();
+  renderMaterials();
+}
+
+function setSaveStatus(payload) {
+  if (typeof payload === 'string') payload = { status: payload };
+  if (!payload) return;
+  if (Number.isSafeInteger(payload.scene_version)) state.version = payload.scene_version;
+  if (typeof payload.can_save === 'boolean') state.canSave = payload.can_save;
+  if (typeof payload.conflict === 'boolean') state.conflict = payload.conflict;
+  if (typeof payload.authenticated === 'boolean') state.authenticated = payload.authenticated;
+  const newerEdits = state.saveRevision >= 0 && state.revision > state.saveRevision;
+  if (typeof payload.dirty === 'boolean') state.dirty = payload.dirty || newerEdits;
+  if (typeof payload.saving === 'boolean') state.saving = payload.saving;
+  else if (payload.dirty === false || payload.can_save === true || payload.conflict || /失败|超时|冲突|登录|取消/.test(payload.status || '')) state.saving = false;
+  state.status = newerEdits && payload.dirty === false ? '上一份布局已保存，新修改尚未保存' : payload.status || state.status;
+  updateUI();
+}
+
+function diagnostics() {
+  const scene = state.scene;
+  return {
+    ready: !!scene && !state.fatal, mode: state.mode, zoom: state.zoom,
+    session_epoch: state.epoch, scene_version: state.version, dirty: state.dirty,
+    status: state.status, authenticated: state.authenticated, saving: state.saving,
+    player: scene?.player ? { x: Math.round(scene.player.x * 100) / 100, y: Math.round(scene.player.y * 100) / 100, tile_x: Math.floor(scene.player.x / 16), tile_y: Math.floor(scene.player.y / 16) } : null,
+    layout: state.layout ? clone(state.layout) : null,
+    fps: Math.round(state.game?.loop.actualFps || 0), paused: !state.game?.loop.running,
+    materials: state.catalog?.items.length || 0,
+    canvas: scene ? { width: scene.scale.width, height: scene.scale.height } : null,
+    camera: scene ? { scroll_x: scene.cameras.main.scrollX, scroll_y: scene.cameras.main.scrollY, zoom: scene.cameras.main.zoom } : null
+  };
+}
+
+window.DeskBoxTownPrototype = {
+  loadState,
+  setSaveStatus,
+  setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
+  setHostActive(active) { state.hostActive = !!active; applyVisibility(); },
+  clearKeys,
+  snapshot: diagnostics,
+  setStage(stage) {
+    if (!state.layout || !Number.isInteger(stage) || stage < 1 || stage > 5 || stage === state.layout.demo_stage) return;
+    recordHistory(); state.layout.demo_stage = stage; markChanged();
+  }
+};
+Object.defineProperty(window, '__townPrototypeDiagnostics', { get: diagnostics });
+
+class TownScene extends (window.Phaser?.Scene || class {}) {
+  constructor() { super('town-prototype'); this.objectImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
+
+  preload() {
+    this.failedAssets = [];
+    this.load.on('loaderror', file => this.failedAssets.push(file.key));
+    const catalog = state.catalog;
+    for (const [name, asset] of Object.entries(catalog.terrain)) this.load.image(`terrain-${name}`, asset);
+    for (const item of catalog.items) this.load.image(`item-${item.id}`, item.asset);
+    catalog.tree_stages.forEach((stage, index) => this.load.image(`tree-${index + 1}`, stage.asset));
+    this.load.spritesheet('player', catalog.player.asset, { frameWidth: catalog.player.frame_width, frameHeight: catalog.player.frame_height });
+  }
+
+  create() {
+    if (this.failedAssets.length) { reportError(new Error(`素材加载失败：${this.failedAssets.join('、')}`)); return; }
+    state.scene = this;
+    this.drawTerrain();
+    this.objectShadows = this.add.graphics();
+    this.treeShadow = this.add.ellipse(0, 0, 35, 12, 0x294b25, .17);
+    this.tree = this.add.image(0, 0, 'tree-5').setOrigin(.5, 1);
+    this.selectionGraphics = this.add.graphics().setDepth(10001);
+    this.gridGraphics = this.add.graphics().setDepth(10000);
+    this.ghost = this.add.image(0, 0, 'item-shed').setOrigin(.5, 1).setAlpha(.62).setDepth(9999).setVisible(false);
+    this.footGhost = this.add.graphics().setDepth(10002);
+    this.player = this.add.sprite(0, 0, 'player', 0).setOrigin(.5, 1);
+    this.playerShadow = this.add.ellipse(0, 0, 11, 5, 0x234223, .22);
+    for (const [direction, frames] of Object.entries(state.catalog.player.frames)) this.anims.create({ key: `walk-${direction}`, frames: frames.map(frame => ({ key: 'player', frame })), frameRate: 8, repeat: -1 });
+    this.facing = 'down';
+    this.keys = this.input.keyboard.addKeys('UP,DOWN,LEFT,RIGHT,W,A,S,D');
+    this.input.keyboard.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
+    this.input.mouse.disableContextMenu();
+    this.cameras.main.setBounds(0, 0, state.catalog.map_width * 16, state.catalog.map_height * 16);
+    this.cameras.main.setZoom(state.zoom);
+    this.cameras.main.roundPixels = true;
+    this.cameras.main.startFollow(this.player, true, .12, .12, 0, 48);
+    this.scale.on('resize', () => { clearKeys(); this.refreshGhost(); });
+    this.input.on('pointerdown', pointer => this.pointerDown(pointer));
+    this.input.on('pointermove', pointer => this.pointerMove(pointer));
+    this.input.on('pointerup', pointer => this.pointerUp(pointer));
+    this.input.on('pointerupoutside', pointer => { this.pointerInside = false; this.cancelDrag(); this.refreshGhost(); });
+    this.input.on('gameout', () => { this.pointerInside = false; if (!this.drag) this.refreshGhost(); });
+    this.input.on('wheel', (_pointer, _objects, _dx, deltaY) => {
+      if (state.modal || !deltaY) return;
+      state.zoom = Phaser.Math.Clamp(state.zoom + (deltaY < 0 ? 1 : -1), 1, 4);
+      this.cameras.main.setZoom(state.zoom); $('zoom-label').textContent = `${state.zoom}×`;
+    });
+    this.renderObjects(); this.spawnPlayer(); this.drawGrid();
+    $('loading').hidden = true;
+    renderMaterials();
+    if (state.pendingState) { const payload = state.pendingState; state.pendingState = null; loadState(payload); }
+    host({ type: 'ready' });
+    applyVisibility();
+  }
+
+  drawTerrain() {
+    const size = 16, width = state.catalog.map_width * size, height = state.catalog.map_height * size;
+    this.add.tileSprite(0, 0, width, height, 'terrain-grass').setOrigin(0).setDepth(-100);
+    const road = (x, y, w, h) => this.add.tileSprite(x * size, y * size, w * size, h * size, 'terrain-path').setOrigin(0).setDepth(-90);
+    road(23, 6, 3, 39); road(6, 27, 36, 3); road(9, 17, 15, 2); road(26, 18, 11, 2);
+    const pond = state.catalog.world.pond;
+    const rim = this.add.graphics().setDepth(-81);
+    rim.fillStyle(0x9ba457, 1); rim.fillRect(pond.x * size - 3, pond.y * size - 3, pond.width * size + 6, pond.height * size + 6);
+    this.water = this.add.tileSprite(pond.x * size, pond.y * size, pond.width * size, pond.height * size, 'terrain-water').setOrigin(0).setDepth(-80);
+    const bank = this.add.graphics().setDepth(-79);
+    bank.lineStyle(2, 0xc1bd77, .8); bank.strokeRect(pond.x * size, pond.y * size, pond.width * size, pond.height * size);
+    const edge = this.add.graphics().setDepth(-70);
+    edge.lineStyle(16, 0x41623b, .12); edge.strokeRect(8, 8, width - 16, height - 16);
+  }
+
+  spawnPlayer() {
+    const spawn = state.catalog.world.spawn;
+    this.player.setPosition((spawn.x + spawn.width / 2) * 16, (spawn.y + spawn.height / 2) * 16);
+    this.player.setFrame(state.catalog.player.frames.down[0]);
+    this.cameras.main.centerOn(this.player.x, this.player.y);
+    this.syncPlayerDepth(); clearKeys();
+  }
+
+  syncPlayerDepth() {
+    this.player.setDepth(this.player.y + .1);
+    this.playerShadow.setPosition(this.player.x, this.player.y - 1).setDepth(this.player.y - .2);
+  }
+
+  renderObjects() {
+    if (!state.layout || !this.tree) return;
+    const ids = new Set(state.layout.placements.map(item => item.instance_id));
+    for (const [id, image] of this.objectImages) if (!ids.has(id)) { image.destroy(); this.objectImages.delete(id); }
+    this.objectShadows.clear();
+    for (const placement of state.layout.placements) {
+      const item = state.catalog.items.find(value => value.id === placement.asset_id);
+      let image = this.objectImages.get(placement.instance_id);
+      if (!image) { image = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1); this.objectImages.set(placement.instance_id, image); }
+      const x = (placement.tile_x + item.footprint.width / 2) * 16;
+      const y = (placement.tile_y + item.footprint.height) * 16;
+      image.setTexture(`item-${item.id}`).setPosition(x, y).setDisplaySize(item.display_width, item.display_height).setDepth(y).setAlpha(1).clearTint();
+      if (item.category === 'building') {
+        this.objectShadows.fillStyle(0x2f4928, .12);
+        this.objectShadows.fillEllipse(x, y - 3, item.footprint.width * 16 + 7, Math.max(8, item.footprint.height * 8));
+      }
+    }
+    this.objectShadows.setDepth(-10);
+    const area = state.catalog.world.tree, stage = state.catalog.tree_stages[state.layout.demo_stage - 1];
+    const treeX = (area.x + area.width / 2) * 16, treeY = (area.y + area.height) * 16;
+    this.tree.setTexture(`tree-${state.layout.demo_stage}`).setPosition(treeX, treeY).setDisplaySize(stage.width, stage.height).setDepth(treeY);
+    this.treeShadow.setPosition(treeX, treeY - 3).setDepth(treeY - .5).setScale(state.layout.demo_stage <= 2 ? .35 : state.layout.demo_stage === 3 ? .5 : 1);
+    this.drawSelection(); this.drawGrid(); this.refreshGhost();
+  }
+
+  drawGrid() {
+    if (!this.gridGraphics) return;
+    this.gridGraphics.clear();
+    if (state.mode !== 'edit') return;
+    this.gridGraphics.lineStyle(.5, 0x3e5c38, .18);
+    for (let i = 0; i <= state.catalog.map_width; i++) this.gridGraphics.lineBetween(i * 16, 0, i * 16, state.catalog.map_height * 16);
+    for (let i = 0; i <= state.catalog.map_height; i++) this.gridGraphics.lineBetween(0, i * 16, state.catalog.map_width * 16, i * 16);
+  }
+
+  drawSelection() {
+    this.selectionGraphics.clear();
+    if (state.mode !== 'edit' || !state.selectedInstance || this.drag) return;
+    const placement = state.layout.placements.find(item => item.instance_id === state.selectedInstance);
+    if (!placement) return;
+    const item = state.catalog.items.find(value => value.id === placement.asset_id);
+    this.selectionGraphics.lineStyle(1, 0xfff8cb, 1);
+    this.selectionGraphics.strokeRect(placement.tile_x * 16, placement.tile_y * 16, item.footprint.width * 16, item.footprint.height * 16);
+  }
+
+  itemAt(x, y) {
+    const values = [...state.layout.placements].sort((a, b) => this.objectImages.get(b.instance_id).depth - this.objectImages.get(a.instance_id).depth);
+    for (const placement of values) {
+      const image = this.objectImages.get(placement.instance_id);
+      if (!image.getBounds().contains(x, y)) continue;
+      const textureX = Math.floor((x - image.getTopLeft().x) / image.scaleX);
+      const textureY = Math.floor((y - image.getTopLeft().y) / image.scaleY);
+      const alpha = this.textures.getPixelAlpha(textureX, textureY, image.texture.key);
+      if (alpha === null || alpha > 24) return placement;
+    }
+    return null;
+  }
+
+  worldPoint(pointer) { return this.cameras.main.getWorldPoint(pointer.x, pointer.y); }
+
+  pointerDown(pointer) {
+    $('game').focus({ preventScroll: true });
+    if (state.mode !== 'edit' || state.modal) return;
+    if (pointer.rightButtonDown()) {
+      this.cancelDrag();
+      this.pan = { x: pointer.x, y: pointer.y, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY };
+      return;
+    }
+    if (!pointer.leftButtonDown()) return;
+    const world = this.worldPoint(pointer); this.pointerInside = true; this.lastPointer = world;
+    if (state.selectedAsset) {
+      const position = this.placementPosition(world, state.selectedAsset);
+      const error = validatePlacement(state.catalog, state.layout, state.selectedAsset, position.x, position.y, null, this.player);
+      if (error) { notice(error); return; }
+      recordHistory();
+      state.layout.placements.push({ instance_id: crypto.randomUUID().replaceAll('-', ''), asset_id: state.selectedAsset, tile_x: position.x, tile_y: position.y });
+      markChanged(); this.refreshGhost();
+      return;
+    }
+    const selected = this.itemAt(world.x, world.y);
+    state.selectedInstance = selected?.instance_id || null;
+    if (selected) {
+      this.drag = { id: selected.instance_id, startX: pointer.x, startY: pointer.y, offsetX: Math.floor(world.x / 16) - selected.tile_x, offsetY: Math.floor(world.y / 16) - selected.tile_y, moved: false, tileX: selected.tile_x, tileY: selected.tile_y, valid: true };
+    }
+    this.drawSelection(); updateUI();
+  }
+
+  placementPosition(world, assetId) {
+    const item = state.catalog.items.find(value => value.id === assetId);
+    return { x: Math.floor(world.x / 16) - Math.floor(item.footprint.width / 2), y: Math.floor(world.y / 16) - item.footprint.height + 1 };
+  }
+
+  pointerMove(pointer) {
+    if (this.pan && pointer.isDown) {
+      this.cameras.main.setScroll(this.pan.scrollX - (pointer.x - this.pan.x) / state.zoom, this.pan.scrollY - (pointer.y - this.pan.y) / state.zoom);
+      this.ghost.setVisible(false); this.footGhost.clear();
+      return;
+    }
+    const world = this.worldPoint(pointer); this.pointerInside = true; this.lastPointer = world;
+    if (this.drag && pointer.isDown) {
+      const placement = state.layout.placements.find(item => item.instance_id === this.drag.id);
+      if (!placement) { this.cancelDrag(); return; }
+      this.drag.moved ||= Math.hypot(pointer.x - this.drag.startX, pointer.y - this.drag.startY) > 4;
+      if (this.drag.moved) {
+        this.drag.tileX = Math.floor(world.x / 16) - this.drag.offsetX;
+        this.drag.tileY = Math.floor(world.y / 16) - this.drag.offsetY;
+        this.drag.error = validatePlacement(state.catalog, state.layout, placement.asset_id, this.drag.tileX, this.drag.tileY, placement.instance_id, this.player);
+        this.drag.valid = !this.drag.error;
+        const item = state.catalog.items.find(value => value.id === placement.asset_id);
+        this.objectImages.get(placement.instance_id).setPosition((this.drag.tileX + item.footprint.width / 2) * 16, (this.drag.tileY + item.footprint.height) * 16).setAlpha(.65).setTint(this.drag.valid ? 0xffffff : 0xef6666);
+      }
+    }
+    this.refreshGhost();
+  }
+
+  pointerUp() {
+    if (this.pan) { this.pan = null; return; }
+    if (!this.drag) return;
+    const drag = this.drag; this.drag = null;
+    if (drag.moved) {
+      if (drag.valid) {
+        const placement = state.layout.placements.find(item => item.instance_id === drag.id);
+        if (placement && (placement.tile_x !== drag.tileX || placement.tile_y !== drag.tileY)) { recordHistory(); placement.tile_x = drag.tileX; placement.tile_y = drag.tileY; markChanged(); }
+      } else notice(drag.error || '这里无法放置');
+    }
+    this.renderObjects();
+  }
+
+  cancelDrag() {
+    this.pan = null;
+    if (!this.drag) return;
+    const placement = state.layout?.placements.find(item => item.instance_id === this.drag.id);
+    this.drag = null;
+    if (placement) {
+      const item = state.catalog.items.find(value => value.id === placement.asset_id);
+      this.objectImages.get(placement.instance_id)?.setPosition((placement.tile_x + item.footprint.width / 2) * 16, (placement.tile_y + item.footprint.height) * 16).setAlpha(1).clearTint();
+    }
+    this.refreshGhost(); this.drawSelection();
+  }
+
+  refreshGhost() {
+    if (!this.ghost) return;
+    this.ghost.setVisible(false); this.footGhost.clear();
+    if (state.mode !== 'edit' || !this.pointerInside || !this.lastPointer) return;
+    let item, x, y, error;
+    if (this.drag?.moved) {
+      const placement = state.layout.placements.find(value => value.instance_id === this.drag.id);
+      item = state.catalog.items.find(value => value.id === placement.asset_id);
+      x = this.drag.tileX; y = this.drag.tileY; error = this.drag.error;
+    } else if (state.selectedAsset) {
+      item = state.catalog.items.find(value => value.id === state.selectedAsset);
+      ({ x, y } = this.placementPosition(this.lastPointer, item.id));
+      error = validatePlacement(state.catalog, state.layout, item.id, x, y, null, this.player);
+      this.ghost.setTexture(`item-${item.id}`).setDisplaySize(item.display_width, item.display_height).setPosition((x + item.footprint.width / 2) * 16, (y + item.footprint.height) * 16).setTint(error ? 0xef7777 : 0xffffff).setVisible(true);
+    }
+    if (!item) return;
+    this.footGhost.fillStyle(error ? 0xb94937 : 0x5a8a49, .25);
+    this.footGhost.lineStyle(1, error ? 0xf0a28a : 0xf5f3b2, .95);
+    this.footGhost.fillRect(x * 16, y * 16, item.footprint.width * 16, item.footprint.height * 16);
+    this.footGhost.strokeRect(x * 16, y * 16, item.footprint.width * 16, item.footprint.height * 16);
+  }
+
+  update(time, delta) {
+    if (!this.player || state.fatal) return;
+    const focusedControl = document.activeElement?.matches('input,textarea,select,[contenteditable]');
+    const enabled = state.mode === 'roam' && state.visible && state.hostActive && !document.hidden && !state.modal && !focusedControl;
+    let dx = 0, dy = 0;
+    if (enabled) {
+      dx = Number(this.keys.RIGHT.isDown || this.keys.D.isDown) - Number(this.keys.LEFT.isDown || this.keys.A.isDown);
+      dy = Number(this.keys.DOWN.isDown || this.keys.S.isDown) - Number(this.keys.UP.isDown || this.keys.W.isDown);
+    }
+    if (dx || dy) {
+      const distance = 68 * Math.min(delta, 50) / 1000 / Math.hypot(dx, dy);
+      const nextX = this.player.x + dx * distance, nextY = this.player.y + dy * distance;
+      if (playerCanStand(state.catalog, state.layout, nextX, this.player.y)) this.player.x = nextX;
+      if (playerCanStand(state.catalog, state.layout, this.player.x, nextY)) this.player.y = nextY;
+      const direction = Math.abs(dy) >= Math.abs(dx) && dy ? dy > 0 ? 'down' : 'up' : dx > 0 ? 'right' : 'left';
+      this.facing = direction; this.player.play(`walk-${direction}`, true);
+    } else { this.player.anims.stop(); this.player.setFrame(state.catalog.player.frames[this.facing][0]); }
+    this.syncPlayerDepth();
+    $('coordinates').textContent = `${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.y / 16)}`;
+    if (!reducedMotion.matches) this.water.tilePositionX = Math.floor(time / 700) % 16;
+  }
+}
+
+function setupControls() {
+  $('roam').addEventListener('click', () => { state.mode = 'roam'; state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.startFollow(state.scene.player, true, .12, .12, 0, 48); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
+  $('edit').addEventListener('click', () => { state.mode = 'edit'; clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
+  for (const button of document.querySelectorAll('[data-category]')) button.addEventListener('click', () => { state.category = button.dataset.category; renderMaterials(); });
+  $('stage').addEventListener('change', () => window.DeskBoxTownPrototype.setStage(Number($('stage').value)));
+  $('save').addEventListener('click', save);
+  $('delete').addEventListener('click', removeSelected);
+  $('undo').addEventListener('click', () => {
+    if (!state.history.length) return;
+    state.scene?.cancelDrag(); state.layout = state.history.pop(); state.selectedInstance = null; state.selectedAsset = null; markChanged();
+  });
+  $('reset').addEventListener('click', async () => {
+    if (!await confirmAction('恢复示例布局', '当前布置将替换为示例小镇。云端布局会在你点击“保存小镇”后更新。')) return;
+    recordHistory(); state.layout = clone(state.initial); state.selectedAsset = null; state.selectedInstance = null;
+    state.scene?.cancelDrag(); state.scene?.spawnPlayer(); markChanged(); notice('已恢复示例，尚未保存到云端');
+  });
+  $('reload').addEventListener('click', async () => {
+    if (!state.authenticated) { notice('请先在软件中登录'); return; }
+    if (state.dirty && !await confirmAction('重新载入云端布局', '尚未保存的修改将被云端布局替换。')) return;
+    host({ type: 'reloadRequested' });
+  });
+  $('help').addEventListener('click', () => { $('help-panel').hidden = !$('help-panel').hidden; $('help').setAttribute('aria-expanded', String(!$('help-panel').hidden)); });
+  window.addEventListener('blur', () => { clearKeys(); state.scene?.cancelDrag(); });
+  document.addEventListener('visibilitychange', () => { state.visible = !document.hidden; applyVisibility(); });
+  window.addEventListener('keydown', event => {
+    if (document.activeElement?.matches('input,textarea,select,[contenteditable]') || state.modal) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save(); return; }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $('undo').click(); return; }
+    if (state.mode === 'edit' && (event.key === 'Delete' || event.key === 'Backspace')) { event.preventDefault(); removeSelected(); }
+    if (event.key === 'Escape') { state.scene?.cancelDrag(); state.selectedAsset = null; state.selectedInstance = null; state.scene?.refreshGhost(); state.scene?.drawSelection(); updateUI(); }
+  });
+  window.addEventListener('pagehide', () => { clearKeys(); state.game?.destroy(true); });
+}
+
+async function readLocalJson(path) {
+  const response = await fetch(path, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`缺少本地资源：${path}`);
+  return await response.json();
+}
+
+async function boot() {
+  setupControls();
+  if (!window.Phaser || !Phaser.VERSION.startsWith('3.90.')) throw new Error('本地地图引擎未加载');
+  [state.catalog, state.initial] = await Promise.all([readLocalJson('catalog.json'), readLocalJson('default-layout.json')]);
+  if (state.catalog.version !== 1 || state.catalog.tile_size !== 16 || state.catalog.map_width !== 48 || state.catalog.map_height !== 48 || state.catalog.items.length !== 16 || state.catalog.tree_stages.length !== 5) throw new Error('素材目录版本或地图尺寸不兼容');
+  for (const asset of [...Object.values(state.catalog.terrain), state.catalog.player.asset, ...state.catalog.tree_stages.map(stage => stage.asset), ...state.catalog.items.map(item => item.asset)]) if (!/^sprites\/[a-zA-Z0-9_.-]+\.png$/.test(asset)) throw new Error('素材路径不在原型目录中');
+  const error = validateLayout(state.catalog, state.initial);
+  if (error) throw new Error(`示例布局无效：${error}`);
+  state.layout = clone(state.initial);
+  state.status = '登录后可保存小镇';
+  state.game = new Phaser.Game({
+    type: Phaser.AUTO, parent: 'game', backgroundColor: '#8bab56', pixelArt: true, roundPixels: true,
+    audio: { noAudio: true }, banner: false, antialias: false,
+    scale: { mode: Phaser.Scale.RESIZE, width: $('game').clientWidth, height: $('game').clientHeight },
+    input: { mouse: { preventDefaultWheel: true }, keyboard: true },
+    render: { pixelArt: true, roundPixels: true, antialias: false },
+    fps: { target: 60, smoothStep: true }, scene: TownScene
+  });
+}
+
+boot().catch(reportError);
