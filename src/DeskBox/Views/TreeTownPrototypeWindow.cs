@@ -170,10 +170,11 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     await PostAsync("applyChanges", _session.ChangesJson());
                     break;
                 case "townActionRequested":
-                    string actionResult = await _session.ExecuteActionAsync(
+                    _ = await _session.ExecuteActionAsync(
                         BuildActionPayload(message), epoch);
                     await PostAsync("setInventory", _session.InventoryJson());
-                    await PostAsync("applyChanges", actionResult);
+                    await _session.LoadChangesAsync(epoch);
+                    await PostAsync("applyChanges", _session.ChangesJson());
                     break;
                 case "presenceHeartbeat":
                     await _session.SendPresenceHeartbeatAsync(

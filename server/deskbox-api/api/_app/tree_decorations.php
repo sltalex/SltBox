@@ -374,6 +374,7 @@ function tree_decoration_draw_rewards(PDO $pdo, string $userId, int $count,
 {
     $catalog = tree_decoration_catalog(null, $assetVersion)['items'];
     $allowedIds = array_fill_keys(array_column($catalog, 'id'), true);
+    tree_decoration_lock_inventory($pdo, $userId);
     $owned = tree_decoration_inventory_quantities($pdo, $userId);
     $results = [];
     for ($draw = 0; $draw < $count; $draw++) {
@@ -448,7 +449,13 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
     if (!is_array($placements) || count($placements) > TREE_DECORATION_MAX_PLACEMENTS) {
         throw new ApiError('invalid_scene', 'Tree decoration scene is invalid.', 400);
     }
+    tree_decoration_lock_inventory($pdo, $userId);
     $owned = tree_decoration_inventory_quantities($pdo, $userId);
+    // Shared-town reservations are part of the same inventory pool.  Older
+    // databases may not have the migration yet; in that case this helper
+    // fails closed only for the shared feature and keeps the personal tree
+    // endpoint backwards compatible.
+    $sharedReserved = tree_decoration_shared_reservations($pdo, $userId);
     $normalized = [];
     $placedCounts = [];
     $placementIds = [];
@@ -458,7 +465,7 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
         $id = isset($placement['item_id']) && is_string($placement['item_id']) ? $placement['item_id'] : '';
         $item = tree_decoration_item($id);
         $placedCounts[$id] = ($placedCounts[$id] ?? 0) + 1;
-        if (!isset($owned[$id]) || $placedCounts[$id] > $owned[$id]) {
+        if (!isset($owned[$id]) || $placedCounts[$id] + ($sharedReserved[$id] ?? 0) > $owned[$id]) {
             throw new ApiError('invalid_scene', 'Placed decorations cannot exceed the owned quantity.', 400);
         }
         $placementId = $placement['placement_id'] ?? null;
@@ -483,6 +490,33 @@ function tree_decoration_save_scene(PDO $pdo, string $userId, array $body, DateT
     $pdo->prepare('UPDATE tree_decoration_profiles SET scene_json=:scene,active_theme_id=:theme,scene_version=scene_version+1,updated_at=:now WHERE user_id=:user')
         ->execute([':scene' => json_encode($normalized, JSON_THROW_ON_ERROR), ':theme' => null,
             ':now' => auth_sql_time($now), ':user' => $userId]);
+}
+
+/** @return array<string,int> */
+function tree_decoration_shared_reservations(PDO $pdo, string $userId): array
+{
+    try {
+        $query = $pdo->prepare('SELECT item_id,reserved_quantity FROM town_decoration_reservations WHERE user_id=:user');
+        $query->execute([':user' => $userId]);
+    } catch (PDOException) {
+        return [];
+    }
+    $result = [];
+    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $quantity = max(0, (int)$row['reserved_quantity']);
+        if ($quantity > 0) { $result[(string)$row['item_id']] = $quantity; }
+    }
+    return $result;
+}
+
+function tree_decoration_lock_inventory(PDO $pdo, string $userId): void
+{
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') { return; }
+    // Lock every current inventory row before validating a scene so a
+    // concurrent shared-town placement cannot spend the same quantity.
+    $query = $pdo->prepare('SELECT item_id FROM tree_decoration_inventory WHERE user_id=:user FOR UPDATE');
+    $query->execute([':user' => $userId]);
+    $query->fetchAll(PDO::FETCH_COLUMN);
 }
 
 function tree_decoration_number(array $body, string $key, float $minimum, float $maximum): float

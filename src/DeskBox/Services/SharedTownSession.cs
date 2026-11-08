@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
@@ -66,6 +65,7 @@ internal sealed class SharedTownSession : IDisposable
                 writer.WriteNumber("session_epoch", _epoch);
                 writer.WriteBoolean("authenticated", _identity is not null);
                 writer.WriteBoolean("enabled", _enabled);
+                if (_identity is not null) writer.WriteString("account_id", _identity);
                 writer.WriteString("account_label", _auth.CurrentUser?.Username ?? "未登录");
                 writer.WriteString("status", _status);
                 writer.WriteNumber("world_version", _worldVersion);
@@ -146,22 +146,26 @@ internal sealed class SharedTownSession : IDisposable
                 return false;
             }
             using HttpResponseMessage response = await SendAsync(
-                HttpMethod.Get, "../../v2/town/world", null, token);
+                HttpMethod.Get, "../../v2/town/world.php", null, token);
             string text = await response.Content.ReadAsStringAsync(token);
             using JsonDocument body = ParseObject(text, "town world");
-            bool enabled = body.RootElement.TryGetProperty("enabled", out JsonElement enabledElement) &&
+            bool enabled = response.IsSuccessStatusCode &&
+                body.RootElement.TryGetProperty("enabled", out JsonElement enabledElement) &&
                 enabledElement.ValueKind == JsonValueKind.True;
+            bool available;
             lock (_gate)
             {
                 if (!IsCurrentLocked(epoch)) return false;
                 _enabled = enabled && response.IsSuccessStatusCode;
-                _world = text;
-                _worldVersion = ReadLong(body.RootElement, "world_version");
+                _world = NormalizeWorld(body.RootElement, _enabled);
+                _worldVersion = ReadLongFromWorld(body.RootElement, "world_version");
                 _status = !_enabled ? "共享小镇尚未对当前账号开放" : "共享小镇已载入";
                 if (!_enabled && response.StatusCode == HttpStatusCode.Unauthorized)
                     _status = "请登录后查看共享小镇";
-                return _enabled;
+                available = _enabled;
             }
+            if (available) await LoadInventoryAsync(epoch);
+            return available;
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
             JsonException or InvalidDataException or AuthApiException)
@@ -211,20 +215,50 @@ internal sealed class SharedTownSession : IDisposable
         CancellationToken token;
         lock (_gate) { cursor = _cursor; token = _identityLifetime.Token; }
         using HttpResponseMessage response = await SendAsync(
-            HttpMethod.Get, $"../../v2/town/changes?cursor={cursor}", null, token);
+            HttpMethod.Get, $"../../v2/town/changes.php?cursor={cursor}", null, token);
         string text = await response.Content.ReadAsStringAsync(token);
         response.EnsureSuccessStatusCode();
         using JsonDocument document = ParseObject(text, "town changes");
         long next = ReadLong(document.RootElement, "cursor");
+        if (next == 0) next = ReadLong(document.RootElement, "next_cursor");
         lock (_gate)
         {
             if (IsCurrentLocked(epoch))
             {
                 _cursor = Math.Max(_cursor, next);
-                _lastChanges = text;
+                _lastChanges = NormalizeChanges(text, _cursor);
             }
         }
         return ChangesJson();
+    }
+
+    private async Task LoadInventoryAsync(long epoch)
+    {
+        CancellationToken token;
+        lock (_gate) token = _identityLifetime.Token;
+        try
+        {
+            using HttpResponseMessage response = await SendAsync(
+                HttpMethod.Get, "../tree/decorations/state.php", null, token);
+            if (!response.IsSuccessStatusCode) return;
+            string text = await response.Content.ReadAsStringAsync(token);
+            using JsonDocument document = ParseObject(text, "tree decoration inventory");
+            if (!document.RootElement.TryGetProperty("inventory", out JsonElement items) ||
+                items.ValueKind != JsonValueKind.Array) return;
+            string inventory = WriteJson(writer =>
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("items");
+                items.WriteTo(writer);
+                writer.WriteEndObject();
+            });
+            lock (_gate) { if (IsCurrentLocked(epoch)) _inventory = inventory; }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
+            JsonException or InvalidDataException or AuthApiException)
+        {
+            App.Log($"[SharedTown] Inventory load failed: {ex.GetType().Name}");
+        }
     }
 
     internal async Task<string> ExecuteActionAsync(string payload, long epoch)
@@ -247,10 +281,10 @@ internal sealed class SharedTownSession : IDisposable
         lock (_gate)
         {
             if (!IsCurrentLocked(epoch)) return ErrorJson("session_changed");
-            if (document.RootElement.TryGetProperty("world_version", out JsonElement version))
-                _worldVersion = ReadLong(version);
-            if (document.RootElement.TryGetProperty("cursor", out JsonElement cursor))
-                _cursor = Math.Max(_cursor, ReadLong(cursor));
+            _worldVersion = Math.Max(_worldVersion, ReadLongFromWorld(document.RootElement, "world_version"));
+            long actionCursor = ReadLong(document.RootElement, "cursor");
+            if (actionCursor == 0) actionCursor = ReadLong(document.RootElement, "change_cursor");
+            _cursor = Math.Max(_cursor, actionCursor);
             if (document.RootElement.TryGetProperty("inventory", out JsonElement inventory) && inventory.ValueKind == JsonValueKind.Object)
                 _inventory = inventory.GetRawText();
             _status = "已同步共享小镇变更";
@@ -271,7 +305,7 @@ internal sealed class SharedTownSession : IDisposable
         string text = await response.Content.ReadAsStringAsync(token);
         response.EnsureSuccessStatusCode();
         ParseObject(text, "town presence").Dispose();
-        lock (_gate) { if (IsCurrentLocked(epoch)) _presence = text; }
+        lock (_gate) { if (IsCurrentLocked(epoch)) _presence = NormalizePresence(text); }
         return PresenceJson();
     }
 
@@ -287,7 +321,7 @@ internal sealed class SharedTownSession : IDisposable
         string text = await response.Content.ReadAsStringAsync(token);
         response.EnsureSuccessStatusCode();
         ParseObject(text, "town presence").Dispose();
-        lock (_gate) { if (IsCurrentLocked(epoch)) _presence = text; }
+        lock (_gate) { if (IsCurrentLocked(epoch)) _presence = NormalizePresence(text); }
         return PresenceJson();
     }
 
@@ -302,17 +336,31 @@ internal sealed class SharedTownSession : IDisposable
         CancellationToken token;
         lock (_gate) token = _identityLifetime.Token;
         using HttpResponseMessage response = await SendAsync(
-            HttpMethod.Get, $"../../v2/town/chunks?chunk_x={x}&chunk_y={y}", null, token);
+            HttpMethod.Get, $"../../v2/town/chunks.php?chunk_x={x}&chunk_y={y}", null, token);
         string text = await response.Content.ReadAsStringAsync(token);
         response.EnsureSuccessStatusCode();
         using JsonDocument document = ParseObject(text, "town chunk");
-        long version = ReadLong(document.RootElement, "world_version");
-        string key = $"{x}:{y}";
+        long version = ReadLongFromWorld(document.RootElement, "world_version");
         lock (_gate)
         {
             if (!IsCurrentLocked(epoch)) return;
-            _chunks[key] = document.RootElement.TryGetProperty("chunk", out JsonElement chunk)
-                ? chunk.GetRawText() : text;
+            if (document.RootElement.TryGetProperty("chunk", out JsonElement chunk) &&
+                chunk.ValueKind == JsonValueKind.Object)
+            {
+                _chunks[$"{x}:{y}"] = chunk.GetRawText();
+            }
+            else if (document.RootElement.TryGetProperty("chunks", out JsonElement chunks) &&
+                chunks.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement value in chunks.EnumerateArray())
+                {
+                    if (value.ValueKind != JsonValueKind.Object) continue;
+                    int cx = value.TryGetProperty("chunk_x", out JsonElement xElement) && xElement.TryGetInt32(out int parsedX) ? parsedX : x;
+                    int cy = value.TryGetProperty("chunk_y", out JsonElement yElement) && yElement.TryGetInt32(out int parsedY) ? parsedY : y;
+                    _chunks[$"{cx}:{cy}"] = value.GetRawText();
+                }
+            }
+            else _chunks[$"{x}:{y}"] = text;
             _worldVersion = Math.Max(_worldVersion, version);
         }
     }
@@ -425,6 +473,81 @@ internal sealed class SharedTownSession : IDisposable
 
     private static long ReadLong(JsonElement value) => value.TryGetInt64(out long number) && number >= 0 ? number : 0;
 
+    private static long ReadLongFromWorld(JsonElement root, string property)
+    {
+        long value = ReadLong(root, property);
+        if (value != 0) return value;
+        return root.TryGetProperty("world", out JsonElement world) && world.ValueKind == JsonValueKind.Object
+            ? ReadLong(world, property) : 0;
+    }
+
+    private static string NormalizeWorld(JsonElement root, bool enabled)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteBoolean("enabled", enabled);
+            if (root.TryGetProperty("world", out JsonElement world) && world.ValueKind == JsonValueKind.Object)
+            {
+                foreach (JsonProperty property in world.EnumerateObject()) property.WriteTo(writer);
+            }
+            foreach (JsonProperty property in root.EnumerateObject())
+            {
+                if (property.NameEquals("world") || property.NameEquals("enabled")) continue;
+                property.WriteTo(writer);
+            }
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static string NormalizePresence(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object) return "{\"players\":[]}";
+        if (document.RootElement.TryGetProperty("players", out _)) return json;
+        return WriteJson(writer =>
+        {
+            writer.WriteStartObject();
+            foreach (JsonProperty property in document.RootElement.EnumerateObject()) property.WriteTo(writer);
+            if (document.RootElement.TryGetProperty("presence", out JsonElement presence))
+            {
+                writer.WritePropertyName("players");
+                presence.WriteTo(writer);
+            }
+            else
+            {
+                writer.WritePropertyName("players");
+                writer.WriteStartArray();
+                writer.WriteEndArray();
+            }
+            writer.WriteEndObject();
+        });
+    }
+
+    private static string NormalizeChanges(string json, long cursor)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return WriteJson(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("cursor", cursor);
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                if (property.NameEquals("cursor") || property.NameEquals("next_cursor")) continue;
+                property.WriteTo(writer);
+            }
+            if (!document.RootElement.TryGetProperty("changes", out _))
+            {
+                writer.WritePropertyName("changes");
+                writer.WriteStartArray();
+                writer.WriteEndArray();
+            }
+            writer.WriteEndObject();
+        });
+    }
+
     private static string ErrorJson(string code, string? response = null)
     {
         if (response is not null) return response;
@@ -467,4 +590,3 @@ internal sealed class SharedTownSession : IDisposable
         _auth.SessionChanged -= OnSessionChanged;
     }
 }
-#endif
