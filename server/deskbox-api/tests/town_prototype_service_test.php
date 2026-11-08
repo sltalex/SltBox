@@ -70,12 +70,13 @@ $before = town_snapshot_other_tables($pdo);
 $catalog = town_prototype_catalog();
 town_expect(count($catalog['items']) === 16 && count($catalog['by_id']) === 16,
     'The isolated demo catalog contains sixteen distinct materials.');
-town_expect(file_get_contents(dirname(__DIR__) . '/config/town-prototype-catalog.json')
-    === file_get_contents(dirname(__DIR__, 3) . '/src/DeskBox/Assets/Tree/TownPrototype/catalog.json'),
-    'Client and server catalog documents are byte-identical.');
-town_expect(file_get_contents(dirname(__DIR__) . '/config/town-prototype-default.json')
-    === file_get_contents(dirname(__DIR__, 3) . '/src/DeskBox/Assets/Tree/TownPrototype/default-layout.json'),
-    'Client and server default layouts are byte-identical.');
+// The public v1 endpoints are retired after the shared-town migration. Keep
+// these service checks for rollback compatibility, but do not compare their
+// old 48x48 demo assets with the active shared-town client catalog.
+town_expect(is_array(json_decode(file_get_contents(dirname(__DIR__) . '/config/town-prototype-catalog.json'), true)),
+    'The retired service catalog remains valid for rollback tooling.');
+town_expect(is_array(json_decode(file_get_contents(dirname(__DIR__) . '/config/town-prototype-default.json'), true)),
+    'The retired service default layout remains valid for rollback tooling.');
 $initial = town_prototype_read_state($pdo, $firstId);
 town_expect($initial['scene_version'] === 0 && $initial['updated_at'] === null
     && count($initial['layout']['placements']) === 16, 'An unsaved account gets the complete example layout.');
