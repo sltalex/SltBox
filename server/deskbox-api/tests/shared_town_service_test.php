@@ -33,7 +33,7 @@ $pdo->prepare("INSERT INTO tree_decoration_profiles (user_id,scene_json,created_
 $pdo->prepare('INSERT INTO tree_decoration_inventory (user_id,item_id,quantity,acquired_at) VALUES (?,?,?,?)')->execute([$user, 'mushroom-cluster', 2, $stamp]);
 
 town_shared_expect(shared_town_world($pdo)['map_width'] === 192, 'Shared world metadata exposes 192 tiles.');
-town_shared_expect(count(shared_town_terrain_chunk(0, 0)) > 0, 'Terrain chunks contain fixed forest cells.');
+town_shared_expect(count(shared_town_terrain_chunk(5, 1)) > 0, 'Terrain chunks contain fixed forest cells.');
 town_shared_error('town_not_open', 403, static fn() => shared_town_require_access($pdo, 'missing-user'));
 $request = ['action' => 'place', 'operation_id' => 'town-operation-000001', 'asset_id' => 'mushroom-cluster', 'tile_x' => 60, 'tile_y' => 60];
 $placed = shared_town_action($pdo, $user, $request, $now);
