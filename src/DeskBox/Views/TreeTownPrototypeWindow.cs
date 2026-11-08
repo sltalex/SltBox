@@ -1,4 +1,5 @@
 #if DEBUG
+using System.Text;
 using System.Text.Json;
 using DeskBox.Contracts;
 using DeskBox.Services;
@@ -23,7 +24,10 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
         HorizontalAlignment = HorizontalAlignment.Center
     };
-    private readonly TownPrototypeSession _session;
+    // Shared town state is global (main world), unlike the old account-scoped
+    // prototype session.  The session still exposes the small compatibility
+    // surface used by the optional native probe.
+    private readonly SharedTownSession _session;
     private bool _ready;
     private bool _closed;
     private bool _allowClose;
@@ -52,12 +56,9 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     private TreeTownPrototypeWindow()
     {
         Title = "小镇预览 · 实验";
-        string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Tree", "TownPrototype");
-        string defaultLayout = File.ReadAllText(Path.Combine(assets, "default-layout.json"));
-        _session = new TownPrototypeSession(
+        _session = new SharedTownSession(
             App.Current.Services.GetRequiredService<IAuthSession>(),
-            App.Current.Services.GetRequiredService<IAuthenticatedAccountApi>(),
-            defaultLayout, Path.Combine(DeskBoxDataPathService.Current.DataDirectory, "cache", "town-prototype"));
+            App.Current.Services.GetRequiredService<IAuthenticatedAccountApi>());
         _root.Children.Add(_web);
         _root.Children.Add(_message);
         Content = _root;
@@ -144,9 +145,9 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             {
                 _ready = true;
                 _message.Visibility = Visibility.Collapsed;
-                await PostAsync("loadState", _session.BridgeJson());
-                await _session.LoadAsync();
-                App.Log("[TownPrototype] Local map ready.");
+                await _session.LoadWorldAsync();
+                await PostSharedStateAsync();
+                App.Log("[SharedTown] Local map ready.");
                 _ = RunOptionalProbeAsync();
                 return;
             }
@@ -160,15 +161,43 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 !identity.TryGetInt64(out long epoch) || epoch != _session.Epoch) return;
             switch (type)
             {
+                case "viewportChanged":
+                    await _session.LoadChunksAsync(message.GetRawText(), epoch);
+                    await PostAsync("setChunks", _session.ChunksJson());
+                    break;
+                case "changesRequested":
+                    await _session.LoadChangesAsync(epoch);
+                    await PostAsync("applyChanges", _session.ChangesJson());
+                    break;
+                case "townActionRequested":
+                    string actionResult = await _session.ExecuteActionAsync(
+                        BuildActionPayload(message), epoch);
+                    await PostAsync("setInventory", _session.InventoryJson());
+                    await PostAsync("applyChanges", actionResult);
+                    break;
+                case "presenceHeartbeat":
+                    await _session.SendPresenceHeartbeatAsync(
+                        message.GetProperty("payload").GetRawText(), epoch);
+                    await PostAsync("setPresence", _session.PresenceJson());
+                    break;
+                case "presenceRequested":
+                    string? query = message.TryGetProperty("query", out JsonElement queryElement) &&
+                        queryElement.ValueKind == JsonValueKind.String ? queryElement.GetString() : null;
+                    await _session.LoadPresenceAsync(query, epoch);
+                    await PostAsync("setPresence", _session.PresenceJson());
+                    break;
                 case "layoutChanged":
-                    _session.UpdateLayout(message.GetProperty("layout").GetRawText(), epoch);
+                    // Legacy prototype messages are ignored by the shared world;
+                    // this keeps an older cached page from mutating cloud state.
+                    _session.UpdateLayout(string.Empty, epoch);
                     break;
                 case "saveRequested":
-                    if (_session.UpdateLayout(message.GetProperty("layout").GetRawText(), epoch))
-                        await _session.SaveAsync(epoch);
+                    // Shared actions are committed on each placement/move/delete.
+                    await PostAsync("setWorld", _session.WorldJson());
                     break;
                 case "reloadRequested":
-                    await _session.LoadAsync(discardDraft: true);
+                    await _session.LoadWorldAsync();
+                    await PostSharedStateAsync();
                     break;
             }
         }
@@ -181,8 +210,40 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         DispatcherQueue.TryEnqueue(async () =>
         {
             if (!_closed && _ready)
-                await PostAsync(replaceLayout ? "loadState" : "setSaveStatus", _session.BridgeJson());
+                await PostSharedStateAsync();
         });
+    }
+
+    private async Task PostSharedStateAsync()
+    {
+        if (_closed || !_ready) return;
+        await PostAsync("setWorld", _session.WorldJson());
+        await PostAsync("setChunks", _session.ChunksJson());
+        await PostAsync("setInventory", _session.InventoryJson());
+        await PostAsync("setPresence", _session.PresenceJson());
+    }
+
+    private static string BuildActionPayload(JsonElement message)
+    {
+        if (!message.TryGetProperty("payload", out JsonElement payload) ||
+            payload.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("Shared town action payload is missing.");
+        using JsonDocument copy = JsonDocument.Parse(payload.GetRawText());
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            if (message.TryGetProperty("action", out JsonElement action) &&
+                action.ValueKind == JsonValueKind.String)
+                writer.WriteString("action", action.GetString());
+            foreach (JsonProperty property in copy.RootElement.EnumerateObject())
+            {
+                if (property.NameEquals("action")) continue;
+                property.WriteTo(writer);
+            }
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     private async Task PostAsync(string method, string json)
