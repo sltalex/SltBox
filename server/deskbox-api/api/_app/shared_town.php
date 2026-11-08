@@ -322,7 +322,7 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
                 shared_town_lock_inventory($pdo, $userId, $assetId);
                 $pdo->prepare('UPDATE town_objects SET deleted_at=:deleted,updated_at=:updated WHERE object_id=:id')->execute([':deleted' => auth_sql_time($now), ':updated' => auth_sql_time($now), ':id' => $objectId]);
                 shared_town_adjust_reservation($pdo, $userId, $assetId, -1, $now); $cursor = shared_town_change($pdo, $row, 'delete', $now);
-                $response = ['action' => 'delete', 'object_id' => $objectId, 'change_cursor' => $cursor];
+                $response = ['action' => 'delete', 'object_id' => $objectId, 'deleted_object_id' => $objectId, 'change_cursor' => $cursor];
             } else {
                 if (!is_int($body['tile_x'] ?? null) || !is_int($body['tile_y'] ?? null)) { throw new ApiError('invalid_position', 'A tile position is required.', 400); }
                 $item = $catalog['by_id'][$assetId] ?? ['footprint' => ['width' => 1, 'height' => 1]]; $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
