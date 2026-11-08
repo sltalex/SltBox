@@ -9,7 +9,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     api_run('POST', static function (PDO $pdo): array {
         $actor = account_authenticated_user($pdo, 'api_clock');
         shared_town_require_access($pdo, (string)$actor['user_id']);
-        return ['ok' => true, 'presence' => shared_town_presence_upsert($pdo, (string)$actor['user_id'], api_body(4096, false, 4096), api_clock())];
+        $body = api_body(4096, false, 4096);
+        $self = shared_town_presence_upsert($pdo, (string)$actor['user_id'], $body, api_clock());
+        $visible = shared_town_presence($pdo, (int)$self['chunk_x'], (int)$self['chunk_y']);
+        return ['ok' => true, 'presence' => $visible['presence'], 'self' => $self];
     });
 }
 api_run('GET', static function (PDO $pdo): array {
