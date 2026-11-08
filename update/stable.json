@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026110701",
-  "releaseDate": "2026-11-07",
+  "version": "2026110801",
+  "releaseDate": "2026-11-08",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026110701/SltBox_Setup_2026110701_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026110701_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026110801/SltBox_Setup_2026110801_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026110801_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "7c13b4ff288ebcb5efc63752bd70f583617c00975b89e0b6394b7bccd4e0961d",
-  "size": 156736074,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026110701",
+  "sha256": "44fa8413a78526207748f310759d2f856b95e394489ac49ba0667ba06d07e484",
+  "size": 156768511,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026110801",
   "summary": {
-    "zh-CN": "SltBox 2026110701：新增 30 款花草植物装饰、到访摘果和默认关闭的水族馆桌面背景；同步校准增加 20 秒倒计时与最多 3 次重试，修复到访果实显示、2D 天空云层与闪帧，完善动物图鉴及快捷方式拖动排列。",
-    "en-US": "SltBox 2026110701 adds 30 flora decorations, fruit picking during tree visits and optional aquarium wallpaper; bounds manual tree calibration with a 20-second countdown and up to three retries, addresses 2D clouds and flashing, and improves wildlife details and shortcut reordering."
+    "zh-CN": "SltBox 2026110801：果实按品类累加，本人一次采摘整类果实；新增网页后台产果能量与数量范围设置，完善离线及跨设备同步，到访果实数量只显示数字。",
+    "en-US": "SltBox 2026110801 groups fruit by type and harvests an entire type at once, adds administrator settings for fruit energy cost and batch quantity, improves offline and cross-device state reconciliation, and simplifies fruit counts during visits."
   }
 }
