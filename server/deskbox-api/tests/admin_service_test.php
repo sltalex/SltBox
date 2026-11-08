@@ -72,6 +72,16 @@ admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_tree_dec
 $shop = admin_read($pdo, $adminId, 'shop', [], $clock);
 check($shop['tree_card_pack_single_price'] === 260 && $shop['tree_card_pack_ten_price'] === 2300,
     'The administrator can save independent one-draw and ten-draw tree pack prices.');
+admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_tree_fruit_settings',
+    'energy_cost' => 4500, 'min_batch' => 2, 'max_batch' => 7], $clock);
+$fruitSettings = admin_read($pdo, $adminId, 'tree_fruit_settings', [], $clock);
+check($fruitSettings['energy_cost'] === 4500 && $fruitSettings['min_batch'] === 2
+    && $fruitSettings['max_batch'] === 7, 'Tree fruit generation parameters can be changed by the administrator.');
+fails('invalid_tree_fruit_settings', static fn() => admin_mutate($pdo, $adminId,
+    ['target_id' => $adminId, 'action' => 'set_tree_fruit_settings',
+        'energy_cost' => 4500, 'min_batch' => 8, 'max_batch' => 7], $clock));
+admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_tree_fruit_settings',
+    'energy_cost' => 3000, 'min_batch' => 1, 'max_batch' => 5], $clock);
 admin_mutate($pdo, $adminId, ['target_id' => $adminId, 'action' => 'set_aquarium_card_pack_price',
     'card_pack_price' => 200], $clock);
 admin_mutate($pdo, $adminId, $common + ['action' => 'disable'], $clock);
@@ -146,6 +156,6 @@ admin_mutate($pdo, $adminId, $common + ['action' => 'delete_user',
     'confirm_username' => 'second_user', 'admin_password' => 'secret1'], $clock);
 check((int)$pdo->query('SELECT COUNT(*) FROM auth_users')->fetchColumn() === 1, 'Account deleted.');
 check((int)$pdo->query("SELECT COUNT(*) FROM auth_sessions WHERE user_id = '{$memberId}'")->fetchColumn() === 0, 'Deleted sessions cascade.');
-check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 21, 'Operations and failures audited.');
-check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 7, 'Failed operations are audited.');
+check((int)$pdo->query('SELECT COUNT(*) FROM admin_audit')->fetchColumn() === 24, 'Operations and failures audited.');
+check((int)$pdo->query("SELECT COUNT(*) FROM admin_audit WHERE result = 'failed'")->fetchColumn() === 8, 'Failed operations are audited.');
 echo "admin_service_test: ok\n";

@@ -24,6 +24,7 @@ internal sealed class TreeProgressFileStore(string path)
                         TotalEnergy: >= 0,
                         TodayKeys: >= 0,
                         HighestStage: >= 1 and <= 5,
+                        FruitCost: > 0,
                         FruitInventory: >= 0,
                         HarvestedFruit: >= 0,
                         FruitEnergy: >= 0

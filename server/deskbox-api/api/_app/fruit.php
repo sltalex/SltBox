@@ -159,15 +159,17 @@ function fruit_weighted_pick(PDO $pdo): ?array
     $items=$pdo->query('SELECT * FROM fruit_catalog WHERE enabled=1 AND probability>0 ORDER BY id')->fetchAll(PDO::FETCH_ASSOC); $total=array_sum(array_map(fn($x)=>(float)$x['probability'],$items)); if($total<=0)return null; $needle=(random_int(0,PHP_INT_MAX)/PHP_INT_MAX)*$total; foreach($items as $item){$needle-=(float)$item['probability'];if($needle<=0)return $item;} return $items[array_key_last($items)]??null;
 }
 
-function fruit_record_spawn(PDO $pdo,string $userId,int $quantity,DateTimeImmutable $now,bool $batchRewards=false): int
+function fruit_record_spawn(PDO $pdo,string $userId,int $quantity,DateTimeImmutable $now,
+    bool $batchRewards=false,int $minBatch=1,int $maxBatch=5): int
 {
     if($quantity<=0)return 0;
+    if($minBatch<1||$maxBatch<$minBatch||$maxBatch>1000)throw new InvalidArgumentException('Invalid fruit batch range.');
     $insert=$pdo->prepare('INSERT INTO user_fruit_pending (user_id,fruit_id,created_at) VALUES (:user,:fruit,:created)');
     $spawned=0;
     for($i=0;$i<$quantity;$i++){
         $item=fruit_weighted_pick($pdo);
         if(!$item)throw new ApiError('fruit_catalog_unavailable','No enabled fruit is available.',503);
-        $batch=$batchRewards?random_int(1,5):1;
+        $batch=$batchRewards?random_int($minBatch,$maxBatch):1;
         for($unit=0;$unit<$batch;$unit++){
             $insert->execute([':user'=>$userId,':fruit'=>$item['id'],':created'=>auth_sql_time($now)]);
         }

@@ -54,7 +54,7 @@ internal sealed partial class TreeVisitSceneView : UserControl
                 (double x, double y) = TreeIllustrationLayout.FruitPositionAt(group.PositionIndex);
                 string fruitId = group.FruitId;
                 _fruitQuantities[fruitId] = group.Quantity;
-                var image = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(fruitId), group.Quantity);
+                var image = TreeFruitBadge.CreateForVisit(FruitAssetCatalog.GetImageSource(fruitId), group.Quantity);
                 if (fruitPicker is null)
                 {
                     Canvas.SetLeft(image, x);
@@ -64,7 +64,7 @@ internal sealed partial class TreeVisitSceneView : UserControl
                 }
                 var fruit = new Button
                 {
-                    Width = 32, Height = 36, Padding = new Thickness(4),
+                    Width = 32, Height = 40, Padding = new Thickness(2),
                     MinWidth = 0, MinHeight = 0, Content = image,
                     Background = new SolidColorBrush(Colors.Transparent),
                     BorderBrush = new SolidColorBrush(Colors.Transparent),
@@ -176,7 +176,7 @@ internal sealed partial class TreeVisitSceneView : UserControl
     {
         _fruitQuantities[fruitId] = Math.Max(0, quantity);
         if (!_fruitButtons.TryGetValue(fruitId, out Button? button)) return;
-        button.Content = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(fruitId), quantity);
+        button.Content = TreeFruitBadge.CreateForVisit(FruitAssetCatalog.GetImageSource(fruitId), quantity);
         button.Visibility = quantity > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 

@@ -116,6 +116,17 @@ CREATE TABLE tree_progress_operations (
     FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE tree_fruit_settings (
+    id INTEGER PRIMARY KEY,
+    energy_cost INTEGER NOT NULL DEFAULT 3000 CHECK (energy_cost > 0),
+    min_batch INTEGER NOT NULL DEFAULT 1 CHECK (min_batch > 0),
+    max_batch INTEGER NOT NULL DEFAULT 5 CHECK (max_batch >= min_batch),
+    updated_by TEXT NULL,
+    updated_at TEXT NOT NULL
+);
+INSERT INTO tree_fruit_settings (id, energy_cost, min_batch, max_batch, updated_at)
+VALUES (1, 3000, 1, 5, '2026-01-01 00:00:00');
+
 CREATE TABLE dingtalk_group_document_favorites (
     user_id TEXT PRIMARY KEY,
     document_urls_json TEXT NOT NULL,

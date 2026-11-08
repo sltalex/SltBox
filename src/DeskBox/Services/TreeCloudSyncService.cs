@@ -246,7 +246,8 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
 
     private static TreeStateDto InitialBaseline(TreeStateDto cloud) =>
         cloud.TotalEnergy == 0 && cloud.FruitTotal == 0 && cloud.HarvestedTotal == 0
-            ? new TreeStateDto { Day = cloud.Day, TodayGrowth = 0, TotalEnergy = 0, FruitEnergy = 0, FruitTotal = 0, HarvestedTotal = 0 }
+            ? new TreeStateDto { Day = cloud.Day, FruitCost = cloud.FruitCost, TodayGrowth = 0,
+                TotalEnergy = 0, FruitEnergy = 0, FruitTotal = 0, HarvestedTotal = 0 }
             : cloud;
 
     private static bool IsEmpty(TreeProgress progress) => progress.TotalEnergy == 0 && progress.TodayKeys == 0
@@ -282,7 +283,7 @@ internal sealed class TreeCloudSyncService : IAsyncDisposable
                     (submitted.LocalDay == latest.LocalDay ? submitted.TodayKeys : 0)) : 0));
             const long maturity = 4L * TreeProgress.StageEnergyInterval;
             long matureExtra = Math.Max(0, merged.TotalEnergy - Math.Max(cloud.TotalEnergy, maturity));
-            merged.FruitEnergy = (cloud.FruitEnergy + matureExtra) % TreeProgress.CloudFruitCost;
+            merged.FruitEnergy = (cloud.FruitEnergy + matureExtra) % Math.Max(1, cloud.FruitCost);
         });
     }
 

@@ -25,6 +25,13 @@ function admin_read(PDO $pdo, string $actorId, string $view, array $query, calla
             'tree_card_pack_ten_price' => (int)($row['tree_card_pack_ten_price'] ?? 1800),
             'updated_by' => $row['updated_by'] ?? null, 'updated_at' => $row['updated_at'] ?? null];
     }
+    if ($view === 'tree_fruit_settings') {
+        $settings = tree_fruit_settings($pdo);
+        $row = $pdo->query('SELECT updated_by, updated_at FROM tree_fruit_settings WHERE id = 1')
+            ->fetch(PDO::FETCH_ASSOC);
+        return $settings + ['updated_by' => is_array($row) ? ($row['updated_by'] ?? null) : null,
+            'updated_at' => is_array($row) ? ($row['updated_at'] ?? null) : null];
+    }
     if ($view === 'overview') {
         $metrics = [
             'users' => 'SELECT COUNT(*) FROM auth_users',
@@ -103,7 +110,7 @@ function admin_read(PDO $pdo, string $actorId, string $view, array $query, calla
     $fruitTotal = (int)($treeProfile['fruit_total'] ?? 0);
     $harvested = (int)($treeProfile['harvested_total'] ?? 0);
     $treeState = ['day' => $day, 'state_version' => (int)($treeProfile['state_version'] ?? 0),
-        'fruit_cost' => TREE_FRUIT_COST, 'today_growth' => $growth,
+        'fruit_cost' => tree_fruit_settings($pdo)['energy_cost'], 'today_growth' => $growth,
         'total_energy' => (int)($treeProfile['total_energy'] ?? 0), 'stage' => (int)($treeProfile['stage'] ?? 1),
         'fruit_energy' => (int)($treeProfile['fruit_energy'] ?? 0),
         'fruit_inventory' => max(0, $fruitTotal - $harvested),
@@ -141,7 +148,7 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
     $reason = $reason === '' ? 'admin_ui' : $reason;
     $allowed = ['disable', 'enable', 'update_user', 'revoke_session', 'revoke_all_sessions', 'delete_user',
         'delete_backup', 'tree_correct', 'tree_reset', 'unlink_dingtalk', 'set_aquarium_coins',
-        'set_aquarium_card_pack_price', 'set_tree_decoration_card_pack_prices'];
+        'set_aquarium_card_pack_price', 'set_tree_decoration_card_pack_prices', 'set_tree_fruit_settings'];
     if (!in_array($action, $allowed, true)) { throw new ApiError('invalid_action', 'Unknown action.', 400); }
     if ($action === 'delete_user') {
         auth_rate_limit($pdo, 'admin_delete', hash('sha256', $actorId), 5, 900, $clock);
@@ -202,6 +209,9 @@ function admin_mutate(PDO $pdo, string $actorId, array $body, callable $clock): 
         } elseif ($action === 'set_tree_decoration_card_pack_prices') {
             if ($targetId !== $actorId) { throw new ApiError('invalid_target', 'Shop price changes must target the administrator.', 400); }
             $details = admin_set_tree_decoration_card_pack_prices($pdo, $actorId, $body, $now, $driver);
+        } elseif ($action === 'set_tree_fruit_settings') {
+            if ($targetId !== $actorId) { throw new ApiError('invalid_target', 'Tree fruit settings must target the administrator.', 400); }
+            $details = admin_set_tree_fruit_settings($pdo, $actorId, $body, $now);
         } else {
             $details = admin_change_tree($pdo, $targetId, $action, $body, $now, $driver);
         }
@@ -282,6 +292,29 @@ function admin_set_tree_decoration_card_pack_prices(PDO $pdo, string $actorId, a
     return ['tree_card_pack_single_price' => $singlePrice, 'tree_card_pack_ten_price' => $tenPrice];
 }
 
+function admin_set_tree_fruit_settings(PDO $pdo, string $actorId, array $body,
+    DateTimeImmutable $now): array
+{
+    $energyCost = $body['energy_cost'] ?? null;
+    $minBatch = $body['min_batch'] ?? null;
+    $maxBatch = $body['max_batch'] ?? null;
+    if (!is_int($energyCost) || $energyCost < 1 || $energyCost > 1000000000
+        || !is_int($minBatch) || $minBatch < 1 || $minBatch > 1000
+        || !is_int($maxBatch) || $maxBatch < $minBatch || $maxBatch > 1000) {
+        throw new ApiError('invalid_tree_fruit_settings', 'Tree fruit settings are outside the allowed range.', 400);
+    }
+    $update = $pdo->prepare('UPDATE tree_fruit_settings SET energy_cost = :cost, min_batch = :minimum, '
+        . 'max_batch = :maximum, updated_by = :actor, updated_at = :now WHERE id = 1')
+        ;
+    $update->execute([':cost' => $energyCost, ':minimum' => $minBatch, ':maximum' => $maxBatch,
+        ':actor' => $actorId, ':now' => auth_sql_time($now)]);
+    if ($update->rowCount() === 0) {
+        $exists = (int)$pdo->query('SELECT COUNT(*) FROM tree_fruit_settings WHERE id = 1')->fetchColumn();
+        if ($exists === 0) throw new RuntimeException('Tree fruit settings row is missing.');
+    }
+    return ['energy_cost' => $energyCost, 'min_batch' => $minBatch, 'max_batch' => $maxBatch];
+}
+
 function admin_set_aquarium_coins(PDO $pdo, string $userId, array $body,
     DateTimeImmutable $now, string $driver): array
 {
@@ -355,13 +388,14 @@ function admin_change_tree(PDO $pdo, string $userId, string $action, array $body
     $fruitEnergy = $action === 'tree_reset' ? 0 : data_nonnegative_int($body, 'fruit_energy');
     $fruitTotal = $action === 'tree_reset' ? 0 : data_nonnegative_int($body, 'fruit_total');
     $harvested = $action === 'tree_reset' ? 0 : data_nonnegative_int($body, 'harvested_total');
-    if ($growth > $energy || $fruitEnergy >= TREE_FRUIT_COST || $harvested > $fruitTotal) {
+    $fruitCost = tree_fruit_settings($pdo)['energy_cost'];
+    if ($growth > $energy || $fruitEnergy >= $fruitCost || $harvested > $fruitTotal) {
         throw new ApiError('invalid_state', 'Tree state is inconsistent.', 400);
     }
     $fruitBudget = max(0, $energy - 144000);
-    if ($fruitTotal > intdiv($fruitBudget, TREE_FRUIT_COST)
-        || ($fruitTotal === intdiv($fruitBudget, TREE_FRUIT_COST)
-            && $fruitEnergy > $fruitBudget % TREE_FRUIT_COST)) {
+    if ($fruitTotal > intdiv($fruitBudget, $fruitCost)
+        || ($fruitTotal === intdiv($fruitBudget, $fruitCost)
+            && $fruitEnergy > $fruitBudget % $fruitCost)) {
         throw new ApiError('invalid_state', 'Fruit exceeds post-maturity energy.', 400);
     }
     $update = $pdo->prepare('UPDATE tree_profiles SET total_energy = :energy, stage = :stage, '

@@ -2,9 +2,24 @@
 declare(strict_types=1);
 
 const TREE_FRUIT_COST = 3000;
+const TREE_FRUIT_MIN_BATCH = 1;
+const TREE_FRUIT_MAX_BATCH = 5;
 const TREE_STAGE_INTERVAL = 36000;
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
+
+function tree_fruit_settings(PDO $pdo): array
+{
+    $row = $pdo->query('SELECT energy_cost, min_batch, max_batch FROM tree_fruit_settings WHERE id = 1')
+        ->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) {
+        return ['energy_cost' => TREE_FRUIT_COST, 'min_batch' => TREE_FRUIT_MIN_BATCH,
+            'max_batch' => TREE_FRUIT_MAX_BATCH];
+    }
+    return ['energy_cost' => max(1, (int)$row['energy_cost']),
+        'min_batch' => max(1, (int)$row['min_batch']),
+        'max_batch' => max((int)$row['min_batch'], (int)$row['max_batch'])];
+}
 
 const ACCOUNT_BACKUP_MAX_FILES = 128;
 const ACCOUNT_BACKUP_MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -323,11 +338,13 @@ function tree_apply_progress(PDO $pdo, string $userId, array $body, callable $cl
             $fruitEnergy = (int)$lockedProfile['fruit_energy'];
             $maturity = 4 * TREE_STAGE_INTERVAL;
             $newFruitEnergy = $fruitEnergy + max(0, $afterEnergy - max($beforeEnergy, $maturity));
-            $spawnCount = intdiv($newFruitEnergy,TREE_FRUIT_COST);
+            $fruitSettings = tree_fruit_settings($pdo);
+            $spawnCount = intdiv($newFruitEnergy, $fruitSettings['energy_cost']);
             // Client fruit counters are legacy estimates. Only energy creates fruit;
             // picks use their own idempotent transactions, never uploaded counters.
-            $spawned = fruit_record_spawn($pdo,$userId,$spawnCount,$now,true);
-            $newFruitEnergy %= TREE_FRUIT_COST;
+            $spawned = fruit_record_spawn($pdo, $userId, $spawnCount, $now, true,
+                $fruitSettings['min_batch'], $fruitSettings['max_batch']);
+            $newFruitEnergy %= $fruitSettings['energy_cost'];
             $update = $pdo->prepare(
                 'UPDATE tree_profiles SET total_energy = total_energy + :energy, fruit_total = fruit_total + :fruit, '
                 . 'harvested_total = harvested_total + :harvested, fruit_energy = :fruit_energy, '
@@ -370,7 +387,7 @@ function tree_read_state(PDO $pdo, string $userId, string $day): array
     return [
         'day' => $day,
         'state_version' => (int)$row['state_version'],
-        'fruit_cost' => TREE_FRUIT_COST,
+        'fruit_cost' => tree_fruit_settings($pdo)['energy_cost'],
         'today_growth' => (int)($daily->fetchColumn() ?: 0),
         'total_energy' => (int)$row['total_energy'],
         'stage' => (int)$row['stage'],
@@ -399,7 +416,7 @@ function tree_apply_state(PDO $pdo, string $userId, array $body, callable $clock
     $serverDay = $now->format('Y-m-d');
     if ($day !== $serverDay) { throw new ApiError('state_conflict', 'The state day is stale.', 409); }
     if ($stage < 1 || $stage > 5 || $stage !== tree_stage($totalEnergy)) { throw new ApiError('invalid_state', 'Tree stage does not match total energy.', 400); }
-    if ($todayGrowth > $totalEnergy || $fruitEnergy >= TREE_FRUIT_COST || $harvested > $fruitTotal) { throw new ApiError('invalid_state', 'Tree fruit or growth state is invalid.', 400); }
+    if ($todayGrowth > $totalEnergy || $fruitEnergy >= tree_fruit_settings($pdo)['energy_cost'] || $harvested > $fruitTotal) { throw new ApiError('invalid_state', 'Tree fruit or growth state is invalid.', 400); }
     $driver = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     try {
         $pdo->beginTransaction();

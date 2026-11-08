@@ -366,7 +366,7 @@ public sealed partial class TreeWidgetContent : UserControl, IDisposable
         {
             FruitOnTreeGroup group = groups[i];
             (double x, double y) = TreeIllustrationLayout.FruitPositionAt(group.PositionIndex);
-            var fruit = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(group.FruitId), group.Quantity);
+            var fruit = TreeFruitBadge.Create(FruitAssetCatalog.GetImageSource(group.FruitId));
             fruit.Opacity = _fruitPickVisuals.Any(visual => visual.PendingId == group.Id) ? 0 : 1;
             Canvas.SetLeft(fruit, x);
             Canvas.SetTop(fruit, y);

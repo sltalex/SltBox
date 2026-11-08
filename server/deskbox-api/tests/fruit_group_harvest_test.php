@@ -76,4 +76,12 @@ $pdo->prepare('UPDATE tree_profiles SET fruit_total=fruit_total+1 WHERE user_id=
 tree_visit_pick_fruit($pdo,$owner,$other,'pear','group-race-visit-0001',$clock()->modify('+1 day'));
 $racePick=fruit_pick($pdo,$owner,['pending_id'=>(int)$pear,'fruit_id'=>'pear','operation_id'=>'group-race-owner-0001'],$clock);
 group_check($racePick['quantity']===2,'Owner can harvest the type after a visitor consumed its representative id');
+$configuredOwner=auth_register($pdo,'configured_owner','secret4','device4','127.0.0.4',$clock)['user']['id'];
+$pdo->exec('UPDATE tree_fruit_settings SET energy_cost=1500,min_batch=3,max_batch=3 WHERE id=1');
+$configured=tree_apply_progress($pdo,$configuredOwner,['operation_id'=>'configured-progress-0001','device_id'=>'device4',
+    'day'=>'2026-11-07','energy_delta'=>145500,'day_growth_delta'=>145500,'fruit_delta'=>0,'harvested_delta'=>0,
+    'typed_fruit'=>true,'fruit_rules_version'=>2],$clock);
+group_check($configured['state']['fruit_cost']===1500 && count(fruit_on_tree($pdo,$configuredOwner))===3,
+    'Configured energy threshold and fixed batch range drive server fruit generation.');
+$pdo->exec('UPDATE tree_fruit_settings SET energy_cost=3000,min_batch=1,max_batch=5 WHERE id=1');
 echo "fruit_group_harvest_test: ok\n";

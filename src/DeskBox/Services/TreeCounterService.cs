@@ -148,7 +148,8 @@ public sealed class TreeCounterService : IDisposable
         _progress.TodayKeys = Math.Max(0, state.TodayGrowth);
         _progress.TotalEnergy = Math.Max(0, state.TotalEnergy);
         _progress.HighestStage = Math.Clamp(state.Stage, 1, 5);
-        _progress.FruitEnergy = Math.Clamp(state.FruitEnergy, 0, TreeProgress.CloudFruitCost - 1);
+        _progress.FruitCost = state.FruitCost > 0 ? state.FruitCost : TreeProgress.CloudFruitCost;
+        _progress.FruitEnergy = Math.Clamp(state.FruitEnergy, 0, _progress.FruitCost - 1L);
         _progress.FruitInventory = Math.Max(0, state.FruitInventory);
         _progress.HarvestedFruit = Math.Max(0, state.HarvestedTotal);
     }
@@ -161,7 +162,8 @@ public sealed class TreeCounterService : IDisposable
             {
                 DailyGoal = _progress.DailyGoal,
                 Paused = _progress.Paused,
-                ShowEnergy = _progress.ShowEnergy
+                ShowEnergy = _progress.ShowEnergy,
+                FruitCost = _progress.FruitCost
             };
         }
         Save(); Changed?.Invoke();
@@ -293,13 +295,15 @@ public sealed class TreeCounterService : IDisposable
     {
         DailyGoal = p.DailyGoal, Paused = p.Paused, ShowEnergy = p.ShowEnergy, LocalDay = p.LocalDay,
         TodayKeys = p.TodayKeys, TotalEnergy = p.TotalEnergy, HighestStage = p.HighestStage,
-        FruitEnergy = p.FruitEnergy, FruitInventory = p.FruitInventory, HarvestedFruit = p.HarvestedFruit
+        FruitEnergy = p.FruitEnergy, FruitCost = p.FruitCost,
+        FruitInventory = p.FruitInventory, HarvestedFruit = p.HarvestedFruit
     };
 
     private static bool CloudFieldsEqual(TreeProgress left, TreeProgress right) =>
         left.LocalDay == right.LocalDay && left.TodayKeys == right.TodayKeys &&
         left.TotalEnergy == right.TotalEnergy && left.HighestStage == right.HighestStage &&
-        left.FruitEnergy == right.FruitEnergy && left.FruitInventory == right.FruitInventory &&
+        left.FruitEnergy == right.FruitEnergy && left.FruitCost == right.FruitCost &&
+        left.FruitInventory == right.FruitInventory &&
         left.HarvestedFruit == right.HarvestedFruit;
 
     public void Dispose()

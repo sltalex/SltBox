@@ -116,7 +116,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post): string
         return 'wildlife_catalog_item';
     }
 
-    $targetId = in_array($operation, ['shop_price', 'tree_pack_prices'], true)
+    $targetId = in_array($operation, ['shop_price', 'tree_pack_prices', 'tree_fruit_settings'], true)
         ? $actor['user_id'] : admin_page_post_id($post, 'target_id');
     $body = ['target_id' => $targetId, 'reason' => 'web_admin'];
     if ($operation === 'update_user') {
@@ -147,6 +147,11 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post): string
             'tree_card_pack_single_price' => admin_page_nonnegative($post, 'tree_card_pack_single_price', 'invalid_price'),
             'tree_card_pack_ten_price' => admin_page_nonnegative($post, 'tree_card_pack_ten_price', 'invalid_price'),
         ];
+    } elseif ($operation === 'tree_fruit_settings') {
+        $body += ['action' => 'set_tree_fruit_settings',
+            'energy_cost' => admin_page_nonnegative($post, 'energy_cost', 'invalid_tree_fruit_settings'),
+            'min_batch' => admin_page_nonnegative($post, 'min_batch', 'invalid_tree_fruit_settings'),
+            'max_batch' => admin_page_nonnegative($post, 'max_batch', 'invalid_tree_fruit_settings')];
     } else {
         throw new ApiError('invalid_action', 'Unknown management operation.', 400);
     }

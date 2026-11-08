@@ -13,12 +13,12 @@ public sealed class TreeProgress
     public long TotalEnergy { get; set; }
     public int HighestStage { get; set; } = 1;
     public long FruitEnergy { get; set; }
+    public int FruitCost { get; set; } = CloudFruitCost;
     public long FruitInventory { get; set; }
     public long HarvestedFruit { get; set; }
 
     public long MaturityThreshold => 4 * StageEnergyInterval;
     public double MaturityPercentage => Math.Clamp(100.0 * TotalEnergy / MaturityThreshold, 0, 100);
-    public int FruitCost => CloudFruitCost;
     public int Stage => Math.Max(HighestStage, StageFor(TotalEnergy));
     public long NextStageThreshold => Stage >= 5 ? MaturityThreshold : (long)Stage * StageEnergyInterval;
     public long NextStageRemainingEnergy => Math.Max(0, NextStageThreshold - TotalEnergy);
