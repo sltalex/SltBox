@@ -28,22 +28,28 @@ public sealed class TreeDecorationPresentationTests
     }
 
     [Fact]
-    public void DecorationAssets_KeepOriginalTwentyAndAddThirtyFloraProducts()
+    public void DecorationAssets_KeepLegacyProductsAndExposeFullSharedCatalog()
     {
         string root = TestPaths.FromRepository("src/DeskBox/Assets/Tree/Decorations");
         using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "catalog.json")));
         JsonElement[] items = document.RootElement.GetProperty("items").EnumerateArray().ToArray();
 
-        Assert.Equal(50, items.Length);
-        Assert.Equal(3, document.RootElement.GetProperty("catalog_version").GetInt32());
-        Assert.Equal(50, items.Select(item => item.GetProperty("id").GetString()).Distinct().Count());
-        Assert.Equal(8, items.Count(item => item.GetProperty("category").GetString() == "tree"));
-        Assert.Equal(38, items.Count(item => item.GetProperty("category").GetString() == "ground"));
-        Assert.Equal(4, items.Count(item => item.GetProperty("category").GetString() == "large"));
+        Assert.Equal(1500, items.Length);
+        Assert.Equal(4, document.RootElement.GetProperty("catalog_version").GetInt32());
+        Assert.Equal(1500, items.Select(item => item.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(1500, items.Select(item => item.GetProperty("name").GetString()).Distinct().Count());
+        Assert.Equal(1500, items.Select(item => item.GetProperty("asset_key").GetString()).Distinct().Count());
+        Assert.Equal(500, items.Count(item => item.GetProperty("category").GetString() == "tree"));
+        Assert.Equal(500, items.Count(item => item.GetProperty("category").GetString() == "ground"));
+        Assert.Equal(500, items.Count(item => item.GetProperty("category").GetString() == "large"));
         Assert.DoesNotContain(items, item => item.GetProperty("category").GetString() == "theme");
-        Assert.Equal(30, items.Skip(20).Count(item =>
-            item.GetProperty("category").GetString() == "ground" &&
-            item.GetProperty("subcategory").GetString() == "flora"));
+        Assert.All(items, item =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("subcategory").GetString()));
+            Assert.True(item.TryGetProperty("footprint", out JsonElement footprint));
+            Assert.True(footprint.GetProperty("width").GetInt32() > 0);
+            Assert.True(footprint.GetProperty("height").GetInt32() > 0);
+        });
         Assert.Equal(File.ReadAllText(Path.Combine(root, "catalog.json")),
             File.ReadAllText(TestPaths.FromRepository("server/deskbox-api/config/tree-decorations.json")));
         foreach (JsonElement item in items)

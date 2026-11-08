@@ -304,9 +304,9 @@
     </Content>
     <Content Remove="Assets\Tree\TownPrototype\**\*" />
     <None Remove="Assets\Tree\TownPrototype\**\*" />
-    <Content Include="Assets\Tree\TownPrototype\**\*" Condition="'$(Configuration)' == 'Debug'">
+    <Content Include="Assets\Tree\TownPrototype\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="Assets\Aquarium\*.png;Assets\Aquarium\*.svg;Assets\Aquarium\*.md;Assets\Aquarium\Svg\*.svg;Assets\Aquarium\Vector\*.png;Assets\Aquarium\Silhouettes\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

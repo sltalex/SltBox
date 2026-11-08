@@ -4,7 +4,7 @@ import { clone, validateLayout, validatePlacement, playerCanStand } from './town
 const $ = id => document.getElementById(id);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
-  catalog: null, initial: null, layout: null, scene: null, game: null, world: null, chunks: new Map(), objects: new Map(), presence: new Map(), inventory: new Map(), cursor: 0, graylisted: false, requestedChunks: new Set(), shared: true,
+  catalog: null, initial: null, layout: null, scene: null, game: null, world: null, chunks: new Map(), objects: new Map(), presence: new Map(), inventory: new Map(), pendingActions: new Map(), cursor: 0, graylisted: false, requestedChunks: new Set(), shared: true,
   mode: 'roam', category: 'all', selectedAsset: null, selectedInstance: null,
   dirty: false, authenticated: false, canSave: false, saving: false, conflict: false,
   version: 0, epoch: 0, history: [], revision: 0, saveRevision: -1,
@@ -58,6 +58,9 @@ function confirmAction(title, message) {
   });
 }
 
+function currentOwner() { return state.world?.account_id || state.world?.account || ''; }
+function canEditObject(value) { const owner = value?.owner_id || value?.owner_user_id || value?.owner || ''; return !owner || owner === currentOwner() || owner === 'demo'; }
+
 function updateUI() {
   if (!state.catalog || !state.layout) return;
   $('roam').classList.toggle('active', state.mode === 'roam');
@@ -67,7 +70,7 @@ function updateUI() {
   $('stage').value = String(state.layout.demo_stage);
   $('placed-count').textContent = `${state.layout.placements.length} 件`;
   $('undo').disabled = !state.history.length;
-  $('delete').disabled = !state.selectedInstance;
+  $('delete').disabled = !state.selectedInstance || !canEditObject(state.layout.placements.find(value => value.instance_id === state.selectedInstance));
   const selected = state.selectedInstance ? state.layout.placements.find(item => item.instance_id === state.selectedInstance)?.asset_id : state.selectedAsset;
   $('selection-name').textContent = state.catalog.items.find(item => item.id === selected)?.name || '尚未选择';
   $('mode-description').textContent = state.mode === 'roam' ? '漫游模式' : state.selectedAsset ? '点击地图放置 · 拖动物件移动' : '编辑模式 · 选择材料或已摆放物件';
@@ -122,7 +125,7 @@ function recordHistory() {
 
 function markChanged() {
   state.revision++; state.dirty = true;
-  if (!state.conflict) state.status = state.saving ? '正在保存上一份布局，新修改尚未保存' : state.authenticated ? '布局已修改，点击“保存小镇”同步' : '演示布局已修改，登录后可保存';
+  if (!state.conflict) state.status = state.saving ? '正在提交上一项操作' : state.authenticated ? '正在提交共享小镇操作' : '请登录后编辑共享小镇';
   host({ type: 'layoutChanged', layout: clone(state.layout), edit_revision: state.revision });
   state.scene?.renderObjects();
   updateUI();
@@ -130,18 +133,16 @@ function markChanged() {
 
 function removeSelected() {
   if (!state.selectedInstance) return;
-  recordHistory();
-  state.layout.placements = state.layout.placements.filter(item => item.instance_id !== state.selectedInstance);
+  const object = state.layout.placements.find(value => value.instance_id === state.selectedInstance);
+  if (!canEditObject(object)) { notice('只能删除自己放置的物件'); return; }
+  const operationId = crypto.randomUUID().replaceAll('-', '');
+  recordHistory(); state.layout.placements = state.layout.placements.filter(value => value.instance_id !== state.selectedInstance);
   state.selectedInstance = null; state.scene?.cancelDrag(); markChanged();
+  state.pendingActions.set(operationId, { action: 'delete', objectId: object.object_id || object.instance_id });
+  host({ type: 'townActionRequested', action: 'delete', payload: { operation_id: operationId, object_id: object.object_id || object.instance_id, object_version: object.object_version || 1 } });
 }
 
-function save() {
-  if (!state.authenticated) { notice('请先在软件中登录，再保存小镇'); return; }
-  if (!state.canSave || state.saving || state.conflict) return;
-  state.saveRevision = state.revision; state.saving = true;
-  state.status = '正在保存小镇…'; updateUI();
-  host({ type: 'saveRequested', layout: clone(state.layout), edit_revision: state.revision });
-}
+function save() { notice('共享小镇的放置、移动和删除会自动保存'); }
 
 function clearKeys() {
   const scene = state.scene;
@@ -205,14 +206,14 @@ function diagnostics() {
     player: scene?.player ? { x: Math.round(scene.player.x * 100) / 100, y: Math.round(scene.player.y * 100) / 100, tile_x: Math.floor(scene.player.x / 16), tile_y: Math.floor(scene.player.y / 16) } : null,
     layout: state.layout ? clone(state.layout) : null,
     fps: Math.round(state.game?.loop.actualFps || 0), paused: !state.game?.loop.running,
-    materials: state.catalog?.items.length || 0,
+    materials: state.catalog?.items.length || 0, graylisted: state.graylisted, chunks: state.chunks.size, presence: state.presence.size,
     canvas: scene ? { width: scene.scale.width, height: scene.scale.height } : null,
     camera: scene ? { scroll_x: scene.cameras.main.scrollX, scroll_y: scene.cameras.main.scrollY, zoom: scene.cameras.main.zoom } : null
   };
 }
 
 window.DeskBoxTownPrototype = {
-  loadState, loadWorld, loadChunks, applyChanges, setPresence, setInventory, applyActionResult,
+  loadState, loadWorld, loadChunks, applyChanges, setPresence, setInventory, applyActionResult, setWorld, setChunks,
   setSaveStatus,
   setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
   setHostActive(active) { state.hostActive = !!active; applyVisibility(); },
@@ -226,7 +227,7 @@ window.DeskBoxTownPrototype = {
 Object.defineProperty(window, '__townPrototypeDiagnostics', { get: diagnostics });
 
 class TownScene extends (window.Phaser?.Scene || class {}) {
-  constructor() { super('town-prototype'); this.objectImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
+  constructor() { super('town-prototype'); this.objectImages = new Map(); this.presenceImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
 
   preload() {
     this.failedAssets = [];
@@ -271,7 +272,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       state.zoom = Phaser.Math.Clamp(state.zoom + (deltaY < 0 ? 1 : -1), 1, 4);
       this.cameras.main.setZoom(state.zoom); $('zoom-label').textContent = `${state.zoom}×`;
     });
-    this.renderObjects(); this.spawnPlayer(); this.drawGrid();
+    this.renderObjects(); this.renderPresence(); this.spawnPlayer(); this.drawGrid();
     $('loading').hidden = true;
     renderMaterials();
     if (state.pendingState) { const payload = state.pendingState; state.pendingState = null; loadState(payload); }
@@ -289,8 +290,8 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     if (river) { g.fillStyle(0x6faec0, 1); g.fillRect(river.x * size, river.y * size, river.width * size, river.height * size); g.fillStyle(0x9ed0c9, 1); g.fillRect((river.x - 2) * size, 0, 2 * size, height); g.fillRect((river.x + river.width) * size, 0, 2 * size, height); }
     const bridge = world.bridge;
     if (bridge) { g.fillStyle(0x9b6f48, 1); g.fillRect(bridge.x * size, bridge.y * size, bridge.width * size, bridge.height * size); for (let x = bridge.x; x < bridge.x + bridge.width; x += 2) { g.lineStyle(1, 0x6f4a34, .55); g.lineBetween(x * size, bridge.y * size, x * size, (bridge.y + bridge.height) * size); } }
-    const forest = world.forest;
-    if (forest) { g.fillStyle(0x5c854c, .94); g.fillRect(forest.x * size, forest.y * size, forest.width * size, forest.height * size); for (let y = forest.y + 3; y < forest.y + forest.height - 2; y += 6) for (let x = forest.x + 3; x < forest.x + forest.width - 2; x += 6) { g.fillStyle(0x356344, .92); g.fillCircle(x * size, y * size, 8); g.fillStyle(0x7eaa5d, .9); g.fillCircle((x - 1) * size, (y - 1) * size, 5); } }
+    const forests = Array.isArray(world.forest_regions) ? world.forest_regions : world.forest ? [world.forest] : [];
+    for (const forest of forests) { g.fillStyle(0x5c854c, .94); g.fillRect(forest.x * size, forest.y * size, forest.width * size, forest.height * size); for (let y = forest.y + 3; y < forest.y + forest.height - 2; y += 6) for (let x = forest.x + 3; x < forest.x + forest.width - 2; x += 6) { g.fillStyle(0x356344, .92); g.fillCircle(x * size, y * size, 8); g.fillStyle(0x7eaa5d, .9); g.fillCircle((x - 1) * size, (y - 1) * size, 5); } }
     const square = world.center_square || { x: 84, y: 84, width: 24, height: 24 }; g.fillStyle(0xe6d4a0, .95); g.fillRect(square.x * size, square.y * size, square.width * size, square.height * size); g.lineStyle(2, 0xa88e5c, .65); g.strokeRect(square.x * size, square.y * size, square.width * size, square.height * size);
   }
 
@@ -346,6 +347,18 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.drawSelection(); this.drawGrid(); this.refreshGhost();
   }
 
+  renderPresence() {
+    for (const value of this.presenceImages.values()) value.destroy();
+    this.presenceImages.clear();
+    for (const [id, player] of state.presence) {
+      if (id === currentOwner()) continue;
+      const x = (Number(player.tile_x) + .5) * 16, y = (Number(player.tile_y) + 1) * 16;
+      const avatar = this.add.sprite(x, y, 'player', 0).setOrigin(.5, 1).setDepth(y + 1);
+      const label = this.add.text(x, y - 36, player.display_name || player.account_label || '玩家', { fontFamily: 'Microsoft YaHei', fontSize: '10px', color: '#fffef0', backgroundColor: '#294432cc', padding: { x: 3, y: 2 } }).setOrigin(.5, 1).setDepth(y + 2);
+      this.presenceImages.set(id, this.add.container(0, 0, [avatar, label]));
+    }
+  }
+
   drawGrid() {
     if (!this.gridGraphics) return;
     this.gridGraphics.clear();
@@ -382,7 +395,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
 
   pointerDown(pointer) {
     $('game').focus({ preventScroll: true });
-    if (state.mode !== 'edit' || state.modal) return;
+    if (state.mode !== 'edit' || state.modal || !state.graylisted) return;
     if (pointer.rightButtonDown()) {
       this.cancelDrag();
       this.pan = { x: pointer.x, y: pointer.y, scrollX: this.cameras.main.scrollX, scrollY: this.cameras.main.scrollY };
@@ -395,15 +408,20 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       const error = validatePlacement(state.catalog, state.layout, state.selectedAsset, position.x, position.y, null, this.player);
       if (error) { notice(error); return; }
       recordHistory();
-      state.layout.placements.push({ instance_id: crypto.randomUUID().replaceAll('-', ''), asset_id: state.selectedAsset, tile_x: position.x, tile_y: position.y });
-      markChanged(); this.refreshGhost();
+      const operationId = crypto.randomUUID().replaceAll('-', ''), optimisticId = crypto.randomUUID().replaceAll('-', '');
+      const object = { instance_id: optimisticId, object_id: optimisticId, asset_id: state.selectedAsset, decoration_id: state.selectedAsset, owner_id: currentOwner(), tile_x: position.x, tile_y: position.y, object_version: 1 };
+      state.layout.placements.push(object);
+      markChanged();
+      state.pendingActions.set(operationId, { action: 'place', optimisticId });
+      host({ type: 'townActionRequested', action: 'place', payload: { operation_id: operationId, asset_id: object.asset_id, tile_x: object.tile_x, tile_y: object.tile_y, chunk_x: Math.floor(object.tile_x / 24), chunk_y: Math.floor(object.tile_y / 24) } });
+      this.refreshGhost();
       return;
     }
     const selected = this.itemAt(world.x, world.y);
     state.selectedInstance = selected?.instance_id || null;
-    if (selected) {
+    if (selected && canEditObject(selected)) {
       this.drag = { id: selected.instance_id, startX: pointer.x, startY: pointer.y, offsetX: Math.floor(world.x / 16) - selected.tile_x, offsetY: Math.floor(world.y / 16) - selected.tile_y, moved: false, tileX: selected.tile_x, tileY: selected.tile_y, valid: true };
-    }
+    } else if (selected) notice('只能移动自己放置的物件');
     this.drawSelection(); updateUI();
   }
 
@@ -442,7 +460,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     if (drag.moved) {
       if (drag.valid) {
         const placement = state.layout.placements.find(item => item.instance_id === drag.id);
-        if (placement && (placement.tile_x !== drag.tileX || placement.tile_y !== drag.tileY)) { recordHistory(); placement.tile_x = drag.tileX; placement.tile_y = drag.tileY; markChanged(); }
+        if (placement && (placement.tile_x !== drag.tileX || placement.tile_y !== drag.tileY)) { recordHistory(); placement.tile_x = drag.tileX; placement.tile_y = drag.tileY; placement.chunk_x = Math.floor(drag.tileX / 24); placement.chunk_y = Math.floor(drag.tileY / 24); const operationId = crypto.randomUUID().replaceAll('-', ''); state.pendingActions.set(operationId, { action: 'move', objectId: placement.object_id || placement.instance_id }); markChanged(); host({ type: 'townActionRequested', action: 'move', payload: { operation_id: operationId, object_id: placement.object_id || placement.instance_id, object_version: placement.object_version || 1, tile_x: placement.tile_x, tile_y: placement.tile_y, chunk_x: placement.chunk_x, chunk_y: placement.chunk_y } }); }
       } else notice(drag.error || '这里无法放置');
     }
     this.renderObjects();
@@ -502,21 +520,40 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.syncPlayerDepth();
     $('coordinates').textContent = `${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.y / 16)}`;
     if (!reducedMotion.matches && this.water) this.water.tilePositionX = Math.floor(time / 700) % 16;
+    if (state.graylisted && (!state.lastChangesAt || Date.now() - state.lastChangesAt > 3000)) { state.lastChangesAt = Date.now(); host({ type: 'changesRequested', cursor: state.cursor }); }
+    if (state.graylisted && (!state.lastHeartbeatAt || Date.now() - state.lastHeartbeatAt > 10000)) { state.lastHeartbeatAt = Date.now(); host({ type: 'presenceHeartbeat', payload: { tile_x: Math.floor(this.player.x / 16), tile_y: Math.floor(this.player.y / 16), chunk_x: Math.floor(this.player.x / 384), chunk_y: Math.floor(this.player.y / 384) } }); }
+    if (state.graylisted && (!state.lastViewportAt || Date.now() - state.lastViewportAt > 1200)) { state.lastViewportAt = Date.now(); const view = this.cameras.main.worldView, cx = Math.floor((view.x + view.width / 2) / 384), cy = Math.floor((view.y + view.height / 2) / 384), chunks = []; unloadFarChunks(cx, cy); for (let yy = cy - 1; yy <= cy + 1; yy++) for (let xx = cx - 1; xx <= cx + 1; xx++) if (xx >= 0 && xx < 8 && yy >= 0 && yy < 8) chunks.push({ chunk_x: xx, chunk_y: yy }); host({ type: 'viewportChanged', chunks }); }
   }
 }
 
 function objectFromRemote(value) {
-  return { ...value, instance_id: value.instance_id || value.object_id, object_id: value.object_id || value.instance_id, asset_id: value.asset_id || value.decoration_id, tile_x: Number(value.tile_x), tile_y: Number(value.tile_y), owner_id: value.owner_id || value.owner || '', object_version: Number(value.object_version || value.version || 1) };
+  return { ...value, instance_id: value.instance_id || value.object_id, object_id: value.object_id || value.instance_id, asset_id: value.asset_id || value.decoration_id, tile_x: Number(value.tile_x), tile_y: Number(value.tile_y), owner_id: value.owner_id || value.owner_user_id || value.owner || '', object_version: Number(value.object_version || value.version || 1) };
 }
 function syncObjectLayout() {
   state.layout = { ...(state.layout || {}), template_version: 2, catalog_version: state.catalog?.version || 4, world_id: 'main', placements: [...state.objects.values()], objects: [...state.objects.values()] };
 }
 function loadWorld(payload) {
   if (!payload) return;
-  state.world = payload.world || payload;
-  state.graylisted = !!(payload.graylisted ?? state.world.graylisted ?? false);
-  state.authenticated = !!(payload.authenticated ?? state.world.authenticated ?? state.authenticated);
+  const incomingEpoch = Number.isSafeInteger(payload.session_epoch) ? payload.session_epoch : state.epoch;
+  if (incomingEpoch !== state.epoch) { state.chunks.clear(); state.objects.clear(); state.presence.clear(); state.inventory.clear(); state.pendingActions.clear(); state.layout = { template_version: 2, catalog_version: 4, world_id: 'main', demo_stage: 5, placements: [] }; state.selectedAsset = null; state.selectedInstance = null; clearKeys(); state.scene?.renderObjects(); state.scene?.renderPresence(); }
+  state.epoch = incomingEpoch;
+  state.world = payload;
+  const meta = payload.world && typeof payload.world === 'object' ? payload.world : payload;
+  state.graylisted = !!(payload.enabled ?? meta.enabled ?? payload.graylisted ?? meta.graylisted ?? false);
+  state.authenticated = !!(payload.authenticated ?? meta.authenticated ?? state.authenticated);
   state.canSave = state.graylisted && state.authenticated;
+  // The v2 endpoint is authoritative for catalog metadata, while local assets
+  // provide the packaged image paths. Merge by stable id so old clients and
+  // partial server catalogs remain renderable.
+  if (Array.isArray(payload.catalog) && payload.catalog.length) {
+    const local = new Map((state.catalog?.items || []).map(item => [item.id, item]));
+    state.catalog.items = payload.catalog.map(item => ({ ...(local.get(item.id) || {}), ...item, id: item.id, asset: item.asset || local.get(item.id)?.asset }));
+    state.catalog.version = Number(payload.catalog_version || state.catalog.version || 4);
+  }
+  if (Number.isInteger(meta.map_width)) state.catalog.map_width = meta.map_width;
+  if (Number.isInteger(meta.map_height)) state.catalog.map_height = meta.map_height;
+  if (Number.isInteger(meta.tile_size)) state.catalog.tile_size = meta.tile_size;
+  if (Number.isInteger(meta.chunk_size)) state.catalog.chunk_size = meta.chunk_size;
   if (Number.isSafeInteger(payload.scene_version)) state.version = payload.scene_version;
   if (payload.inventory) setInventory(payload);
   if (payload.presence) setPresence(payload);
@@ -524,7 +561,7 @@ function loadWorld(payload) {
   if (payload.chunks) loadChunks(payload);
   state.status = state.graylisted ? '共享小镇已开放，正在加载区块' : '当前账号尚未开放共享小镇';
   updateUI();
-  if (state.graylisted) host({ type: 'chunksRequested', chunks: [{ chunk_x: 3, chunk_y: 3 }, { chunk_x: 4, chunk_y: 3 }, { chunk_x: 3, chunk_y: 4 }, { chunk_x: 4, chunk_y: 4 }] });
+  if (state.graylisted) host({ type: 'viewportChanged', chunks: [{ chunk_x: 3, chunk_y: 3 }, { chunk_x: 4, chunk_y: 3 }, { chunk_x: 3, chunk_y: 4 }, { chunk_x: 4, chunk_y: 4 }] });
 }
 function loadChunks(payload) {
   const chunks = Array.isArray(payload) ? payload : payload?.chunks || [];
@@ -534,7 +571,15 @@ function loadChunks(payload) {
     for (const value of chunk.objects || []) state.objects.set(value.object_id || value.instance_id, objectFromRemote(value));
   }
   if (Number.isSafeInteger(payload?.next_cursor)) state.cursor = payload.next_cursor;
+  else if (Number.isSafeInteger(payload?.cursor)) state.cursor = payload.cursor;
   syncObjectLayout(); state.scene?.renderObjects(); updateUI();
+}
+function unloadFarChunks(centerX, centerY) {
+  for (const [key, chunk] of state.chunks) {
+    if (Math.abs(Number(chunk.chunk_x) - centerX) <= 2 && Math.abs(Number(chunk.chunk_y) - centerY) <= 2) continue;
+    for (const value of chunk.objects || []) { const id = value.object_id || value.instance_id; state.objects.delete(id); state.layout?.placements && (state.layout.placements = state.layout.placements.filter(item => (item.object_id || item.instance_id) !== id)); }
+    state.chunks.delete(key);
+  }
 }
 function applyChanges(payload) {
   for (const change of payload?.changes || payload?.events || []) {
@@ -543,28 +588,67 @@ function applyChanges(payload) {
     else state.objects.set(id, objectFromRemote(change.object || change));
   }
   if (Number.isSafeInteger(payload?.next_cursor)) state.cursor = payload.next_cursor;
+  else if (Number.isSafeInteger(payload?.cursor)) state.cursor = payload.cursor;
+  state.dirty = false; state.saving = false; state.status = '共享小镇已同步';
   syncObjectLayout(); state.scene?.renderObjects(); updateUI();
 }
 function setPresence(payload) {
   state.presence.clear();
-  for (const value of payload?.presence || payload?.players || []) state.presence.set(value.account_id || value.user_id || value.id, value);
+  for (const value of (Array.isArray(payload?.presence) ? payload.presence : payload?.presence?.players || payload?.players || [])) state.presence.set(value.account_id || value.user_id || value.id, value);
   state.scene?.renderPresence?.();
   if ($('online-count')) $('online-count').textContent = `${state.presence.size} 人在线`;
 }
 function setInventory(payload) {
   state.inventory.clear();
-  for (const value of payload?.inventory || payload?.items || []) state.inventory.set(value.item_id || value.asset_id || value.decoration_id, Number(value.quantity) || 0);
+  for (const value of (Array.isArray(payload?.inventory) ? payload.inventory : payload?.inventory?.items || payload?.items || [])) {
+    const id = value.item_id || value.asset_id || value.decoration_id;
+    if (!id) continue;
+    // The shared-town API reports the total inventory together with the
+    // quantity already reserved by the personal tree/town.  Placement must
+    // use the available amount, while older responses only contain quantity.
+    const available = value.available_quantity ?? value.available ?? value.quantity;
+    state.inventory.set(id, Math.max(0, Number(available) || 0));
+  }
   renderMaterials();
 }
 function applyActionResult(payload) {
   if (!payload) return;
-  if (payload.object) state.objects.set(payload.object.object_id || payload.object.instance_id, objectFromRemote(payload.object));
-  if (payload.deleted_object_id) state.objects.delete(payload.deleted_object_id);
+  const operationId = payload.operation_id || payload.operation || null;
+  let pending = operationId ? state.pendingActions.get(operationId) : null;
+  if (!pending && state.pendingActions.size) pending = state.pendingActions.values().next().value;
+  const failed = payload.ok === false || !!payload.code;
+  if (failed) {
+    // The map is edited optimistically so placement feels immediate. The
+    // authoritative error must restore the previous remote object state.
+    if (pending?.action === 'place' && pending.optimisticId) {
+      state.layout.placements = state.layout.placements.filter(value => value.instance_id !== pending.optimisticId);
+    }
+    if (pending?.action === 'move' && pending.objectId) {
+      const remote = state.objects.get(pending.objectId);
+      if (remote) state.layout.placements = state.layout.placements.map(value => value.instance_id === pending.objectId ? { ...remote } : value);
+    }
+    if (pending?.action === 'delete' && pending.objectId && state.objects.has(pending.objectId)) {
+      const remote = state.objects.get(pending.objectId);
+      if (!state.layout.placements.some(value => value.instance_id === pending.objectId)) state.layout.placements.push({ ...remote });
+    }
+    if (pending) state.pendingActions.delete(operationId || [...state.pendingActions.entries()].find(([, value]) => value === pending)?.[0]);
+  } else {
+    if (payload.object) {
+      const object = objectFromRemote(payload.object), remoteId = object.object_id || object.instance_id;
+      if (pending?.action === 'place' && pending.optimisticId) state.objects.delete(pending.optimisticId);
+      state.objects.set(remoteId, object);
+    }
+    if (payload.deleted_object_id || (payload.action === 'delete' && pending?.objectId)) state.objects.delete(payload.deleted_object_id || pending.objectId);
+    if (pending) state.pendingActions.delete(operationId || [...state.pendingActions.entries()].find(([, value]) => value === pending)?.[0]);
+  }
+  if (payload.inventory) setInventory(payload.inventory);
   if (Number.isSafeInteger(payload.scene_version)) state.version = payload.scene_version;
-  state.saving = false; state.conflict = !!payload.conflict; state.dirty = payload.ok === false ? state.dirty : false; state.status = payload.ok === false ? (payload.message || '保存失败，请稍后重试') : '共享小镇已保存';
+  state.saving = false; state.conflict = !!payload.conflict || payload.code === 'object_conflict' || payload.code === 'position_conflict'; state.dirty = failed ? state.dirty : false; state.status = failed ? (payload.message || payload.code || '共享小镇操作失败，请稍后重试') : '共享小镇操作已自动保存';
   syncObjectLayout(); state.scene?.renderObjects(); updateUI();
 }
 
+function setWorld(payload) { loadWorld(payload); }
+function setChunks(payload) { loadChunks(payload); }
 function setupControls() {
   $('search')?.addEventListener('input', event => { state.search = event.target.value; state.page = 1; renderMaterials(); });
   $('subcategory')?.addEventListener('change', event => { state.subcategory = event.target.value; state.page = 1; renderMaterials(); });

@@ -150,21 +150,27 @@ internal sealed class SharedTownSession : IDisposable
             string text = await response.Content.ReadAsStringAsync(token);
             using JsonDocument body = ParseObject(text, "town world");
             bool enabled = response.IsSuccessStatusCode &&
-                body.RootElement.TryGetProperty("enabled", out JsonElement enabledElement) &&
-                enabledElement.ValueKind == JsonValueKind.True;
+                ((body.RootElement.TryGetProperty("enabled", out JsonElement enabledElement) &&
+                    enabledElement.ValueKind == JsonValueKind.True) ||
+                 body.RootElement.TryGetProperty("world", out JsonElement worldElement) &&
+                    worldElement.ValueKind == JsonValueKind.Object);
             bool available;
+            bool inventoryIncluded;
             lock (_gate)
             {
                 if (!IsCurrentLocked(epoch)) return false;
                 _enabled = enabled && response.IsSuccessStatusCode;
                 _world = NormalizeWorld(body.RootElement, _enabled);
+                inventoryIncluded = body.RootElement.TryGetProperty("inventory", out JsonElement inventory) &&
+                    inventory.ValueKind == JsonValueKind.Object;
+                if (inventoryIncluded) _inventory = body.RootElement.GetProperty("inventory").GetRawText();
                 _worldVersion = ReadLongFromWorld(body.RootElement, "world_version");
                 _status = !_enabled ? "共享小镇尚未对当前账号开放" : "共享小镇已载入";
                 if (!_enabled && response.StatusCode == HttpStatusCode.Unauthorized)
                     _status = "请登录后查看共享小镇";
                 available = _enabled;
             }
-            if (available) await LoadInventoryAsync(epoch);
+            if (available && !inventoryIncluded) await LoadInventoryAsync(epoch);
             return available;
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
@@ -197,6 +203,17 @@ internal sealed class SharedTownSession : IDisposable
         try
         {
             await Task.WhenAll(requested.Select(pair => LoadChunkAsync(pair.X, pair.Y, epoch)));
+            HashSet<string> requestedKeys = requested
+                .Select(pair => $"{pair.X}:{pair.Y}")
+                .ToHashSet(StringComparer.Ordinal);
+            lock (_gate)
+            {
+                if (IsCurrentLocked(epoch))
+                {
+                    foreach (string key in _chunks.Keys)
+                        if (!requestedKeys.Contains(key)) _chunks.TryRemove(key, out _);
+                }
+            }
             return IsCurrent(epoch);
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
@@ -213,9 +230,20 @@ internal sealed class SharedTownSession : IDisposable
         if (!IsCurrent(epoch) || !IsEnabled) return ChangesJson();
         long cursor;
         CancellationToken token;
-        lock (_gate) { cursor = _cursor; token = _identityLifetime.Token; }
+        string[] loadedChunks;
+        lock (_gate)
+        {
+            cursor = _cursor;
+            token = _identityLifetime.Token;
+            loadedChunks = _chunks.Keys.ToArray();
+        }
+        // Scope the delta feed to chunks currently rendered by the viewport.
+        // Otherwise a busy shared world would accumulate remote objects from
+        // every chunk even though the client only displays nearby chunks.
+        if (loadedChunks.Length == 0) return ChangesJson();
+        string chunkQuery = Uri.EscapeDataString(string.Join(',', loadedChunks));
         using HttpResponseMessage response = await SendAsync(
-            HttpMethod.Get, $"../../v2/town/changes.php?cursor={cursor}", null, token);
+            HttpMethod.Get, $"../../v2/town/changes.php?cursor={cursor}&chunks={chunkQuery}", null, token);
         string text = await response.Content.ReadAsStringAsync(token);
         response.EnsureSuccessStatusCode();
         using JsonDocument document = ParseObject(text, "town changes");
@@ -282,9 +310,12 @@ internal sealed class SharedTownSession : IDisposable
         {
             if (!IsCurrentLocked(epoch)) return ErrorJson("session_changed");
             _worldVersion = Math.Max(_worldVersion, ReadLongFromWorld(document.RootElement, "world_version"));
-            long actionCursor = ReadLong(document.RootElement, "cursor");
-            if (actionCursor == 0) actionCursor = ReadLong(document.RootElement, "change_cursor");
-            _cursor = Math.Max(_cursor, actionCursor);
+            // Keep the last applied cursor here.  The action response's cursor
+            // may include changes made by other players before this operation;
+            // advancing it before LoadChangesAsync would skip those changes
+            // permanently.  TreeTownPrototypeWindow fetches from the old
+            // cursor immediately after applying this action, then advances it
+            // from the complete change response.
             if (document.RootElement.TryGetProperty("inventory", out JsonElement inventory) && inventory.ValueKind == JsonValueKind.Object)
                 _inventory = inventory.GetRawText();
             _status = "已同步共享小镇变更";
@@ -561,6 +592,7 @@ internal sealed class SharedTownSession : IDisposable
         {
             writer.WriteStartObject();
             writer.WriteNumber("session_epoch", Epoch);
+            if (_identity is not null) writer.WriteString("account_id", _identity);
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 if (property.NameEquals("session_epoch")) continue;

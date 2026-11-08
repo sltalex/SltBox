@@ -14,20 +14,20 @@
   <div class="town-shell">
     <header class="topbar">
       <div class="identity"><span class="town-mark" aria-hidden="true">❧</span><div><h1>小镇预览</h1><span class="account" id="account">我的小镇</span></div><span class="demo-badge" id="demo-badge">灰度开放</span></div>
-      <div class="top-actions"><button id="reload" class="quiet" title="读取当前账号的云端布局">重新载入</button><button id="save" class="primary" disabled>保存小镇</button></div>
+      <div class="top-actions"><button id="reload" class="quiet" title="读取当前账号的云端布局">重新载入</button><button id="save" class="primary" disabled hidden>操作自动保存</button></div>
     </header>
     <div class="workspace">
       <aside class="materials" aria-label="装饰材料">
         <div class="material-heading"><h2>共享装饰</h2><span id="placed-count">0 件</span></div><div class="material-search"><input id="search" type="search" placeholder="搜索 1500 种装饰" aria-label="搜索装饰"><select id="subcategory" aria-label="子分类"><option value="all">全部子分类</option></select></div>
-        <div class="categories" role="group" aria-label="材料分类"><button data-category="all" class="active">全部</button><button data-category="building">建筑</button><button data-category="flora">花草</button><button data-category="prop">摆件</button></div>
+        <div class="categories" role="group" aria-label="材料分类"><button data-category="all" class="active">全部</button><button data-category="tree">树上</button><button data-category="ground">地面</button><button data-category="large">大型</button></div>
         <div id="material-list" class="material-list"></div><div class="material-pagination"><button id="page-prev" class="quiet" aria-label="上一页">‹</button><span id="page-label">1 / 1</span><button id="page-next" class="quiet" aria-label="下一页">›</button></div>
         <div class="selection-panel"><span class="eyebrow">当前选择</span><strong id="selection-name">尚未选择</strong><div class="selection-actions"><button id="delete" class="quiet" disabled>移除</button><button id="undo" class="quiet" disabled>撤销</button></div></div>
       </aside>
       <main class="map-pane">
         <div class="map-toolbar">
           <div class="mode-switch" role="group" aria-label="操作模式"><button id="roam" class="active" aria-pressed="true">漫游</button><button id="edit" aria-pressed="false">编辑</button></div>
-          <label class="stage-label">树木阶段<select id="stage" aria-label="树木成长阶段"><option value="1">1 · 种子</option><option value="2">2 · 嫩芽</option><option value="3">3 · 幼苗</option><option value="4">4 · 小树</option><option value="5" selected>5 · 大树</option></select></label>
-          <button id="reset" class="quiet reset-button">恢复示例</button>
+          <label class="stage-label" hidden>中央主树<select id="stage" aria-label="中央主树阶段" disabled><option value="5" selected>固定</option></select></label>
+          <button id="reset" class="quiet reset-button" hidden disabled>恢复示例</button>
         </div>
         <div class="map-viewport" id="map-viewport"><div id="game" tabindex="0" aria-label="小镇地图，方向键或 WASD 行走，滚轮缩放"></div><div class="scene-label" aria-hidden="true"><span class="season-dot"></span>春日小镇<span class="scene-divider"></span><span id="zoom-label">2×</span></div><button class="help-button" id="help" aria-label="显示操作说明" aria-expanded="false">?</button><div class="help-panel" id="help-panel" hidden><strong>在小镇里走走</strong><span>方向键 / WASD · 行走</span><span>滚轮 · 缩放地图</span><span>编辑 · 选择材料后点击放置</span><span>拖动 · 移动物件</span><span>右键拖动 · 平移编辑视野</span><span>Delete · 移除选中物件</span><span>Esc · 取消选择</span></div><div class="map-notice" id="notice" role="status" hidden></div><div class="loading" id="loading"><span class="loading-tree">♧</span><span>正在准备小镇…</span></div></div>
         <footer class="map-footer"><span id="mode-description">漫游模式</span><span id="coordinates">24, 30</span></footer>

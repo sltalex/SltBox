@@ -74,7 +74,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             ["src/DeskBox/Services/WidgetLayoutStore.cs"] = 2,
             // 3: the title-icon asset store's recent-emoji state file
             // (load deserialize, add deserialize, atomic save serialize).
-            ["src/DeskBox/Services/WidgetTitleIconAssetStore.cs"] = 3
+            ["src/DeskBox/Services/WidgetTitleIconAssetStore.cs"] = 3,
+            ["src/DeskBox/Views/TreeTownPrototypeWindow.cs"] = 1
         };
 
         Dictionary<string, int> actual = ProductionSourceFiles()
@@ -94,8 +95,8 @@ public sealed class JsonSerializationBaselineContractTests : IDisposable
             Assert.Equal(expectedCount, actual[path]);
         }
 
-        Assert.Equal(55, actual.Count);
-        Assert.Equal(152, actual.Values.Sum());
+        Assert.Equal(56, actual.Count);
+        Assert.Equal(153, actual.Values.Sum());
 
         string[] expectedContextOwners =
         [

@@ -1,6 +1,7 @@
 #if DEBUG
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using DeskBox.Contracts;
 using DeskBox.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -170,15 +171,35 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     await PostAsync("applyChanges", _session.ChangesJson());
                     break;
                 case "townActionRequested":
-                    _ = await _session.ExecuteActionAsync(
-                        BuildActionPayload(message), epoch);
+                    string actionPayload = BuildActionPayload(message);
+                    string actionResult = AttachOperationId(
+                        await _session.ExecuteActionAsync(actionPayload, epoch), actionPayload);
                     await PostAsync("setInventory", _session.InventoryJson());
+                    // Actions are committed immediately by the shared-town
+                    // endpoint.  Always deliver the authoritative result to
+                    // the page: a successful response carries the server
+                    // generated object id, while a failure lets the page
+                    // roll back its optimistic edit.  The session advances
+                    // its cursor from change_cursor, so querying changes
+                    // before applying this result would skip the just-made
+                    // object.
+                    await PostAsync("applyActionResult", actionResult);
+                    using (JsonDocument resultDocument = JsonDocument.Parse(actionResult))
+                    {
+                        if (resultDocument.RootElement.TryGetProperty("code", out _)) break;
+                    }
                     await _session.LoadChangesAsync(epoch);
                     await PostAsync("applyChanges", _session.ChangesJson());
                     break;
                 case "presenceHeartbeat":
                     await _session.SendPresenceHeartbeatAsync(
                         message.GetProperty("payload").GetRawText(), epoch);
+                    // The POST response only acknowledges the current user's
+                    // heartbeat on older servers.  Fetch the visible roster
+                    // after the upsert so one heartbeat cannot wipe the other
+                    // players from the map while still supporting those
+                    // responses.
+                    await _session.LoadPresenceAsync(null, epoch);
                     await PostAsync("setPresence", _session.PresenceJson());
                     break;
                 case "presenceRequested":
@@ -204,6 +225,28 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException or KeyNotFoundException or InvalidOperationException)
         { App.Log($"[TownPrototype] Ignored a failed map message: {ex.GetType().Name}"); }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or AuthApiException)
+        {
+            App.Log($"[SharedTown] Map request failed: {ex.GetType().Name}");
+            try
+            {
+                using JsonDocument failed = JsonDocument.Parse(args.WebMessageAsJson);
+                JsonElement failedMessage = failed.RootElement;
+                if (failedMessage.TryGetProperty("type", out JsonElement kind) &&
+                    kind.ValueKind == JsonValueKind.String && kind.GetString() == "townActionRequested")
+                {
+                    string operationId = string.Empty;
+                    if (failedMessage.TryGetProperty("payload", out JsonElement payload) &&
+                        payload.ValueKind == JsonValueKind.Object &&
+                        payload.TryGetProperty("operation_id", out JsonElement operation) &&
+                        operation.ValueKind == JsonValueKind.String)
+                        operationId = operation.GetString() ?? string.Empty;
+                    string error = JsonSerializer.Serialize(new { code = "town_network_error", message = "共享小镇同步失败，请稍后重试", operation_id = operationId });
+                    await PostAsync("applyActionResult", error);
+                }
+            }
+            catch (Exception rollback) { App.Log($"[SharedTown] Action rollback failed: {rollback.GetType().Name}"); }
+        }
     }
 
     private void OnStateChanged(bool replaceLayout)
@@ -245,6 +288,23 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             writer.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static string AttachOperationId(string result, string request)
+    {
+        try
+        {
+            JsonNode? resultNode = JsonNode.Parse(result);
+            JsonNode? requestNode = JsonNode.Parse(request);
+            if (resultNode is JsonObject resultObject && requestNode is JsonObject requestObject &&
+                resultObject["operation_id"] is null && requestObject["operation_id"] is JsonNode operation)
+            {
+                resultObject["operation_id"] = operation.DeepClone();
+                return resultObject.ToJsonString();
+            }
+        }
+        catch (JsonException) { }
+        return result;
     }
 
     private async Task PostAsync(string method, string json)

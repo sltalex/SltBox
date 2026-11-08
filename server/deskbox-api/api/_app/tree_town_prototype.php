@@ -3,6 +3,16 @@ declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 
+/**
+ * The account-scoped town prototype was replaced by the shared v2 world.
+ * Keep the helper available for rollback tooling and legacy unit tests, but
+ * make the public v1 routes read-only at the migration boundary.
+ */
+function town_prototype_migrated(): never
+{
+    throw new ApiError('town_migrated', 'The town prototype moved to the shared town.', 410);
+}
+
 const TOWN_PROTOTYPE_VERSION = 1;
 const TOWN_PROTOTYPE_MAX_PLACEMENTS = 48;
 const TOWN_PROTOTYPE_ITEM_QUANTITY = 3;

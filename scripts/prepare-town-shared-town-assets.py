@@ -1,9 +1,9 @@
 from pathlib import Path
-import json, hashlib, math, random
+import json, hashlib, math, random, shutil
 root = Path(r'D:\work\C#\deskbox')
 town = root/'src/DeskBox/Assets/Tree/TownPrototype'
 server = root/'server/deskbox-api/config/tree-decorations.json'
-items = json.loads(server.read_text(encoding='utf-8'))['items']
+items = json.loads(server.read_text(encoding='utf-8'))['items'][:50]
 # preserve current 50 exactly in order
 assert len(items)==50
 cats = {
@@ -57,20 +57,28 @@ def svg_for(i, cat, sub, variant):
 
 # append generated ids, distribute 1450 among top categories, each subcategory in cycle
 generated=[]
+category_plan = ['tree'] * 492 + ['ground'] * 462 + ['large'] * 496
 for n in range(1,1451):
-    cat=['tree','ground','large'][(n-1)%3]
+    cat=category_plan[n-1]
     subs=cats[cat]; sub=subs[((n-1)//3)%len(subs)]
     # ensure target counts reasonably balanced; generated asset key stable
     iid=f'town-shared-{n:04d}'
     family=prefixes.get(sub,prefixes['flora'])
-    name=f'{family[(n-1)%len(family)]}{(n-1)//len(family)+1:02d}'
-    generated.append({'id':iid,'name':name,'category':cat,'subcategory':sub,'rarity':['common','common','rare','epic'][n%4],'asset_key':iid})
+    # Keep a concrete Chinese object name while making the stable generated
+    # entries unique even when two subcategories share a family prefix.
+    name=f'{family[(n-1)%len(family)]}·{n:04d}'
+    # The live decoration service supports the existing common/rare contract.
+    # Keep generated entries within that contract so both catalog validators
+    # accept the same 1500-item directory.
+    generated.append({'id':iid,'name':name,'category':cat,'subcategory':sub,'rarity':['common','common','rare'][n%3],'asset_key':iid})
 items2=[]
 # preserve 50 metadata with explicit fields
 for idx,it in enumerate(items):
     x=dict(it)
-    x['asset']=f'../Decorations/Source/{it["asset_key"]}.svg'
-    x['blur_asset']=f'../Decorations/Blur/{it["asset_key"]}.svg'
+    # Keep the WebView page self-contained; parent-directory URLs are blocked
+    # by the virtual-host mapping used by the packaged town window.
+    x['asset']=f'sprites/original/{it["asset_key"]}.svg'
+    x['blur_asset']=f'sprites/original/{it["asset_key"]}.svg'
     x['display_width']=max(16,32+(idx%4)*16)
     x['display_height']=max(24,32+(idx%5)*16)
     x['anchor']={'x':0.5,'y':1}
@@ -98,7 +106,25 @@ default={'template_version':2,'catalog_version':4,'world_id':'main','demo_stage'
 (town/'default-layout.json').write_text(json.dumps(default,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 # generate SVGs
 out=town/'sprites'/'generated'; out.mkdir(exist_ok=True)
+original=town/'sprites'/'original'; original.mkdir(exist_ok=True)
+for item in items:
+    source_file=root/'src/DeskBox/Assets/Tree/Decorations/Source'/(item['asset_key']+'.svg')
+    shutil.copyfile(source_file, original/(item['asset_key']+'.svg'))
 for n,it in enumerate(generated,1):
     p=out/(it['id']+'.svg')
     if not p.exists(): p.write_text(svg_for(n,it['category'],it['subcategory'],n%20),encoding='utf-8')
+# Keep the server directory and the desktop decoration catalog byte-for-byte
+# aligned with the generated metadata.  The town page uses its richer local
+# catalog, while the regular tree UI consumes the compact fields below.
+core_items=[]
+for item in items2:
+    core_items.append({key: item[key] for key in ('id','name','category','subcategory','rarity','asset_key','footprint','anchor','collision','chunk_radius') if key in item})
+core_document={'catalog_version':4,'items':core_items}
+for path in (server, root/'src/DeskBox/Assets/Tree/Decorations/catalog.json'):
+    path.write_text(json.dumps(core_document, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+source=root/'src/DeskBox/Assets/Tree/Decorations/Source'; blur=root/'src/DeskBox/Assets/Tree/Decorations/Blur'
+for item in generated:
+    src=out/(item['asset_key']+'.svg')
+    shutil.copyfile(src, source/(item['asset_key']+'.svg'))
+    shutil.copyfile(src, blur/(item['asset_key']+'.svg'))
 print('catalog items',len(items2),'generated',len(generated),'hash',hashlib.sha256((town/'catalog.json').read_bytes()).hexdigest())

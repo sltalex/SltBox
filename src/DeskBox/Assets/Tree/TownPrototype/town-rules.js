@@ -24,12 +24,18 @@ export function protectedAreas(catalog) {
 }
 export function riverArea(catalog) { return catalog.world?.river || null; }
 export function bridgeArea(catalog) { return catalog.world?.bridge || null; }
-export function forestArea(catalog) { return catalog.world?.forest || null; }
+export function forestAreas(catalog) {
+  const world = catalog.world || {};
+  if (Array.isArray(world.forest_regions)) return world.forest_regions.filter(area => area && Number.isFinite(area.x));
+  if (Array.isArray(world.forests)) return world.forests.filter(area => area && Number.isFinite(area.x));
+  return world.forest ? [world.forest] : [];
+}
+export function forestArea(catalog) { return forestAreas(catalog)[0] || null; }
 export function terrainAt(catalog, x, y) {
-  const river = riverArea(catalog), bridge = bridgeArea(catalog), forest = forestArea(catalog);
+  const river = riverArea(catalog), bridge = bridgeArea(catalog), forests = forestAreas(catalog);
   const tile = { x, y, width: 1, height: 1 };
   if (river && intersects(tile, river) && !(bridge && intersects(tile, bridge))) return 'water';
-  if (forest && intersects(tile, forest)) return 'forest';
+  if (forests.some(forest => intersects(tile, forest))) return 'forest';
   return 'plain';
 }
 
@@ -41,9 +47,9 @@ export function validatePlacement(catalog, layout, assetId, x, y, ignoreId = nul
   const height = catalog.map_height || catalog.world?.height_tiles || 192;
   if (x < 0 || y < 0 || x + rect.width > width || y + rect.height > height) return '物件超出地图边界';
   for (const area of protectedAreas(catalog)) if (intersects(rect, area)) return '这里是主树、出生区或中心保留区';
-  const river = riverArea(catalog), bridge = bridgeArea(catalog), forest = forestArea(catalog);
+  const river = riverArea(catalog), bridge = bridgeArea(catalog), forests = forestAreas(catalog);
   if (river && intersects(rect, river) && !(bridge && intersects(rect, bridge))) return '河流区域不能放置装饰';
-  if (forest && intersects(rect, forest)) return '森林区域保留为公共地形';
+  if (forests.some(forest => intersects(rect, forest))) return '森林区域保留为公共地形';
   const values = objectsOf(layout);
   for (const placement of values) {
     if ((placement.object_id || placement.instance_id) === ignoreId) continue;
@@ -77,11 +83,15 @@ export function playerCanStand(catalog, layout, x, y) {
   const width = catalog.map_width || 192, height = catalog.map_height || 192;
   const body = { x: (x - 3) / size, y: (y - 4) / size, width: 6 / size, height: 4 / size };
   if (body.x < 0 || body.y < 0 || body.x + body.width > width || body.y + body.height > height) return false;
-  const river = riverArea(catalog), bridge = bridgeArea(catalog), forest = forestArea(catalog);
+  const river = riverArea(catalog), bridge = bridgeArea(catalog), forests = forestAreas(catalog);
   if (river && intersects(body, river) && !(bridge && intersects(body, bridge))) return false;
-  if (forest && intersects(body, forest)) return false;
+  if (forests.some(forest => intersects(body, forest))) return false;
+  const mainTree = catalog.world?.main_tree || catalog.world?.tree;
+  if (mainTree && intersects(body, mainTree)) return false;
   return !objectsOf(layout).some(placement => {
     const item = itemFor(catalog, placement.asset_id || placement.decoration_id);
-    return item?.solid && intersects(body, footprint(item, Number(placement.tile_x), Number(placement.tile_y)));
+    const blockingSubcategories = new Set(['building', 'pavilion', 'shelters', 'greenhouses', 'gates', 'towers']);
+    const solid = item?.solid === true || blockingSubcategories.has(item?.subcategory);
+    return solid && intersects(body, footprint(item, Number(placement.tile_x), Number(placement.tile_y)));
   });
 }

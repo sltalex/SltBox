@@ -1,10 +1,12 @@
 using CommunityToolkit.WinUI.Controls;
 using DeskBox.Contracts;
 using DeskBox.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using System.Text.Json;
 
 namespace DeskBox.Views.SettingsSections;
 
@@ -48,6 +50,13 @@ public sealed partial class TreeSettingsSection : UserControl
     };
     private readonly Button _syncButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
+#if DEBUG
+    private readonly Button _townPreviewButton = new()
+    {
+        Content = "小镇预览", HorizontalAlignment = HorizontalAlignment.Left,
+        Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed
+    };
+#endif
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new()
     {
@@ -61,12 +70,16 @@ public sealed partial class TreeSettingsSection : UserControl
     private readonly Grid _participationRow;
     private LocalizationService? _localization;
     private IAuthSession? _auth;
+    private IAuthenticatedAccountApi? _accountApi;
     private TreeCloudSyncService? _cloud;
     private TreeDecorationService? _decorationService;
     private bool _updating;
     private int _leaderboardRefreshQueued;
     private int _counterRefreshQueued;
     private int _syncOperationInProgress;
+#if DEBUG
+    private CancellationTokenSource? _townAccessCts;
+#endif
 
     public event EventHandler<SettingsSectionNavigationRequestedEventArgs>? NavigationRequested;
 
@@ -115,13 +128,8 @@ public sealed partial class TreeSettingsSection : UserControl
         visualRow.Children.Add(_threeD);
         cardContent.Children.Add(visualRow);
 #if DEBUG
-        var townPreview = new Button
-        {
-            Content = "小镇预览", HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(0, 4, 0, 4)
-        };
-        townPreview.Click += (_, _) => TreeTownPrototypeWindow.ShowPreview();
-        cardContent.Children.Add(townPreview);
+        _townPreviewButton.Click += (_, _) => TreeTownPrototypeWindow.ShowPreview();
+        cardContent.Children.Add(_townPreviewButton);
 #endif
         cardContent.Children.Add(_syncStatus);
         _switchesCard.Content = cardContent;
@@ -172,6 +180,7 @@ public sealed partial class TreeSettingsSection : UserControl
     {
         _localization = localization;
         _auth = auth;
+        _accountApi = App.Current.Services.GetService<IAuthenticatedAccountApi>();
         _cloud = cloud;
         _decorationService = decorations;
         _decorations.Configure(decorations, aquarium, localization, auth);
@@ -193,6 +202,9 @@ public sealed partial class TreeSettingsSection : UserControl
             _ = _cloud.RefreshStateAsync();
             _ = _cloud.RefreshLeaderboardAsync();
         }
+#if DEBUG
+        _ = RefreshTownAccessAsync();
+#endif
     }
 
     private void TreeSettingsSection_Unloaded(object sender, RoutedEventArgs e)
@@ -202,6 +214,9 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_cloud is not null) _cloud.LeaderboardChanged -= OnLeaderboardChanged;
         _counter.Changed -= OnCounterChanged;
         _visualSettings.Changed -= OnVisualSettingsChanged;
+#if DEBUG
+        _townAccessCts?.Cancel();
+#endif
     }
 
     private void RenderLabels()
@@ -379,6 +394,9 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void OnLeaderboardChanged()
     {
+#if DEBUG
+        _ = RefreshTownAccessAsync();
+#endif
         if (Interlocked.Exchange(ref _leaderboardRefreshQueued, 1) != 0) return;
         if (!_uiQueue.TryEnqueue(() =>
             {
@@ -388,6 +406,49 @@ public sealed partial class TreeSettingsSection : UserControl
     }
 
     private void OnLanguageChanged() { RenderLabels(); Refresh(); }
+
+#if DEBUG
+    private async Task RefreshTownAccessAsync()
+    {
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _townAccessCts,
+            new CancellationTokenSource(TimeSpan.FromSeconds(8)));
+        previous?.Cancel();
+        using CancellationTokenSource request = _townAccessCts!;
+        string? userId = _auth?.CurrentUser?.Id;
+        if (_accountApi is null || _auth?.IsAuthenticated != true || string.IsNullOrWhiteSpace(userId))
+        {
+            SetTownPreviewVisibility(false);
+            return;
+        }
+        try
+        {
+            using HttpResponseMessage response = await _accountApi.SendAsync(
+                HttpMethod.Get, "../../v2/town/world.php", null, null, request.Token);
+            bool enabled = response.IsSuccessStatusCode;
+            if (enabled)
+            {
+                using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(request.Token));
+                enabled = body.RootElement.TryGetProperty("enabled", out JsonElement value)
+                    && value.ValueKind == JsonValueKind.True
+                    && (!body.RootElement.TryGetProperty("graylisted", out JsonElement graylisted)
+                        || graylisted.ValueKind == JsonValueKind.True);
+            }
+            SetTownPreviewVisibility(enabled && _auth?.CurrentUser?.Id == userId);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            App.Log($"[SharedTown] Graylist check failed: {ex.GetType().Name}");
+            SetTownPreviewVisibility(false);
+        }
+    }
+
+    private void SetTownPreviewVisibility(bool visible)
+    {
+        void Apply() => _townPreviewButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!_uiQueue.TryEnqueue(Apply)) Apply();
+    }
+#endif
 
     private void OnCounterChanged()
     {

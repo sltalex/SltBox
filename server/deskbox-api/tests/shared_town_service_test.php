@@ -38,6 +38,8 @@ town_shared_expect(shared_town_world($pdo)['map_width'] === 192, 'Shared world m
 town_shared_expect(count(shared_town_terrain_chunk(5, 1)) > 0, 'Terrain chunks contain fixed forest cells.');
 town_shared_expect(shared_town_tile_type(64, 20) === 'river'
     && shared_town_tile_type(64, 92) === 'bridge'
+    && shared_town_tile_type(90, 20) === 'road'
+    && shared_town_tile_type(20, 90) === 'road'
     && shared_town_tile_type(140, 30) === 'forest'
     && shared_town_tile_type(95, 89) === 'main_tree', 'Shared terrain coordinates match the packaged map.');
 town_shared_error('invalid_position', 409, static fn() => shared_town_validate_rectangle(64, 20, ['width' => 1, 'height' => 1]));

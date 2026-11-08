@@ -99,6 +99,19 @@ try {
     [$status] = town_http_request($base, 'actions.php', 'GET', $a['session']['access_token']);
     town_http_expect($status === 405, 'Save endpoint enforces POST.');
 
+    // The account-scoped prototype is retired.  Authenticated callers receive
+    // an explicit migration response and the legacy table remains untouched.
+    [$status, $response] = town_http_request($base, 'state.php', 'GET', $a['session']['access_token']);
+    town_http_expect($status === 410 && $response['code'] === 'town_migrated',
+        'Legacy state endpoint is sealed after the shared-town migration.');
+    [$status, $response] = town_http_request($base, 'actions.php', 'POST', $a['session']['access_token'], []);
+    town_http_expect($status === 410 && $response['code'] === 'town_migrated',
+        'Legacy action endpoint is sealed after the shared-town migration.');
+    town_http_expect((int)$pdo->query('SELECT COUNT(*) FROM tree_town_prototype_profiles')->fetchColumn() === 0,
+        'The retired endpoint cannot recreate old demo layouts.');
+    echo "town prototype endpoint migration checks passed ({$townEndpointChecks} checks)\n";
+    return;
+
     [$status, $initial] = town_http_request($base, 'state.php', 'GET', $a['session']['access_token']);
     town_http_expect($status === 200 && $initial['scene_version'] === 0 && count($initial['layout']['placements']) === 16,
         'Authenticated state returns the complete example map.');

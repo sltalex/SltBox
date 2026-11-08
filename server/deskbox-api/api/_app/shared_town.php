@@ -140,7 +140,9 @@ function shared_town_tile_type(int $x, int $y): string
         if ($x >= 94 && $x <= 97 && $y >= 88 && $y <= 91) { return 'main_tree'; }
         return 'plaza';
     }
-    if ($y >= 94 && $y <= 97) { return 'road'; }
+    // The client paints a cross-shaped road outside the center plaza. Keep
+    // the server placement collision map aligned with that fixed terrain.
+    if (($x >= 88 && $x <= 103) || ($y >= 88 && $y <= 103)) { return 'road'; }
     return 'plain';
 }
 

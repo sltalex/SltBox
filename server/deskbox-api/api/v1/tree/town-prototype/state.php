@@ -7,6 +7,6 @@ require dirname(__DIR__, 3) . '/_app/account_data.php';
 require_once dirname(__DIR__, 3) . '/_app/tree_town_prototype.php';
 
 api_run('GET', static function (PDO $pdo): array {
-    $actor = account_authenticated_user($pdo, 'api_clock');
-    return town_prototype_read_state($pdo, (string)$actor['user_id']);
+    account_authenticated_user($pdo, 'api_clock');
+    town_prototype_migrated();
 });
