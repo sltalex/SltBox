@@ -202,6 +202,23 @@ function shared_town_personal_counts(PDO $pdo, string $userId): array
     return $counts;
 }
 
+/** Inventory view used by the shared-town editor.  quantity is the account
+ * total; available_quantity excludes personal-tree and town reservations. */
+function shared_town_inventory_payload(PDO $pdo, string $userId): array
+{
+    $rows = $pdo->prepare('SELECT item_id,quantity FROM tree_decoration_inventory WHERE user_id=:user ORDER BY item_id');
+    $rows->execute([':user' => $userId]);
+    $personal = shared_town_personal_counts($pdo, $userId); $result = [];
+    foreach ($rows->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $item = (string)$row['item_id']; $total = max(0, (int)$row['quantity']);
+        $reserved = shared_town_reservation($pdo, $userId, $item);
+        $result[] = ['item_id' => $item, 'quantity' => $total,
+            'reserved_quantity' => $reserved + ($personal[$item] ?? 0),
+            'available_quantity' => max(0, $total - $reserved - ($personal[$item] ?? 0))];
+    }
+    return ['items' => $result];
+}
+
 function shared_town_reservation(PDO $pdo, string $userId, string $itemId, bool $lock = false): int
 {
     $sql = 'SELECT reserved_quantity FROM town_decoration_reservations WHERE user_id=:user AND item_id=:item'
@@ -334,6 +351,7 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
                 $cursor = shared_town_change($pdo, $row, 'move', $now); $response = ['action' => 'move', 'object' => shared_town_object_public($row), 'change_cursor' => $cursor];
             }
         }
+        $response['inventory'] = shared_town_inventory_payload($pdo, $userId);
         $responseJson = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $pdo->prepare('INSERT INTO town_operations (user_id,operation_id,action,request_hash,response_json,created_at) VALUES (:user,:operation,:action,:hash,:response,:created)')->execute([':user' => $userId, ':operation' => $operationId, ':action' => $action, ':hash' => $hash, ':response' => $responseJson, ':created' => auth_sql_time($now)]);
         $pdo->commit(); return $response + ['duplicate' => false];
