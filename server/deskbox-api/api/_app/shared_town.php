@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
+require_once __DIR__ . '/town_assets.php';
 
 const SHARED_TOWN_WORLD_ID = 'main';
 const SHARED_TOWN_VERSION = 2;
@@ -124,6 +125,7 @@ function shared_town_world(PDO $pdo): array
         'chunk_size' => (int)$row['chunk_size'], 'chunk_columns' => intdiv((int)$row['map_width'], (int)$row['chunk_size']),
         'chunk_rows' => intdiv((int)$row['map_height'], (int)$row['chunk_size']),
         'change_cursor' => (int)$row['change_cursor'], 'catalog_version' => shared_town_catalog()['catalog_version'],
+        'asset_release' => town_asset_active_summary($pdo),
     ];
 }
 
@@ -212,6 +214,7 @@ function shared_town_object_public(array $row): array
 {
     $footprint = is_string($row['footprint_json'] ?? null) ? json_decode((string)$row['footprint_json'], true) : ($row['footprint'] ?? null);
     return ['object_id' => (string)$row['object_id'], 'asset_id' => (string)$row['asset_id'],
+        'asset_source' => (string)($row['asset_source'] ?? 'legacy'),
         'owner_user_id' => (string)$row['owner_user_id'], 'chunk_x' => (int)$row['chunk_x'],
         'chunk_y' => (int)$row['chunk_y'], 'tile_x' => (int)$row['tile_x'], 'tile_y' => (int)$row['tile_y'],
         'footprint' => is_array($footprint) ? $footprint : ['width' => 1, 'height' => 1],
@@ -236,7 +239,7 @@ function shared_town_chunk(PDO $pdo, int $chunkX, int $chunkY): array
     if ($chunkX < 0 || $chunkX >= 8 || $chunkY < 0 || $chunkY >= 8) {
         throw new ApiError('invalid_chunk', 'The requested town chunk is outside the map.', 400);
     }
-    $query = $pdo->prepare('SELECT object_id,asset_id,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version '
+    $query = $pdo->prepare('SELECT object_id,asset_id,asset_source,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version '
         . 'FROM town_objects WHERE world_id=:world AND chunk_x=:x AND chunk_y=:y AND deleted_at IS NULL ORDER BY tile_y,tile_x,object_id');
     $query->execute([':world' => SHARED_TOWN_WORLD_ID, ':x' => $chunkX, ':y' => $chunkY]);
     return ['chunk_x' => $chunkX, 'chunk_y' => $chunkY, 'terrain' => shared_town_terrain_chunk($chunkX, $chunkY),
@@ -363,26 +366,31 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
         $objectId = is_string($body['object_id'] ?? null) ? (string)$body['object_id'] : '';
         $object = null; $oldObject = null;
         if ($action === 'place') {
-            if (!isset($catalog['by_id'][$assetId])) { throw new ApiError('invalid_item', 'Unknown tree decoration.', 400); }
+            $townItem = town_asset_published_item($pdo, $assetId);
+            $legacyItem = $catalog['by_id'][$assetId] ?? null;
+            if (!is_array($townItem) && !is_array($legacyItem)) { throw new ApiError('invalid_item', 'Unknown town asset.', 400); }
             if (!is_int($body['tile_x'] ?? null) || !is_int($body['tile_y'] ?? null)) { throw new ApiError('invalid_position', 'A tile position is required.', 400); }
-            $item = $catalog['by_id'][$assetId]; $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
+            $item = is_array($townItem) ? $townItem : $legacyItem; $source = is_array($townItem) ? 'town' : 'legacy';
+            $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
             $occupied = $pdo->query('SELECT asset_id,tile_x,tile_y,footprint_json FROM town_objects WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' AND deleted_at IS NULL')->fetchAll(PDO::FETCH_ASSOC);
             foreach ($occupied as $other) { if (shared_town_intersects($rect, shared_town_rectangle($other))) { throw new ApiError('position_conflict', 'The selected tiles are already occupied.', 409); } }
-            $inventory = $pdo->prepare('SELECT quantity FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item' . ($driver === 'mysql' ? ' FOR UPDATE' : ''));
-            $inventory->execute([':user' => $userId, ':item' => $assetId]); $quantity = (int)($inventory->fetchColumn() ?: 0);
-            $personal = shared_town_personal_counts($pdo, $userId)[$assetId] ?? 0;
-            $reserved = shared_town_reservation($pdo, $userId, $assetId, true);
-            if ($quantity - $personal - $reserved < 1) { throw new ApiError('insufficient_inventory', 'This decoration is already in use.', 409); }
+            if ($source === 'legacy') {
+                $inventory = $pdo->prepare('SELECT quantity FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item' . ($driver === 'mysql' ? ' FOR UPDATE' : ''));
+                $inventory->execute([':user' => $userId, ':item' => $assetId]); $quantity = (int)($inventory->fetchColumn() ?: 0);
+                $personal = shared_town_personal_counts($pdo, $userId)[$assetId] ?? 0;
+                $reserved = shared_town_reservation($pdo, $userId, $assetId, true);
+                if ($quantity - $personal - $reserved < 1) { throw new ApiError('insufficient_inventory', 'This decoration is already in use.', 409); }
+            }
             [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']);
             $objectId = auth_random_id(); $layer = is_int($body['layer'] ?? null) ? (int)$body['layer'] : 0;
             if ($layer < -4 || $layer > 4) { throw new ApiError('invalid_object', 'Object layer is invalid.', 400); }
-            $object = ['object_id' => $objectId, 'asset_id' => $assetId, 'owner_user_id' => $userId, 'chunk_x' => $chunkX, 'chunk_y' => $chunkY,
+            $object = ['object_id' => $objectId, 'asset_id' => $assetId, 'asset_source' => $source, 'owner_user_id' => $userId, 'chunk_x' => $chunkX, 'chunk_y' => $chunkY,
                 'tile_x' => (int)$body['tile_x'], 'tile_y' => (int)$body['tile_y'], 'footprint_json' => json_encode($item['footprint'], JSON_THROW_ON_ERROR), 'layer' => $layer, 'object_version' => 1];
-            $pdo->prepare('INSERT INTO town_objects (object_id,world_id,asset_id,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version,created_at,updated_at) '
-                . 'VALUES (:id,:world,:asset,:user,:cx,:cy,:tx,:ty,:footprint,:layer,1,:created,:updated)')->execute([':id' => $objectId, ':world' => SHARED_TOWN_WORLD_ID,
-                    ':asset' => $assetId, ':user' => $userId, ':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'],
+            $pdo->prepare('INSERT INTO town_objects (object_id,world_id,asset_id,asset_source,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version,created_at,updated_at) '
+                . 'VALUES (:id,:world,:asset,:source,:user,:cx,:cy,:tx,:ty,:footprint,:layer,1,:created,:updated)')->execute([':id' => $objectId, ':world' => SHARED_TOWN_WORLD_ID,
+                    ':asset' => $assetId, ':source' => $source, ':user' => $userId, ':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'],
                     ':footprint' => $object['footprint_json'], ':layer' => $layer, ':created' => auth_sql_time($now), ':updated' => auth_sql_time($now)]);
-            shared_town_adjust_reservation($pdo, $userId, $assetId, 1, $now); $cursor = shared_town_change($pdo, $object, 'place', $now);
+            if ($source === 'legacy') shared_town_adjust_reservation($pdo, $userId, $assetId, 1, $now); $cursor = shared_town_change($pdo, $object, 'place', $now);
             $response = ['action' => 'place', 'object' => shared_town_object_public($object), 'change_cursor' => $cursor];
         } else {
             if (!preg_match('/\A[a-f0-9]{32}\z/D', $objectId)) { throw new ApiError('invalid_object', 'A valid town object is required.', 400); }
@@ -392,14 +400,18 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
             if ((string)$row['owner_user_id'] !== $userId) { throw new ApiError('object_forbidden', 'Only the owner can edit this object.', 403); }
             if (!is_int($body['object_version'] ?? null) || (int)$body['object_version'] !== (int)$row['object_version']) { throw new ApiError('object_conflict', 'The town object changed. Reload the chunk.', 409); }
             $oldObject = $row; $assetId = (string)$row['asset_id'];
+            $assetSource = isset($row['asset_source']) && (string)$row['asset_source'] === 'town' ? 'town' : 'legacy';
             if ($action === 'delete') {
-                shared_town_lock_inventory($pdo, $userId, $assetId);
+                if ($assetSource === 'legacy') shared_town_lock_inventory($pdo, $userId, $assetId);
                 $pdo->prepare('UPDATE town_objects SET deleted_at=:deleted,updated_at=:updated WHERE object_id=:id')->execute([':deleted' => auth_sql_time($now), ':updated' => auth_sql_time($now), ':id' => $objectId]);
-                shared_town_adjust_reservation($pdo, $userId, $assetId, -1, $now); $cursor = shared_town_change($pdo, $row, 'delete', $now);
+                if ($assetSource === 'legacy') shared_town_adjust_reservation($pdo, $userId, $assetId, -1, $now);
+                $cursor = shared_town_change($pdo, $row, 'delete', $now);
                 $response = ['action' => 'delete', 'object_id' => $objectId, 'deleted_object_id' => $objectId, 'change_cursor' => $cursor];
             } else {
                 if (!is_int($body['tile_x'] ?? null) || !is_int($body['tile_y'] ?? null)) { throw new ApiError('invalid_position', 'A tile position is required.', 400); }
-                $item = $catalog['by_id'][$assetId] ?? ['footprint' => ['width' => 1, 'height' => 1]]; $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
+                $item = $assetSource === 'town' ? town_asset_published_item($pdo, $assetId) : ($catalog['by_id'][$assetId] ?? null);
+                if (!is_array($item)) $item = ['footprint' => ['width' => 1, 'height' => 1]];
+                $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
                 $occupied = $pdo->query('SELECT * FROM town_objects WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' AND deleted_at IS NULL AND object_id<>' . $pdo->quote($objectId))->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($occupied as $other) { if (shared_town_intersects($rect, shared_town_rectangle($other))) { throw new ApiError('position_conflict', 'The selected tiles are already occupied.', 409); } }
                 [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']); $version = (int)$row['object_version'] + 1;

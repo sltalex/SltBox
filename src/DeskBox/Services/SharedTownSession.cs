@@ -27,10 +27,13 @@ internal sealed class SharedTownSession : IDisposable
     private string? _identity;
     private long _epoch = 1;
     private long _worldVersion;
+    private long _assetReleaseVersion;
+    private long _assetCatalogVersion = -1;
     private long _cursor;
     private string _world = "{\"enabled\":false}";
     private string _inventory = "{}";
     private string _presence = "{\"players\":[]}";
+    private string _assetCatalog = "{\"release_version\":0,\"items\":[],\"sheets\":[]}";
     private string _lastChanges = "{\"cursor\":0,\"changes\":[]}";
     private bool _enabled;
     private bool _busy;
@@ -53,6 +56,7 @@ internal sealed class SharedTownSession : IDisposable
     internal bool IsDirty => false;
     internal bool IsAuthenticated => Identity() is not null;
     internal bool IsEnabled { get { lock (_gate) return _enabled; } }
+    internal bool AssetCatalogNeedsReload { get { lock (_gate) return _assetCatalogVersion != _assetReleaseVersion; } }
     internal long Cursor { get { lock (_gate) return _cursor; } }
 
     internal string BridgeJson()
@@ -76,6 +80,8 @@ internal sealed class SharedTownSession : IDisposable
                 writer.WriteRawValue(_inventory);
                 writer.WritePropertyName("presence");
                 writer.WriteRawValue(_presence);
+                writer.WritePropertyName("asset_catalog");
+                writer.WriteRawValue(_assetCatalog);
                 writer.WriteEndObject();
             });
         }
@@ -123,6 +129,52 @@ internal sealed class SharedTownSession : IDisposable
         lock (_gate) return AddSessionMetadata(_inventory);
     }
 
+    internal string AssetCatalogJson()
+    {
+        lock (_gate) return AddSessionMetadata(_assetCatalog);
+    }
+
+    internal async Task<bool> LoadAssetCatalogAsync(long epoch)
+    {
+        if (!IsCurrent(epoch) || !IsEnabled) return false;
+        CancellationToken token; lock (_gate) token = _identityLifetime.Token;
+        try
+        {
+            using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "../../v2/town/assets/catalog.php", null, token);
+            string text = await response.Content.ReadAsStringAsync(token); response.EnsureSuccessStatusCode();
+            using JsonDocument document = ParseObject(text, "town asset catalog");
+            long releaseVersion = document.RootElement.TryGetProperty("release_version", out JsonElement versionElement) &&
+                versionElement.TryGetInt64(out long parsedVersion) ? parsedVersion : 0;
+            lock (_gate)
+            {
+                if (IsCurrentLocked(epoch))
+                {
+                    _assetCatalog = text;
+                    _assetCatalogVersion = releaseVersion;
+                }
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or InvalidDataException or AuthApiException)
+        { App.Log($"[SharedTown] Asset catalog load failed: {ex.GetType().Name}"); return false; }
+    }
+
+    internal async Task<(byte[] Bytes, string MimeType)?> LoadAssetSheetAsync(string sheetId, long epoch)
+    {
+        if (!IsCurrent(epoch) || !IsEnabled || string.IsNullOrWhiteSpace(sheetId)) return null;
+        CancellationToken token; lock (_gate) token = _identityLifetime.Token;
+        try
+        {
+            using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"../../v2/town/assets/sheet.php?sheet_id={Uri.EscapeDataString(sheetId)}", null, token);
+            response.EnsureSuccessStatusCode();
+            byte[] bytes = await response.Content.ReadAsByteArrayAsync(token);
+            string mime = response.Content.Headers.ContentType?.MediaType ?? "image/png";
+            return (bytes, mime);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or AuthApiException)
+        { App.Log($"[SharedTown] Asset sheet load failed: {ex.GetType().Name}"); return null; }
+    }
+
     /// <summary>Loads the global world metadata.  A disabled/forbidden response is
     /// a normal grey-release state and is surfaced to the page without throwing.</summary>
     internal async Task<bool> LoadWorldAsync()
@@ -165,6 +217,7 @@ internal sealed class SharedTownSession : IDisposable
                     inventory.ValueKind == JsonValueKind.Object;
                 if (inventoryIncluded) _inventory = body.RootElement.GetProperty("inventory").GetRawText();
                 _worldVersion = ReadLongFromWorld(body.RootElement, "world_version");
+                _assetReleaseVersion = ReadAssetReleaseVersion(body.RootElement);
                 _status = !_enabled ? "共享小镇尚未对当前账号开放" : "共享小镇已载入";
                 if (!_enabled && response.StatusCode == HttpStatusCode.Unauthorized)
                     _status = "请登录后查看共享小镇";
@@ -413,6 +466,9 @@ internal sealed class SharedTownSession : IDisposable
             _world = "{\"enabled\":false}";
             _inventory = "{}";
             _presence = "{\"players\":[]}";
+            _assetCatalog = "{\"release_version\":0,\"items\":[],\"sheets\":[]}";
+            _assetReleaseVersion = 0;
+            _assetCatalogVersion = -1;
             _lastChanges = "{\"cursor\":0,\"changes\":[]}";
             _chunks.Clear();
             _status = identity is null ? "请登录后查看共享小镇" : "正在检查共享小镇开放状态…";
@@ -510,6 +566,19 @@ internal sealed class SharedTownSession : IDisposable
         if (value != 0) return value;
         return root.TryGetProperty("world", out JsonElement world) && world.ValueKind == JsonValueKind.Object
             ? ReadLong(world, property) : 0;
+    }
+
+    private static long ReadAssetReleaseVersion(JsonElement root)
+    {
+        JsonElement value = root;
+        if (root.TryGetProperty("asset_release", out JsonElement direct) && direct.ValueKind == JsonValueKind.Object)
+            value = direct;
+        else if (root.TryGetProperty("world", out JsonElement world) &&
+            world.ValueKind == JsonValueKind.Object &&
+            world.TryGetProperty("asset_release", out JsonElement nested) &&
+            nested.ValueKind == JsonValueKind.Object)
+            value = nested;
+        return ReadLong(value, "release_version");
     }
 
     private static string NormalizeWorld(JsonElement root, bool enabled)

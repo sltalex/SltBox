@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using Windows.Graphics;
+using Windows.Storage.Streams;
 
 namespace DeskBox.Views;
 
@@ -29,6 +30,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     // prototype session.  The session still exposes the small compatibility
     // surface used by the optional native probe.
     private readonly SharedTownSession _session;
+    private readonly Dictionary<string, (byte[] Bytes, string MimeType)> _assetSheets = new(StringComparer.Ordinal);
     private bool _ready;
     private bool _closed;
     private bool _allowClose;
@@ -101,12 +103,17 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             CoreWebView2 core = _web.CoreWebView2;
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreHostObjectsAllowed = false;
+            // Map the complete local tree asset root so the town page can use
+            // the existing SVG decoration catalog via ../Decorations without
+            // copying 1500 files into the prototype directory.
             core.SetVirtualHostNameToFolderMapping(VirtualHost,
-                Path.Combine(AppContext.BaseDirectory, "Assets", "Tree", "TownPrototype"),
+                Path.Combine(AppContext.BaseDirectory, "Assets", "Tree"),
                 CoreWebView2HostResourceAccessKind.DenyCors);
             core.NewWindowRequested += OnNewWindow;
             core.ProcessFailed += OnProcessFailed;
-            _web.Source = new Uri($"https://{VirtualHost}/index.html");
+            core.AddWebResourceRequestedFilter($"https://{VirtualHost}/town-assets/*", CoreWebView2WebResourceContext.Image);
+            core.WebResourceRequested += OnWebResourceRequested;
+            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html");
             _ = CheckReadyAsync();
         }
         catch (Exception ex) { ShowFailure(ex); }
@@ -130,6 +137,31 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     }
 
     private void OnNewWindow(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args) => args.Handled = true;
+    private void OnWebResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs args)
+    {
+        if (!Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out Uri? uri) ||
+            !uri.AbsolutePath.StartsWith("/town-assets/", StringComparison.Ordinal) ||
+            !uri.AbsolutePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) return;
+        string sheetId = uri.AbsolutePath["/town-assets/".Length..^4];
+        (byte[] Bytes, string MimeType) asset;
+        lock (_assetSheets)
+        {
+            if (!_assetSheets.TryGetValue(sheetId, out asset)) return;
+        }
+        // Copy the reference under the lock, then perform the potentially
+        // expensive stream write without blocking catalog/state updates.
+        var stream = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(stream))
+        {
+            writer.WriteBytes(asset.Bytes);
+            writer.StoreAsync().AsTask().GetAwaiter().GetResult();
+            writer.DetachStream();
+        }
+        stream.Seek(0);
+        args.Response = _web.CoreWebView2.Environment.CreateWebResourceResponse(
+            stream, 200, "OK",
+            $"Content-Type: {asset.MimeType}\r\nCache-Control: private, max-age=300\r\nX-Content-Type-Options: nosniff");
+    }
     private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs args) =>
         ShowFailure(new InvalidOperationException("Town rendering process stopped."));
 
@@ -190,6 +222,16 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     }
                     await _session.LoadChangesAsync(epoch);
                     await PostAsync("applyChanges", _session.ChangesJson());
+                    break;
+                case "townAssetSheetRequested":
+                    string sheetId = message.TryGetProperty("sheet_id", out JsonElement sheetElement) &&
+                        sheetElement.ValueKind == JsonValueKind.String ? sheetElement.GetString() ?? string.Empty : string.Empty;
+                    var sheet = await _session.LoadAssetSheetAsync(sheetId, epoch);
+                    if (sheet is not null)
+                    {
+                        lock (_assetSheets) _assetSheets[sheetId] = sheet.Value;
+                        await PostAsync("setAssetSheet", JsonSerializer.Serialize(new { sheet_id = sheetId, url = $"https://{VirtualHost}/town-assets/{sheetId}.png" }));
+                    }
                     break;
                 case "presenceHeartbeat":
                     await _session.SendPresenceHeartbeatAsync(
@@ -261,10 +303,13 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     private async Task PostSharedStateAsync()
     {
         if (_closed || !_ready) return;
+        if (_session.IsEnabled && _session.AssetCatalogNeedsReload)
+            await _session.LoadAssetCatalogAsync(_session.Epoch);
         await PostAsync("setWorld", _session.WorldJson());
         await PostAsync("setChunks", _session.ChunksJson());
         await PostAsync("setInventory", _session.InventoryJson());
         await PostAsync("setPresence", _session.PresenceJson());
+        await PostAsync("setAssetCatalog", _session.AssetCatalogJson());
     }
 
     private static string BuildActionPayload(JsonElement message)
@@ -387,7 +432,10 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         {
             core.NewWindowRequested -= OnNewWindow;
             core.ProcessFailed -= OnProcessFailed;
+            core.WebResourceRequested -= OnWebResourceRequested;
+            core.RemoveWebResourceRequestedFilter($"https://{VirtualHost}/town-assets/*", CoreWebView2WebResourceContext.Image);
         }
+        lock (_assetSheets) _assetSheets.Clear();
         _web.Close();
     }
 }

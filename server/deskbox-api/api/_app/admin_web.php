@@ -101,7 +101,7 @@ function admin_page_nonnegative(array $post, string $key, string $code): int
     return (int)$value;
 }
 
-function admin_page_mutate(PDO $pdo, array $actor, array $post): string
+function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = []): string
 {
     web_admin_require_csrf($post);
     $operation = isset($post['operation']) && is_string($post['operation']) ? $post['operation'] : '';
@@ -114,6 +114,35 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post): string
     if ($operation === 'wildlife_catalog_item') {
         wildlife_admin_update($pdo, $post, api_clock());
         return 'wildlife_catalog_item';
+    }
+    if ($operation === 'town_asset_upload') {
+        $file = is_array($files['sheet'] ?? null) ? $files['sheet'] : [];
+        town_asset_upload_sheet($pdo, $actor['user_id'], $file, api_clock());
+        return 'town_asset_upload';
+    }
+    if ($operation === 'town_asset_item') {
+        town_asset_save_item($pdo, $actor['user_id'], [
+            'asset_id' => $post['asset_id'] ?? '', 'sheet_id' => $post['sheet_id'] ?? '',
+            'name' => $post['name'] ?? '', 'category' => $post['category'] ?? '', 'subcategory' => $post['subcategory'] ?? '',
+            'tags' => $post['tags'] ?? [], 'x' => $post['x'] ?? null, 'y' => $post['y'] ?? null,
+            'width' => $post['width'] ?? null, 'height' => $post['height'] ?? null,
+            'display_width' => $post['display_width'] ?? null, 'display_height' => $post['display_height'] ?? null,
+            'anchor' => $post['anchor'] ?? ['x' => .5, 'y' => 1], 'footprint' => $post['footprint'] ?? ['width' => 1, 'height' => 1],
+            'collision' => $post['collision'] ?? ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4], 'frames' => $post['frames'] ?? [],
+        ], api_clock());
+        return 'town_asset_item';
+    }
+    if ($operation === 'town_asset_delete') {
+        town_asset_delete_item($pdo, isset($post['asset_id']) && is_string($post['asset_id']) ? $post['asset_id'] : '');
+        return 'town_asset_delete';
+    }
+    if ($operation === 'town_asset_publish') {
+        town_asset_publish($pdo, $actor['user_id'], api_clock());
+        return 'town_asset_publish';
+    }
+    if ($operation === 'town_asset_rollback') {
+        town_asset_rollback($pdo, isset($post['release_id']) && is_string($post['release_id']) ? $post['release_id'] : '');
+        return 'town_asset_rollback';
     }
 
     $targetId = in_array($operation, ['shop_price', 'tree_pack_prices', 'tree_fruit_settings'], true)

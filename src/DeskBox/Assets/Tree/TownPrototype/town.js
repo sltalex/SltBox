@@ -4,7 +4,7 @@ import { clone, validateLayout, validatePlacement, playerCanStand } from './town
 const $ = id => document.getElementById(id);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
-  catalog: null, initial: null, layout: null, scene: null, game: null, world: null, chunks: new Map(), objects: new Map(), presence: new Map(), inventory: new Map(), pendingActions: new Map(), cursor: 0, graylisted: false, requestedChunks: new Set(), shared: true,
+  catalog: null, initial: null, layout: null, scene: null, game: null, world: null, assetSheets: new Map(), townAssets: new Map(), chunks: new Map(), objects: new Map(), presence: new Map(), inventory: new Map(), pendingActions: new Map(), cursor: 0, graylisted: false, requestedChunks: new Set(), shared: true,
   mode: 'roam', category: 'all', selectedAsset: null, selectedInstance: null,
   dirty: false, authenticated: false, canSave: false, saving: false, conflict: false,
   version: 0, epoch: 0, history: [], revision: 0, saveRevision: -1,
@@ -86,25 +86,25 @@ function updateUI() {
     const remaining = Math.max(0, state.inventory.get(button.dataset.id) || 0);
     button.classList.toggle('chosen', button.dataset.id === state.selectedAsset);
     button.classList.toggle('depleted', remaining <= 0);
-    button.querySelector('.remaining').textContent = `可用 ${remaining}`;
+    button.querySelector('.remaining').textContent = button.dataset.source === 'town' ? '小镇素材' : `可用 ${remaining}`;
     button.setAttribute('aria-pressed', String(button.dataset.id === state.selectedAsset));
   }
   for (const button of document.querySelectorAll('[data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
 }
 
 function renderMaterials() {
-  const list = state.catalog.items.filter(item => (state.category === 'all' || item.category === state.category) && (state.subcategory === 'all' || item.subcategory === state.subcategory) && (!state.search || `${item.name} ${item.id}`.toLowerCase().includes(state.search.toLowerCase())));
+  const list = state.catalog.items.filter(item => (state.category === 'all' || (state.category === 'town' ? item.asset_source === 'town' : item.category === state.category && item.asset_source !== 'town')) && (state.subcategory === 'all' || item.subcategory === state.subcategory) && (!state.search || `${item.name} ${item.id}`.toLowerCase().includes(state.search.toLowerCase())));
   const pages = Math.max(1, Math.ceil(list.length / 24));
   state.page = Math.max(1, Math.min(state.page, pages));
   const elements = list.slice((state.page - 1) * 24, state.page * 24).map(item => {
     const button = document.createElement('button');
-    button.className = 'material-item'; button.dataset.id = item.id;
+    button.className = 'material-item'; button.dataset.id = item.id; button.dataset.source = item.asset_source || 'legacy';
     button.title = `${item.name} · ${item.subcategory || item.category} · 占地 ${item.footprint.width}×${item.footprint.height}`;
-    const image = Object.assign(document.createElement('img'), { src: item.asset, alt: '', draggable: false, loading: 'lazy' });
+    const image = Object.assign(document.createElement('img'), { src: item.asset || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=', alt: '', draggable: false, loading: 'lazy' });
     button.append(image, Object.assign(document.createElement('span'), { className: 'item-name', textContent: item.name }), Object.assign(document.createElement('span'), { className: 'remaining' }));
     button.addEventListener('click', () => {
       if (!state.graylisted) { notice('共享小镇正在灰度开放'); return; }
-      if ((state.inventory.get(item.id) ?? 0) <= 0) { notice('这种材料暂无可用库存'); return; }
+      if (item.asset_source !== 'town' && (state.inventory.get(item.id) ?? 0) <= 0) { notice('这种材料暂无可用库存'); return; }
       state.mode = 'edit'; state.selectedAsset = item.id; state.selectedInstance = null;
       state.scene?.loadItemTexture(item); state.scene?.cameras.main.stopFollow(); state.scene?.cancelDrag(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true });
     }); return button;
@@ -113,7 +113,7 @@ function renderMaterials() {
   if ($('page-label')) $('page-label').textContent = `${state.page} / ${pages} · ${list.length} 项`;
   if ($('page-prev')) $('page-prev').disabled = state.page <= 1;
   if ($('page-next')) $('page-next').disabled = state.page >= pages;
-  const subs = [...new Set(state.catalog.items.filter(item => state.category === 'all' || item.category === state.category).map(item => item.subcategory).filter(Boolean))];
+  const subs = [...new Set(state.catalog.items.filter(item => state.category === 'all' || (state.category === 'town' ? item.asset_source === 'town' : item.category === state.category && item.asset_source !== 'town')).map(item => item.subcategory).filter(Boolean))];
   if ($('subcategory')) { const selected = state.subcategory; $('subcategory').replaceChildren(Object.assign(document.createElement('option'), { value: 'all', textContent: '全部子分类' }), ...subs.map(sub => Object.assign(document.createElement('option'), { value: sub, textContent: sub }))); $('subcategory').value = selected; }
   updateUI();
 }
@@ -213,7 +213,7 @@ function diagnostics() {
 }
 
 window.DeskBoxTownPrototype = {
-  loadState, loadWorld, loadChunks, applyChanges, setPresence, setInventory, applyActionResult, setWorld, setChunks,
+  loadState, loadWorld, loadChunks, applyChanges, setPresence, setInventory, applyActionResult, setWorld, setChunks, setAssetCatalog, setAssetSheet,
   setSaveStatus,
   setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
   setHostActive(active) { state.hostActive = !!active; applyVisibility(); },
@@ -311,6 +311,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   loadItemTexture(item) {
     const key = `item-${item.id}`;
     if (this.textures.exists(key)) return true;
+    if (!item.asset) return false;
     this.loadingItems ||= new Set();
     if (!this.loadingItems.has(item.id)) {
       this.loadingItems.add(item.id);
@@ -535,7 +536,7 @@ function syncObjectLayout() {
 function loadWorld(payload) {
   if (!payload) return;
   const incomingEpoch = Number.isSafeInteger(payload.session_epoch) ? payload.session_epoch : state.epoch;
-  if (incomingEpoch !== state.epoch) { state.chunks.clear(); state.objects.clear(); state.presence.clear(); state.inventory.clear(); state.pendingActions.clear(); state.layout = { template_version: 2, catalog_version: 4, world_id: 'main', demo_stage: 5, placements: [] }; state.selectedAsset = null; state.selectedInstance = null; clearKeys(); state.scene?.renderObjects(); state.scene?.renderPresence(); }
+  if (incomingEpoch !== state.epoch) { state.chunks.clear(); state.objects.clear(); state.presence.clear(); state.inventory.clear(); state.pendingActions.clear(); state.assetSheets.clear(); state.townAssets.clear(); state.layout = { template_version: 2, catalog_version: 4, world_id: 'main', demo_stage: 5, placements: [] }; state.selectedAsset = null; state.selectedInstance = null; clearKeys(); state.scene?.renderObjects(); state.scene?.renderPresence(); }
   state.epoch = incomingEpoch;
   state.world = payload;
   const meta = payload.world && typeof payload.world === 'object' ? payload.world : payload;
@@ -649,6 +650,35 @@ function applyActionResult(payload) {
 
 function setWorld(payload) { loadWorld(payload); }
 function setChunks(payload) { loadChunks(payload); }
+function setAssetCatalog(payload) {
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  state.townAssets.clear();
+  for (const raw of items) {
+    if (!raw?.id || !String(raw.id).startsWith('town-source-')) continue;
+    const item = { ...raw, id: raw.id, asset_source: 'town', asset: null };
+    state.townAssets.set(item.id, item);
+  }
+  const legacy = state.catalog?.items?.filter(item => item.asset_source !== 'town') || [];
+  if (state.catalog) state.catalog.items = [...legacy, ...state.townAssets.values()];
+  for (const sheet of (payload?.sheets || [])) if (sheet?.sheet_id && !state.assetSheets.has(sheet.sheet_id)) host({ type: 'townAssetSheetRequested', sheet_id: sheet.sheet_id });
+  renderMaterials();
+}
+function setAssetSheet(payload) {
+  if (!payload?.sheet_id || typeof payload.url !== 'string') return;
+  state.assetSheets.set(payload.sheet_id, payload.url);
+  const image = new Image();
+  image.onload = () => {
+    for (const item of state.townAssets.values()) {
+      if (item.sheet_id !== payload.sheet_id) continue;
+      const canvas = document.createElement('canvas'); canvas.width = item.width; canvas.height = item.height;
+      const context = canvas.getContext('2d'); if (!context) continue;
+      context.drawImage(image, item.x, item.y, item.width, item.height, 0, 0, item.width, item.height);
+      item.asset = canvas.toDataURL('image/png');
+    }
+    renderMaterials(); state.scene?.renderObjects(); state.scene?.refreshGhost();
+  };
+  image.src = payload.url;
+}
 function setupControls() {
   $('search')?.addEventListener('input', event => { state.search = event.target.value; state.page = 1; renderMaterials(); });
   $('subcategory')?.addEventListener('change', event => { state.subcategory = event.target.value; state.page = 1; renderMaterials(); });
