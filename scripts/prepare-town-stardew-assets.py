@@ -108,6 +108,8 @@ def main() -> None:
     if len(candidates) < len(items):
         seen = {(candidate.source, candidate.rect) for candidate in candidates}
         for path in sorted(SOURCE_ROOT.rglob("*.png")):
+            if path.relative_to(SOURCE_ROOT).parts[0] in {"Animals", "Characters", "Portraits", "Fonts"}:
+                continue
             if any(marker in path.stem for marker in LOCALIZED_MARKERS):
                 continue
             with Image.open(path) as image:
