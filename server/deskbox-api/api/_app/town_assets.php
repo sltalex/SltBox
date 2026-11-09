@@ -204,6 +204,26 @@ function town_asset_build_config(PDO $pdo): array
     return ['schema_version' => 1, 'items' => $public, 'sheets' => array_values($sheets)];
 }
 
+/**
+ * Returns draft items in the same public shape used by the client catalog.
+ * The database row uses asset_id and *_json columns, while the admin page
+ * renders id and decoded metadata.
+ */
+function town_asset_read_admin_items(PDO $pdo): array
+{
+    $items = [];
+    foreach (town_asset_read_draft_items($pdo) as $row) {
+        $sheet = [
+            'sheet_id' => (string)$row['sheet_id'],
+            'image_width' => (int)$row['image_width'],
+            'image_height' => (int)$row['image_height'],
+            'sha256' => (string)$row['sha256'],
+        ];
+        $items[] = town_asset_item_public($row, $sheet);
+    }
+    return $items;
+}
+
 function town_asset_publish(PDO $pdo, string $userId, DateTimeImmutable $now): array
 {
     $config = town_asset_build_config($pdo); if (count($config['items']) > TOWN_ASSET_MAX_ITEMS) throw new ApiError('too_many_assets', 'Too many town assets.', 400);
@@ -261,7 +281,7 @@ function town_asset_active_summary(PDO $pdo): array
 
 function town_asset_admin_state(PDO $pdo): array
 {
-    $releases=[]; try { $releases=$pdo->query('SELECT release_id,release_version,config_sha256,published_at FROM town_asset_releases ORDER BY release_version DESC LIMIT 20')->fetchAll(PDO::FETCH_ASSOC); } catch (PDOException) {} return ['sheets'=>array_map('town_asset_sheet_public',town_asset_read_sheets($pdo)),'items'=>town_asset_read_draft_items($pdo),'releases'=>$releases,'active'=>town_asset_active_summary($pdo),'categories'=>TOWN_ASSET_CATEGORIES];
+    $releases=[]; try { $releases=$pdo->query('SELECT release_id,release_version,config_sha256,published_at FROM town_asset_releases ORDER BY release_version DESC LIMIT 20')->fetchAll(PDO::FETCH_ASSOC); } catch (PDOException) {} return ['sheets'=>array_map('town_asset_sheet_public',town_asset_read_sheets($pdo)),'items'=>town_asset_read_admin_items($pdo),'releases'=>$releases,'active'=>town_asset_active_summary($pdo),'categories'=>TOWN_ASSET_CATEGORIES];
 }
 
 function town_asset_file(PDO $pdo, string $sheetId): array

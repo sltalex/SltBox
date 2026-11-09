@@ -24,6 +24,10 @@ try {
 }
 $item = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],'name'=>'测试树','category'=>'tree','subcategory'=>'forest','x'=>'0','y'=>'0','width'=>'16','height'=>'16','display_width'=>'16','display_height'=>'16','footprint'=>'{"width":1,"height":1}'], $now);
 if ($item['id'] !== 'town-source-test-tree') throw new RuntimeException('Draft item was not saved.');
+$adminItems = town_asset_read_admin_items($pdo);
+if (($adminItems[0]['id'] ?? '') !== 'town-source-test-tree' || !array_key_exists('frames', $adminItems[0])) {
+    throw new RuntimeException('Admin draft items were not normalized to the public shape.');
+}
 if (town_asset_active_config($pdo)['items'] !== []) throw new RuntimeException('Draft item became visible before publish.');
 $shortId = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-a_1','sheet_id'=>$sheet['sheet_id'],'name'=>'短 ID','category'=>'object','x'=>'0','y'=>'0','width'=>'16','height'=>'16'], $now);
 if ($shortId['id'] !== 'town-source-a_1') throw new RuntimeException('Asset-hub style town asset ID was rejected.');
