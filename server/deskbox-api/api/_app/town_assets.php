@@ -22,9 +22,9 @@ function town_asset_storage_root(): string
 
 function town_asset_id(string $value): string
 {
-    // Keep the resource namespace isolated from tree decorations while
-    // allowing the same lowercase/underscore naming style used by asset-hub.
-    if (!preg_match('/\Atown-source-[a-z0-9][a-z0-9_-]{0,96}\z/D', $value)) {
+    // Keep the resource namespace isolated from tree decorations while allowing
+    // common asset-hub/file-name characters in manually entered IDs.
+    if (!preg_match('/\Atown-source-[A-Za-z0-9][A-Za-z0-9._-]{0,96}\z/D', $value)) {
         throw new ApiError('invalid_asset_id', 'The town asset ID is invalid.', 400);
     }
     return $value;
@@ -169,7 +169,9 @@ function town_asset_upload_sheet(PDO $pdo, string $userId, array $file, DateTime
 
 function town_asset_save_item(PDO $pdo, string $userId, array $body, DateTimeImmutable $now): array
 {
-    $id = town_asset_id(isset($body['asset_id']) && is_string($body['asset_id']) ? trim($body['asset_id']) : '');
+    $rawId = isset($body['asset_id']) && is_string($body['asset_id']) ? trim($body['asset_id']) : '';
+    if ($rawId !== '' && !str_starts_with($rawId, 'town-source-')) $rawId = 'town-source-' . $rawId;
+    $id = town_asset_id($rawId);
     $sheetId = isset($body['sheet_id']) && is_string($body['sheet_id']) ? trim($body['sheet_id']) : '';
     $query = $pdo->prepare('SELECT * FROM town_asset_sheets WHERE sheet_id=:id LIMIT 1'); $query->execute([':id' => $sheetId]); $sheet = $query->fetch(PDO::FETCH_ASSOC); if (!is_array($sheet)) throw new ApiError('sheet_not_found', 'The source image was not found.', 404);
     $values = town_asset_validate_region($body, $sheet);

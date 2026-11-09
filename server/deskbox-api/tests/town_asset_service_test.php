@@ -28,6 +28,9 @@ if (town_asset_active_config($pdo)['items'] !== []) throw new RuntimeException('
 $shortId = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-a_1','sheet_id'=>$sheet['sheet_id'],'name'=>'短 ID','category'=>'object','x'=>'0','y'=>'0','width'=>'16','height'=>'16'], $now);
 if ($shortId['id'] !== 'town-source-a_1') throw new RuntimeException('Asset-hub style town asset ID was rejected.');
 town_asset_delete_item($pdo, 'town-source-a_1');
+$fileNameId = town_asset_save_item($pdo, $user, ['asset_id'=>'fall_town.zh-CN..png','sheet_id'=>$sheet['sheet_id'],'name'=>'文件名 ID','category'=>'object','x'=>'0','y'=>'0','width'=>'16','height'=>'16'], $now);
+if ($fileNameId['id'] !== 'town-source-fall_town.zh-CN..png') throw new RuntimeException('File-name style town asset ID was not normalized.');
+town_asset_delete_item($pdo, 'town-source-fall_town.zh-CN..png');
 $_SESSION = ['csrf' => str_repeat('a', 64)];
 if (admin_page_mutate($pdo, ['user_id'=>$user], ['csrf'=>$_SESSION['csrf'],'operation'=>'town_asset_delete','asset_id'=>'town-source-test-tree']) !== 'town_asset_delete') {
     throw new RuntimeException('Admin delete dispatch did not complete.');
