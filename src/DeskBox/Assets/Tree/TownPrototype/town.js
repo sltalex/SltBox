@@ -9,8 +9,37 @@ const state = {
   dirty: false, authenticated: false, canSave: false, saving: false, conflict: false,
   version: 0, epoch: 0, history: [], revision: 0, saveRevision: -1,
   visible: !document.hidden, hostActive: true, noticeTimer: null, pendingState: null,
-  status: '正在载入…', fatal: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1
+  status: '正在载入…', fatal: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: []
 };
+
+const townCategoryLabels = {
+  character: '人物', animal: '动物', monster: '怪物', terrain: '地形', water: '水面', farmland: '农田',
+  fence: '围栏', building: '建筑', tree: '树木', path: '道路', object: '物件', tool: '工具',
+  ui: '界面', portrait: '头像', effect: '特效', font: '字体', other: '其他'
+};
+
+function catalogItem(id) {
+  return state.catalog?.items.find(item => item.id === id) || state.legacyItems.find(item => item.id === id) || null;
+}
+
+function townMaterialItems() { return [...state.townAssets.values()]; }
+
+function renderCategories() {
+  const host = $('categories');
+  if (!host) return;
+  const categories = [...new Set(townMaterialItems().map(item => item.category).filter(Boolean))];
+  const all = document.createElement('button');
+  all.dataset.category = 'all'; all.textContent = '全部'; all.className = state.category === 'all' ? 'active' : '';
+  all.addEventListener('click', () => { state.category = 'all'; state.subcategory = 'all'; state.page = 1; renderMaterials(); });
+  host.replaceChildren(all, ...categories.map(category => {
+    const button = document.createElement('button');
+    button.dataset.category = category;
+    button.textContent = townCategoryLabels[category] || category;
+    button.className = state.category === category ? 'active' : '';
+    button.addEventListener('click', () => { state.category = category; state.subcategory = 'all'; state.page = 1; renderMaterials(); });
+    return button;
+  }));
+}
 
 function host(message) {
   const value = { ...message, session_epoch: state.epoch };
@@ -72,7 +101,7 @@ function updateUI() {
   $('undo').disabled = !state.history.length;
   $('delete').disabled = !state.selectedInstance || !canEditObject(state.layout.placements.find(value => value.instance_id === state.selectedInstance));
   const selected = state.selectedInstance ? state.layout.placements.find(item => item.instance_id === state.selectedInstance)?.asset_id : state.selectedAsset;
-  $('selection-name').textContent = state.catalog.items.find(item => item.id === selected)?.name || '尚未选择';
+  $('selection-name').textContent = catalogItem(selected)?.name || '尚未选择';
   $('mode-description').textContent = state.mode === 'roam' ? '漫游模式' : state.selectedAsset ? '点击地图放置 · 拖动物件移动' : '编辑模式 · 选择材料或已摆放物件';
   $('save').disabled = !state.authenticated || !state.graylisted || !state.canSave || state.saving || state.conflict || state.fatal;
   $('save').textContent = state.saving ? '正在保存…' : '保存小镇';
@@ -89,11 +118,12 @@ function updateUI() {
     button.querySelector('.remaining').textContent = button.dataset.source === 'town' ? '小镇素材' : `可用 ${remaining}`;
     button.setAttribute('aria-pressed', String(button.dataset.id === state.selectedAsset));
   }
-  for (const button of document.querySelectorAll('[data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
+  for (const button of document.querySelectorAll('#categories [data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
 }
 
 function renderMaterials() {
-  const list = state.catalog.items.filter(item => (state.category === 'all' || (state.category === 'town' ? item.asset_source === 'town' : item.category === state.category && item.asset_source !== 'town')) && (state.subcategory === 'all' || item.subcategory === state.subcategory) && (!state.search || `${item.name} ${item.id}`.toLowerCase().includes(state.search.toLowerCase())));
+  renderCategories();
+  const list = townMaterialItems().filter(item => (state.category === 'all' || item.category === state.category) && (state.subcategory === 'all' || item.subcategory === state.subcategory) && (!state.search || `${item.name} ${item.id}`.toLowerCase().includes(state.search.toLowerCase())));
   const pages = Math.max(1, Math.ceil(list.length / 24));
   state.page = Math.max(1, Math.min(state.page, pages));
   const elements = list.slice((state.page - 1) * 24, state.page * 24).map(item => {
@@ -113,7 +143,7 @@ function renderMaterials() {
   if ($('page-label')) $('page-label').textContent = `${state.page} / ${pages} · ${list.length} 项`;
   if ($('page-prev')) $('page-prev').disabled = state.page <= 1;
   if ($('page-next')) $('page-next').disabled = state.page >= pages;
-  const subs = [...new Set(state.catalog.items.filter(item => state.category === 'all' || (state.category === 'town' ? item.asset_source === 'town' : item.category === state.category && item.asset_source !== 'town')).map(item => item.subcategory).filter(Boolean))];
+  const subs = [...new Set(townMaterialItems().filter(item => state.category === 'all' || item.category === state.category).map(item => item.subcategory).filter(Boolean))];
   if ($('subcategory')) { const selected = state.subcategory; $('subcategory').replaceChildren(Object.assign(document.createElement('option'), { value: 'all', textContent: '全部子分类' }), ...subs.map(sub => Object.assign(document.createElement('option'), { value: sub, textContent: sub }))); $('subcategory').value = selected; }
   updateUI();
 }
@@ -328,7 +358,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     for (const [id, image] of this.objectImages) if (!ids.has(id)) { image.destroy(); this.objectImages.delete(id); }
     this.objectShadows.clear();
     for (const placement of state.layout.placements) {
-      const item = state.catalog.items.find(value => value.id === placement.asset_id);
+      const item = catalogItem(placement.asset_id);
       if (!item || !this.loadItemTexture(item)) continue;
       let image = this.objectImages.get(placement.instance_id);
       if (!image) { image = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1); this.objectImages.set(placement.instance_id, image); }
@@ -374,7 +404,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     if (state.mode !== 'edit' || !state.selectedInstance || this.drag) return;
     const placement = state.layout.placements.find(item => item.instance_id === state.selectedInstance);
     if (!placement) return;
-    const item = state.catalog.items.find(value => value.id === placement.asset_id);
+    const item = catalogItem(placement.asset_id);
     this.selectionGraphics.lineStyle(1, 0xfff8cb, 1);
     this.selectionGraphics.strokeRect(placement.tile_x * 16, placement.tile_y * 16, item.footprint.width * 16, item.footprint.height * 16);
   }
@@ -427,7 +457,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   }
 
   placementPosition(world, assetId) {
-    const item = state.catalog.items.find(value => value.id === assetId);
+    const item = catalogItem(assetId);
     return { x: Math.floor(world.x / 16) - Math.floor(item.footprint.width / 2), y: Math.floor(world.y / 16) - item.footprint.height + 1 };
   }
 
@@ -447,7 +477,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
         this.drag.tileY = Math.floor(world.y / 16) - this.drag.offsetY;
         this.drag.error = validatePlacement(state.catalog, state.layout, placement.asset_id, this.drag.tileX, this.drag.tileY, placement.instance_id, this.player);
         this.drag.valid = !this.drag.error;
-        const item = state.catalog.items.find(value => value.id === placement.asset_id);
+        const item = catalogItem(placement.asset_id);
         this.objectImages.get(placement.instance_id).setPosition((this.drag.tileX + item.footprint.width / 2) * 16, (this.drag.tileY + item.footprint.height) * 16).setAlpha(.65).setTint(this.drag.valid ? 0xffffff : 0xef6666);
       }
     }
@@ -473,7 +503,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     const placement = state.layout?.placements.find(item => item.instance_id === this.drag.id);
     this.drag = null;
     if (placement) {
-      const item = state.catalog.items.find(value => value.id === placement.asset_id);
+      const item = catalogItem(placement.asset_id);
       this.objectImages.get(placement.instance_id)?.setPosition((placement.tile_x + item.footprint.width / 2) * 16, (placement.tile_y + item.footprint.height) * 16).setAlpha(1).clearTint();
     }
     this.refreshGhost(); this.drawSelection();
@@ -486,10 +516,10 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     let item, x, y, error;
     if (this.drag?.moved) {
       const placement = state.layout.placements.find(value => value.instance_id === this.drag.id);
-      item = state.catalog.items.find(value => value.id === placement.asset_id);
+      item = catalogItem(placement.asset_id);
       x = this.drag.tileX; y = this.drag.tileY; error = this.drag.error;
     } else if (state.selectedAsset) {
-      item = state.catalog.items.find(value => value.id === state.selectedAsset);
+      item = catalogItem(state.selectedAsset);
       ({ x, y } = this.placementPosition(this.lastPointer, item.id));
       error = validatePlacement(state.catalog, state.layout, item.id, x, y, null, this.player);
       this.ghost.setTexture(`item-${item.id}`).setDisplaySize(item.display_width, item.display_height).setPosition((x + item.footprint.width / 2) * 16, (y + item.footprint.height) * 16).setTint(error ? 0xef7777 : 0xffffff).setVisible(true);
@@ -658,7 +688,7 @@ function setAssetCatalog(payload) {
     const item = { ...raw, id: raw.id, asset_source: 'town', asset: null };
     state.townAssets.set(item.id, item);
   }
-  const legacy = state.catalog?.items?.filter(item => item.asset_source !== 'town') || [];
+  const legacy = state.legacyItems.length ? state.legacyItems : (state.catalog?.items?.filter(item => item.asset_source !== 'town') || []);
   if (state.catalog) state.catalog.items = [...legacy, ...state.townAssets.values()];
   for (const sheet of (payload?.sheets || [])) if (sheet?.sheet_id && !state.assetSheets.has(sheet.sheet_id)) host({ type: 'townAssetSheetRequested', sheet_id: sheet.sheet_id });
   renderMaterials();
@@ -670,9 +700,18 @@ function setAssetSheet(payload) {
   image.onload = () => {
     for (const item of state.townAssets.values()) {
       if (item.sheet_id !== payload.sheet_id) continue;
-      const canvas = document.createElement('canvas'); canvas.width = item.width; canvas.height = item.height;
+      const frame = Array.isArray(item.frames) && item.frames.length ? item.frames[0] : item;
+      const sourceX = Number(frame.x ?? item.x), sourceY = Number(frame.y ?? item.y);
+      const sourceWidth = Number(frame.w ?? frame.width ?? item.width);
+      const sourceHeight = Number(frame.h ?? frame.height ?? item.height);
+      const canvas = document.createElement('canvas'); canvas.width = sourceWidth; canvas.height = sourceHeight;
       const context = canvas.getContext('2d'); if (!context) continue;
-      context.drawImage(image, item.x, item.y, item.width, item.height, 0, 0, item.width, item.height);
+      context.imageSmoothingEnabled = false;
+      context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
+      if (item.frames?.length && item.display_width === item.width && item.display_height === item.height) {
+        item.display_width = sourceWidth;
+        item.display_height = sourceHeight;
+      }
       item.asset = canvas.toDataURL('image/png');
     }
     renderMaterials(); state.scene?.renderObjects(); state.scene?.refreshGhost();
@@ -686,7 +725,6 @@ function setupControls() {
   $('page-next')?.addEventListener('click', () => { state.page++; renderMaterials(); });
   $('roam').addEventListener('click', () => { state.mode = 'roam'; state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.startFollow(state.scene.player, true, .12, .12, 0, 48); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
   $('edit').addEventListener('click', () => { state.mode = 'edit'; clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
-  for (const button of document.querySelectorAll('[data-category]')) button.addEventListener('click', () => { state.category = button.dataset.category; state.subcategory = 'all'; state.page = 1; renderMaterials(); });
   $('stage').addEventListener('change', () => window.DeskBoxTownPrototype.setStage(Number($('stage').value)));
   $('save').addEventListener('click', save);
   $('delete').addEventListener('click', removeSelected);
