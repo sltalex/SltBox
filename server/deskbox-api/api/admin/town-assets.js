@@ -343,7 +343,7 @@
     const option = picker.selectedOptions[0];
     const width = Number(option && option.dataset.width) || 1;
     const height = Number(option && option.dataset.height) || 1;
-    scale = Math.min(620 / width, 1200 / height);
+    scale = Math.min(620 / width, 1250 / height);
     imageWidth = width;
     imageHeight = height;
     canvas.width = Math.max(1, Math.round(width * scale));
