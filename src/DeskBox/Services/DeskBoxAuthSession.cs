@@ -36,6 +36,10 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
 
     public bool IsAuthenticated => _session is not null;
 
+    /// <summary>Returns the short-lived access token to an in-process realtime
+    /// transport. It is never exposed to the WebView page.</summary>
+    internal string? CurrentAccessToken => _session?.AccessToken;
+
     public AuthUser? CurrentUser => _session is null
         ? null
         : new AuthUser(_session.User.Id, _session.User.Username,

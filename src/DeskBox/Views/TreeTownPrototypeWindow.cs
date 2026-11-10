@@ -10,13 +10,15 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using Windows.Graphics;
-using Windows.Storage.Streams;
+
 
 namespace DeskBox.Views;
 
 internal sealed partial class TreeTownPrototypeWindow : Window
 {
     private const string VirtualHost = "deskbox-town-prototype.local";
+    private const string AssetHost = "deskbox-town-assets.local";
+    private readonly string _assetCacheRoot = Path.Combine(DeskBoxDataPathService.Current.RootPath, "town-prototype", "sheets");
     private static TreeTownPrototypeWindow? _current;
     private readonly WebView2 _web = new();
     private readonly Grid _root = new();
@@ -30,7 +32,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     // prototype session.  The session still exposes the small compatibility
     // surface used by the optional native probe.
     private readonly SharedTownSession _session;
-    private readonly Dictionary<string, (byte[] Bytes, string MimeType)> _assetSheets = new(StringComparer.Ordinal);
+
     private bool _ready;
     private bool _closed;
     private bool _allowClose;
@@ -71,6 +73,8 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         _web.WebMessageReceived += OnWebMessage;
         _root.Loaded += OnLoaded;
         _session.Changed += OnStateChanged;
+        _session.RealtimeMessage += OnRealtimeMessage;
+        _session.RealtimeStateChanged += OnRealtimeStateChanged;
         Activated += OnActivated;
         Closed += OnClosed;
         AppWindow.Closing += OnClosing;
@@ -111,8 +115,8 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 CoreWebView2HostResourceAccessKind.DenyCors);
             core.NewWindowRequested += OnNewWindow;
             core.ProcessFailed += OnProcessFailed;
-            core.AddWebResourceRequestedFilter($"https://{VirtualHost}/town-assets/*", CoreWebView2WebResourceContext.Image);
-            core.WebResourceRequested += OnWebResourceRequested;
+            Directory.CreateDirectory(_assetCacheRoot);
+            core.SetVirtualHostNameToFolderMapping(AssetHost, _assetCacheRoot, CoreWebView2HostResourceAccessKind.Allow);
             _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html");
             _ = CheckReadyAsync();
         }
@@ -137,31 +141,6 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     }
 
     private void OnNewWindow(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs args) => args.Handled = true;
-    private void OnWebResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs args)
-    {
-        if (!Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out Uri? uri) ||
-            !uri.AbsolutePath.StartsWith("/town-assets/", StringComparison.Ordinal) ||
-            !uri.AbsolutePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) return;
-        string sheetId = uri.AbsolutePath["/town-assets/".Length..^4];
-        (byte[] Bytes, string MimeType) asset;
-        lock (_assetSheets)
-        {
-            if (!_assetSheets.TryGetValue(sheetId, out asset)) return;
-        }
-        // Copy the reference under the lock, then perform the potentially
-        // expensive stream write without blocking catalog/state updates.
-        var stream = new InMemoryRandomAccessStream();
-        using (var writer = new DataWriter(stream))
-        {
-            writer.WriteBytes(asset.Bytes);
-            writer.StoreAsync().AsTask().GetAwaiter().GetResult();
-            writer.DetachStream();
-        }
-        stream.Seek(0);
-        args.Response = _web.CoreWebView2.Environment.CreateWebResourceResponse(
-            stream, 200, "OK",
-            $"Content-Type: {asset.MimeType}\r\nCache-Control: private, max-age=300\r\nX-Content-Type-Options: nosniff");
-    }
     private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs args) =>
         ShowFailure(new InvalidOperationException("Town rendering process stopped."));
 
@@ -180,6 +159,8 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 _message.Visibility = Visibility.Collapsed;
                 await _session.LoadWorldAsync();
                 await PostSharedStateAsync();
+                await _session.ConnectRealtimeAsync();
+                await PostAsync("setRealtimeState", _session.RealtimeConnected ? "true" : "false");
                 App.Log("[SharedTown] Local map ready.");
                 _ = RunOptionalProbeAsync();
                 return;
@@ -206,6 +187,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     string actionPayload = BuildActionPayload(message);
                     string actionResult = AttachOperationId(
                         await _session.ExecuteActionAsync(actionPayload, epoch), actionPayload);
+                    if (epoch != _session.Epoch) break;
                     await PostAsync("setInventory", _session.InventoryJson());
                     // Actions are committed immediately by the shared-town
                     // endpoint.  Always deliver the authoritative result to
@@ -226,29 +208,46 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 case "townAssetSheetRequested":
                     string sheetId = message.TryGetProperty("sheet_id", out JsonElement sheetElement) &&
                         sheetElement.ValueKind == JsonValueKind.String ? sheetElement.GetString() ?? string.Empty : string.Empty;
-                    var sheet = await _session.LoadAssetSheetAsync(sheetId, epoch);
-                    if (sheet is not null)
-                    {
-                        lock (_assetSheets) _assetSheets[sheetId] = sheet.Value;
-                        await PostAsync("setAssetSheet", JsonSerializer.Serialize(new { sheet_id = sheetId, url = $"https://{VirtualHost}/town-assets/{sheetId}.png" }));
-                    }
+                    long sheetRelease = message.TryGetProperty("release_version", out JsonElement release) ? release.GetInt64() : -1;
+                    string? sheetPath = await _session.LoadAssetSheetAsync(sheetId, epoch, _assetCacheRoot);
+                    if (epoch != _session.Epoch || _closed) break;
+                    await PostAsync("setAssetSheet", JsonSerializer.Serialize(new {
+                        sheet_id = sheetId, session_epoch = epoch, release_version = sheetRelease,
+                        status = sheetPath is null ? "error" : "ready",
+                        url = sheetPath is null ? null : $"https://{AssetHost}/{Path.GetFileName(sheetPath)}"
+                    }));
+                    break;
+                case "assetError":
+                case "assetReady":
+                    App.Log($"[SharedTown] Image decode result: {message.GetRawText()}");
+                    break;
+                case "retryAssetsRequested":
+                    await PostSharedStateAsync();
                     break;
                 case "presenceHeartbeat":
-                    await _session.SendPresenceHeartbeatAsync(
-                        message.GetProperty("payload").GetRawText(), epoch);
-                    // The POST response only acknowledges the current user's
-                    // heartbeat on older servers.  Fetch the visible roster
-                    // after the upsert so one heartbeat cannot wipe the other
-                    // players from the map while still supporting those
-                    // responses.
-                    await _session.LoadPresenceAsync(null, epoch);
-                    await PostAsync("setPresence", _session.PresenceJson());
+                    if (!await _session.SendPresenceRealtimeAsync(
+                        message.GetProperty("payload").GetRawText(), epoch))
+                    {
+                        await _session.SendPresenceHeartbeatAsync(
+                            message.GetProperty("payload").GetRawText(), epoch);
+                        // The POST response only acknowledges the current user's
+                        // heartbeat on older servers. Fetch the visible roster
+                        // after the upsert so one heartbeat cannot wipe the other
+                        // players from the map while still supporting those
+                        // responses.
+                        await _session.LoadPresenceAsync(null, epoch);
+                        await PostAsync("setPresence", _session.PresenceJson());
+                    }
                     break;
                 case "presenceRequested":
                     string? query = message.TryGetProperty("query", out JsonElement queryElement) &&
                         queryElement.ValueKind == JsonValueKind.String ? queryElement.GetString() : null;
                     await _session.LoadPresenceAsync(query, epoch);
                     await PostAsync("setPresence", _session.PresenceJson());
+                    break;
+                case "npcChangesRequested":
+                    await _session.LoadNpcChangesAsync(epoch);
+                    await PostAsync("applyNpcChanges", _session.NpcsJson());
                     break;
                 case "layoutChanged":
                     // Legacy prototype messages are ignored by the shared world;
@@ -283,7 +282,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                         payload.TryGetProperty("operation_id", out JsonElement operation) &&
                         operation.ValueKind == JsonValueKind.String)
                         operationId = operation.GetString() ?? string.Empty;
-                    string error = JsonSerializer.Serialize(new { code = "town_network_error", message = "共享小镇同步失败，请稍后重试", operation_id = operationId });
+                    string error = JsonSerializer.Serialize(new { code = "town_network_error", message = "共享小镇同步失败，请稍后重试", operation_id = operationId, session_epoch = failedMessage.TryGetProperty("session_epoch", out JsonElement failedEpoch) ? failedEpoch.GetInt64() : -1 });
                     await PostAsync("applyActionResult", error);
                 }
             }
@@ -300,16 +299,64 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         });
     }
 
+    private void OnRealtimeStateChanged(bool connected)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_closed || !_ready) return;
+            await PostAsync("setRealtimeState", connected ? "true" : "false");
+            if (!connected && _session.IsEnabled)
+            {
+                try
+                {
+                    await _session.LoadPresenceAsync(null, _session.Epoch);
+                    await PostAsync("setPresence", _session.PresenceJson());
+                    await _session.LoadNpcChangesAsync(_session.Epoch);
+                    await PostAsync("applyNpcChanges", _session.NpcsJson());
+                }
+                catch (Exception error) when (error is HttpRequestException or OperationCanceledException or AuthApiException or JsonException)
+                { App.Log($"[SharedTown] Realtime fallback refresh failed: {error.GetType().Name}"); }
+            }
+        });
+    }
+
+    private void OnRealtimeMessage(string json)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_closed || !_ready) return;
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(json);
+                JsonElement root = document.RootElement;
+                string type = root.TryGetProperty("type", out JsonElement typeElement)
+                    ? typeElement.GetString() ?? string.Empty : string.Empty;
+                if (type is not ("presence" or "npc_state")) return;
+                var node = JsonNode.Parse(root.GetRawText())?.AsObject();
+                if (node is null) return;
+                node["session_epoch"] = _session.Epoch;
+                if (type == "presence") node.Remove("type");
+                await PostAsync(type == "presence" ? "setPresence" : "applyRealtimeNpc", node.ToJsonString());
+            }
+            catch (JsonException) { }
+        });
+    }
+
     private async Task PostSharedStateAsync()
     {
         if (_closed || !_ready) return;
+        bool catalogFailed = false;
         if (_session.IsEnabled && _session.AssetCatalogNeedsReload)
-            await _session.LoadAssetCatalogAsync(_session.Epoch);
+            catalogFailed = !await _session.LoadAssetCatalogAsync(_session.Epoch);
         await PostAsync("setWorld", _session.WorldJson());
         await PostAsync("setChunks", _session.ChunksJson());
         await PostAsync("setInventory", _session.InventoryJson());
         await PostAsync("setPresence", _session.PresenceJson());
-        await PostAsync("setAssetCatalog", _session.AssetCatalogJson());
+        await _session.LoadNpcSnapshotAsync(_session.Epoch);
+        await PostAsync("setNpcs", _session.NpcsJson());
+        await PostAsync("setAssetCatalog", catalogFailed
+            ? JsonSerializer.Serialize(new { session_epoch = _session.Epoch, status = "error" })
+            : _session.AssetCatalogJson());
     }
 
     private static string BuildActionPayload(JsonElement message)
@@ -377,32 +424,34 @@ internal sealed partial class TreeTownPrototypeWindow : Window
 
     private async void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_allowClose || !_session.IsDirty) return;
+        if (_allowClose || !_ready || !_session.IsEnabled) return;
         args.Cancel = true;
         if (_askingClose) return;
         _askingClose = true;
         try
         {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = _root.XamlRoot, Title = "小镇布置尚未保存",
-                Content = _session.IsAuthenticated
-                    ? "保存到当前账号后，下次打开可以继续查看。"
-                    : "当前未登录，关闭后不会保留本次演示布置。",
-                PrimaryButtonText = "保存并关闭",
-                SecondaryButtonText = _session.IsAuthenticated ? "保留草稿并关闭" : "关闭演示",
-                CloseButtonText = "继续编辑",
-                IsPrimaryButtonEnabled = _session.IsAuthenticated,
-                DefaultButton = _session.IsAuthenticated ? ContentDialogButton.Primary : ContentDialogButton.Close
-            };
-            ContentDialogResult result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.None) return;
-            if (result == ContentDialogResult.Primary &&
-                (!await _session.SaveAsync(_session.Epoch) || _session.IsDirty)) return;
+            string position = await _web.ExecuteScriptAsync(
+                "window.DeskBoxTownPrototype.setHostActive(false);window.DeskBoxTownPrototype.playerPosition()");
+            using JsonDocument document = JsonDocument.Parse(position);
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("session_epoch", out JsonElement epochElement) &&
+                epochElement.TryGetInt64(out long epoch) && epoch == _session.Epoch)
+                if (!await _session.SendPresenceRealtimeAsync(position, epoch))
+                    await _session.SendPresenceHeartbeatAsync(position, epoch);
             _allowClose = true;
             Close();
         }
-        catch (Exception ex) { App.Log($"[TownPrototype] Close prompt failed: {ex.GetType().Name}"); }
+        catch (Exception ex)
+        {
+            App.Log($"[SharedTown] Position save on close failed: {ex.GetType().Name}");
+            _message.Text = "人物位置暂未保存，请检查网络后再次关闭小镇。";
+            _message.Visibility = Visibility.Visible;
+            if (!_closed)
+            {
+                try { await _web.ExecuteScriptAsync("window.DeskBoxTownPrototype.setHostActive(true)"); }
+                catch (Exception resume) { App.Log($"[SharedTown] Resume after position failure: {resume.GetType().Name}"); }
+            }
+        }
         finally { _askingClose = false; }
     }
 
@@ -420,6 +469,8 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         _ready = false;
         _current = null;
         _session.Changed -= OnStateChanged;
+        _session.RealtimeMessage -= OnRealtimeMessage;
+        _session.RealtimeStateChanged -= OnRealtimeStateChanged;
         _session.Dispose();
         Activated -= OnActivated;
         Closed -= OnClosed;
@@ -432,10 +483,8 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         {
             core.NewWindowRequested -= OnNewWindow;
             core.ProcessFailed -= OnProcessFailed;
-            core.WebResourceRequested -= OnWebResourceRequested;
-            core.RemoveWebResourceRequestedFilter($"https://{VirtualHost}/town-assets/*", CoreWebView2WebResourceContext.Image);
         }
-        lock (_assetSheets) _assetSheets.Clear();
+
         _web.Close();
     }
 }

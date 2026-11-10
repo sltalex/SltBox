@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -22,6 +23,14 @@ internal sealed class SharedTownSession : IDisposable
     private readonly IAuthenticatedAccountApi _api;
     private readonly TimeSpan _timeout;
     private readonly object _gate = new();
+    private readonly Dictionary<string, Task<string?>> _sheetRequests = new();
+    private readonly SemaphoreSlim _chunkLoader = new(1, 1);
+    private readonly SemaphoreSlim _presenceLoader = new(1, 1);
+    private readonly SemaphoreSlim _realtimeSendGate = new(1, 1);
+    private Task<bool>? _catalogRequest;
+    private long _catalogRequestEpoch;
+    private long _catalogRequestRelease;
+    private long _viewportGeneration;
     private readonly ConcurrentDictionary<string, string> _chunks = new(StringComparer.Ordinal);
     private CancellationTokenSource _identityLifetime = new();
     private string? _identity;
@@ -33,11 +42,17 @@ internal sealed class SharedTownSession : IDisposable
     private string _world = "{\"enabled\":false}";
     private string _inventory = "{}";
     private string _presence = "{\"players\":[]}";
+    private string _npcs = "{\"npcs\":[],\"cursor\":0}";
+    private long _npcCursor;
     private string _assetCatalog = "{\"release_version\":0,\"items\":[],\"sheets\":[]}";
     private string _lastChanges = "{\"cursor\":0,\"changes\":[]}";
     private bool _enabled;
     private bool _busy;
     private bool _disposed;
+    private ClientWebSocket? _realtimeSocket;
+    private CancellationTokenSource? _realtimeLifetime;
+    private Task? _realtimeReceiveLoop;
+    private int _realtimeConnected;
     private string _status = "正在检查共享小镇开放状态…";
 
     internal SharedTownSession(IAuthSession auth, IAuthenticatedAccountApi api,
@@ -51,11 +66,14 @@ internal sealed class SharedTownSession : IDisposable
     }
 
     internal event Action<bool>? Changed;
+    internal event Action<bool>? RealtimeStateChanged;
+    internal event Action<string>? RealtimeMessage;
 
     internal long Epoch { get { lock (_gate) return _epoch; } }
     internal bool IsDirty => false;
     internal bool IsAuthenticated => Identity() is not null;
     internal bool IsEnabled { get { lock (_gate) return _enabled; } }
+    internal bool RealtimeConnected => Volatile.Read(ref _realtimeConnected) == 1;
     internal bool AssetCatalogNeedsReload { get { lock (_gate) return _assetCatalogVersion != _assetReleaseVersion; } }
     internal long Cursor { get { lock (_gate) return _cursor; } }
 
@@ -124,6 +142,35 @@ internal sealed class SharedTownSession : IDisposable
         lock (_gate) return AddSessionMetadata(_presence);
     }
 
+    internal string NpcsJson() { lock (_gate) return AddSessionMetadata(_npcs); }
+
+    internal async Task<bool> LoadNpcSnapshotAsync(long epoch)
+    {
+        if (!IsCurrent(epoch) || !IsEnabled) return false;
+        CancellationToken token; lock (_gate) token = _identityLifetime.Token;
+        try
+        {
+            using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "../../v2/town/npcs/snapshot.php", null, token);
+            string text = await response.Content.ReadAsStringAsync(token); response.EnsureSuccessStatusCode();
+            using JsonDocument document = ParseObject(text, "town NPC snapshot");
+            lock (_gate) if (IsCurrentLocked(epoch)) { _npcs = text; _npcCursor = ReadLong(document.RootElement, "cursor"); }
+            return true;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or InvalidDataException or AuthApiException)
+        { App.Log($"[SharedTown] NPC snapshot load failed: {ex.GetType().Name}"); return false; }
+    }
+
+    internal async Task<string> LoadNpcChangesAsync(long epoch)
+    {
+        if (!IsCurrent(epoch) || !IsEnabled) return NpcsJson();
+        long cursor; CancellationToken token; lock (_gate) { cursor = _npcCursor; token = _identityLifetime.Token; }
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"../../v2/town/npcs/changes.php?cursor={cursor}", null, token);
+        string text = await response.Content.ReadAsStringAsync(token); response.EnsureSuccessStatusCode();
+        using JsonDocument document = ParseObject(text, "town NPC changes");
+        lock (_gate) if (IsCurrentLocked(epoch)) { _npcCursor = Math.Max(_npcCursor, ReadLong(document.RootElement, "cursor")); _npcs = text; }
+        return NpcsJson();
+    }
+
     internal string InventoryJson()
     {
         lock (_gate) return AddSessionMetadata(_inventory);
@@ -134,10 +181,24 @@ internal sealed class SharedTownSession : IDisposable
         lock (_gate) return AddSessionMetadata(_assetCatalog);
     }
 
-    internal async Task<bool> LoadAssetCatalogAsync(long epoch)
+    internal Task<bool> LoadAssetCatalogAsync(long epoch)
+    {
+        lock (_gate)
+        {
+            if (!IsCurrentLocked(epoch) || !_enabled) return Task.FromResult(false);
+            if (_assetCatalogVersion == _assetReleaseVersion) return Task.FromResult(true);
+            if (_catalogRequest is { IsCompleted: false } && _catalogRequestEpoch == epoch && _catalogRequestRelease == _assetReleaseVersion)
+                return _catalogRequest;
+            _catalogRequestEpoch = epoch;
+            _catalogRequestRelease = _assetReleaseVersion;
+            return _catalogRequest = LoadAssetCatalogCoreAsync(epoch);
+        }
+    }
+
+    private async Task<bool> LoadAssetCatalogCoreAsync(long epoch)
     {
         if (!IsCurrent(epoch) || !IsEnabled) return false;
-        CancellationToken token; lock (_gate) token = _identityLifetime.Token;
+        CancellationToken token; long expectedRelease; lock (_gate) { token = _identityLifetime.Token; expectedRelease = _assetReleaseVersion; }
         try
         {
             using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "../../v2/town/assets/catalog.php", null, token);
@@ -147,7 +208,7 @@ internal sealed class SharedTownSession : IDisposable
                 versionElement.TryGetInt64(out long parsedVersion) ? parsedVersion : 0;
             lock (_gate)
             {
-                if (IsCurrentLocked(epoch))
+                if (IsCurrentLocked(epoch) && expectedRelease == _assetReleaseVersion)
                 {
                     _assetCatalog = text;
                     _assetCatalogVersion = releaseVersion;
@@ -159,19 +220,53 @@ internal sealed class SharedTownSession : IDisposable
         { App.Log($"[SharedTown] Asset catalog load failed: {ex.GetType().Name}"); return false; }
     }
 
-    internal async Task<(byte[] Bytes, string MimeType)?> LoadAssetSheetAsync(string sheetId, long epoch)
+    internal Task<string?> LoadAssetSheetAsync(string sheetId, long epoch, string cacheRoot)
     {
-        if (!IsCurrent(epoch) || !IsEnabled || string.IsNullOrWhiteSpace(sheetId)) return null;
-        CancellationToken token; lock (_gate) token = _identityLifetime.Token;
+        lock (_gate)
+        {
+            if (!IsCurrentLocked(epoch) || !_enabled) return Task.FromResult<string?>(null);
+            using JsonDocument catalog = JsonDocument.Parse(_assetCatalog);
+            JsonElement sheet = catalog.RootElement.GetProperty("sheets").EnumerateArray()
+                .FirstOrDefault(value => value.GetProperty("sheet_id").GetString() == sheetId);
+            if (sheet.ValueKind != JsonValueKind.Object) return Task.FromResult<string?>(null);
+            string hash = sheet.GetProperty("sha256").GetString() ?? "";
+            if (hash.Length != 64 || hash.Any(c => !Uri.IsHexDigit(c))) return Task.FromResult<string?>(null);
+            string key = $"{epoch}:{_assetCatalogVersion}:{sheetId}:{hash}";
+            if (_sheetRequests.TryGetValue(key, out Task<string?>? existing) && !existing.IsCompleted) return existing;
+            return _sheetRequests[key] = DownloadSheetAsync(sheetId, hash,
+                sheet.GetProperty("width").GetInt32(), sheet.GetProperty("height").GetInt32(),
+                epoch, _assetCatalogVersion, cacheRoot, _identityLifetime.Token);
+        }
+    }
+
+    private async Task<string?> DownloadSheetAsync(string sheetId, string hash, int width, int height,
+        long epoch, long release, string cacheRoot, CancellationToken identityToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(identityToken);
+        timeout.CancelAfter(_timeout);
+        CancellationToken token = timeout.Token;
         try
         {
-            using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"../../v2/town/assets/sheet.php?sheet_id={Uri.EscapeDataString(sheetId)}", null, token);
-            response.EnsureSuccessStatusCode();
-            byte[] bytes = await response.Content.ReadAsByteArrayAsync(token);
-            string mime = response.Content.Headers.ContentType?.MediaType ?? "image/png";
-            return (bytes, mime);
+            string path = Path.Combine(cacheRoot, hash.ToLowerInvariant() + ".png");
+            bool valid = false;
+            if (File.Exists(path))
+            {
+                try { TownAssetCache.Validate(await File.ReadAllBytesAsync(path, token), hash, width, height); valid = true; }
+                catch (InvalidDataException) { }
+            }
+            if (!valid)
+            {
+                using HttpResponseMessage response = await SendAsync(HttpMethod.Get,
+                    $"../../v2/town/assets/sheet.php?sheet_id={Uri.EscapeDataString(sheetId)}", null, token);
+                response.EnsureSuccessStatusCode();
+                byte[] bytes = await response.Content.ReadAsByteArrayAsync(token);
+                path = await TownAssetCache.StoreAsync(cacheRoot, bytes, hash, width, height, token);
+            }
+            lock (_gate) if (!IsCurrentLocked(epoch) || release != _assetCatalogVersion) return null;
+            App.Log($"[SharedTown] Sheet verified: {sheetId}, {width}x{height}, sha256={hash}");
+            return path;
         }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or AuthApiException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or AuthApiException or IOException)
         { App.Log($"[SharedTown] Asset sheet load failed: {ex.GetType().Name}"); return null; }
     }
 
@@ -252,10 +347,13 @@ internal sealed class SharedTownSession : IDisposable
         if (!IsCurrent(epoch) || !IsEnabled) return false;
         List<(int X, int Y)> requested = ParseChunkCoordinates(viewportJson);
         if (requested.Count == 0) return true;
-        if (requested.Count > MaxChunkRequests) requested = requested.Take(MaxChunkRequests).ToList();
+        long generation = Interlocked.Increment(ref _viewportGeneration);
+        await _chunkLoader.WaitAsync();
+        if (!IsCurrent(epoch) || generation != _viewportGeneration) { _chunkLoader.Release(); return false; }
         try
         {
-            await Task.WhenAll(requested.Select(pair => LoadChunkAsync(pair.X, pair.Y, epoch)));
+            foreach (var batch in requested.Chunk(MaxChunkRequests))
+                await LoadChunkBatchAsync(batch, epoch);
             HashSet<string> requestedKeys = requested
                 .Select(pair => $"{pair.X}:{pair.Y}")
                 .ToHashSet(StringComparer.Ordinal);
@@ -276,6 +374,7 @@ internal sealed class SharedTownSession : IDisposable
             lock (_gate) { if (IsCurrentLocked(epoch)) _status = "部分地图载入失败，可继续漫游重试"; }
             return false;
         }
+        finally { _chunkLoader.Release(); }
     }
 
     internal async Task<string> LoadChangesAsync(long epoch)
@@ -357,7 +456,7 @@ internal sealed class SharedTownSession : IDisposable
         {
             string code = document.RootElement.TryGetProperty("code", out JsonElement codeElement) &&
                 codeElement.ValueKind == JsonValueKind.String ? codeElement.GetString() ?? "town_action_failed" : "town_action_failed";
-            return ErrorJson(code, text);
+            return AddSessionMetadata(ErrorJson(code, text));
         }
         lock (_gate)
         {
@@ -373,7 +472,6 @@ internal sealed class SharedTownSession : IDisposable
                 _inventory = inventory.GetRawText();
             _status = "已同步共享小镇变更";
         }
-        Changed?.Invoke(false);
         return AddSessionMetadata(text);
     }
 
@@ -384,13 +482,19 @@ internal sealed class SharedTownSession : IDisposable
         byte[] body = EnsureOperationId(payload, false);
         CancellationToken token;
         lock (_gate) token = _identityLifetime.Token;
-        using HttpResponseMessage response = await SendAsync(
-            HttpMethod.Post, "../../v2/town/presence.php", body, token);
-        string text = await response.Content.ReadAsStringAsync(token);
-        response.EnsureSuccessStatusCode();
-        ParseObject(text, "town presence").Dispose();
-        lock (_gate) { if (IsCurrentLocked(epoch)) _presence = NormalizePresence(text); }
-        return PresenceJson();
+        await _presenceLoader.WaitAsync(token);
+        try
+        {
+            if (!IsCurrent(epoch) || !IsEnabled) return PresenceJson();
+            using HttpResponseMessage response = await SendAsync(
+                HttpMethod.Post, "../../v2/town/presence.php", body, token);
+            string text = await response.Content.ReadAsStringAsync(token);
+            response.EnsureSuccessStatusCode();
+            ParseObject(text, "town presence").Dispose();
+            lock (_gate) { if (IsCurrentLocked(epoch)) _presence = NormalizePresence(text); }
+            return PresenceJson();
+        }
+        finally { _presenceLoader.Release(); }
     }
 
     internal async Task<string> LoadPresenceAsync(string? query, long epoch)
@@ -409,18 +513,155 @@ internal sealed class SharedTownSession : IDisposable
         return PresenceJson();
     }
 
+    internal async Task<bool> ConnectRealtimeAsync()
+    {
+        string? token = (_auth as DeskBoxAuthSession)?.CurrentAccessToken;
+        if (string.IsNullOrWhiteSpace(token) || !IsEnabled || _disposed) return false;
+        await DisconnectRealtimeAsync();
+        var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader("Authorization", $"Bearer {token}");
+        string endpoint = Environment.GetEnvironmentVariable("DESKBOX_TOWN_REALTIME_URL")
+            ?? "wss://sltbox.2leaves.cn/ws/town";
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_identityLifetime.Token);
+            timeout.CancelAfter(_timeout);
+            await socket.ConnectAsync(new Uri(endpoint), timeout.Token);
+            var lifetime = CancellationTokenSource.CreateLinkedTokenSource(_identityLifetime.Token);
+            lock (_gate)
+            {
+                if (_disposed || !IsEnabled)
+                {
+                    lifetime.Dispose();
+                    socket.Dispose();
+                    return false;
+                }
+                _realtimeSocket = socket;
+                _realtimeLifetime = lifetime;
+                _realtimeReceiveLoop = ReceiveRealtimeLoopAsync(socket, lifetime.Token);
+            }
+            Volatile.Write(ref _realtimeConnected, 1);
+            RealtimeStateChanged?.Invoke(true);
+            return true;
+        }
+        catch (Exception error) when (error is WebSocketException or HttpRequestException or OperationCanceledException or UriFormatException)
+        {
+            socket.Dispose();
+            App.Log($"[SharedTown] Realtime connect failed: {error.GetType().Name}");
+            return false;
+        }
+    }
+
+    internal async Task<bool> SendPresenceRealtimeAsync(string payload, long epoch)
+    {
+        EnsureMessageSize(payload);
+        if (!IsCurrent(epoch) || !RealtimeConnected) return false;
+        ClientWebSocket? socket;
+        lock (_gate) socket = _realtimeSocket;
+        if (socket is null || socket.State != WebSocketState.Open) return false;
+        string message = $"{{\"type\":\"presence\",\"payload\":{payload}}}";
+        byte[] bytes = Encoding.UTF8.GetBytes(message);
+        await _realtimeSendGate.WaitAsync(_identityLifetime.Token);
+        try
+        {
+            await socket.SendAsync(bytes, WebSocketMessageType.Text, true, _identityLifetime.Token);
+            return true;
+        }
+        catch (Exception error) when (error is WebSocketException or OperationCanceledException)
+        {
+            App.Log($"[SharedTown] Realtime send failed: {error.GetType().Name}");
+            _ = DisconnectRealtimeAsync();
+            return false;
+        }
+        finally { _realtimeSendGate.Release(); }
+    }
+
+    private async Task ReceiveRealtimeLoopAsync(ClientWebSocket socket, CancellationToken cancellationToken)
+    {
+        byte[] buffer = new byte[64 * 1024];
+        try
+        {
+            while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+            {
+                using var message = new MemoryStream();
+                WebSocketReceiveResult result;
+                do
+                {
+                    result = await socket.ReceiveAsync(buffer, cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Close) return;
+                    if (result.MessageType != WebSocketMessageType.Text) continue;
+                    message.Write(buffer, 0, result.Count);
+                    if (message.Length > MaxMessageBytes) return;
+                } while (!result.EndOfMessage);
+                if (message.Length == 0) continue;
+                string text = Encoding.UTF8.GetString(message.ToArray());
+                try { using JsonDocument _ = JsonDocument.Parse(text); }
+                catch (JsonException) { continue; }
+                RealtimeMessage?.Invoke(text);
+            }
+        }
+        catch (Exception error) when (error is WebSocketException or OperationCanceledException)
+        {
+            if (!cancellationToken.IsCancellationRequested)
+                App.Log($"[SharedTown] Realtime receive stopped: {error.GetType().Name}");
+        }
+        finally
+        {
+            bool wasCurrent;
+            lock (_gate)
+            {
+                wasCurrent = ReferenceEquals(_realtimeSocket, socket);
+                if (wasCurrent)
+                {
+                    _realtimeSocket = null;
+                    _realtimeLifetime?.Dispose();
+                    _realtimeLifetime = null;
+                    _realtimeReceiveLoop = null;
+                }
+            }
+            if (wasCurrent && Interlocked.Exchange(ref _realtimeConnected, 0) == 1)
+                RealtimeStateChanged?.Invoke(false);
+            socket.Dispose();
+        }
+    }
+
+    internal async Task DisconnectRealtimeAsync()
+    {
+        ClientWebSocket? socket;
+        CancellationTokenSource? lifetime;
+        lock (_gate)
+        {
+            socket = _realtimeSocket;
+            lifetime = _realtimeLifetime;
+            _realtimeSocket = null;
+            _realtimeLifetime = null;
+            _realtimeReceiveLoop = null;
+        }
+        lifetime?.Cancel();
+        if (socket is not null)
+        {
+            try { if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived) await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None); }
+            catch (WebSocketException) { }
+            socket.Dispose();
+        }
+        lifetime?.Dispose();
+        if (Interlocked.Exchange(ref _realtimeConnected, 0) == 1) RealtimeStateChanged?.Invoke(false);
+    }
+
     // Compatibility surface used by the old optional prototype probe. Shared
     // actions are immediate, therefore there is no account-scoped draft to save.
     internal bool UpdateLayout(string _, long epoch) => IsCurrent(epoch);
     internal Task LoadAsync(bool discardDraft = false) => LoadWorldAsync();
     internal Task<bool> SaveAsync(long _) => Task.FromResult(false);
 
-    private async Task LoadChunkAsync(int x, int y, long epoch)
+    private async Task LoadChunkBatchAsync((int X, int Y)[] batch, long epoch)
     {
         CancellationToken token;
         lock (_gate) token = _identityLifetime.Token;
+        int x = batch[0].X, y = batch[0].Y;
+        string query = Uri.EscapeDataString(string.Join(',', batch.Select(p => $"{p.X}:{p.Y}")));
         using HttpResponseMessage response = await SendAsync(
-            HttpMethod.Get, $"../../v2/town/chunks.php?chunk_x={x}&chunk_y={y}", null, token);
+            HttpMethod.Get, $"../../v2/town/chunks.php?chunks={query}", null, token);
         string text = await response.Content.ReadAsStringAsync(token);
         response.EnsureSuccessStatusCode();
         using JsonDocument document = ParseObject(text, "town chunk");
@@ -451,6 +692,7 @@ internal sealed class SharedTownSession : IDisposable
 
     private void OnSessionChanged()
     {
+        _ = DisconnectRealtimeAsync();
         lock (_gate)
         {
             string? identity = Identity();
@@ -460,17 +702,20 @@ internal sealed class SharedTownSession : IDisposable
             _identityLifetime = new CancellationTokenSource();
             _identity = identity;
             _epoch++;
+            _busy = false;
             _worldVersion = 0;
             _cursor = 0;
             _enabled = false;
             _world = "{\"enabled\":false}";
             _inventory = "{}";
             _presence = "{\"players\":[]}";
+            _npcs = "{\"npcs\":[],\"cursor\":0}"; _npcCursor = 0;
             _assetCatalog = "{\"release_version\":0,\"items\":[],\"sheets\":[]}";
             _assetReleaseVersion = 0;
             _assetCatalogVersion = -1;
             _lastChanges = "{\"cursor\":0,\"changes\":[]}";
             _chunks.Clear();
+            _sheetRequests.Clear();
             _status = identity is null ? "请登录后查看共享小镇" : "正在检查共享小镇开放状态…";
         }
         Changed?.Invoke(true);
@@ -680,6 +925,7 @@ internal sealed class SharedTownSession : IDisposable
 
     public void Dispose()
     {
+        _ = DisconnectRealtimeAsync();
         lock (_gate)
         {
             if (_disposed) return;
