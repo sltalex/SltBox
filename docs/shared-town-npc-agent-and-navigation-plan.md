@@ -1710,3 +1710,9 @@ Worker 现在在执行 `talk` 前解析具体对象：
 在等待业务规则选择期间，重新复核实时链路的自动化覆盖：`TownRealtimeTests` 当前覆盖未授权连接拒绝、分片消息、瞬时/持久玩家位置、NPC 路线和对话广播、重连换令牌并重新获取快照、初始握手重试、非法移动隔离以及 8 个连接接收 24 次广播；Worker 测试 17/17 通过。客户端脚本 `verify-town-realtime.mjs` 通过玩家/NPC 增量单调序列、重复事件丢弃、像素位置和过期 presence 检查；`town.js`、`town-realtime.js` Node 语法检查通过。
 
 这些检查证明实时链路的协议和防回退逻辑保持可用，但不替代两个真实账号同时登录、五人同屏、断线重连和 NPC 逐格动画的最终画面验收。
+
+### 18.68 等待业务规则期间 Worker 健康采样（2026-11-12）
+
+在没有启用村民、没有切换模型和没有写入数据库的情况下，对线上 Worker 做三次、间隔 20 秒的采样：三次均为 `deskbox-npc-worker:v23`、`running`、`restart=0`；健康接口三次均返回 HTTP 200，实时指标保持 `activeConnections=0`、`acceptedConnections=0`、`broadcasts=18`、`droppedConnections=0`。采样窗口最近 2 分钟日志没有 `error`、`exception`、`action_failed`、`no_route` 或 HTTP 500。
+
+这次观察确认等待用户规则期间服务稳定，没有因为暂停 NPC 或模型配置而产生新的运行错误；没有把无客户端连接误记为实时画面验收通过。
