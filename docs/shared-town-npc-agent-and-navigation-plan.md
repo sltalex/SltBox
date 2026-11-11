@@ -1582,3 +1582,14 @@ Worker 现在在执行 `talk` 前解析具体对象：
 - `town_npcs.php` 和导航测试 PHP 语法检查通过；本切片只修改 PHP 服务端和测试，没有改动客户端、Worker、数据库数据或关系/经济规则。
 
 线上发布状态：`api/_app/town_npcs.php` 已同步到 `/www/wwwroot/sltbox.2leaves.cn/api/_app/town_npcs.php`。发布前备份位于 `/root/deskbox-backups/npc-initial-position-20261112-044235/`；远程 PHP 8.2.34 语法检查通过，远程 SHA-256 与本地一致，均为 `189ee90c8eec6f6e4b64174914de72aa8c91ffa2bea2ba5c08f334053f1663bb`。因为没有修改 DeskBox 应用代码，不需要按客户端规则重启 canonical Debug 实例。双账号实时画面、五人同屏、断线重连、真实素材编辑后的路线画面和模型驱动人格对话仍按用户安排放到第一版最后；关系衰减和玩家经济仍等待用户选择。
+
+### 18.57 当前版本全量回归核验（2026-11-12）
+
+在继续下一阶段前重新对当前工作区和线上 Worker 做基线核验：
+
+- `DeskBox.NpcWorker.Tests`：17/17 通过。
+- `DeskBox.Tests`：5350/5350 通过，使用仓库要求的 x64 平台参数；本轮没有新增失败或基线漂移。
+- 线上 `deskbox-npc-worker:v23` 为 `running`，重启次数为 0；`/health` 返回 HTTP 200，实时连接指标仍为 `activeConnections=0`、`acceptedConnections=0`、`broadcasts=6`、`droppedConnections=0`。
+- 本轮只做回归和只读状态检查，没有修改数据库、NPC、模型配置、地图、玩家钱包或 Worker 容器。
+
+这次核验确认当前代码基线可继续推进，但不能替代最终人工验收：双账号同时登录、五人同屏、玩家/NPC 实时移动、断线重连、真实素材导航编辑后的画面重规划和模型驱动的不同人格对话仍待最后执行。关系衰减和玩家经济规则也仍等待用户选择，未写入线上默认行为。
