@@ -1666,3 +1666,12 @@ Worker 现在在执行 `talk` 前解析具体对象：
 按当前阶段只做健康检查，没有重启容器、切换模型或写入线上数据。SSH 复核结果：`deskbox-npc-worker:v23` 为 `running`，`restart_count=0`；本机健康端点返回 HTTP 200，内容为 `ok=true`，`activeConnections=0`、`acceptedConnections=0`、`broadcasts=6`、`droppedConnections=0`。最近日志持续收到 NPC 快照请求并返回 200。
 
 当前没有客户端连接，因此 `activeConnections=0` 是“尚未开始双账号连接验收”的状态，不是实时同步通过证据。该复核不改变 NPC、地图、模型、关系、钱包或 Worker 配置。
+
+### 18.63 线上确定性 Worker 与桥梁能力切片复核（2026-11-12）
+
+按此前授权做了两次受控线上验证，均使用站点 PHP 8.2 运行时并在结束时恢复原状态：
+
+1. 临时恢复林野、周岩的 Agent 约 30 秒。Worker 为两人各创建并完成了 `rest` 任务，写入 `state_changed`、`task_completed`、`agent_run` 和活动日志；当时处于日程外，没有自然行走任务。验证结束后两人均恢复为 `agent_paused=1`，位置、任务和配置没有改变。
+2. 使用周岩已授权的 1 件 `bridge_kit`，将其临时放到受控测试位置，调用服务端 `walk` 行动并逐步推进到跨水道目标。服务端返回 2 格路线、任务 `completed`、终点 `(64,0)`，道具数量从 1 消耗为 0；随后脚本恢复周岩原位置 `(112,96)`、原库存和 `agent_paused=1`。恢复后的只读核对为：`paused=1`、位置 `[112,96]`、无当前任务、`bridge_kit` 数量为 0（与测试前记录一致）。
+
+该切片证明线上服务端确实执行了确定性任务和一次性桥梁通行校验，但不证明 NPC 客户端逐格动画、WebSocket 广播或双账号画面同步；这些仍按用户安排留到最终人工验收。
