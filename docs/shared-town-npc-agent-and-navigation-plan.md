@@ -1435,3 +1435,15 @@ Phaser 显示人物、姓名、状态和对话气泡
 线上部署：Worker 镜像更新为 `deskbox-npc-worker:v22`，构建使用当前 `Program.cs`、`TownRealtimeHub.cs` 和 Dockerfile；健康接口返回 `ok=true`，容器 `running`、重启次数为 0。v21 已保留为 `deskbox-npc-worker-v21-deterministic-dialogue-rollback`，部署备份位于 `/root/deskbox-backups/worker-v22-deterministic-dialogue-20261112023000/`。本次没有修改模型配置、Token、NPC 资料、地图或关系数据。
 
 仍待人工验证：两个不同人格在真实登录客户端中显示的对话气泡、模型开启后的风格差异、断线重连和五人同屏仍按用户安排放到最后；关系衰减和玩家经济规则仍需用户选择后再实现。
+
+### 18.45 素材导航语义可编辑（2026-11-12）
+
+共享小镇素材列表的编辑行此前把 `navigation` 作为隐藏字段回传，管理员只能在新增素材时填写导航 JSON，不能直接修改已存在素材的通行语义。本次将编辑行改为可见的“导航 JSON”文本框，继续复用现有服务端白名单和 JSON 校验：
+
+- 可直接修改 `plain`、`blocked`、`stairs`、`water`、`bridge` 以及阻挡、方向、高度和所需能力字段。
+- 保存仍通过原有 CSRF、管理员权限和素材事务；未知或非法导航类型继续拒绝，不会把未知素材当成道路。
+- 修改后仍需点击导航重建，运行中的 NPC 才会在导航版本变化时重新规划；页面没有绕过服务端碰撞校验。
+
+本地验证：`web_admin_service_test.php`、`town_asset_service_test.php` 和 `town_npc_navigation_test.php`（17 项）通过；`api/admin/index.php`、`admin_web.php` 通过 PHP 语法检查。线上 `api/admin/index.php` 已 FTP 回读校验，SHA-256 为 `0eba15e3525067b20369d869c8c231c9fe252d7bdf528446a00bd2fedc3dad6b`，发布前备份位于 `/root/deskbox-backups/navigation-admin-20261112-024036/`。
+
+尚未完成：登录管理后台实际修改一项楼梯/河道素材并在真实地图中观察 NPC 重规划；该操作属于最终人工验收批次，继续按用户要求留到双账号和五人同屏之后。
