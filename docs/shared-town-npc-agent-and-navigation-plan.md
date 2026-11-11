@@ -1660,3 +1660,9 @@ Worker 现在在执行 `talk` 前解析具体对象：
 - `town_player_positions_test.php`：53 项通过，覆盖玩家位置校验、版本冲突和实时状态边界。
 
 这次只做本地回归和文档记录，没有修改数据库、NPC、模型、地图、钱包、Worker 或客户端，因此也不触发 DeskBox 客户端重启规则。回归通过仍不能替代后置的双账号实时画面验收。
+
+### 18.62 线上 Worker 当前只读复核（2026-11-12）
+
+按当前阶段只做健康检查，没有重启容器、切换模型或写入线上数据。SSH 复核结果：`deskbox-npc-worker:v23` 为 `running`，`restart_count=0`；本机健康端点返回 HTTP 200，内容为 `ok=true`，`activeConnections=0`、`acceptedConnections=0`、`broadcasts=6`、`droppedConnections=0`。最近日志持续收到 NPC 快照请求并返回 200。
+
+当前没有客户端连接，因此 `activeConnections=0` 是“尚未开始双账号连接验收”的状态，不是实时同步通过证据。该复核不改变 NPC、地图、模型、关系、钱包或 Worker 配置。
