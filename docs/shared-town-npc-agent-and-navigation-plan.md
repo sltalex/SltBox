@@ -1716,3 +1716,15 @@ Worker 现在在执行 `talk` 前解析具体对象：
 在没有启用村民、没有切换模型和没有写入数据库的情况下，对线上 Worker 做三次、间隔 20 秒的采样：三次均为 `deskbox-npc-worker:v23`、`running`、`restart=0`；健康接口三次均返回 HTTP 200，实时指标保持 `activeConnections=0`、`acceptedConnections=0`、`broadcasts=18`、`droppedConnections=0`。采样窗口最近 2 分钟日志没有 `error`、`exception`、`action_failed`、`no_route` 或 HTTP 500。
 
 这次观察确认等待用户规则期间服务稳定，没有因为暂停 NPC 或模型配置而产生新的运行错误；没有把无客户端连接误记为实时画面验收通过。
+
+### 18.69 用户选择“继续只做不依赖规则的验收”后的回归（2026-11-12）
+
+收到用户确认后执行了完整的自动化回归和线上只读检查：
+
+- `DeskBox.NpcWorker.Tests`：17/17 通过；
+- `DeskBox.Tests`：5350/5350 通过，x64 平台参数符合仓库要求；
+- PHP 服务端测试：38 个实际执行通过，2 个 MySQL DSN 测试按预期跳过，无失败；
+- `verify-town-realtime.mjs`、`town.js`、`town-realtime.js` 检查通过；
+- 线上 `deskbox-npc-worker:v23`：`running`、重启 0、健康接口 200，`activeConnections=0`、`droppedConnections=0`、`broadcasts=18`。
+
+这次没有写入四项业务规则，也没有改变 NPC、地图、模型、钱包或 Worker 配置。自动化回归继续通过；剩余线上人工项仍是管理员登录态导航编辑回读，以及最后的双账号/五人同屏/断线重连画面验收。
