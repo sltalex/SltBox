@@ -1622,3 +1622,16 @@ Worker 现在在执行 `talk` 前解析具体对象：
 本轮执行结果：全部 40 个 PHP 测试通过；其中 `town_asset_mysql_subcategory_test.php` 和 `town_player_positions_mysql_test.php` 因本机没有 MySQL DSN 按预期跳过；API 目录 91 个 PHP 文件全部通过 `php -l`。线上临时脚本已清理。只提交本轮相关的迁移、回归测试和方案文档，不把工作区内其他功能改动或输出物混入提交。
 
 当前仍未完成的范围没有变化：双账号实时画面、五人同屏、玩家/NPC 实时移动、断线重连、真实素材导航编辑后的画面重规划和模型驱动的不同人格对话仍按用户安排最后验收；关系衰减和玩家经济规则仍等待用户选择，未擅自写入实现。
+
+### 18.59 Worker 短窗口健康与错误观察（2026-11-12）
+
+在不修改线上数据、不重启容器的前提下，对 `deskbox-npc-worker:v23` 做了约 3 分钟、6 次间隔采样：
+
+| 项目 | 结果 |
+| --- | --- |
+| 容器状态 | 6/6 次均为 `running`，`restart_count=0`。 |
+| 健康接口 | 6/6 次 HTTP 200，`ok=true`。 |
+| 实时指标 | `activeConnections=0`、`droppedConnections=0`、`broadcasts=6` 保持稳定。 |
+| Worker 日志 | 最近 30 分钟未发现 `action_failed`、`error`、`exception`、`no_route` 或 HTTP 5xx。 |
+
+当前 5 个样例村民仍处于暂停状态，因此这项观察证明的是租约、快照和健康循环稳定，不能替代启用村民后的逐格工作、双账号 WebSocket 或画面验收。该观察没有改变 NPC、模型配置、地图、关系、钱包或 Worker 容器状态。
