@@ -1649,3 +1649,14 @@ Worker 现在在执行 `talk` 前解析具体对象：
 - 服务器端路线、动作校验和实时增量接口测试。
 
 后续先推进不依赖双账号的工作：线上管理员导航编辑与重建的登录态回读、启用村民后的 Worker 长时间观察、模型超时和额度边界验证，以及用户尚未选择的关系衰减、玩家经济、敏感内容审核和桥梁建造队列规则。所有规则确认后再实现对应代码；双账号和五人同屏仍是第一版最终验收项。
+
+### 18.61 服务端回归基线复核（2026-11-12）
+
+在记录验收顺序后重新执行 `server/deskbox-api/tests` 下的全部 40 个 PHP 测试文件：38 个本地 SQLite/服务测试通过，2 个需要本机 MySQL DSN 的测试按预期报告 `skipped`（`town_asset_mysql_subcategory_test.php`、`town_player_positions_mysql_test.php`），没有失败项。重点切片结果如下：
+
+- `town_npc_inventory_reservation_test.php`：12 项通过，覆盖第二条 `active` 预约拒绝、连续 `expired` 历史和过期后重试；
+- `town_npc_navigation_test.php`：25 项通过，覆盖导航版本缓存失效、阻挡物、道具能力和重规划；
+- `town_npc_height_test.php`：10 项通过，覆盖楼梯方向、高度路线节点和运行高度持久化；
+- `town_player_positions_test.php`：53 项通过，覆盖玩家位置校验、版本冲突和实时状态边界。
+
+这次只做本地回归和文档记录，没有修改数据库、NPC、模型、地图、钱包、Worker 或客户端，因此也不触发 DeskBox 客户端重启规则。回归通过仍不能替代后置的双账号实时画面验收。
