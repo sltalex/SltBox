@@ -1226,16 +1226,26 @@ function town_npc_upsert(PDO $pdo, array $body, DateTimeImmutable $now, ?string 
             $pdo->prepare('UPDATE town_npcs SET name=:name,avatar_asset_id=:avatar,appearance_json=:appearance,occupation=:occupation,enabled=:enabled,agent_paused=:paused,updated_at=:updated WHERE npc_id=:id')->execute([':id' => $id, ':name' => $name, ':avatar' => (string)($body['avatar_asset_id'] ?? ''), ':appearance' => $json($body['appearance'] ?? []), ':occupation' => $occupation, ':enabled' => (int)(bool)($body['enabled'] ?? true), ':paused' => (int)(bool)($body['agent_paused'] ?? false), ':updated' => auth_sql_time($now)]);
         }
         $profile = $body['profile'] ?? [];
-        $pdo->prepare('INSERT INTO town_npc_profiles (npc_id,personality_json,family_background,short_term_goal,long_term_goal,speech_style,values_json,fears_json) VALUES (:id,:personality,:family,:short,:long,:speech,:values,:fears) ON DUPLICATE KEY UPDATE personality_json=VALUES(personality_json),family_background=VALUES(family_background),short_term_goal=VALUES(short_term_goal),long_term_goal=VALUES(long_term_goal),speech_style=VALUES(speech_style),values_json=VALUES(values_json),fears_json=VALUES(fears_json)')->execute([':id' => $id, ':personality' => $json($profile['personality'] ?? []), ':family' => (string)($profile['family_background'] ?? ''), ':short' => (string)($profile['short_term_goal'] ?? ''), ':long' => (string)($profile['long_term_goal'] ?? ''), ':speech' => (string)($profile['speech_style'] ?? ''), ':values' => $json($profile['values'] ?? []), ':fears' => $json($profile['fears'] ?? [])]);
+        $profileSql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? 'INSERT INTO town_npc_profiles (npc_id,personality_json,family_background,short_term_goal,long_term_goal,speech_style,values_json,fears_json) VALUES (:id,:personality,:family,:short,:long,:speech,:values,:fears) ON CONFLICT(npc_id) DO UPDATE SET personality_json=excluded.personality_json,family_background=excluded.family_background,short_term_goal=excluded.short_term_goal,long_term_goal=excluded.long_term_goal,speech_style=excluded.speech_style,values_json=excluded.values_json,fears_json=excluded.fears_json'
+            : 'INSERT INTO town_npc_profiles (npc_id,personality_json,family_background,short_term_goal,long_term_goal,speech_style,values_json,fears_json) VALUES (:id,:personality,:family,:short,:long,:speech,:values,:fears) ON DUPLICATE KEY UPDATE personality_json=VALUES(personality_json),family_background=VALUES(family_background),short_term_goal=VALUES(short_term_goal),long_term_goal=VALUES(long_term_goal),speech_style=VALUES(speech_style),values_json=VALUES(values_json),fears_json=VALUES(fears_json)';
+        $pdo->prepare($profileSql)->execute([':id' => $id, ':personality' => $json($profile['personality'] ?? []), ':family' => (string)($profile['family_background'] ?? ''), ':short' => (string)($profile['short_term_goal'] ?? ''), ':long' => (string)($profile['long_term_goal'] ?? ''), ':speech' => (string)($profile['speech_style'] ?? ''), ':values' => $json($profile['values'] ?? []), ':fears' => $json($profile['fears'] ?? [])]);
         if (is_array($body['schedule'] ?? null)) {
             $pdo->prepare('DELETE FROM town_npc_schedules WHERE npc_id=:id')->execute([':id' => $id]);
             $insert = $pdo->prepare('INSERT INTO town_npc_schedules (npc_id,weekday,start_minute,end_minute,action,target_id,job,priority) VALUES (:id,:weekday,:start,:end,:action,:target,:job,:priority)');
             foreach ($body['schedule'] as $entry) if (is_array($entry) && in_array((string)($entry['action'] ?? ''), TOWN_NPC_ACTIONS, true)) $insert->execute([':id' => $id, ':weekday' => max(0, min(6, (int)($entry['weekday'] ?? 0))), ':start' => max(0, min(1439, (int)($entry['start_minute'] ?? 0))), ':end' => max(0, min(1440, (int)($entry['end_minute'] ?? 1440))), ':action' => (string)$entry['action'], ':target' => (string)($entry['target_id'] ?? ''), ':job' => (string)($entry['job'] ?? ''), ':priority' => max(0, min(255, (int)($entry['priority'] ?? 0)))]);
         }
         $initialX = max(0, (int)($body['tile_x'] ?? 0)); $initialY = max(0, (int)($body['tile_y'] ?? 0));
+        if ($existingId === null) {
+            $initialPosition = town_navigation_can_traverse($pdo, $initialX, $initialY, []);
+            if (!$initialPosition['allowed']) {
+                throw new ApiError('invalid_npc_position', '村民初始位置必须位于可通行格子（' . (string)$initialPosition['reason'] . '）。', 409);
+            }
+        }
         $runtimeHeight = town_npc_runtime_height_column($pdo) ? ',height' : '';
         $runtimeHeightValue = town_npc_runtime_height_column($pdo) ? ',:height' : '';
-        $runtime = $pdo->prepare('INSERT IGNORE INTO town_npc_runtime_states (npc_id,tile_x,tile_y' . $runtimeHeight . ',state,capabilities_json,state_version,updated_at) VALUES (:id,:x,:y' . $runtimeHeightValue . ',\'rest\',\'[]\',1,:updated)');
+        $runtimePrefix = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+        $runtime = $pdo->prepare($runtimePrefix . ' INTO town_npc_runtime_states (npc_id,tile_x,tile_y' . $runtimeHeight . ',state,capabilities_json,state_version,updated_at) VALUES (:id,:x,:y' . $runtimeHeightValue . ',\'rest\',\'[]\',1,:updated)');
         $runtimeParams = [':id' => $id, ':x' => $initialX, ':y' => $initialY, ':updated' => auth_sql_time($now)];
         if (town_npc_runtime_height_column($pdo)) $runtimeParams[':height'] = town_npc_navigation_height($pdo, $initialX, $initialY);
         $runtime->execute($runtimeParams);
