@@ -1593,3 +1593,32 @@ Worker 现在在执行 `talk` 前解析具体对象：
 - 本轮只做回归和只读状态检查，没有修改数据库、NPC、模型配置、地图、玩家钱包或 Worker 容器。
 
 这次核验确认当前代码基线可继续推进，但不能替代最终人工验收：双账号同时登录、五人同屏、玩家/NPC 实时移动、断线重连、真实素材导航编辑后的画面重规划和模型驱动的不同人格对话仍待最后执行。关系衰减和玩家经济规则也仍等待用户选择，未写入线上默认行为。
+
+### 18.58 修复工作点过期预约重复失败（2026-11-12）
+
+线上只读审计发现最近 24 小时出现 224 条 `action_failed`，全部来自 NPC `work` 动作的 HTTP 500。Nginx/PHP 日志给出的共同根因是：同一个工作点第二次产生历史预约时触发 `Duplicate entry ...-expired for key town_work_point_reservations.ux_town_work_point_reservation_status`。迁移 032 原来的唯一索引是 `(point_id,status)`，它同时错误地限制了同一工作点只能有一条 `expired` 历史记录；NPC 任务重试因此被数据库唯一键拒绝。
+
+本次新增 `database/038_town_work_point_reservation_active_unique.sql`，迁移顺序和约束如下：
+
+1. 先确保 `point_id` 普通索引存在，使删除旧唯一索引后工作点外键仍有受支持的索引。
+2. 删除 `ux_town_work_point_reservation_status`（`point_id,status`）。
+3. 增加 MySQL 8 函数唯一索引 `ux_town_work_point_reservation_active`，仅对 `status='active'` 返回 `point_id`，其他状态返回 `NULL`。因此每个工作点最多一个活动预约，但 `expired`、`completed` 历史可以无限保留。
+4. 每一步都按索引是否已存在决定执行或跳过，重复执行不会重复建索引。
+
+服务层回归用例同步增加“第二条活动预约被拒绝、同一工作点连续两次过期、第三次仍可重试”的场景。SQLite 测试使用 partial unique index 模拟线上语义，当前该文件通过 12 项检查；测试确认历史过期记录保留，活动预约仍会拒绝第二条并发记录。
+
+线上迁移已经执行并完成核对：
+
+| 检查项 | 结果 | 说明 |
+| --- | --- | --- |
+| 迁移前备份 | `town_work_point_reservations_bak_20261112050000` | 备份 9 行，原表数据可追溯。 |
+| 普通 `point_id` 索引 | 已存在 | 保留外键支持索引。 |
+| 旧 `(point_id,status)` 唯一索引 | 已删除 | 不再阻塞重复 `expired` 历史。 |
+| 新活动唯一索引 | 已存在 | 仅 `active` 状态按工作点唯一。 |
+| 当前状态分布 | `active=3, completed=3, expired=3` | 现有历史和活动预约均完整保留。 |
+| 事务验证 | 通过 | 插入第二条 `expired` 成功；插入第二条 `active` 被正确拒绝。 |
+| Worker | `deskbox-npc-worker:v23`，`running`，重启 0 | 本次未重启或更换 Worker。 |
+
+本轮执行结果：全部 40 个 PHP 测试通过；其中 `town_asset_mysql_subcategory_test.php` 和 `town_player_positions_mysql_test.php` 因本机没有 MySQL DSN 按预期跳过；API 目录 91 个 PHP 文件全部通过 `php -l`。线上临时脚本已清理。只提交本轮相关的迁移、回归测试和方案文档，不把工作区内其他功能改动或输出物混入提交。
+
+当前仍未完成的范围没有变化：双账号实时画面、五人同屏、玩家/NPC 实时移动、断线重连、真实素材导航编辑后的画面重规划和模型驱动的不同人格对话仍按用户安排最后验收；关系衰减和玩家经济规则仍等待用户选择，未擅自写入实现。

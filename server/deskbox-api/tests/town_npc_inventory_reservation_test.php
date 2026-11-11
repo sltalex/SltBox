@@ -26,6 +26,7 @@ CREATE TABLE town_npc_activity_logs (log_id INTEGER PRIMARY KEY AUTOINCREMENT,np
 CREATE TABLE town_work_runs (run_id TEXT PRIMARY KEY,point_id TEXT,npc_id TEXT,task_id TEXT,job TEXT,status TEXT,result_json TEXT,started_at TEXT,completed_at TEXT);
 CREATE TABLE town_npc_inventory (npc_id TEXT,item_id TEXT,quantity INTEGER,updated_at TEXT,PRIMARY KEY(npc_id,item_id));
 CREATE TABLE town_work_point_reservations (reservation_id TEXT PRIMARY KEY,point_id TEXT,npc_id TEXT,task_id TEXT,status TEXT,reserved_at TEXT,expires_at TEXT,released_at TEXT);");
+$pdo->exec("CREATE UNIQUE INDEX ux_town_work_point_reservation_active ON town_work_point_reservations(point_id) WHERE status='active';");
 $pdo->prepare('INSERT INTO town_worlds VALUES (?,?,?,?,?,?,?,?,?,?,?)')->execute(['main',1,1,768,768,16,24,0,1,$stamp,$stamp]);
 $pointId = str_repeat('1', 32); $point = [$pointId,'main','water-work','河边工作点','workshop',65,20,'{}','{"effect":"craft_item"}',1,$stamp,$stamp];
 $pdo->prepare('INSERT INTO town_work_points VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute($point);
@@ -40,6 +41,14 @@ $pdo->prepare('INSERT INTO town_npc_inventory VALUES (?,?,?,?)')->execute([$npc,
 $action = town_npc_apply_action($pdo, ['npc_id' => $npc, 'action' => 'work', 'payload' => ['target_id' => 'water-work', 'duration_minutes' => 0]], $now, true);
 item_expect($action['task_status'] === 'running' && ($action['route'][1]['x'] ?? null) === 65 && ($action['route'][1]['y'] ?? null) === 20, 'A bridge kit must make the water target reachable.');
 item_expect((int)$pdo->query("SELECT quantity FROM town_npc_inventory WHERE npc_id='{$npc}' AND item_id='bridge_kit'")->fetchColumn() === 0, 'A successful crossing must consume one bridge kit.');
+$npc2 = str_repeat('b', 32);
+$pdo->prepare('INSERT INTO town_npcs VALUES (?,?,?,?,?,?,?,?,?,?)')->execute([$npc2,'main','冲突测试村民','', '{}','craftsman',1,0,$stamp,$stamp]);
+$pdo->prepare('INSERT INTO town_npc_runtime_states VALUES (?,?,?,?,?,?,?,?,?,?)')->execute([$npc2,64,20,'rest',null,'','{}','[]',1,$stamp]);
+$pdo->prepare('INSERT INTO town_npc_inventory VALUES (?,?,?,?)')->execute([$npc2,'bridge_kit',1,$stamp]);
+$busy = false;
+try { town_npc_apply_action($pdo, ['npc_id' => $npc2, 'action' => 'work', 'payload' => ['target_id' => 'water-work', 'duration_minutes' => 0]], $now, true); }
+catch (ApiError $error) { $busy = $error->apiCode === 'work_point_busy'; }
+item_expect($busy, 'A second active reservation for the same work point must be rejected.');
 $taskId = (string)$action['task_id'];
 $arrival = town_npc_advance_task($pdo, $npc, $now->modify('+1 second'), true);
 item_expect($arrival['state'] === 'work' && $arrival['task_status'] === 'running', 'The NPC must arrive at the water work point before completing the interaction.');
@@ -54,5 +63,19 @@ $pdo->prepare("UPDATE town_work_point_reservations SET expires_at='2026-11-11 09
 $failed = town_npc_advance_task($pdo, $npc, $now->modify('+20 seconds'), true);
 item_expect($failed['task_status'] === 'failed' && $failed['failure_reason'] === 'work_point_expired', 'An expired reservation must stop the abandoned task.');
 item_expect((int)$pdo->query("SELECT quantity FROM town_npc_inventory WHERE npc_id='{$npc}' AND item_id='bridge_kit'")->fetchColumn() === 1, 'A failed expired task must refund its bridge kit.');
+$pdo->prepare('UPDATE town_npc_runtime_states SET tile_x=64,tile_y=20,state=\'rest\',current_task_id=NULL WHERE npc_id=?')->execute([$npc]);
+$again = town_npc_apply_action($pdo, ['npc_id' => $npc, 'action' => 'work', 'payload' => ['target_id' => 'water-work', 'duration_minutes' => 0]], $now->modify('+30 seconds'), true);
+$againTask = (string)$again['task_id'];
+$pdo->prepare("UPDATE town_work_point_reservations SET expires_at='2026-11-11 09:00:00' WHERE task_id=?")->execute([$againTask]);
+$pdo->prepare("UPDATE town_npc_inventory SET quantity=1,updated_at=? WHERE npc_id=? AND item_id='bridge_kit'")->execute([$stamp, $npc]);
+$pdo->prepare('UPDATE town_npc_runtime_states SET tile_x=64,tile_y=20,state=\'rest\',current_task_id=NULL WHERE npc_id=?')->execute([$npc]);
+$third = town_npc_apply_action($pdo, ['npc_id' => $npc, 'action' => 'work', 'payload' => ['target_id' => 'water-work', 'duration_minutes' => 0]], $now->modify('+50 seconds'), true);
+item_expect($third['task_status'] === 'running', 'A work point must allow a new task after an expired active reservation.');
+$pdo->prepare("UPDATE town_work_point_reservations SET expires_at='2026-11-11 09:00:00' WHERE task_id=?")->execute([(string)$third['task_id']]);
+$pdo->prepare("UPDATE town_npc_inventory SET quantity=1,updated_at=? WHERE npc_id=? AND item_id='bridge_kit'")->execute([$stamp, $npc]);
+$pdo->prepare('UPDATE town_npc_runtime_states SET tile_x=64,tile_y=20,state=\'rest\',current_task_id=NULL WHERE npc_id=?')->execute([$npc]);
+$fourth = town_npc_apply_action($pdo, ['npc_id' => $npc, 'action' => 'work', 'payload' => ['target_id' => 'water-work', 'duration_minutes' => 0]], $now->modify('+70 seconds'), true);
+item_expect($fourth['task_status'] === 'running', 'A work point must allow repeated expired reservations.');
+item_expect((int)$pdo->query("SELECT COUNT(*) FROM town_work_point_reservations WHERE point_id='{$pointId}' AND status='expired'")->fetchColumn() === 2, 'Expired work-point reservations must remain as history without blocking retries.');
 
 echo "town_npc_inventory_reservation_test: {$checks} checks ok\n";
