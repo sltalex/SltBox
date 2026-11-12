@@ -209,11 +209,15 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     long sheetRelease = message.TryGetProperty("release_version", out JsonElement release) ? release.GetInt64() : -1;
                     string? sheetPath = await _session.LoadAssetSheetAsync(sheetId, epoch, _assetCacheRoot);
                     if (epoch != _session.Epoch || _closed) break;
-                    await PostAsync("setAssetSheet", JsonSerializer.Serialize(new {
-                        sheet_id = sheetId, session_epoch = epoch, release_version = sheetRelease,
-                        status = sheetPath is null ? "error" : "ready",
-                        url = sheetPath is null ? null : $"https://{AssetHost}/{Path.GetFileName(sheetPath)}"
-                    }));
+                    var sheetResult = new JsonObject
+                    {
+                        ["sheet_id"] = sheetId,
+                        ["session_epoch"] = epoch,
+                        ["release_version"] = sheetRelease,
+                        ["status"] = sheetPath is null ? "error" : "ready",
+                        ["url"] = sheetPath is null ? null : JsonValue.Create($"https://{AssetHost}/{Path.GetFileName(sheetPath)}")
+                    };
+                    await PostAsync("setAssetSheet", sheetResult.ToJsonString());
                     break;
                 case "assetError":
                 case "assetReady":
@@ -282,8 +286,14 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                         payload.TryGetProperty("operation_id", out JsonElement operation) &&
                         operation.ValueKind == JsonValueKind.String)
                         operationId = operation.GetString() ?? string.Empty;
-                    string error = JsonSerializer.Serialize(new { code = "town_network_error", message = "共享小镇同步失败，请稍后重试", operation_id = operationId, session_epoch = failedMessage.TryGetProperty("session_epoch", out JsonElement failedEpoch) ? failedEpoch.GetInt64() : -1 });
-                    await PostAsync("applyActionResult", error);
+                    var errorPayload = new JsonObject
+                    {
+                        ["code"] = "town_network_error",
+                        ["message"] = "共享小镇同步失败，请稍后重试",
+                        ["operation_id"] = operationId,
+                        ["session_epoch"] = failedMessage.TryGetProperty("session_epoch", out JsonElement failedEpoch) ? failedEpoch.GetInt64() : -1
+                    };
+                    await PostAsync("applyActionResult", errorPayload.ToJsonString());
                 }
             }
             catch (Exception rollback) { App.Log($"[SharedTown] Action rollback failed: {rollback.GetType().Name}"); }
@@ -304,7 +314,12 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         DispatcherQueue.TryEnqueue(async () =>
         {
             if (_closed || !_ready || epoch != _session.Epoch) return;
-            await PostAsync("setRealtimeState", JsonSerializer.Serialize(new { session_epoch = epoch, connected }));
+            var realtimeState = new JsonObject
+            {
+                ["session_epoch"] = epoch,
+                ["connected"] = connected
+            };
+            await PostAsync("setRealtimeState", realtimeState.ToJsonString());
             if (!connected && _session.IsEnabled)
             {
                 try
@@ -369,9 +384,10 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         await PostAsync("setPresence", _session.PresenceJson());
         await _session.LoadNpcSnapshotAsync(_session.Epoch);
         await PostAsync("setNpcs", _session.NpcsJson());
-        await PostAsync("setAssetCatalog", catalogFailed
-            ? JsonSerializer.Serialize(new { session_epoch = _session.Epoch, status = "error" })
-            : _session.AssetCatalogJson());
+        string assetCatalog = catalogFailed
+            ? new JsonObject { ["session_epoch"] = _session.Epoch, ["status"] = "error" }.ToJsonString()
+            : _session.AssetCatalogJson();
+        await PostAsync("setAssetCatalog", assetCatalog);
         _ = _session.ConnectRealtimeAsync();
     }
 
