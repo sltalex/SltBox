@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -505,4 +504,3 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         _web.Close();
     }
 }
-#endif

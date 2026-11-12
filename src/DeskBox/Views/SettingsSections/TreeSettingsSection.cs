@@ -50,13 +50,11 @@ public sealed partial class TreeSettingsSection : UserControl
     };
     private readonly Button _syncButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _repairButton = new() { MinWidth = 0, Padding = new Thickness(10, 4, 10, 4) };
-#if DEBUG
     private readonly Button _townPreviewButton = new()
     {
         Content = "小镇预览", HorizontalAlignment = HorizontalAlignment.Left,
         Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed
     };
-#endif
     private readonly Button _loginButton = new() { HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListView _leaderboard = new()
     {
@@ -77,9 +75,7 @@ public sealed partial class TreeSettingsSection : UserControl
     private int _leaderboardRefreshQueued;
     private int _counterRefreshQueued;
     private int _syncOperationInProgress;
-#if DEBUG
     private CancellationTokenSource? _townAccessCts;
-#endif
 
     public event EventHandler<SettingsSectionNavigationRequestedEventArgs>? NavigationRequested;
 
@@ -127,10 +123,8 @@ public sealed partial class TreeSettingsSection : UserControl
         visualRow.Children.Add(_threeDLabel);
         visualRow.Children.Add(_threeD);
         cardContent.Children.Add(visualRow);
-#if DEBUG
         _townPreviewButton.Click += (_, _) => TreeTownPrototypeWindow.ShowPreview();
         cardContent.Children.Add(_townPreviewButton);
-#endif
         cardContent.Children.Add(_syncStatus);
         _switchesCard.Content = cardContent;
 
@@ -202,9 +196,7 @@ public sealed partial class TreeSettingsSection : UserControl
             _ = _cloud.RefreshStateAsync();
             _ = _cloud.RefreshLeaderboardAsync();
         }
-#if DEBUG
         _ = RefreshTownAccessAsync();
-#endif
     }
 
     private void TreeSettingsSection_Unloaded(object sender, RoutedEventArgs e)
@@ -214,9 +206,7 @@ public sealed partial class TreeSettingsSection : UserControl
         if (_cloud is not null) _cloud.LeaderboardChanged -= OnLeaderboardChanged;
         _counter.Changed -= OnCounterChanged;
         _visualSettings.Changed -= OnVisualSettingsChanged;
-#if DEBUG
         _townAccessCts?.Cancel();
-#endif
     }
 
     private void RenderLabels()
@@ -394,9 +384,7 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void OnLeaderboardChanged()
     {
-#if DEBUG
         _ = RefreshTownAccessAsync();
-#endif
         if (Interlocked.Exchange(ref _leaderboardRefreshQueued, 1) != 0) return;
         if (!_uiQueue.TryEnqueue(() =>
             {
@@ -407,7 +395,6 @@ public sealed partial class TreeSettingsSection : UserControl
 
     private void OnLanguageChanged() { RenderLabels(); Refresh(); }
 
-#if DEBUG
     private async Task RefreshTownAccessAsync()
     {
         CancellationTokenSource? previous = Interlocked.Exchange(ref _townAccessCts,
@@ -448,8 +435,6 @@ public sealed partial class TreeSettingsSection : UserControl
         void Apply() => _townPreviewButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (!_uiQueue.TryEnqueue(Apply)) Apply();
     }
-#endif
-
     private void OnCounterChanged()
     {
         if (Interlocked.Exchange(ref _counterRefreshQueued, 1) != 0) return;

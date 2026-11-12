@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -227,4 +226,3 @@ internal sealed partial class TreeTownPrototypeWindow
             value.GetProperty("status").GetString() ?? string.Empty);
     }
 }
-#endif

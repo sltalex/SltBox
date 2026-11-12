@@ -65,6 +65,21 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
     }
 
     [Fact]
+    public void SharedTownEntry_IsIncludedInReleaseAndStillUsesServerGraylist()
+    {
+        string settings = Read("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs");
+        string window = Read("src/DeskBox/Views/TreeTownPrototypeWindow.cs");
+        string probe = Read("src/DeskBox/Views/TreeTownPrototypeWindow.Probe.cs");
+
+        Assert.Contains("private readonly Button _townPreviewButton", settings, StringComparison.Ordinal);
+        Assert.Contains("RefreshTownAccessAsync", settings, StringComparison.Ordinal);
+        Assert.Contains("../../v2/town/world.php", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if DEBUG", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if DEBUG", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if DEBUG", probe, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VisitedFruitUsesOptimisticQueueAndRestoresOnlyTheFailedFruit()
     {
         string settings = Read("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs");
