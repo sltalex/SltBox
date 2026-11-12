@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026111201",
+  "version": "2026111202",
   "releaseDate": "2026-11-12",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111201/SltBox_Setup_2026111201_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026111201_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111202/SltBox_Setup_2026111202_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026111202_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "a86cd4ae9608326847b42e7b59ae72175894ad0393df7f43041cea90f7a373b4",
-  "size": 158237976,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026111201",
+  "sha256": "eb4c39923b3f5bb881c88e60b9cc83c7b0c2caa898ad311cf9ff99ada796616a",
+  "size": 158374122,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026111202",
   "summary": {
-    "zh-CN": "SltBox 2026111201：共享小镇新增 WebSocket 实时多人、NPC Agent、动态通行导航、模型配置、详细活动日志和 Token 报表。",
-    "en-US": "SltBox 2026111201 adds WebSocket town presence, NPC agents, dynamic navigation, model configuration, detailed activity logs, and token reporting."
+    "zh-CN": "SltBox 2026111202：修复安装包中共享小镇灰度入口缺失，并提升小镇窗口 Native AOT 兼容性。",
+    "en-US": "SltBox 2026111202 fixes the missing shared-town graylist entry in release installers and improves Native AOT compatibility for the town window."
   }
 }
