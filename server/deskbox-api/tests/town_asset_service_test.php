@@ -36,6 +36,27 @@ $fileNameId = town_asset_save_item($pdo, $user, ['asset_id'=>'fall_town.zh-CN..p
 if ($fileNameId['id'] !== 'town-source-fall_town.zh-CN..png') throw new RuntimeException('File-name style town asset ID was not normalized.');
 town_asset_delete_item($pdo, 'town-source-fall_town.zh-CN..png');
 $_SESSION = ['csrf' => str_repeat('a', 64)];
+$subcategoryPost = ['csrf'=>$_SESSION['csrf'],'operation'=>'town_asset_item',
+    'asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],
+    'name'=>'测试树','category'=>'tree','x'=>'0','y'=>'0','width'=>'16','height'=>'16',
+    'display_width'=>'16','display_height'=>'16','footprint'=>'{"width":1,"height":1}'];
+foreach (['车辆', str_repeat('树', 64), str_repeat('a', 64), ''] as $subcategory) {
+    admin_page_mutate($pdo, ['user_id'=>$user], $subcategoryPost + ['subcategory'=>$subcategory]);
+    if (town_asset_read_admin_items($pdo)[0]['subcategory'] !== $subcategory) {
+        throw new RuntimeException('Admin save did not preserve the subcategory.');
+    }
+}
+foreach ([str_repeat('树', 65), str_repeat('a', 65)] as $subcategory) {
+    try {
+        admin_page_mutate($pdo, ['user_id'=>$user], $subcategoryPost + ['subcategory'=>$subcategory]);
+        throw new RuntimeException('An overlong subcategory reached storage.');
+    } catch (ApiError $error) {
+        if ($error->apiCode !== 'invalid_subcategory') throw $error;
+    }
+    if (town_asset_read_admin_items($pdo)[0]['subcategory'] !== '') {
+        throw new RuntimeException('A rejected subcategory changed the draft.');
+    }
+}
 if (admin_page_mutate($pdo, ['user_id'=>$user], ['csrf'=>$_SESSION['csrf'],'operation'=>'town_asset_delete','asset_id'=>'town-source-test-tree']) !== 'town_asset_delete') {
     throw new RuntimeException('Admin delete dispatch did not complete.');
 }

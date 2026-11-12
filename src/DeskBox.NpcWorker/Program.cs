@@ -464,7 +464,7 @@ public sealed class NpcWorkerService(
                             RegisterFailure(pending.Npc.Id, "planning_failed", error);
                             continue;
                         }
-                        await ExecutePlanAsync(pending.Npc, plan, stoppingToken);
+                        await ExecutePlanAsync(pending.Npc, plan, active, stoppingToken);
                     }
                 }
             }
@@ -480,11 +480,12 @@ public sealed class NpcWorkerService(
         }
     }
 
-    private async Task ExecutePlanAsync(Npc npc, AgentPlanResult plan, CancellationToken cancellationToken)
+    private async Task ExecutePlanAsync(Npc npc, AgentPlanResult plan, IReadOnlyList<Npc> peers, CancellationToken cancellationToken)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         PlannedAction action = plan.Action ?? DeterministicSchedule.Next(npc, now, _scheduleTimeZone);
         action = DeterministicSchedule.FillMissingTarget(npc, action, now, _scheduleTimeZone);
+        action = DeterministicSchedule.ResolveTalkTarget(npc, action, peers);
         action = DeterministicSchedule.FillMissingDialogue(npc, action);
         string finalStatus = plan.Action is null ? "fallback" : plan.Status;
         string? runId = await api.RecordRunAsync(npc, action, plan, "started", cancellationToken, string.IsNullOrWhiteSpace(plan.ReservationId) ? null : plan.ReservationId);
@@ -541,6 +542,25 @@ public static class DeterministicSchedule
             if (slot.GetProperty("action").GetString() == action.Action && slot.TryGetProperty("target_id", out JsonElement target) && !string.IsNullOrWhiteSpace(target.GetString()))
                 return action with { TargetId = target.GetString() };
         return action;
+    }
+
+    /// <summary>
+    /// Turn a social schedule such as "town-square" into a concrete NPC target.
+    /// The server remains authoritative for the route and interaction, while the
+    /// worker chooses the nearest eligible conversation partner deterministically.
+    /// Explicit NPC ids from a model or administrator are preserved.
+    /// </summary>
+    public static PlannedAction ResolveTalkTarget(Npc npc, PlannedAction action, IReadOnlyList<Npc> peers)
+    {
+        if (!string.Equals(action.Action, "talk", StringComparison.Ordinal)) return action;
+        Npc? explicitTarget = peers.FirstOrDefault(item => item.Id == action.TargetId && item.Id != npc.Id && item.Enabled && !item.AgentPaused);
+        if (explicitTarget is not null) return action;
+        Npc? target = peers
+            .Where(item => item.Id != npc.Id && item.Enabled && !item.AgentPaused)
+            .OrderBy(item => Math.Abs(item.Runtime.TileX - npc.Runtime.TileX) + Math.Abs(item.Runtime.TileY - npc.Runtime.TileY))
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        return target is null ? action : action with { TargetId = target.Id };
     }
 
     /** Keep deterministic fallback conversations observable when no model is configured. */

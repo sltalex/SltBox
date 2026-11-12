@@ -87,4 +87,40 @@ public sealed class NpcWorkerSchedulingTests
 
         Assert.Equal("模型已经给出的句子", action.Payload.GetProperty("dialogue").GetString());
     }
+
+    [Fact]
+    public void SocialScheduleResolvesNearestEligibleNpcWhenTargetIsAPlace()
+    {
+        JsonElement emptySchedule = JsonDocument.Parse("[]").RootElement.Clone();
+        JsonElement profile = JsonDocument.Parse("{}").RootElement.Clone();
+        var source = new Npc("npc-1", "花青", "merchant", true, false,
+            new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), emptySchedule, profile);
+        var nearest = new Npc("npc-2", "林野", "farmer", true, false,
+            new NpcRuntime(11, 10, "rest", null, Array.Empty<string>()), emptySchedule, profile);
+        var farther = new Npc("npc-3", "周岩", "craftsman", true, false,
+            new NpcRuntime(20, 20, "rest", null, Array.Empty<string>()), emptySchedule, profile);
+
+        PlannedAction action = DeterministicSchedule.ResolveTalkTarget(source,
+            new PlannedAction("talk", "town-square", JsonDocument.Parse("{\"dialogue\":\"你好\"}").RootElement.Clone(), "schedule"),
+            new[] { source, farther, nearest });
+
+        Assert.Equal("npc-2", action.TargetId);
+    }
+
+    [Fact]
+    public void SocialSchedulePreservesExplicitNpcTarget()
+    {
+        JsonElement emptySchedule = JsonDocument.Parse("[]").RootElement.Clone();
+        JsonElement profile = JsonDocument.Parse("{}").RootElement.Clone();
+        var source = new Npc("npc-1", "花青", "merchant", true, false,
+            new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), emptySchedule, profile);
+        var target = new Npc("npc-2", "林野", "farmer", true, false,
+            new NpcRuntime(11, 10, "rest", null, Array.Empty<string>()), emptySchedule, profile);
+
+        PlannedAction action = DeterministicSchedule.ResolveTalkTarget(source,
+            new PlannedAction("talk", "npc-2", JsonDocument.Parse("{}").RootElement.Clone(), "model"),
+            new[] { source, target });
+
+        Assert.Equal("npc-2", action.TargetId);
+    }
 }

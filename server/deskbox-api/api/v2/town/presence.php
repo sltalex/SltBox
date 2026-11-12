@@ -10,7 +10,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $actor = account_authenticated_user($pdo, 'api_clock');
         shared_town_require_access($pdo, (string)$actor['user_id']);
         $body = api_body(4096, false, 4096);
-        $self = shared_town_presence_upsert($pdo, (string)$actor['user_id'], $body, api_clock());
+        $persist = ($body['transient'] ?? false) !== true;
+        $self = shared_town_presence_upsert($pdo, (string)$actor['user_id'], $body, api_clock(), $persist);
+        if (!$persist) return ['ok' => true, 'self' => $self];
         $visible = shared_town_presence($pdo, (int)$self['chunk_x'], (int)$self['chunk_y']);
         return ['ok' => true, 'presence' => $visible['presence'], 'self' => $self];
     });
@@ -19,8 +21,9 @@ api_run('GET', static function (PDO $pdo): array {
     $actor = account_authenticated_user($pdo, 'api_clock');
     shared_town_require_access($pdo, (string)$actor['user_id']);
     $x = filter_var($_GET['chunk_x'] ?? -1, FILTER_VALIDATE_INT); $y = filter_var($_GET['chunk_y'] ?? -1, FILTER_VALIDATE_INT);
+    $chunkCount = intdiv(SHARED_TOWN_MAP_SIZE, SHARED_TOWN_CHUNK_SIZE);
     if ($x === false || $y === false || (($x === -1) !== ($y === -1))
-        || ($x >= 0 && $y >= 0 && ($x >= 8 || $y >= 8)) || $x < -1 || $y < -1) {
+        || ($x >= 0 && $y >= 0 && ($x >= $chunkCount || $y >= $chunkCount)) || $x < -1 || $y < -1) {
         throw new ApiError('invalid_chunk', 'The presence chunk is invalid.', 400);
     }
     return ['ok' => true] + shared_town_presence($pdo, $x === false ? -1 : (int)$x, $y === false ? -1 : (int)$y);

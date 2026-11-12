@@ -1,4 +1,4 @@
-﻿namespace DeskBox.Tests;
+namespace DeskBox.Tests;
 
 public sealed class AotStage4E4ContractTests
 {

@@ -40,6 +40,21 @@ function town_asset_json_array(mixed $value, string $code): array
     return $value;
 }
 
+function town_asset_has_navigation_column(PDO $pdo): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo);
+    if (isset($cache[$key])) return $cache[$key];
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $columns = $pdo->query('PRAGMA table_info(town_asset_items)')->fetchAll(PDO::FETCH_ASSOC);
+            return $cache[$key] = in_array('navigation_json', array_column($columns, 'name'), true);
+        }
+        $query = $pdo->query('SHOW COLUMNS FROM town_asset_items LIKE \'navigation_json\'');
+        return $cache[$key] = (bool)$query->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException) { return $cache[$key] = false; }
+}
+
 function town_asset_item_public(array $row, array $sheet): array
 {
     $json = static function (mixed $value, array $fallback): array {
@@ -57,6 +72,7 @@ function town_asset_item_public(array $row, array $sheet): array
         'anchor' => $json($row['anchor_json'] ?? null, ['x' => .5, 'y' => 1]),
         'footprint' => $json($row['footprint_json'] ?? null, ['width' => 1, 'height' => 1]),
         'collision' => $json($row['collision_json'] ?? null, ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4]),
+        'navigation' => $json($row['navigation_json'] ?? null, ['type' => 'blocked', 'blocked_npc' => true, 'required_capabilities' => []]),
         'frames' => $json($row['frames_json'] ?? null, []), 'manual_locked' => (bool)$row['manual_locked'],
         'sheet' => ['sheet_id' => (string)$sheet['sheet_id'], 'width' => (int)($sheet['image_width'] ?? $sheet['width'] ?? 0),
             'height' => (int)($sheet['image_height'] ?? $sheet['height'] ?? 0), 'sha256' => (string)$sheet['sha256']],
@@ -113,12 +129,20 @@ function town_asset_validate_region(array $body, array $sheet): array
     if (!in_array($category, TOWN_ASSET_CATEGORIES, true)) throw new ApiError('invalid_category', 'The town asset category is invalid.', 400);
     $name = isset($body['name']) && is_string($body['name']) ? trim($body['name']) : '';
     if ($name === '' || strlen($name) > 120) throw new ApiError('invalid_name', 'A town asset name is required.', 400);
+    $subcategory = isset($body['subcategory']) && is_string($body['subcategory']) ? trim($body['subcategory']) : '';
+    if (preg_match('/\A.{0,64}\z/usD', $subcategory) !== 1) {
+        throw new ApiError('invalid_subcategory', '子分类最多填写 64 个有效字符。', 400);
+    }
     $tags = town_asset_json_array($body['tags'] ?? [], 'invalid_tags');
     $tags = array_values(array_filter($tags, static fn($v): bool => is_string($v) && trim($v) !== ''));
     $anchor = town_asset_json_array($body['anchor'] ?? ['x' => .5, 'y' => 1], 'invalid_anchor');
-    $footprint = town_asset_json_array($body['footprint'] ?? ['width' => 1, 'height' => 1], 'invalid_footprint');
+    $footprint = isset($body['footprint']) && $body['footprint'] !== '' ? town_asset_json_array($body['footprint'], 'invalid_footprint') : null;
     $collision = town_asset_json_array($body['collision'] ?? ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4], 'invalid_collision');
     $frames = town_asset_json_array($body['frames'] ?? [], 'invalid_frames');
+    $navigation = town_asset_json_array($body['navigation'] ?? ['type' => 'blocked'], 'invalid_navigation');
+    $navigationType = strtolower(trim((string)($navigation['type'] ?? 'blocked')));
+    if (!in_array($navigationType, ['plain', 'blocked', 'stairs', 'water', 'bridge'], true)) throw new ApiError('invalid_navigation', '素材导航类型无效。', 400);
+    $navigation['type'] = $navigationType;
     foreach ($frames as $frame) {
         if (!is_array($frame)) throw new ApiError('invalid_frames', 'The animation frame metadata is invalid.', 400);
         $fx = filter_var($frame['x'] ?? null, FILTER_VALIDATE_INT);
@@ -137,19 +161,24 @@ function town_asset_validate_region(array $body, array $sheet): array
     if ($displayWidth === false || $displayHeight === false || $displayWidth < 1 || $displayHeight < 1 || $displayWidth > 4096 || $displayHeight > 4096) {
         throw new ApiError('invalid_display_size', 'The display size is invalid.', 400);
     }
+    if ($footprint === null) {
+        $contact = town_asset_contact(['x'=>$x,'y'=>$y,'width'=>$width,'height'=>$height,'display_width'=>$displayWidth,'display_height'=>$displayHeight,'frames'=>$frames], $path);
+        $footprint=$contact['footprint'];$collision=$contact['collision'];
+    }
     if ((int)($footprint['width'] ?? 0) < 1 || (int)($footprint['width'] ?? 0) > 16
         || (int)($footprint['height'] ?? 0) < 1 || (int)($footprint['height'] ?? 0) > 16) {
         throw new ApiError('invalid_footprint', 'The footprint is invalid.', 400);
     }
     return ['x' => $x, 'y' => $y, 'region_width' => $width, 'region_height' => $height,
         'name' => $name, 'category' => $category,
-        'subcategory' => isset($body['subcategory']) && is_string($body['subcategory']) ? trim($body['subcategory']) : '',
+        'subcategory' => $subcategory,
         'tags_json' => json_encode($tags, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'display_width' => $displayWidth, 'display_height' => $displayHeight,
         'anchor_json' => json_encode($anchor, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'footprint_json' => json_encode($footprint, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'collision_json' => json_encode($collision, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-        'frames_json' => json_encode($frames, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)];
+        'frames_json' => json_encode($frames, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        'navigation_json' => json_encode($navigation, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)];
 }
 
 function town_asset_upload_sheet(PDO $pdo, string $userId, array $file, DateTimeImmutable $now): array
@@ -178,16 +207,19 @@ function town_asset_save_item(PDO $pdo, string $userId, array $body, DateTimeImm
     $dup = $pdo->prepare('SELECT asset_id FROM town_asset_items WHERE name=:name AND asset_id<>:id LIMIT 1');
     $dup->execute([':name' => $values['name'], ':id' => $id]);
     if ($dup->fetchColumn() !== false) throw new ApiError('duplicate_name', 'The town asset name is already in use.', 409);
-    $insertColumns = '(asset_id,sheet_id,name,category,subcategory,tags_json,x,y,region_width,region_height,display_width,display_height,anchor_json,footprint_json,collision_json,frames_json,manual_locked,updated_by,created_at,updated_at)';
-    $insertValues = 'VALUES (:id,:sheet,:name,:category,:subcategory,:tags,:x,:y,:width,:height,:display_width,:display_height,:anchor,:footprint,:collision,:frames,1,:user,:created,:updated)';
+    $hasNavigation = town_asset_has_navigation_column($pdo);
+    $insertColumns = '(asset_id,sheet_id,name,category,subcategory,tags_json,x,y,region_width,region_height,display_width,display_height,anchor_json,footprint_json,collision_json,frames_json' . ($hasNavigation ? ',navigation_json' : '') . ',manual_locked,updated_by,created_at,updated_at)';
+    $insertValues = 'VALUES (:id,:sheet,:name,:category,:subcategory,:tags,:x,:y,:width,:height,:display_width,:display_height,:anchor,:footprint,:collision,:frames' . ($hasNavigation ? ',:navigation' : '') . ',1,:user,:created,:updated)';
     $sql = 'INSERT INTO town_asset_items ' . $insertColumns . ' ' . $insertValues;
     if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-        $sql .= ' ON CONFLICT(asset_id) DO UPDATE SET sheet_id=excluded.sheet_id,name=excluded.name,category=excluded.category,subcategory=excluded.subcategory,tags_json=excluded.tags_json,x=excluded.x,y=excluded.y,region_width=excluded.region_width,region_height=excluded.region_height,display_width=excluded.display_width,display_height=excluded.display_height,anchor_json=excluded.anchor_json,footprint_json=excluded.footprint_json,collision_json=excluded.collision_json,frames_json=excluded.frames_json,manual_locked=1,updated_by=excluded.updated_by,updated_at=excluded.updated_at';
+        $sql .= ' ON CONFLICT(asset_id) DO UPDATE SET sheet_id=excluded.sheet_id,name=excluded.name,category=excluded.category,subcategory=excluded.subcategory,tags_json=excluded.tags_json,x=excluded.x,y=excluded.y,region_width=excluded.region_width,region_height=excluded.region_height,display_width=excluded.display_width,display_height=excluded.display_height,anchor_json=excluded.anchor_json,footprint_json=excluded.footprint_json,collision_json=excluded.collision_json,frames_json=excluded.frames_json' . ($hasNavigation ? ',navigation_json=excluded.navigation_json' : '') . ',manual_locked=1,updated_by=excluded.updated_by,updated_at=excluded.updated_at';
     } else {
-        $sql .= ' ON DUPLICATE KEY UPDATE sheet_id=VALUES(sheet_id),name=VALUES(name),category=VALUES(category),subcategory=VALUES(subcategory),tags_json=VALUES(tags_json),x=VALUES(x),y=VALUES(y),region_width=VALUES(region_width),region_height=VALUES(region_height),display_width=VALUES(display_width),display_height=VALUES(display_height),anchor_json=VALUES(anchor_json),footprint_json=VALUES(footprint_json),collision_json=VALUES(collision_json),frames_json=VALUES(frames_json),manual_locked=1,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)';
+        $sql .= ' ON DUPLICATE KEY UPDATE sheet_id=VALUES(sheet_id),name=VALUES(name),category=VALUES(category),subcategory=VALUES(subcategory),tags_json=VALUES(tags_json),x=VALUES(x),y=VALUES(y),region_width=VALUES(region_width),region_height=VALUES(region_height),display_width=VALUES(display_width),display_height=VALUES(display_height),anchor_json=VALUES(anchor_json),footprint_json=VALUES(footprint_json),collision_json=VALUES(collision_json),frames_json=VALUES(frames_json)' . ($hasNavigation ? ',navigation_json=VALUES(navigation_json)' : '') . ',manual_locked=1,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)';
     }
     $timestamp = auth_sql_time($now);
-    $statement = $pdo->prepare($sql); $statement->execute([':id' => $id, ':sheet' => $sheetId, ':name' => $values['name'], ':category' => $values['category'], ':subcategory' => $values['subcategory'], ':tags' => $values['tags_json'], ':x' => $values['x'], ':y' => $values['y'], ':width' => $values['region_width'], ':height' => $values['region_height'], ':display_width' => $values['display_width'], ':display_height' => $values['display_height'], ':anchor' => $values['anchor_json'], ':footprint' => $values['footprint_json'], ':collision' => $values['collision_json'], ':frames' => $values['frames_json'], ':user' => $userId, ':created' => $timestamp, ':updated' => $timestamp]);
+    $parameters = [':id' => $id, ':sheet' => $sheetId, ':name' => $values['name'], ':category' => $values['category'], ':subcategory' => $values['subcategory'], ':tags' => $values['tags_json'], ':x' => $values['x'], ':y' => $values['y'], ':width' => $values['region_width'], ':height' => $values['region_height'], ':display_width' => $values['display_width'], ':display_height' => $values['display_height'], ':anchor' => $values['anchor_json'], ':footprint' => $values['footprint_json'], ':collision' => $values['collision_json'], ':frames' => $values['frames_json'], ':user' => $userId, ':created' => $timestamp, ':updated' => $timestamp];
+    if ($hasNavigation) $parameters[':navigation'] = $values['navigation_json'];
+    $statement = $pdo->prepare($sql); $statement->execute($parameters);
     $read = $pdo->prepare('SELECT i.*,s.image_width,s.image_height,s.sha256 FROM town_asset_items i JOIN town_asset_sheets s ON s.sheet_id=i.sheet_id WHERE i.asset_id=:id'); $read->execute([':id' => $id]); $row = $read->fetch(PDO::FETCH_ASSOC); return is_array($row) ? town_asset_item_public($row, $sheet) : [];
 }
 
@@ -288,3 +320,5 @@ function town_asset_file(PDO $pdo, string $sheetId): array
 {
     $query=$pdo->prepare('SELECT storage_path,mime_type FROM town_asset_sheets WHERE sheet_id=:id LIMIT 1'); $query->execute([':id'=>$sheetId]); $row=$query->fetch(PDO::FETCH_ASSOC); if (!is_array($row)) throw new ApiError('sheet_not_found','The source image was not found.',404); $path=town_asset_storage_root().'/'.basename((string)$row['storage_path']); if (!is_file($path)) throw new ApiError('sheet_not_found','The source image is unavailable.',404); return [$path,(string)$row['mime_type']];
 }
+
+require_once __DIR__ . '/town_asset_footprints.php';

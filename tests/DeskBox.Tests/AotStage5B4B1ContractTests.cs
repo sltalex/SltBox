@@ -338,7 +338,7 @@ public sealed class AotStage5B4B1ContractTests
         string source = ReadRepositoryFile("src/DeskBox/App.AotManagedUiSmoke.cs");
 
         Assert.Contains("Assert.Equal(56, actual.Count);", baseline, StringComparison.Ordinal);
-        Assert.Contains("Assert.Equal(153, actual.Values.Sum());", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(156, actual.Values.Sum());", baseline, StringComparison.Ordinal);
         Assert.Contains("\"src/DeskBox/App.AotManagedUiSmoke.cs\"", baseline, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(source, "JsonSerializer.Serialize("));
     }
@@ -393,12 +393,12 @@ public sealed class AotStage5B4B1ContractTests
         Assert.Contains("stage5B4B1RequiredCommandXamlPatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B1RequiredCapsuleCommandXamlPatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B1RequiredCapsuleCodeBehindPatterns", audit, StringComparison.Ordinal);
-        Assert.Contains("stage5B4B1ExpectedBindableViewModelPropertyCount = 45", audit, StringComparison.Ordinal);
+        Assert.Contains("stage5B4B1ExpectedBindableViewModelPropertyCount = 47", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B1RequiredSmokeScriptPatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B1MissingRoutePatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B1UnsafeMutationPatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B1SourceWarningMessages", audit, StringComparison.Ordinal);
-        Assert.Contains("stage5B4B1ExpectedWmc1510Count = 768", audit, StringComparison.Ordinal);
+        Assert.Contains("stage5B4B1ExpectedWmc1510Count = 769", audit, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string value, string token)

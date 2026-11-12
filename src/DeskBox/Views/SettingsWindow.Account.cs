@@ -52,22 +52,20 @@ public sealed partial class SettingsWindow
         SetAccountSyncStatus(_localizationService.T("Settings.Account.Syncing"));
         try
         {
-            bool synchronized = await _treeCloudSyncService.SyncNowAsync();
+            bool synchronized = await _accountDataSyncService.SyncNowAsync();
             if (_authSession.CurrentUser?.Id != ownerId) return;
-            SetAccountSyncStatus(_localizationService.T(
-                !synchronized ? "Settings.Account.SyncUnavailable" :
-                    _treeCloudSyncService.AdditionalDataSynced
-                        ? "Settings.Account.SyncSuccess" : "Settings.Account.SyncPartial"));
+            SetAccountSyncStatus(_localizationService.T(synchronized
+                ? "Settings.Account.SyncSuccess" : "Settings.Account.SyncPartial"));
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            App.Log($"[TreeCloud] Manual sync failed: {ex.GetType().Name}");
+            App.Log($"[AccountSync] Manual sync failed: {ex.GetType().Name}");
             if (_authSession.CurrentUser?.Id == ownerId)
                 SetAccountSyncStatus(_localizationService.T("Settings.Account.SyncError"));
         }
         catch (Exception ex)
         {
-            App.Log($"[TreeCloud] Manual sync failed: {ex}");
+            App.Log($"[AccountSync] Manual sync failed: {ex}");
             if (_authSession.CurrentUser?.Id == ownerId)
                 SetAccountSyncStatus(_localizationService.T("Settings.Account.SyncError"));
         }

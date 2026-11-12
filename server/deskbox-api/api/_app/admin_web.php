@@ -115,6 +115,16 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
         wildlife_admin_update($pdo, $post, api_clock());
         return 'wildlife_catalog_item';
     }
+    if ($operation === 'town_asset_reflow') {
+        require_once __DIR__ . '/shared_town.php';
+        town_asset_apply_reflow($pdo,$actor['user_id'],(string)($post['plan_sha256']??''),api_clock());
+        return 'town_asset_reflow';
+    }
+    if ($operation === 'town_navigation_rebuild') {
+        require_once __DIR__ . '/town_navigation.php';
+        town_navigation_rebuild($pdo, api_clock());
+        return 'town_navigation_rebuild';
+    }
     if ($operation === 'town_asset_upload') {
         $file = is_array($files['sheet'] ?? null) ? $files['sheet'] : [];
         town_asset_upload_sheet($pdo, $actor['user_id'], $file, api_clock());
@@ -127,8 +137,9 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             'tags' => $post['tags'] ?? [], 'x' => $post['x'] ?? null, 'y' => $post['y'] ?? null,
             'width' => $post['width'] ?? null, 'height' => $post['height'] ?? null,
             'display_width' => $post['display_width'] ?? null, 'display_height' => $post['display_height'] ?? null,
-            'anchor' => $post['anchor'] ?? ['x' => .5, 'y' => 1], 'footprint' => $post['footprint'] ?? ['width' => 1, 'height' => 1],
+            'anchor' => $post['anchor'] ?? ['x' => .5, 'y' => 1], 'footprint' => $post['footprint'] ?? '',
             'collision' => $post['collision'] ?? ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4], 'frames' => $post['frames'] ?? [],
+            'navigation' => $post['navigation'] ?? ['type' => 'blocked'],
         ], api_clock());
         return 'town_asset_item';
     }
@@ -143,6 +154,108 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
     if ($operation === 'town_asset_rollback') {
         town_asset_rollback($pdo, isset($post['release_id']) && is_string($post['release_id']) ? $post['release_id'] : '');
         return 'town_asset_rollback';
+    }
+    if ($operation === 'town_model_provider_save') {
+        require_once __DIR__ . '/town_model_provider.php';
+        town_model_provider_save($pdo, $post, api_clock());
+        return 'town_model_provider_save';
+    }
+    if ($operation === 'town_model_provider_test') {
+        require_once __DIR__ . '/town_model_provider.php';
+        town_model_provider_test_connection($pdo);
+        return 'town_model_provider_test';
+    }
+    if (str_starts_with($operation, 'town_npc_')) {
+        require_once __DIR__ . '/town_npcs.php';
+        if ($operation === 'town_npc_delete') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            if (!preg_match('/\A[a-f0-9]{32}\z/D', $id)) throw new ApiError('invalid_npc', 'NPC identifier is invalid.', 400);
+            $statement = $pdo->prepare('DELETE FROM town_npcs WHERE npc_id=:id'); $statement->execute([':id' => $id]);
+            return 'town_npc_delete';
+        }
+        if ($operation === 'town_npc_toggle') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $field = ($post['field'] ?? '') === 'agent_paused' ? 'agent_paused' : 'enabled';
+            $value = (int)(($post['value'] ?? '0') === '1');
+            $statement = $pdo->prepare("UPDATE town_npcs SET {$field}=:value,updated_at=:updated WHERE npc_id=:id"); $statement->execute([':value' => $value, ':updated' => auth_sql_time(api_clock()), ':id' => $id]);
+            return 'town_npc_toggle';
+        }
+        if ($operation === 'town_npc_bulk_toggle') {
+            $rawIds = $post['npc_ids'] ?? [];
+            if (!is_array($rawIds)) $rawIds = [$rawIds];
+            $field = is_string($post['field'] ?? null) ? trim((string)$post['field']) : '';
+            $value = ($post['value'] ?? '') === '1';
+            town_npc_bulk_toggle($pdo, array_values($rawIds), $field, $value, api_clock(), $actor['user_id']);
+            return 'town_npc_bulk_toggle';
+        }
+        if ($operation === 'town_npc_clear_memory') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            town_npc_clear_memories($pdo, $id, api_clock());
+            return 'town_npc_clear_memory';
+        }
+        if ($operation === 'town_npc_relationship_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $otherId = is_string($post['other_npc_id'] ?? null) ? trim((string)$post['other_npc_id']) : '';
+            town_npc_save_relationship($pdo, $id, $otherId, (int)($post['affinity'] ?? 0), api_clock());
+            return 'town_npc_relationship_save';
+        }
+        if ($operation === 'town_npc_inventory_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            town_npc_replace_inventory($pdo, $id, ['ladder' => (int)($post['ladder_quantity'] ?? 0), 'bridge_kit' => (int)($post['bridge_kit_quantity'] ?? 0)], api_clock());
+            return 'town_npc_inventory_save';
+        }
+        if ($operation === 'town_npc_schedule_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $rows = $post['schedule_rows'] ?? [];
+            if (!is_array($rows)) throw new ApiError('invalid_schedule', '日程表格式无效。', 400);
+            town_npc_replace_schedule($pdo, $id, array_values($rows), api_clock());
+            return 'town_npc_schedule_save';
+        }
+        if ($operation === 'town_work_point_save') {
+            $decode = static function (mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException) { throw new ApiError('invalid_work_point', '工作点交互和结果必须是有效 JSON。', 400); } };
+            $id = is_string($post['point_id'] ?? null) && trim((string)$post['point_id']) !== '' ? trim((string)$post['point_id']) : null;
+            town_npc_save_work_point($pdo, ['point_key' => $post['point_key'] ?? '', 'name' => $post['point_name'] ?? '', 'kind' => $post['point_kind'] ?? 'workshop', 'tile_x' => (int)($post['point_tile_x'] ?? 0), 'tile_y' => (int)($post['point_tile_y'] ?? 0), 'interaction' => $decode($post['point_interaction'] ?? ''), 'result' => $decode($post['point_result'] ?? '')], api_clock(), $id);
+            return 'town_work_point_save';
+        }
+        if ($operation === 'town_work_point_toggle') {
+            $id = is_string($post['point_id'] ?? null) ? trim((string)$post['point_id']) : '';
+            if (!preg_match('/\A[a-f0-9]{32}\z/D', $id)) throw new ApiError('invalid_work_point', '工作点 ID 无效。', 400);
+            $value = (int)(($post['value'] ?? '0') === '1');
+            $statement = $pdo->prepare('UPDATE town_work_points SET enabled=:enabled,updated_at=:updated WHERE point_id=:id'); $statement->execute([':enabled' => $value, ':updated' => auth_sql_time(api_clock()), ':id' => $id]);
+            if ($statement->rowCount() === 0) throw new ApiError('work_point_not_found', '工作点不存在。', 404);
+            return 'town_work_point_toggle';
+        }
+        if ($operation === 'town_npc_force_task') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $action = is_string($post['force_action'] ?? null) ? strtolower(trim((string)$post['force_action'])) : '';
+            if (!in_array($action, TOWN_NPC_ACTIONS, true)) throw new ApiError('invalid_npc_action', '管理员任务类型无效。', 400);
+            $targetId = is_string($post['force_target_id'] ?? null) ? trim((string)$post['force_target_id']) : '';
+            $payload = [
+                'target_id' => $targetId,
+                'target' => [
+                    'tile_x' => (int)($post['force_tile_x'] ?? 0),
+                    'tile_y' => (int)($post['force_tile_y'] ?? 0),
+                ],
+                'job' => is_string($post['force_job'] ?? null) ? trim((string)$post['force_job']) : '',
+                'dialogue' => is_string($post['force_dialogue'] ?? null) ? trim((string)$post['force_dialogue']) : '',
+                'duration_minutes' => max(0, min(1440, (int)($post['force_duration_minutes'] ?? 20))),
+            ];
+            town_npc_admin_force_action($pdo, ['npc_id' => $id, 'action' => $action, 'payload' => $payload], api_clock());
+            return 'town_npc_force_task';
+        }
+        if ($operation === 'town_npc_save') {
+            $decode = static function(mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException) { throw new ApiError('invalid_npc', '人格、外观或日程必须是有效 JSON。', 400); } };
+            $id = is_string($post['npc_id'] ?? null) && trim((string)$post['npc_id']) !== '' ? trim((string)$post['npc_id']) : null;
+            $enabled = true; $agentPaused = false;
+            if ($id !== null) {
+                $state = $pdo->prepare('SELECT enabled,agent_paused FROM town_npcs WHERE npc_id=:id LIMIT 1');
+                $state->execute([':id' => $id]); $current = $state->fetch(PDO::FETCH_ASSOC);
+                if (is_array($current)) { $enabled = (bool)$current['enabled']; $agentPaused = (bool)$current['agent_paused']; }
+            }
+            $body = ['name' => $post['name'] ?? '', 'occupation' => $post['occupation'] ?? 'farmer', 'avatar_asset_id' => $post['avatar_asset_id'] ?? '', 'tile_x' => (int)($post['tile_x'] ?? 0), 'tile_y' => (int)($post['tile_y'] ?? 0), 'set_position' => ($post['set_position'] ?? '') === '1', 'appearance' => $decode($post['appearance'] ?? ''), 'profile' => ['personality' => $decode($post['personality'] ?? ''), 'family_background' => $post['family_background'] ?? '', 'short_term_goal' => $post['short_term_goal'] ?? '', 'long_term_goal' => $post['long_term_goal'] ?? '', 'speech_style' => $post['speech_style'] ?? '', 'values' => $decode($post['values'] ?? ''), 'fears' => $decode($post['fears'] ?? '')], 'schedule' => $decode($post['schedule'] ?? '[]'), 'enabled' => $enabled, 'agent_paused' => $agentPaused];
+            town_npc_upsert($pdo, $body, api_clock(), $id);
+            return 'town_npc_save';
+        }
     }
 
     $targetId = in_array($operation, ['shop_price', 'tree_pack_prices', 'tree_fruit_settings'], true)

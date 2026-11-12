@@ -270,13 +270,17 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
         });
     }
 
-    private void FavoritesChanged() => DispatcherQueue.TryEnqueue(() =>
+    private void FavoritesChanged()
     {
-        if (!_disposed)
+        if (_disposed) return;
+        if (!DispatcherQueue.HasThreadAccess)
         {
-            Render(_service.Documents);
+            DispatcherQueue.TryEnqueue(FavoritesChanged);
+            return;
         }
-    });
+
+        Render(_service.Documents);
+    }
 
     private void SetStatus(string text)
     {
@@ -446,7 +450,14 @@ public sealed partial class DingTalkGroupDocsWidgetContent : UserControl, IDispo
             App.Log($"[DingTalkGroupDocs] Favorite save failed: {ex.GetType().Name}");
             SetStatus(_localization.T("DingTalkGroupDocs.Favorite.Error"));
         }
-        finally { button.IsEnabled = true; }
+        finally
+        {
+            // The local favorite is committed before the optional cloud merge.
+            // Redraw even when that merge is deferred, so the star and the
+            // current All/Favorites filter reflect the local result immediately.
+            if (!_disposed) Render(_service.Documents);
+            button.IsEnabled = true;
+        }
     }
 
     private async Task AddManualFavoriteAsync(Button button)

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <ProjectReference Include="../../src/DeskBox.NpcWorker/DeskBox.NpcWorker.csproj" />
+    <Compile Include="../../src/DeskBox/Services/TownRealtimeConnection.cs" Link="TownRealtimeConnection.cs" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

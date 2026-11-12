@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -26,7 +25,6 @@ internal sealed class SharedTownSession : IDisposable
     private readonly Dictionary<string, Task<string?>> _sheetRequests = new();
     private readonly SemaphoreSlim _chunkLoader = new(1, 1);
     private readonly SemaphoreSlim _presenceLoader = new(1, 1);
-    private readonly SemaphoreSlim _realtimeSendGate = new(1, 1);
     private Task<bool>? _catalogRequest;
     private long _catalogRequestEpoch;
     private long _catalogRequestRelease;
@@ -49,10 +47,7 @@ internal sealed class SharedTownSession : IDisposable
     private bool _enabled;
     private bool _busy;
     private bool _disposed;
-    private ClientWebSocket? _realtimeSocket;
-    private CancellationTokenSource? _realtimeLifetime;
-    private Task? _realtimeReceiveLoop;
-    private int _realtimeConnected;
+    private TownRealtimeConnection? _realtime;
     private string _status = "正在检查共享小镇开放状态…";
 
     internal SharedTownSession(IAuthSession auth, IAuthenticatedAccountApi api,
@@ -66,14 +61,14 @@ internal sealed class SharedTownSession : IDisposable
     }
 
     internal event Action<bool>? Changed;
-    internal event Action<bool>? RealtimeStateChanged;
-    internal event Action<string>? RealtimeMessage;
+    internal event Action<long, bool>? RealtimeStateChanged;
+    internal event Action<long, string>? RealtimeMessage;
 
     internal long Epoch { get { lock (_gate) return _epoch; } }
     internal bool IsDirty => false;
     internal bool IsAuthenticated => Identity() is not null;
     internal bool IsEnabled { get { lock (_gate) return _enabled; } }
-    internal bool RealtimeConnected => Volatile.Read(ref _realtimeConnected) == 1;
+    internal bool RealtimeConnected { get { lock (_gate) return _realtime?.Connected == true; } }
     internal bool AssetCatalogNeedsReload { get { lock (_gate) return _assetCatalogVersion != _assetReleaseVersion; } }
     internal long Cursor { get { lock (_gate) return _cursor; } }
 
@@ -513,139 +508,55 @@ internal sealed class SharedTownSession : IDisposable
         return PresenceJson();
     }
 
-    internal async Task<bool> ConnectRealtimeAsync()
+    internal Task<bool> ConnectRealtimeAsync()
     {
-        string? token = (_auth as DeskBoxAuthSession)?.CurrentAccessToken;
-        if (string.IsNullOrWhiteSpace(token) || !IsEnabled || _disposed) return false;
-        await DisconnectRealtimeAsync();
-        var socket = new ClientWebSocket();
-        socket.Options.SetRequestHeader("Authorization", $"Bearer {token}");
-        string endpoint = Environment.GetEnvironmentVariable("DESKBOX_TOWN_REALTIME_URL")
-            ?? "wss://sltbox.2leaves.cn/ws/town";
-        try
-        {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_identityLifetime.Token);
-            timeout.CancelAfter(_timeout);
-            await socket.ConnectAsync(new Uri(endpoint), timeout.Token);
-            var lifetime = CancellationTokenSource.CreateLinkedTokenSource(_identityLifetime.Token);
-            lock (_gate)
-            {
-                if (_disposed || !IsEnabled)
-                {
-                    lifetime.Dispose();
-                    socket.Dispose();
-                    return false;
-                }
-                _realtimeSocket = socket;
-                _realtimeLifetime = lifetime;
-                _realtimeReceiveLoop = ReceiveRealtimeLoopAsync(socket, lifetime.Token);
-            }
-            Volatile.Write(ref _realtimeConnected, 1);
-            RealtimeStateChanged?.Invoke(true);
-            return true;
-        }
-        catch (Exception error) when (error is WebSocketException or HttpRequestException or OperationCanceledException or UriFormatException)
-        {
-            socket.Dispose();
-            App.Log($"[SharedTown] Realtime connect failed: {error.GetType().Name}");
-            return false;
-        }
-    }
-
-    internal async Task<bool> SendPresenceRealtimeAsync(string payload, long epoch)
-    {
-        EnsureMessageSize(payload);
-        if (!IsCurrent(epoch) || !RealtimeConnected) return false;
-        ClientWebSocket? socket;
-        lock (_gate) socket = _realtimeSocket;
-        if (socket is null || socket.State != WebSocketState.Open) return false;
-        string message = $"{{\"type\":\"presence\",\"payload\":{payload}}}";
-        byte[] bytes = Encoding.UTF8.GetBytes(message);
-        await _realtimeSendGate.WaitAsync(_identityLifetime.Token);
-        try
-        {
-            await socket.SendAsync(bytes, WebSocketMessageType.Text, true, _identityLifetime.Token);
-            return true;
-        }
-        catch (Exception error) when (error is WebSocketException or OperationCanceledException)
-        {
-            App.Log($"[SharedTown] Realtime send failed: {error.GetType().Name}");
-            _ = DisconnectRealtimeAsync();
-            return false;
-        }
-        finally { _realtimeSendGate.Release(); }
-    }
-
-    private async Task ReceiveRealtimeLoopAsync(ClientWebSocket socket, CancellationToken cancellationToken)
-    {
-        byte[] buffer = new byte[64 * 1024];
-        try
-        {
-            while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-            {
-                using var message = new MemoryStream();
-                WebSocketReceiveResult result;
-                do
-                {
-                    result = await socket.ReceiveAsync(buffer, cancellationToken);
-                    if (result.MessageType == WebSocketMessageType.Close) return;
-                    if (result.MessageType != WebSocketMessageType.Text) continue;
-                    message.Write(buffer, 0, result.Count);
-                    if (message.Length > MaxMessageBytes) return;
-                } while (!result.EndOfMessage);
-                if (message.Length == 0) continue;
-                string text = Encoding.UTF8.GetString(message.ToArray());
-                try { using JsonDocument _ = JsonDocument.Parse(text); }
-                catch (JsonException) { continue; }
-                RealtimeMessage?.Invoke(text);
-            }
-        }
-        catch (Exception error) when (error is WebSocketException or OperationCanceledException)
-        {
-            if (!cancellationToken.IsCancellationRequested)
-                App.Log($"[SharedTown] Realtime receive stopped: {error.GetType().Name}");
-        }
-        finally
-        {
-            bool wasCurrent;
-            lock (_gate)
-            {
-                wasCurrent = ReferenceEquals(_realtimeSocket, socket);
-                if (wasCurrent)
-                {
-                    _realtimeSocket = null;
-                    _realtimeLifetime?.Dispose();
-                    _realtimeLifetime = null;
-                    _realtimeReceiveLoop = null;
-                }
-            }
-            if (wasCurrent && Interlocked.Exchange(ref _realtimeConnected, 0) == 1)
-                RealtimeStateChanged?.Invoke(false);
-            socket.Dispose();
-        }
-    }
-
-    internal async Task DisconnectRealtimeAsync()
-    {
-        ClientWebSocket? socket;
-        CancellationTokenSource? lifetime;
         lock (_gate)
         {
-            socket = _realtimeSocket;
-            lifetime = _realtimeLifetime;
-            _realtimeSocket = null;
-            _realtimeLifetime = null;
-            _realtimeReceiveLoop = null;
+            if (_disposed || !_enabled || _auth is not DeskBoxAuthSession auth)
+                return Task.FromResult(false);
+            if (_realtime is not null) return _realtime.Start();
+            string endpoint = Environment.GetEnvironmentVariable("DESKBOX_TOWN_REALTIME_URL")
+                ?? "wss://sltbox.2leaves.cn/ws/town";
+            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) || uri.Scheme is not ("ws" or "wss"))
+                return Task.FromResult(false);
+            long epoch = _epoch;
+            var realtime = new TownRealtimeConnection(uri, async token =>
+            {
+                try { return await auth.GetRealtimeAccessTokenAsync(token); }
+                catch (AuthApiException) { return null; }
+            }, _identityLifetime.Token);
+            realtime.StateChanged += connected =>
+            {
+                lock (_gate) if (!IsCurrentLocked(epoch) || !ReferenceEquals(_realtime, realtime)) return;
+                RealtimeStateChanged?.Invoke(epoch, connected);
+            };
+            realtime.Message += json =>
+            {
+                lock (_gate) if (!IsCurrentLocked(epoch) || !ReferenceEquals(_realtime, realtime)) return;
+                RealtimeMessage?.Invoke(epoch, json);
+            };
+            _realtime = realtime;
+            return realtime.Start();
         }
-        lifetime?.Cancel();
-        if (socket is not null)
+    }
+
+    internal Task<bool> SendPresenceRealtimeAsync(string payload, long epoch, bool durable = false)
+    {
+        EnsureMessageSize(payload);
+        lock (_gate)
         {
-            try { if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived) await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None); }
-            catch (WebSocketException) { }
-            socket.Dispose();
+            if (!IsCurrentLocked(epoch) || _realtime?.Connected != true) return Task.FromResult(false);
+            return durable ? _realtime.SendDurablePresenceAsync(payload, _identityLifetime.Token)
+                : _realtime.SendAsync("{\"type\":\"presence\",\"payload\":" + payload + "}", _identityLifetime.Token);
         }
-        lifetime?.Dispose();
-        if (Interlocked.Exchange(ref _realtimeConnected, 0) == 1) RealtimeStateChanged?.Invoke(false);
+    }
+
+    internal Task DisconnectRealtimeAsync()
+    {
+        TownRealtimeConnection? realtime;
+        lock (_gate) { realtime = _realtime; _realtime = null; }
+        realtime?.Dispose();
+        return Task.CompletedTask;
     }
 
     // Compatibility surface used by the old optional prototype probe. Shared
@@ -692,11 +603,11 @@ internal sealed class SharedTownSession : IDisposable
 
     private void OnSessionChanged()
     {
-        _ = DisconnectRealtimeAsync();
         lock (_gate)
         {
             string? identity = Identity();
             if (_disposed || identity == _identity) return;
+            _ = DisconnectRealtimeAsync();
             _identityLifetime.Cancel();
             _identityLifetime.Dispose();
             _identityLifetime = new CancellationTokenSource();

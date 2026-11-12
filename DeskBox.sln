@@ -20,6 +20,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeskBox.NpcWorker", "src\DeskBox.NpcWorker\DeskBox.NpcWorker.csproj", "{ACD8ECEE-F155-4064-A84C-7C7F1AFFEAB9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeskBox.NpcWorker.Tests", "tests\DeskBox.NpcWorker.Tests\DeskBox.NpcWorker.Tests.csproj", "{C1532D0A-A988-4AED-BEED-8E7025823011}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -112,6 +114,22 @@ Global
 		{ACD8ECEE-F155-4064-A84C-7C7F1AFFEAB9}.Release|Any CPU.Build.0 = Release|Any CPU
 		{ACD8ECEE-F155-4064-A84C-7C7F1AFFEAB9}.Release|x86.ActiveCfg = Release|Any CPU
 		{ACD8ECEE-F155-4064-A84C-7C7F1AFFEAB9}.Release|x86.Build.0 = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|x64.Build.0 = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Debug|x86.Build.0 = Debug|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|x64.ActiveCfg = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|x64.Build.0 = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|ARM64.Build.0 = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|x86.ActiveCfg = Release|Any CPU
+		{C1532D0A-A988-4AED-BEED-8E7025823011}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -119,5 +137,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{C55DB014-39AB-442B-BF03-CE3E1BFE1ADE} = {9B4FA3FD-08FD-4A97-8340-0416A90A4C3C}
 		{ACD8ECEE-F155-4064-A84C-7C7F1AFFEAB9} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{C1532D0A-A988-4AED-BEED-8E7025823011} = {9B4FA3FD-08FD-4A97-8340-0416A90A4C3C}
 	EndGlobalSection
 EndGlobal

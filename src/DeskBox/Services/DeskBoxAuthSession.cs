@@ -36,9 +36,19 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
 
     public bool IsAuthenticated => _session is not null;
 
-    /// <summary>Returns the short-lived access token to an in-process realtime
-    /// transport. It is never exposed to the WebView page.</summary>
-    internal string? CurrentAccessToken => _session?.AccessToken;
+    /// <summary>Refreshes expiring credentials before an in-process socket handshake.</summary>
+    internal async Task<string?> GetRealtimeAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        await _operationGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_session is null) return null;
+            if (_session.AccessExpiresAt <= _clock().AddSeconds(30))
+                await RefreshCoreAsync(cancellationToken);
+            return _session?.AccessToken;
+        }
+        finally { _operationGate.Release(); }
+    }
 
     public AuthUser? CurrentUser => _session is null
         ? null

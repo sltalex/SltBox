@@ -32,6 +32,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
     // prototype session.  The session still exposes the small compatibility
     // surface used by the optional native probe.
     private readonly SharedTownSession _session;
+    private readonly SemaphoreSlim _realtimeMessages = new(1, 1);
 
     private bool _ready;
     private bool _closed;
@@ -159,8 +160,6 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 _message.Visibility = Visibility.Collapsed;
                 await _session.LoadWorldAsync();
                 await PostSharedStateAsync();
-                await _session.ConnectRealtimeAsync();
-                await PostAsync("setRealtimeState", _session.RealtimeConnected ? "true" : "false");
                 App.Log("[SharedTown] Local map ready.");
                 _ = RunOptionalProbeAsync();
                 return;
@@ -240,12 +239,14 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     }
                     break;
                 case "presenceRequested":
+                    if (_session.RealtimeConnected) break;
                     string? query = message.TryGetProperty("query", out JsonElement queryElement) &&
                         queryElement.ValueKind == JsonValueKind.String ? queryElement.GetString() : null;
                     await _session.LoadPresenceAsync(query, epoch);
                     await PostAsync("setPresence", _session.PresenceJson());
                     break;
                 case "npcChangesRequested":
+                    if (_session.RealtimeConnected) break;
                     await _session.LoadNpcChangesAsync(epoch);
                     await PostAsync("applyNpcChanges", _session.NpcsJson());
                     break;
@@ -299,12 +300,12 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         });
     }
 
-    private void OnRealtimeStateChanged(bool connected)
+    private void OnRealtimeStateChanged(long epoch, bool connected)
     {
         DispatcherQueue.TryEnqueue(async () =>
         {
-            if (_closed || !_ready) return;
-            await PostAsync("setRealtimeState", connected ? "true" : "false");
+            if (_closed || !_ready || epoch != _session.Epoch) return;
+            await PostAsync("setRealtimeState", JsonSerializer.Serialize(new { session_epoch = epoch, connected }));
             if (!connected && _session.IsEnabled)
             {
                 try
@@ -320,25 +321,40 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         });
     }
 
-    private void OnRealtimeMessage(string json)
+    private void OnRealtimeMessage(long epoch, string json)
     {
         DispatcherQueue.TryEnqueue(async () =>
         {
-            if (_closed || !_ready) return;
+            await _realtimeMessages.WaitAsync();
             try
             {
+                if (_closed || !_ready || epoch != _session.Epoch) return;
                 using JsonDocument document = JsonDocument.Parse(json);
                 JsonElement root = document.RootElement;
                 string type = root.TryGetProperty("type", out JsonElement typeElement)
                     ? typeElement.GetString() ?? string.Empty : string.Empty;
-                if (type is not ("presence" or "npc_state")) return;
+                if (type is not ("presence" or "presence_delta" or "snapshot" or "npc_state" or "position_rejected")) return;
+                if (type == "position_rejected")
+                {
+                    // Resume authoritative HTTP recovery instead of silently dropping movement.
+                    await _session.DisconnectRealtimeAsync();
+                    OnRealtimeStateChanged(epoch, false);
+                    _ = _session.ConnectRealtimeAsync();
+                    return;
+                }
                 var node = JsonNode.Parse(root.GetRawText())?.AsObject();
                 if (node is null) return;
-                node["session_epoch"] = _session.Epoch;
+                node["session_epoch"] = epoch;
                 if (type == "presence") node.Remove("type");
-                await PostAsync(type == "presence" ? "setPresence" : "applyRealtimeNpc", node.ToJsonString());
+                string method = type switch
+                {
+                    "presence" => "setPresence", "presence_delta" => "applyRealtimePresence",
+                    "snapshot" => "applyRealtimeSnapshot", _ => "applyRealtimeNpc"
+                };
+                await PostAsync(method, node.ToJsonString());
             }
             catch (JsonException) { }
+            finally { _realtimeMessages.Release(); }
         });
     }
 
@@ -357,6 +373,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         await PostAsync("setAssetCatalog", catalogFailed
             ? JsonSerializer.Serialize(new { session_epoch = _session.Epoch, status = "error" })
             : _session.AssetCatalogJson());
+        _ = _session.ConnectRealtimeAsync();
     }
 
     private static string BuildActionPayload(JsonElement message)
@@ -436,7 +453,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             if (document.RootElement.ValueKind == JsonValueKind.Object &&
                 document.RootElement.TryGetProperty("session_epoch", out JsonElement epochElement) &&
                 epochElement.TryGetInt64(out long epoch) && epoch == _session.Epoch)
-                if (!await _session.SendPresenceRealtimeAsync(position, epoch))
+                if (!await _session.SendPresenceRealtimeAsync(position, epoch, durable: true))
                     await _session.SendPresenceHeartbeatAsync(position, epoch);
             _allowClose = true;
             Close();

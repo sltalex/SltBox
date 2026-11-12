@@ -1,4 +1,5 @@
 import { clone, validateLayout, validatePlacement, playerCanStand, findStandingPosition } from './town-rules.js';
+import { mergePresenceDelta, expirePresence, presencePosition, mergeNpcDelta } from './town-realtime.js';
 
 // Shared town scene; the authenticated server owns world and player state.
 const $ = id => document.getElementById(id);
@@ -115,7 +116,7 @@ function updateUI() {
   $('save').disabled = !state.authenticated || !state.graylisted || !state.canSave || state.saving || state.conflict || state.fatal;
   $('save').textContent = state.saving ? '正在保存…' : '保存小镇';
   $('reload').disabled = state.saving;
-  $('version-label').textContent = state.graylisted ? `共享版本 ${state.version}` : '共享小镇 · 灰度开放';
+  $('version-label').textContent = state.graylisted ? `共享版本 ${state.version} · ${state.realtime ? '实时连接' : '轮询同步'}` : '共享小镇 · 灰度开放';
   $('save-state').textContent = state.status;
   $('save-state').className = `save-state${state.conflict || state.status.includes('失败') || state.status.includes('超时') ? ' error' : state.dirty ? ' dirty' : state.version > 0 ? ' saved' : ''}`;
   const counts = new Map();
@@ -223,9 +224,10 @@ function sendPlayerPresence(force=false) {
   const now=Date.now(),key=`${position.pixel_x}:${position.pixel_y}`,changed=key!==state.lastSentPosition;
   const elapsed=now-(state.lastHeartbeatAt||0);
   if(!force && now<(state.presencePendingUntil||0))return;
-  if(!(changed && (force||elapsed>=1000)) && elapsed<10000)return;
-  state.lastSentPosition=key;state.lastHeartbeatAt=now;state.presencePendingUntil=now+1000;
-  host({type:'presenceHeartbeat',payload:position});
+  const interval = state.realtime ? 100 : 1000;
+  if(!(changed && (force||elapsed>=interval)) && elapsed<10000)return;
+  state.lastSentPosition=key;state.lastHeartbeatAt=now;state.presencePendingUntil=now+interval;
+  host({type:'presenceHeartbeat',payload:{...position,force}});
 }
 
 function applyVisibility() {
@@ -297,7 +299,7 @@ function diagnostics() {
 }
 
 window.DeskBoxTownPrototype = {
-  loadState, loadWorld, loadChunks, applyChanges, setPresence, setNpcs, applyNpcChanges, applyRealtimeNpc, setRealtimeState, setInventory, setAssetCatalog, setAssetSheet, applyActionResult, setWorld, setChunks,
+  loadState, loadWorld, loadChunks, applyChanges, setPresence, setNpcs, applyNpcChanges, applyRealtimeNpc, applyRealtimePresence, applyRealtimeSnapshot, setRealtimeState, setInventory, setAssetCatalog, setAssetSheet, applyActionResult, setWorld, setChunks,
   setSaveStatus,
   setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
   setHostActive(active) { state.hostActive = !!active; applyVisibility(); },
@@ -453,7 +455,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     for (const [id, player] of state.presence) {
       if (id === currentOwner()) continue;
       visible.add(id);
-      const x = (Number(player.tile_x) + .5) * 16, y = (Number(player.tile_y) + 1) * 16;
+      const {x, y} = presencePosition(player);
       let container = this.presenceImages.get(id);
       if (!container) {
         const avatar = this.add.sprite(0, 0, 'player', 0).setOrigin(.5, 1);
@@ -464,7 +466,12 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       container.setDepth(y + TOWN_PLAYER_LAYER * TOWN_LAYER_STEP + 1);
       if (Math.abs(container.x - x) + Math.abs(container.y - y) > 1) {
         this.tweens.killTweensOf(container);
-        this.tweens.add({ targets: container, x, y, duration: 280, ease: 'Sine.easeInOut' });
+        const avatar = container.list[0], dx = x - container.x, dy = y - container.y;
+        const facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+        avatar.play(`walk-${facing}`, true);
+        this.tweens.add({ targets: container, x, y, duration: state.realtime ? 110 : 280, ease: 'Linear',
+          onUpdate: () => container.setDepth(container.y + TOWN_PLAYER_LAYER * TOWN_LAYER_STEP + 1),
+          onComplete: () => avatar.anims.stop() });
       } else container.setPosition(x, y);
     }
     for (const [id, value] of this.presenceImages) if (!visible.has(id)) { value.destroy(); this.presenceImages.delete(id); }
@@ -498,13 +505,22 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       bubble.setText(status);
       const depth = y + TOWN_PLAYER_LAYER * TOWN_LAYER_STEP + 3;
       container.setDepth(depth);
-      const routeKey = route.length > 1 ? JSON.stringify(route) : '';
+      const routeKey = route.length > 1 ? `${runtime.task_id || runtime.current_task_id || ''}:${JSON.stringify(route)}` : '';
       if (routeKey && container.npcRouteKey !== routeKey) {
         container.npcRouteKey = routeKey; this.tweens.killTweensOf(container);
         const first = route[0]; container.setPosition((Number(first.x) + .5) * 16, (Number(first.y) + 1) * 16);
-        const timeline = this.tweens.createTimeline();
-        for (const point of route.slice(1)) timeline.add({ targets: container, x: (Number(point.x) + .5) * 16, y: (Number(point.y) + 1) * 16, duration: 135, ease: 'Linear' });
-        timeline.play();
+        container.npcMovement?.destroy();
+        let previous = first;
+        container.npcMovement = this.tweens.chain({ targets: container,
+          tweens: route.slice(1).map(point => {
+            const dx = Number(point.x) - Number(previous.x), dy = Number(point.y) - Number(previous.y);
+            const facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+            previous = point;
+            return { x: (Number(point.x) + .5) * 16, y: (Number(point.y) + 1) * 16, duration: 135, ease: 'Linear',
+              onStart: () => { if (textureKey === 'player') avatar.play(`walk-${facing}`, true); },
+              onUpdate: () => container.setDepth(container.y + TOWN_PLAYER_LAYER * TOWN_LAYER_STEP + 3) };
+          }), onComplete: () => { if (textureKey === 'player') avatar.anims.stop(); }
+        });
       } else if (!routeKey) {
         container.npcRouteKey = '';
         if (Math.abs(container.x - x) + Math.abs(container.y - y) > 1) {
@@ -716,6 +732,10 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     if (!reducedMotion.matches && this.water) this.water.tilePositionX = Math.floor(time / 700) % 16;
     if (state.graylisted && Date.now()>(state.changesPendingUntil||0) && (!state.lastChangesAt || Date.now() - state.lastChangesAt > 3000)) { state.lastChangesAt = Date.now();state.changesPendingUntil=Date.now()+21000; host({ type: 'changesRequested', cursor: state.cursor }); }
     const now = Date.now();
+    if (now - (state.lastPresenceExpiryAt || 0) >= 1000) {
+      state.lastPresenceExpiryAt = now;
+      if (expirePresence(state.presence, now)) { this.renderPresence(); if ($('online-count')) $('online-count').textContent = `${state.presence.size} 人在线`; }
+    }
     if (state.graylisted && !state.realtime && now >= state.presencePollPendingUntil && now - state.lastPresencePollAt >= 1000) {
       state.lastPresencePollAt = now; state.presencePollPendingUntil = now + 5000; host({ type: 'presenceRequested' });
     }
@@ -748,6 +768,7 @@ function loadWorld(payload) {
   const incomingEpoch = Number.isSafeInteger(payload.session_epoch) ? payload.session_epoch : state.epoch;
   if(incomingEpoch<state.epoch)return;
   if(incomingEpoch!==state.epoch) {
+    state.realtime=false;
     state.playerReady=false;state.awaitingSpawn=false;state.lastSentPosition=null;state.lastHeartbeatAt=0;state.wasMoving=false;
     state.scene?.player?.setVisible(false);state.scene?.playerShadow?.setVisible(false);
   }
@@ -833,6 +854,7 @@ function applyChanges(payload) {
 }
 function setPresence(payload) {
   if(payload?.session_epoch!==state.epoch)return;
+  if(state.realtime && !payload.realtime_snapshot)return;
   state.presencePendingUntil=0;
   state.presencePollPendingUntil=0;
   state.presence.clear();
@@ -841,7 +863,8 @@ function setPresence(payload) {
   if ($('online-count')) $('online-count').textContent = `${state.presence.size} 人在线`;
 }
 function setRealtimeState(connected) {
-  state.realtime = !!connected;
+  if(connected?.session_epoch!==state.epoch)return;
+  state.realtime = connected.connected === true;
   if (state.realtime) {
     state.presencePollPendingUntil = Date.now() + 60000;
     state.npcPollPendingUntil = Date.now() + 60000;
@@ -853,6 +876,7 @@ function setRealtimeState(connected) {
 }
 function setNpcs(payload) {
   if(payload?.session_epoch!==state.epoch)return;
+  if(state.realtime && !payload.realtime_snapshot)return;
   state.npcs.clear();
   for(const value of payload?.npcs || []) state.npcs.set(value.npc_id || value.id, value);
   state.npcCursor = Number(payload?.cursor || state.npcCursor || 0);
@@ -860,6 +884,7 @@ function setNpcs(payload) {
 }
 function applyNpcChanges(payload) {
   if(payload?.session_epoch!==state.epoch)return;
+  if(state.realtime)return;
   state.npcPollPendingUntil=0;
   for(const event of payload?.events || []) {
     const npc = state.npcs.get(event.npc_id), data = event.payload || {};
@@ -870,11 +895,20 @@ function applyNpcChanges(payload) {
 }
 function applyRealtimeNpc(payload) {
   if(payload?.session_epoch!==state.epoch || !payload?.npc_id)return;
-  let npc = state.npcs.get(payload.npc_id);
-  if(!npc){ npc = { npc_id: payload.npc_id, name: '村民', enabled: true, runtime: {} }; state.npcs.set(payload.npc_id, npc); }
-  npc.runtime = { ...(npc.runtime || {}), ...payload };
-  delete npc.runtime.type; delete npc.runtime.npc_id; delete npc.runtime.session_epoch;
+  if(!mergeNpcDelta(state.npcs,payload))return;
   state.scene?.renderNpcs?.();
+}
+function applyRealtimePresence(payload) {
+  if(payload?.session_epoch!==state.epoch)return;
+  if(!mergePresenceDelta(state.presence,payload))return;
+  state.presencePendingUntil=0;
+  state.scene?.renderPresence?.();
+  if($('online-count'))$('online-count').textContent=`${state.presence.size} 人在线`;
+}
+function applyRealtimeSnapshot(payload) {
+  if(payload?.session_epoch!==state.epoch)return;
+  setPresence({...payload,realtime_snapshot:true});
+  setNpcs({...payload.npc_snapshot,session_epoch:state.epoch,realtime_snapshot:true});
 }
 function setInventory(payload) {
   state.inventory.clear();

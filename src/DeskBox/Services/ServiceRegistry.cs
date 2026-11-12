@@ -61,17 +61,17 @@ public static class ServiceRegistry
                 favorites: sp.GetRequiredService<DingTalkGroupDocumentFavorites>(),
                 fruit: sp.GetRequiredService<FruitService>(),
                 wildlife: sp.GetRequiredService<WildlifeService>()));
+        services.AddSingleton<AccountDataSyncService>(sp =>
+            new AccountDataSyncService(
+                sp.GetRequiredService<IAuthSession>(),
+                sp.GetRequiredService<DingTalkGroupDocumentFavoritesCloudSyncService>(),
+                sp.GetRequiredService<FruitService>(),
+                sp.GetRequiredService<WildlifeService>()));
         services.AddSingleton<TreeCloudSyncService>(sp =>
             new TreeCloudSyncService(
                 sp.GetRequiredService<IAuthenticatedAccountApi>(),
                 sp.GetRequiredService<IAuthSession>(),
-                syncAdditionalData: async token =>
-                {
-                    bool favorites = await sp.GetRequiredService<DingTalkGroupDocumentFavoritesCloudSyncService>().SyncNowAsync(token);
-                    bool fruits = await sp.GetRequiredService<FruitService>().RefreshAsync(token);
-                    bool wildlife = await sp.GetRequiredService<WildlifeService>().RefreshAsync(token);
-                    return favorites && fruits && (wildlife || !WildlifeAssetCatalog.HasCompleteAssets);
-                }));
+                syncAdditionalData: sp.GetRequiredService<AccountDataSyncService>().SyncNowAsync));
         services.AddSingleton<AquariumService>(sp =>
             new AquariumService(
                 sp.GetRequiredService<IAuthSession>(),

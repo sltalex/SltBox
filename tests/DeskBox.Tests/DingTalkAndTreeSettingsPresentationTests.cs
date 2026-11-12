@@ -121,6 +121,15 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
     }
 
     [Fact]
+    public void DingTalkGroupDocs_RedrawsAfterFavoriteToggleAndChangedEvent()
+    {
+        string source = Read("src/DeskBox/Controls/WidgetContents/DingTalkGroupDocsWidgetContent.cs");
+        Assert.Contains("if (!_disposed) Render(_service.Documents);", source, StringComparison.Ordinal);
+        Assert.Contains("if (!DispatcherQueue.HasThreadAccess)", source, StringComparison.Ordinal);
+        Assert.Contains("DispatcherQueue.TryEnqueue(FavoritesChanged);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EveryLanguage_HasMenuAndNumericStageLabels()
     {
         foreach (string file in Directory.EnumerateFiles(TestPaths.FromRepository("src/DeskBox/Strings"), "*.json"))

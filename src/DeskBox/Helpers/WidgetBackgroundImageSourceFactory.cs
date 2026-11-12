@@ -14,6 +14,9 @@ public static class WidgetBackgroundImageSourceFactory
 {
     public const int MaxDecodedBackgroundPixels = 1280;
 
+    internal static BitmapCreateOptions ReplacementCreateOptions =>
+        BitmapCreateOptions.IgnoreImageCache;
+
     public static ImageSource? TryCreate(string? filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath))
@@ -45,7 +48,12 @@ public static class WidgetBackgroundImageSourceFactory
             var bitmap = new BitmapImage
             {
                 DecodePixelType = DecodePixelType.Physical,
-                DecodePixelWidth = MaxDecodedBackgroundPixels
+                DecodePixelWidth = MaxDecodedBackgroundPixels,
+                // Per-widget picks intentionally replace the deterministic
+                // background.<ext> file. Bypass WinUI's URI-keyed image cache
+                // so a long-lived widget (notably the tree widget) sees the
+                // newly copied pixels without requiring Clear first.
+                CreateOptions = ReplacementCreateOptions
             };
             bitmap.UriSource = new Uri(filePath);
             return bitmap;

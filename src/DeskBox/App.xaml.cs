@@ -3379,6 +3379,7 @@ public partial class App : Application
             Services.GetRequiredService<IDingTalkDwsClient>(),
             Services.GetRequiredService<DingTalkAccountService>(),
             AccountCloudBackupService,
+            Services.GetRequiredService<AccountDataSyncService>(),
             TreeCloudSyncService,
             TreeDecorationService,
             DingTalkGroupDocumentSyncService,

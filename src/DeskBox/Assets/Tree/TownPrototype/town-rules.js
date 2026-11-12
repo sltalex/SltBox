@@ -11,6 +11,7 @@ export const normalizedObject = object => ({
   owner_id: object.owner_id || object.owner || '',
   owner_display: object.owner_display || object.owner_name || '',
   tile_x: Number(object.tile_x), tile_y: Number(object.tile_y),
+  layer: Number.isInteger(Number(object.layer)) ? Math.min(6, Math.max(1, Number(object.layer))) : 1,
   object_version: Number.isInteger(object.object_version) ? object.object_version : Number(object.version) || 1,
   chunk_x: Number.isInteger(object.chunk_x) ? object.chunk_x : Math.floor(Number(object.tile_x) / 24),
   chunk_y: Number.isInteger(object.chunk_y) ? object.chunk_y : Math.floor(Number(object.tile_y) / 24)
@@ -19,8 +20,7 @@ export const normalizedObject = object => ({
 export function chunkKey(x, y) { return `${x},${y}`; }
 export function chunkOf(catalog, x, y) { const size = catalog.chunk_size || 24; return { x: Math.floor(x / size), y: Math.floor(y / size) }; }
 export function protectedAreas(catalog) {
-  const world = catalog.world || {};
-  return [world.main_tree || world.tree, world.spawn, world.center_square].filter(area => area && Number.isFinite(area.x));
+  return [];
 }
 export function riverArea(catalog) { return catalog.world?.river || null; }
 export function bridgeArea(catalog) { return catalog.world?.bridge || null; }
@@ -34,7 +34,8 @@ export function forestArea(catalog) { return forestAreas(catalog)[0] || null; }
 export function terrainAt(catalog, x, y) {
   const river = riverArea(catalog), bridge = bridgeArea(catalog), forests = forestAreas(catalog);
   const tile = { x, y, width: 1, height: 1 };
-  if (river && intersects(tile, river) && !(bridge && intersects(tile, bridge))) return 'water';
+  if (bridge && intersects(tile,bridge))return 'plain';
+  if (river && x >= river.x-2 && x < river.x+river.width+2)return 'water';
   if (forests.some(forest => intersects(tile, forest))) return 'forest';
   return 'plain';
 }
@@ -47,14 +48,16 @@ export function validatePlacement(catalog, layout, assetId, x, y, ignoreId = nul
   const height = catalog.map_height || catalog.world?.height_tiles || 192;
   if (x < 0 || y < 0 || x + rect.width > width || y + rect.height > height) return '物件超出地图边界';
   for (const area of protectedAreas(catalog)) if (intersects(rect, area)) return '这里是主树、出生区或中心保留区';
-  const river = riverArea(catalog), bridge = bridgeArea(catalog), forests = forestAreas(catalog);
-  if (river && intersects(rect, river) && !(bridge && intersects(rect, bridge))) return '河流区域不能放置装饰';
-  if (forests.some(forest => intersects(rect, forest))) return '森林区域保留为公共地形';
+  for(let yy=y; yy<y+rect.height; yy++)for(let xx=x; xx<x+rect.width;xx++){
+    const terrain=terrainAt(catalog,xx,yy);
+    if(terrain==='water')return '河流或河岸不能放置装饰';
+    if(terrain==='forest')return '森林区域保留为公共地形';
+  }
   const values = objectsOf(layout);
   for (const placement of values) {
     if ((placement.object_id || placement.instance_id) === ignoreId) continue;
     const other = itemFor(catalog, placement.asset_id || placement.decoration_id);
-    if (other && intersects(rect, footprint(other, Number(placement.tile_x), Number(placement.tile_y)))) return '物件占地发生重叠';
+    if (intersects(rect, footprint({footprint:placement.footprint || other?.footprint}, Number(placement.tile_x), Number(placement.tile_y)))) return '物件占地发生重叠';
   }
   if (player && !options.ignorePlayer) {
     const size = catalog.tile_size || 16;
@@ -83,15 +86,31 @@ export function playerCanStand(catalog, layout, x, y) {
   const width = catalog.map_width || 192, height = catalog.map_height || 192;
   const body = { x: (x - 3) / size, y: (y - 4) / size, width: 6 / size, height: 4 / size };
   if (body.x < 0 || body.y < 0 || body.x + body.width > width || body.y + body.height > height) return false;
-  const river = riverArea(catalog), bridge = bridgeArea(catalog), forests = forestAreas(catalog);
-  if (river && intersects(body, river) && !(bridge && intersects(body, bridge))) return false;
-  if (forests.some(forest => intersects(body, forest))) return false;
-  const mainTree = catalog.world?.main_tree || catalog.world?.tree;
-  if (mainTree && intersects(body, mainTree)) return false;
+  for(let yy=Math.floor(body.y);yy<Math.ceil(body.y+body.height);yy++)for(let xx=Math.floor(body.x);xx<Math.ceil(body.x+body.width);xx++)if(terrainAt(catalog,xx,yy)!=='plain')return false;
   return !objectsOf(layout).some(placement => {
     const item = itemFor(catalog, placement.asset_id || placement.decoration_id);
     const blockingSubcategories = new Set(['building', 'pavilion', 'shelters', 'greenhouses', 'gates', 'towers']);
-    const solid = item?.solid === true || blockingSubcategories.has(item?.subcategory);
-    return solid && intersects(body, footprint(item, Number(placement.tile_x), Number(placement.tile_y)));
+    const solid = true;
+    return solid && intersects(body, footprint({footprint:placement.footprint||item?.footprint}, Number(placement.tile_x), Number(placement.tile_y)));
   });
+}
+
+export function findStandingPosition(catalog, layout, preferred) {
+  const size=catalog.tile_size||16, width=catalog.map_width, height=catalog.map_height;
+  const x=Number(preferred?.pixel_x ?? ((preferred?.tile_x ?? width/2)+.5)*size);
+  const y=Number(preferred?.pixel_y ?? ((preferred?.tile_y ?? height/2)+1)*size-1);
+  if (Number.isFinite(x) && Number.isFinite(y) && playerCanStand(catalog,layout,x,y)) return {x,y};
+  const cx=Math.max(0,Math.min(width-1,Math.floor(Number.isFinite(x)?x/size:width/2)));
+  const cy=Math.max(0,Math.min(height-1,Math.floor(Number.isFinite(y)?y/size:height/2)));
+  for(let distance=0;distance<width+height;distance++) {
+    for(let ty=Math.max(0,cy-distance);ty<=Math.min(height-1,cy+distance);ty++) {
+      const dx=distance-Math.abs(ty-cy);
+      for(const tx of new Set([cx-dx,cx+dx])) {
+        if(tx<0||tx>=width)continue;
+        const px=(tx+.5)*size,py=(ty+1)*size-1;
+        if(playerCanStand(catalog,layout,px,py))return {x:px,y:py};
+      }
+    }
+  }
+  return null;
 }

@@ -147,6 +147,8 @@ $pdo->prepare('INSERT INTO tree_decoration_profiles '
     ->execute([':user' => 'private', ':scene' => '[{"item_id":"red-lantern","x":0.5,"y":0.4,"scale":1,"rotation":0,"layer":1}]',
         ':theme' => 'spring', ':time' => $now]);
 $ordinary = tree_visit_snapshot($pdo, 'private');
-visit_expect($ordinary['placements'] === [] && $ordinary['active_theme_id'] === null,
-    'Decoration visibility matches the desktop tree.');
+visit_expect(count($ordinary['placements']) === 1
+    && $ordinary['placements'][0]['item_id'] === 'red-lantern'
+    && $ordinary['active_theme_id'] === null,
+    'A non-sltalex public tree exposes its saved active decoration.');
 echo "tree visit service passed\n";

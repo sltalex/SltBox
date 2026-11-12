@@ -1,195 +1,217 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Http;
 
-/// <summary>
-/// Lightweight realtime fan-out for the shared town. PHP remains authoritative
-/// for authentication, collision and persistence; this process only relays
-/// validated presence responses and NPC action events to connected clients.
-/// </summary>
+/// <summary>Relays authenticated, PHP-validated changes. Slow peers cannot hold up the town.</summary>
 public sealed class TownRealtimeHub(IHttpClientFactory clientFactory, IConfiguration configuration, ILogger<TownRealtimeHub> logger)
 {
+    public sealed record RealtimeMetrics(long ActiveConnections, long AcceptedConnections, long Broadcasts, long DroppedConnections);
+
     private readonly ConcurrentDictionary<Guid, Client> _clients = new();
     private readonly Uri _apiBase = new((configuration["TOWN_API_BASE_URL"] ?? "http://localhost/").TrimEnd('/') + "/");
+    private long _sequence;
+    private long _activeConnections;
+    private long _acceptedConnections;
+    private long _broadcasts;
+    private long _droppedConnections;
+    private readonly object _broadcastGate = new();
+
+    public RealtimeMetrics Metrics => new(
+        Volatile.Read(ref _activeConnections), Volatile.Read(ref _acceptedConnections),
+        Volatile.Read(ref _broadcasts), Volatile.Read(ref _droppedConnections));
 
     public async Task HandleAsync(HttpContext context)
     {
         if (!context.WebSockets.IsWebSocketRequest)
         {
             context.Response.StatusCode = StatusCodes.Status426UpgradeRequired;
-            await context.Response.WriteAsync("WebSocket upgrade required.");
             return;
         }
-
-        string token = ReadBearerToken(context.Request.Headers.Authorization.ToString());
-        if (token.Length == 0 || !await IsTownUserAsync(token, context.RequestAborted))
+        string authorization = context.Request.Headers.Authorization.ToString();
+        string token = authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? authorization[7..].Trim() : "";
+        if (token.Length == 0 || !await HasAccessAsync(token, context.RequestAborted))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
-
         using WebSocket socket = await context.WebSockets.AcceptWebSocketAsync();
-        var client = new Client(Guid.NewGuid(), socket, token);
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+        var client = new Client(socket, token);
         _clients[client.Id] = client;
+        Interlocked.Increment(ref _acceptedConnections);
+        Interlocked.Increment(ref _activeConnections);
+        Task writer = WriteLoopAsync(client, lifetime.Token);
         try
         {
-            await client.SendAsync("{\"type\":\"connected\",\"protocol\":1}", context.RequestAborted);
-            await ReceiveLoopAsync(client, context.RequestAborted);
+            await SendSnapshotAsync(client, lifetime.Token);
+            await ReceiveLoopAsync(client, lifetime.Token);
         }
-        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
-        catch (WebSocketException error) { logger.LogDebug("Town realtime socket closed: {Error}", error.WebSocketErrorCode); }
+        catch (Exception error) when (error is OperationCanceledException or WebSocketException or HttpRequestException or JsonException or InvalidDataException)
+        { logger.LogDebug("Town realtime peer ended: {ErrorType}", error.GetType().Name); }
         finally
         {
             _clients.TryRemove(client.Id, out _);
-            await client.CloseAsync();
+            Interlocked.Decrement(ref _activeConnections);
+            client.Outgoing.Writer.TryComplete();
+            await lifetime.CancelAsync();
+            socket.Abort();
+            try { await writer; }
+            catch (Exception error) when (error is OperationCanceledException or WebSocketException or ObjectDisposedException) { }
         }
     }
 
-    public async Task BroadcastNpcActionAsync(JsonElement action, CancellationToken cancellationToken = default)
+    public Task BroadcastNpcActionAsync(JsonElement action, CancellationToken cancellationToken = default)
     {
-        if (!action.TryGetProperty("npc_id", out JsonElement npcId) || npcId.ValueKind != JsonValueKind.String) return;
-        string message = JsonSerializer.Serialize(new
+        if (action.ValueKind != JsonValueKind.Object || !action.TryGetProperty("npc_id", out JsonElement id) || id.ValueKind != JsonValueKind.String)
+            return Task.CompletedTask;
+        var message = JsonNode.Parse(action.GetRawText())!.AsObject();
+        message["type"] = "npc_state";
+        Broadcast(message);
+        return Task.CompletedTask;
+    }
+
+    private void Broadcast(JsonObject message)
+    {
+        lock (_broadcastGate)
         {
-            type = "npc_state",
-            npc_id = npcId.GetString(),
-            state = ReadString(action, "state"),
-            tile_x = ReadInt(action, "tile_x"),
-            tile_y = ReadInt(action, "tile_y"),
-            task_id = ReadString(action, "task_id"),
-            dialogue = ReadString(action, "dialogue"),
-            mood = ReadJsonNode(action, "mood"),
-            route = ReadJsonNode(action, "route"),
-            navigation_version = ReadJsonNode(action, "navigation_version")
-        });
-        await BroadcastAsync(message, cancellationToken);
-    }
-
-    private static string? ReadString(JsonElement root, string property) =>
-        root.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString() : null;
-
-    private static int ReadInt(JsonElement root, string property) =>
-        root.TryGetProperty(property, out JsonElement value) && value.TryGetInt32(out int number)
-            ? number : 0;
-
-    private static JsonNode? ReadJsonNode(JsonElement root, string property)
-    {
-        if (!root.TryGetProperty(property, out JsonElement value) || value.ValueKind == JsonValueKind.Undefined)
-            return null;
-        try { return JsonNode.Parse(value.GetRawText()); }
-        catch (JsonException) { return null; }
-    }
-
-    private async Task ReceiveLoopAsync(Client client, CancellationToken cancellationToken)
-    {
-        byte[] buffer = new byte[16 * 1024];
-        while (client.Socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-        {
-            WebSocketReceiveResult result = await client.Socket.ReceiveAsync(buffer, cancellationToken);
-            if (result.MessageType == WebSocketMessageType.Close) return;
-            if (result.MessageType != WebSocketMessageType.Text || result.Count == 0 || result.EndOfMessage is false)
-            {
-                if (!result.EndOfMessage) await DrainMessageAsync(client.Socket, cancellationToken);
-                continue;
-            }
-            if (result.Count > 64 * 1024) continue;
-            string text = Encoding.UTF8.GetString(buffer, 0, result.Count);
-            await HandleMessageAsync(client, text, cancellationToken);
-        }
-    }
-
-    private async Task HandleMessageAsync(Client client, string text, CancellationToken cancellationToken)
-    {
-        JsonDocument document;
-        try { document = JsonDocument.Parse(text); }
-        catch (JsonException) { return; }
-        using (document)
-        {
-            JsonElement root = document.RootElement;
-            string type = root.TryGetProperty("type", out JsonElement typeElement) ? typeElement.GetString() ?? "" : "";
-            if (type == "ping") { await client.SendAsync("{\"type\":\"pong\"}", cancellationToken); return; }
-            if (type != "presence" || !root.TryGetProperty("payload", out JsonElement payload) || payload.ValueKind != JsonValueKind.Object) return;
-            long now = Environment.TickCount64;
-            if (now - client.LastPresenceAt < 100) return;
-            client.LastPresenceAt = now;
-            await ForwardPresenceAsync(client, payload.GetRawText(), cancellationToken);
-        }
-    }
-
-    private async Task ForwardPresenceAsync(Client client, string payload, CancellationToken cancellationToken)
-    {
-        using HttpRequestMessage request = new(HttpMethod.Post, new Uri(_apiBase, "api/v2/town/presence.php"));
-        request.Headers.Authorization = new("Bearer", client.Token);
-        request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
-        using HttpResponseMessage response = await clientFactory.CreateClient().SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode) return;
-        using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
-        if (!document.RootElement.TryGetProperty("presence", out JsonElement presence)) return;
-        await BroadcastAsync($"{{\"type\":\"presence\",\"presence\":{presence.GetRawText()}}}", cancellationToken);
-    }
-
-    private async Task<bool> IsTownUserAsync(string token, CancellationToken cancellationToken)
-    {
-        HttpClient http = clientFactory.CreateClient();
-        foreach (string path in new[] { "api/v1/auth/me.php", "api/v2/town/world.php" })
-        {
-            using HttpRequestMessage request = new(HttpMethod.Get, new Uri(_apiBase, path));
-            request.Headers.Authorization = new("Bearer", token);
-            using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode) return false;
-        }
-        return true;
-    }
-
-    private async Task BroadcastAsync(string message, CancellationToken cancellationToken)
-    {
+        Interlocked.Increment(ref _broadcasts);
+        message["sequence"] = Interlocked.Increment(ref _sequence);
+        string json = message.ToJsonString();
         foreach (Client client in _clients.Values)
         {
-            try { await client.SendAsync(message, cancellationToken); }
-            catch (WebSocketException) { _clients.TryRemove(client.Id, out _); }
+            if (client.Ready) Enqueue(client, json);
+            else if (client.Pending.Count < 128) client.Pending.Enqueue(json);
+            else { Interlocked.Increment(ref _droppedConnections); client.Socket.Abort(); }
+        }
         }
     }
 
-    private static async Task DrainMessageAsync(WebSocket socket, CancellationToken cancellationToken)
+    private void Enqueue(Client client, string json)
+    {
+        if (client.Outgoing.Writer.TryWrite(json)) return;
+        Interlocked.Increment(ref _droppedConnections);
+        _clients.TryRemove(client.Id, out _);
+        client.Socket.Abort();
+    }
+
+    private async Task SendSnapshotAsync(Client client, CancellationToken token)
+    {
+        // Buffer live deltas during recovery so no change is lost between snapshot
+        // reads and subscribing to the ongoing stream.
+        using JsonDocument roster = await ApiAsync(HttpMethod.Get, "api/v2/town/presence.php", client.Token, null, token);
+        using JsonDocument npcs = await ApiAsync(HttpMethod.Get, "api/v2/town/npcs/snapshot.php", client.Token, null, token);
+        lock (_broadcastGate)
+        {
+        Enqueue(client, new JsonObject {
+            ["type"] = "snapshot",
+            ["presence"] = JsonNode.Parse(roster.RootElement.GetProperty("presence").GetRawText()),
+            ["npc_snapshot"] = JsonNode.Parse(npcs.RootElement.GetRawText())
+        }.ToJsonString());
+        while (client.Pending.TryDequeue(out string? pending)) Enqueue(client, pending);
+        client.Ready = true;
+        }
+    }
+
+    private async Task ReceiveLoopAsync(Client client, CancellationToken token)
     {
         byte[] buffer = new byte[4096];
-        WebSocketReceiveResult result;
-        do { result = await socket.ReceiveAsync(buffer, cancellationToken); }
-        while (!result.EndOfMessage && result.MessageType != WebSocketMessageType.Close);
+        while (!token.IsCancellationRequested)
+        {
+            using var body = new MemoryStream();
+            WebSocketReceiveResult result;
+            do
+            {
+                result = await client.Socket.ReceiveAsync(buffer, token);
+                if (result.MessageType == WebSocketMessageType.Close) return;
+                if (result.MessageType != WebSocketMessageType.Text) throw new InvalidDataException("Text required.");
+                body.Write(buffer, 0, result.Count);
+                if (body.Length > 16384) throw new InvalidDataException("Message limit exceeded.");
+            } while (!result.EndOfMessage);
+            using JsonDocument document = JsonDocument.Parse(body.ToArray());
+            JsonElement root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("type", out JsonElement type) || type.ValueKind != JsonValueKind.String) continue;
+            if (Environment.TickCount64 - client.LastAuthAt > 30000)
+            {
+                if (!await HasAccessAsync(client.Token, token)) return;
+                client.LastAuthAt = Environment.TickCount64;
+            }
+            if (type.GetString() == "ping") { Enqueue(client, "{\"type\":\"pong\"}"); continue; }
+            if (type.GetString() != "presence" || !root.TryGetProperty("payload", out JsonElement payload) || payload.ValueKind != JsonValueKind.Object) continue;
+            long now = Environment.TickCount64;
+            bool durable = payload.TryGetProperty("force", out JsonElement force) && force.ValueKind == JsonValueKind.True;
+            if (!durable && client.LastPresenceAt != 0 && now - client.LastPresenceAt < 80) continue;
+            client.LastPresenceAt = now;
+            try
+            {
+                bool persist = durable || client.LastPersistAt == 0 || now - client.LastPersistAt >= 1000;
+                var position = JsonNode.Parse(payload.GetRawText())!.AsObject();
+                position["transient"] = !persist;
+                using JsonDocument response = await ApiAsync(HttpMethod.Post, "api/v2/town/presence.php", client.Token, position.ToJsonString(), token);
+                if (persist) client.LastPersistAt = now;
+                if (!response.RootElement.TryGetProperty("self", out JsonElement self)) continue;
+                Broadcast(new JsonObject { ["type"] = "presence_delta", ["player"] = JsonNode.Parse(self.GetRawText()) });
+                if (root.TryGetProperty("request_id", out JsonElement requestId) && requestId.ValueKind == JsonValueKind.String)
+                    Enqueue(client, JsonSerializer.Serialize(new { type = "ack", request_id = requestId.GetString(), ok = true }));
+            }
+            catch (HttpRequestException error) when (error.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
+            { Enqueue(client, "{\"type\":\"position_rejected\"}"); }
+        }
     }
 
-    private static string ReadBearerToken(string value)
+    private async Task<bool> HasAccessAsync(string token, CancellationToken cancellationToken)
     {
-        const string prefix = "Bearer ";
-        return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? value[prefix.Length..].Trim() : string.Empty;
+        try
+        {
+            using JsonDocument user = await ApiAsync(HttpMethod.Get, "api/v1/auth/me.php", token, null, cancellationToken);
+            using JsonDocument world = await ApiAsync(HttpMethod.Get, "api/v2/town/world.php", token, null, cancellationToken);
+            return world.RootElement.TryGetProperty("enabled", out JsonElement enabled) && enabled.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception error) when (error is HttpRequestException or JsonException) { return false; }
     }
 
-    private sealed class Client(Guid id, WebSocket socket, string token)
+    private async Task<JsonDocument> ApiAsync(HttpMethod method, string path, string token, string? payload, CancellationToken cancellationToken)
     {
-        internal Guid Id { get; } = id;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        using var http = clientFactory.CreateClient();
+        using var request = new HttpRequestMessage(method, new Uri(_apiBase, path));
+        request.Headers.Authorization = new("Bearer", token);
+        if (payload is not null) request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+        using HttpResponseMessage response = await http.SendAsync(request, timeout.Token);
+        response.EnsureSuccessStatusCode();
+        return await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(timeout.Token), cancellationToken: timeout.Token);
+    }
+
+    private static async Task WriteLoopAsync(Client client, CancellationToken token)
+    {
+        try
+        {
+            await foreach (string json in client.Outgoing.Reader.ReadAllAsync(token))
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+                timeout.CancelAfter(TimeSpan.FromSeconds(3));
+                await client.Socket.SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true, timeout.Token);
+            }
+        }
+        finally { client.Socket.Abort(); }
+    }
+
+    private sealed class Client(WebSocket socket, string token)
+    {
+        internal Guid Id { get; } = Guid.NewGuid();
         internal WebSocket Socket { get; } = socket;
         internal string Token { get; } = token;
         internal long LastPresenceAt { get; set; }
-        private readonly SemaphoreSlim _sendGate = new(1, 1);
-
-        internal async Task SendAsync(string message, CancellationToken cancellationToken)
-        {
-            await _sendGate.WaitAsync(cancellationToken);
-            try { await Socket.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, cancellationToken); }
-            finally { _sendGate.Release(); }
-        }
-
-        internal async Task CloseAsync()
-        {
-            try
-            {
-                if (Socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
-                    await Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
-            }
-            catch (WebSocketException) { }
-        }
+        internal long LastPersistAt { get; set; }
+        internal bool Ready { get; set; }
+        internal Queue<string> Pending { get; } = new();
+        internal long LastAuthAt { get; set; } = Environment.TickCount64;
+        internal Channel<string> Outgoing { get; } = Channel.CreateBounded<string>(new BoundedChannelOptions(128)
+        { FullMode = BoundedChannelFullMode.Wait, SingleReader = true, SingleWriter = false });
     }
 }

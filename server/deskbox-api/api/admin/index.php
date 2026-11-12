@@ -9,6 +9,7 @@ require dirname(__DIR__) . '/_app/fruit.php';
 require dirname(__DIR__) . '/_app/wildlife.php';
 require dirname(__DIR__) . '/_app/catalog_report.php';
 require dirname(__DIR__) . '/_app/town_assets.php';
+require dirname(__DIR__) . '/_app/town_navigation.php';
 require dirname(__DIR__) . '/_app/town_npcs.php';
 require dirname(__DIR__) . '/_app/town_model_provider.php';
 
@@ -107,6 +108,7 @@ try {
     }
     $done = isset($_GET['done']) && is_string($_GET['done']) ? $_GET['done'] : '';
     if ($done === 'town_model_provider_test') { $message = '模型连接成功，未发送对话请求。'; }
+    elseif ($done === 'town_navigation_rebuild') { $message = '导航已重建，运行中的村民会在下一次行动校验时重新规划路线。'; }
     elseif ($done !== '') { $message = 'Operation completed.'; }
 } catch (ApiError $exception) {
     if ($exception->apiCode === 'invalid_session' || $exception->apiCode === 'admin_forbidden') {
@@ -147,6 +149,7 @@ if ($panel === 'tree') {
 $aquariumCatalog = $panel === 'aquarium' ? aquarium_catalog($pdo)['items'] : [];
 $wildlifeCatalog = $panel === 'wildlife' ? wildlife_catalog($pdo) : [];
 $townAssetState = $panel === 'town_assets' ? town_asset_admin_state($pdo) : null;
+$townNavigationVersion = $panel === 'town_assets' ? town_navigation_version($pdo) : 1;
 $townNpcs = [];
 $townCharacterAssets = [];
 $townWorkPoints = [];
@@ -247,7 +250,8 @@ if ($panel === 'users' && $selectedId !== '') {
 <td><label><input form="<?= admin_page_escape($formId) ?>" name="enabled" type="checkbox" value="1" <?= $species['enabled'] ? 'checked' : '' ?>>启用</label></td><td><button form="<?= admin_page_escape($formId) ?>" type="submit">保存</button></td></tr><?php endforeach; ?>
 </tbody></table></div></div><?php endif; ?>
 <?php if ($panel === 'town_assets' && is_array($townAssetState)): ?><div class="panel" id="town-assets-panel" style="grid-column:1/-1">
-<h2>共享小镇素材 · 整图标记</h2>
+<div class="actions" style="justify-content:space-between;align-items:center"><h2 style="margin:0">共享小镇素材 · 整图标记</h2><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_navigation_rebuild"><input type="hidden" name="panel" value="town_assets"><button type="submit">导航重建</button></form></div>
+<p class="muted">当前导航版本：v<?= (int)$townNavigationVersion ?>。保存素材的通行语义后点击“导航重建”，NPC 才会清除旧路线并重新规划。</p>
 <p class="muted">上传整张 PNG 后只保存坐标标记，不会生成裁剪文件。草稿在点击发布前不会进入小镇。</p>
 <div class="town-sheet-layout">
 <div class="town-sheet-preview"><canvas id="town-sheet-canvas" width="620" height="1250"></canvas></div>

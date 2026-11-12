@@ -172,6 +172,7 @@
       w: Math.round(Number(frame.w)),
       h: Math.round(Number(frame.h))
     })));
+    input.dispatchEvent(new Event('change',{bubbles:true}));
   }
 
   function listForInput(input) {
@@ -335,6 +336,10 @@
     context.fillStyle = '#fff';
     context.font = '11px sans-serif';
     context.fillText(selection.w + '×' + selection.h, x + 4, y + 14);
+    if(form.dataset.contact && !frameMode){
+      const u=JSON.parse(form.dataset.contact);context.strokeStyle='#34e581';context.lineWidth=2;
+      context.strokeRect(x+u[0]*width,y+u[1]*height,(u[2]-u[0])*width,(u[3]-u[1])*height);
+    }
     context.restore();
   }
 
@@ -374,6 +379,7 @@
       if (frameMode.replaceIndex === null) frames.push(rect);
       else frames[frameMode.replaceIndex] = rect;
       writeFrames(activeFrameInput, frames);
+      recalculateFootprint(activeFrameInput.form);
       renderFrameList(activeFrameInput, activeFrameList);
       cancelFramePick();
       return;
@@ -385,8 +391,58 @@
     setField('height', rect.h);
     setField('display_width', rect.w);
     setField('display_height', rect.h);
+    recalculateFootprint(form);
     draw();
   }
+
+  function formField(target, name) { return target.elements.namedItem(name); }
+  async function recalculateFootprint(target) {
+    const status=target.querySelector('[data-footprint-status]') || document.getElementById(target.id+'-foot-status');
+    try {
+      const field=name=>formField(target,name), number=name=>Number(field(name)?.value);
+      const sheetId=field('sheet_id')?.value;
+      let source=image;
+      if(sheetId!==picker.value || !image.complete || !image.naturalWidth) {
+        source=new Image();source.src='?panel=town_assets&sheet='+encodeURIComponent(sheetId);await source.decode();
+      }
+      const frames=JSON.parse(field('frames')?.value||'[]');
+      const regions=frames.length?frames:[{x:number('x'),y:number('y'),w:number('width'),h:number('height')}];
+      let union=[1,1,0,0];
+      for(const frame of regions) {
+        const x=Number(frame.x),y=Number(frame.y),w=Number(frame.w??frame.width),h=Number(frame.h??frame.height);
+        if(x<0||y<0||w<1||h<1||x+w>source.naturalWidth||y+h>source.naturalHeight)throw Error('框选区域超出图集');
+        const off=document.createElement('canvas');off.width=w;off.height=h;const ctx=off.getContext('2d');ctx.drawImage(source,x,y,w,h,0,0,w,h);const pixels=ctx.getImageData(0,0,w,h).data;
+        let top=h,bottom=-1;
+        for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)if(pixels[(yy*w+xx)*4+3]>0){top=Math.min(top,yy);bottom=Math.max(bottom,yy);}
+        if(bottom<0)throw Error('存在全透明帧，无法识别占地');
+        const cut=top+Math.floor((bottom-top+1)*2/3);let left=w,right=-1,ct=h,cb=-1;
+        for(let yy=cut;yy<=bottom;yy++)for(let xx=0;xx<w;xx++)if(pixels[(yy*w+xx)*4+3]>0){left=Math.min(left,xx);right=Math.max(right,xx);ct=Math.min(ct,yy);cb=Math.max(cb,yy);}
+        union=[Math.min(union[0],left/w),Math.min(union[1],ct/h),Math.max(union[2],(right+1)/w),Math.max(union[3],(cb+1)/h)];
+      }
+      const dw=number('display_width'),dh=number('display_height');
+      const foot={width:Math.ceil(Number(((union[2]-union[0])*dw/16).toFixed(8))),height:Math.ceil(Number(((union[3]-union[1])*dh/16).toFixed(8)))};
+      if(!dw||!dh||foot.width<1||foot.height<1||foot.width>16||foot.height>16)throw Error('占地超过 16×16 格，请调整显示尺寸或手动填写');
+      field('footprint').value=JSON.stringify(foot);field('collision').value=JSON.stringify({x:union[0],y:union[1],width:union[2]-union[0],height:union[3]-union[1]});
+      field('footprint').setCustomValidity('');
+      if(status)status.textContent=`自动占地 ${foot.width}×${foot.height} 格（16 像素/格）`;
+      target.dataset.contact=JSON.stringify(union);
+      draw();
+    } catch(error) { if(status)status.textContent=error.message; const field=formField(target,'footprint');if(field)field.setCustomValidity(error.message); }
+  }
+  document.querySelectorAll('form').forEach(target=>{
+    if(!formField(target,'footprint'))return;
+    if(target!==form){
+      for(const name of ['display_width','display_height']){const field=formField(target,name);field.type='number';field.style.width='76px';field.title=name==='display_width'?'显示宽度（像素）':'显示高度（像素）';}
+      const button=document.createElement('button');button.type='button';button.textContent='重新计算占地';
+      button.onclick=()=>recalculateFootprint(target);
+      const label=document.createElement('small');label.id=target.id+'-foot-status';
+      target.append(button,label);
+      for(const name of ['footprint','collision']){const field=formField(target,name);field.type='text';field.style.maxWidth='160px';field.title=name==='footprint'?'占地，可手动修改':'碰撞范围，可手动修改';}
+    }
+    target.querySelector('[data-recalculate-footprint]')?.addEventListener('click',()=>recalculateFootprint(target));
+    for(const name of ['x','y','width','height','display_width','display_height','frames'])formField(target,name)?.addEventListener('change',()=>recalculateFootprint(target));
+    formField(target,'footprint')?.addEventListener('input',()=>formField(target,'footprint').setCustomValidity(''));
+  });
 
   picker.addEventListener('change', loadSheet);
   canvas.addEventListener('pointerdown', function (event) {

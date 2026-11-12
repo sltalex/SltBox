@@ -1,5 +1,7 @@
+using DeskBox.Helpers;
 using DeskBox.Models;
 using DeskBox.Services;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace DeskBox.Tests;
 
@@ -162,6 +164,14 @@ public sealed class WidgetBackgroundCustomizationTests : IDisposable
 
         string assetDirectory = store.GetAssetDirectory("widget-1");
         Assert.Equal(["background.jpg"], Directory.GetFiles(assetDirectory).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void BackgroundImageSource_BypassesUriCacheForReplacementAtSamePath()
+    {
+        Assert.Equal(
+            BitmapCreateOptions.IgnoreImageCache,
+            WidgetBackgroundImageSourceFactory.ReplacementCreateOptions);
     }
 
     // ── Wiring contracts ────────────────────────────────────────

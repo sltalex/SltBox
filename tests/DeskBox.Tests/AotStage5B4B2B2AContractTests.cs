@@ -364,7 +364,7 @@ public sealed class AotStage5B4B2B2AContractTests
             "tests/DeskBox.Tests/JsonSerializationBaselineContractTests.cs");
 
         Assert.Contains("Assert.Equal(56, actual.Count);", baseline, StringComparison.Ordinal);
-        Assert.Contains("Assert.Equal(153, actual.Values.Sum());", baseline, StringComparison.Ordinal);
+        Assert.Contains("Assert.Equal(156, actual.Values.Sum());", baseline, StringComparison.Ordinal);
         Assert.Contains("Assert.Equal(47, actualContextOwners.Length);", baseline, StringComparison.Ordinal);
     }
 
@@ -397,7 +397,7 @@ public sealed class AotStage5B4B2B2AContractTests
         Assert.Contains("stage5B4B2B2AForbiddenScopePatterns", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B2B2AJsonSerializeCallCount", audit, StringComparison.Ordinal);
         Assert.Contains("stage5B4B2B2ASourceWarningMessages", audit, StringComparison.Ordinal);
-        Assert.Contains("stage5B4B2B2AExpectedWmc1510Count = 768", audit, StringComparison.Ordinal);
+        Assert.Contains("stage5B4B2B2AExpectedWmc1510Count = 769", audit, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string value, string token)

@@ -1,0 +1,46 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/shared_town_service_test.php';
+$image=imagecreatetruecolor(96,96); imagealphablending($image,false); imagesavealpha($image,true);
+imagefill($image,0,0,imagecolorallocatealpha($image,0,0,0,127));
+$color=imagecolorallocatealpha($image,10,180,60,0); imagefilledrectangle($image,8,8,55,79,$color);
+$path=tempnam(sys_get_temp_dir(),'town-contact-');imagepng($image,$path);
+$raw=file_get_contents($path);
+$sheet=town_asset_upload_sheet($pdo,$user,['error'=>UPLOAD_ERR_OK,'tmp_name'=>$path,'size'=>strlen($raw),'name'=>'contact-test.png'],$now);
+$meta=['x'=>0,'y'=>0,'width'=>96,'height'=>96,'display_width'=>96,'display_height'=>96,'frames'=>[]];
+$contact=town_asset_contact($meta,$path);
+town_shared_expect($contact['footprint']===['width'=>3,'height'=>2],'Transparent margin and bottom third drive footprint.');
+town_shared_expect(town_asset_contact($meta+[], $path)===$contact,'Contact calculation is deterministic.');
+$meta['display_width']=192;
+town_shared_expect(town_asset_contact($meta,$path)['footprint']['width']===6,'Display scaling recalculates footprint.');
+$meta['frames']=[['x'=>0,'y'=>0,'w'=>96,'h'=>96],['x'=>0,'y'=>0,'w'=>96,'h'=>96]];
+town_shared_expect(town_asset_contact($meta,$path)['footprint']['width']===6,'Animation frames use a shared contact union.');
+$pdo->exec('DELETE FROM town_asset_active_release; DELETE FROM town_asset_releases; DELETE FROM town_objects; DELETE FROM town_change_log');
+$item=town_asset_save_item($pdo,$user,['asset_id'=>'town-source-foot-test','sheet_id'=>$sheet['sheet_id'],'name'=>'占地测试','category'=>'building','x'=>0,'y'=>0,'width'=>96,'height'=>96,'display_width'=>96,'display_height'=>96,'footprint'=>['width'=>1,'height'=>1]],$now);
+town_asset_publish($pdo,$user,$now);
+$one=shared_town_action($pdo,$user,['action'=>'place','operation_id'=>'footprint-test-one','asset_id'=>$item['id'],'tile_x'=>110,'tile_y'=>110],$now);
+$two=shared_town_action($pdo,$user,['action'=>'place','operation_id'=>'footprint-test-two','asset_id'=>$item['id'],'tile_x'=>111,'tile_y'=>110],$now);
+// This unpublished item must remain absent from the active catalog after reflow.
+town_asset_save_item($pdo,$user,['asset_id'=>'town-source-draft-only','sheet_id'=>$sheet['sheet_id'],'name'=>'未发布测试','category'=>'object','x'=>0,'y'=>0,'width'=>96,'height'=>96],$now);
+$plan=town_asset_reflow_plan($pdo);
+town_shared_expect(count($plan['objects'])===2,'Reflow includes all town objects.');
+town_shared_expect($plan['plan_sha256']===town_asset_reflow_plan($pdo)['plan_sha256'],'Preflight is stable and read only.');
+town_shared_error('reflow_conflict',409,static fn()=>town_asset_apply_reflow($pdo,$user,str_repeat('0',64),$now));
+town_shared_expect(shared_town_object_public($pdo->query('SELECT * FROM town_objects LIMIT 1')->fetch())['footprint']['width']===1,'Failed preflight changes no objects.');
+$applied=town_asset_apply_reflow($pdo,$user,$plan['plan_sha256'],$now);
+$rows=$pdo->query('SELECT * FROM town_objects ORDER BY object_id')->fetchAll();
+town_shared_expect(count($rows)===2 && $rows[0]['owner_user_id']===$user && $rows[1]['owner_user_id']===$user,'Reflow preserves IDs owners and count.');
+town_shared_expect(!shared_town_intersects(shared_town_rectangle($rows[0]),shared_town_rectangle($rows[1])),'Enlarged objects relocate without overlap.');
+town_shared_expect(count(town_asset_active_config($pdo)['items'])===1 && town_asset_published_item($pdo,'town-source-draft-only')===null,'Reflow does not publish unrelated drafts.');
+town_shared_expect(shared_town_world($pdo)['terrain_version']===5,'Reflow preserves the expanded terrain version.');
+$block=str_repeat('f',32);
+$pdo->prepare("INSERT INTO town_objects (object_id,world_id,asset_id,asset_source,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version,created_at,updated_at) VALUES (?,'main','mushroom-cluster','legacy',?,0,0,0,0,?,0,1,?,?)")
+    ->execute([$block,$user,'{"width":768,"height":768}',$stamp,$stamp]);
+$unchanged=$pdo->query('SELECT * FROM town_objects ORDER BY object_id')->fetchAll();
+town_shared_error('reflow_no_space',409,static fn()=>town_asset_reflow_plan($pdo));
+town_shared_expect($unchanged===$pdo->query('SELECT * FROM town_objects ORDER BY object_id')->fetchAll(),'No-space failure leaves every object unchanged.');
+$pdo->prepare('DELETE FROM town_objects WHERE object_id=?')->execute([$block]);
+$again=town_asset_reflow_plan($pdo);
+town_asset_apply_reflow($pdo,$user,$again['plan_sha256'],$now);
+town_shared_expect($rows===$pdo->query('SELECT * FROM town_objects ORDER BY object_id')->fetchAll(),'Repeat reflow leaves object versions and coordinates unchanged.');
+unlink($path);echo "town_asset_footprints_test: {$checks} checks ok\n";

@@ -3,10 +3,11 @@ declare(strict_types=1);
 
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 require_once __DIR__ . '/town_assets.php';
+require_once __DIR__ . '/town_player_positions.php';
 
 const SHARED_TOWN_WORLD_ID = 'main';
 const SHARED_TOWN_VERSION = 2;
-const SHARED_TOWN_MAP_SIZE = 192;
+const SHARED_TOWN_MAP_SIZE = 768;
 const SHARED_TOWN_TILE_SIZE = 16;
 const SHARED_TOWN_CHUNK_SIZE = 24;
 const SHARED_TOWN_MAX_CHUNKS = 16;
@@ -113,14 +114,20 @@ function shared_town_require_access(PDO $pdo, string $userId): void
 
 function shared_town_world(PDO $pdo): array
 {
-    $query = $pdo->prepare('SELECT world_id,world_version,terrain_version,map_width,map_height,tile_size,chunk_size,change_cursor '
-        . 'FROM town_worlds WHERE world_id=:world LIMIT 1');
-    $query->execute([':world' => SHARED_TOWN_WORLD_ID]);
+    try {
+        $query = $pdo->prepare('SELECT world_id,world_version,terrain_version,navigation_version,map_width,map_height,tile_size,chunk_size,change_cursor '
+            . 'FROM town_worlds WHERE world_id=:world LIMIT 1');
+        $query->execute([':world' => SHARED_TOWN_WORLD_ID]);
+    } catch (PDOException) {
+        $query = $pdo->prepare('SELECT world_id,world_version,terrain_version,map_width,map_height,tile_size,chunk_size,change_cursor '
+            . 'FROM town_worlds WHERE world_id=:world LIMIT 1');
+        $query->execute([':world' => SHARED_TOWN_WORLD_ID]);
+    }
     $row = $query->fetch(PDO::FETCH_ASSOC);
     if (!is_array($row)) { throw new ApiError('town_unavailable', 'The shared town is not initialized.', 503); }
     return [
         'world_id' => (string)$row['world_id'], 'world_version' => (int)$row['world_version'],
-        'terrain_version' => (int)$row['terrain_version'], 'map_width' => (int)$row['map_width'],
+        'terrain_version' => (int)$row['terrain_version'], 'navigation_version' => max(1, (int)($row['navigation_version'] ?? 1)), 'map_width' => (int)$row['map_width'],
         'map_height' => (int)$row['map_height'], 'tile_size' => (int)$row['tile_size'],
         'chunk_size' => (int)$row['chunk_size'], 'chunk_columns' => intdiv((int)$row['map_width'], (int)$row['chunk_size']),
         'chunk_rows' => intdiv((int)$row['map_height'], (int)$row['chunk_size']),
@@ -139,7 +146,6 @@ function shared_town_tile_type(int $x, int $y): string
     if (($x >= 62 && $x <= 63) || ($x >= 76 && $x <= 77)) { return $bridge ? 'bridge' : 'riverbank'; }
     if ($x >= 136 && $x <= 180 && $y >= 18 && $y <= 87) { return 'forest'; }
     if ($x >= 84 && $x <= 107 && $y >= 84 && $y <= 107) {
-        if ($x >= 94 && $x <= 97 && $y >= 88 && $y <= 91) { return 'main_tree'; }
         return 'plaza';
     }
     // The client paints a cross-shaped road outside the center plaza. Keep
@@ -150,7 +156,7 @@ function shared_town_tile_type(int $x, int $y): string
 
 function shared_town_tile_allowed(int $x, int $y): bool
 {
-    return in_array(shared_town_tile_type($x, $y), ['plain', 'road'], true);
+    return in_array(shared_town_tile_type($x, $y), ['plain', 'road', 'plaza'], true);
 }
 
 function shared_town_chunk_coords(int $tileX, int $tileY): array
@@ -165,7 +171,9 @@ function shared_town_parse_chunks(mixed $value): array
     if (!is_string($value)) { throw new ApiError('invalid_chunks', 'The chunk filter is invalid.', 400); }
     $chunks = [];
     foreach (explode(',', $value) as $part) {
-        if (!preg_match('/\A([0-7]):([0-7])\z/D', trim($part), $match)) {
+        if (!preg_match('/\A([0-9]{1,2}):([0-9]{1,2})\z/D', trim($part), $match)
+            || (int)$match[1] >= intdiv(SHARED_TOWN_MAP_SIZE, SHARED_TOWN_CHUNK_SIZE)
+            || (int)$match[2] >= intdiv(SHARED_TOWN_MAP_SIZE, SHARED_TOWN_CHUNK_SIZE)) {
             throw new ApiError('invalid_chunks', 'The chunk filter is invalid.', 400);
         }
         $key = $match[1] . ':' . $match[2];
@@ -179,7 +187,7 @@ function shared_town_parse_chunks(mixed $value): array
 
 function shared_town_rectangle(array $object): array
 {
-    $footprint = $object['footprint'] ?? null;
+    $footprint = $object['footprint'] ?? $object['footprint_json'] ?? null;
     if (is_string($footprint)) { $footprint = json_decode($footprint, true); }
     $footprint = is_array($footprint) ? $footprint : ['width' => 1, 'height' => 1];
     return ['x' => (int)$object['tile_x'], 'y' => (int)$object['tile_y'],
@@ -213,12 +221,16 @@ function shared_town_validate_rectangle(int $x, int $y, array $footprint): array
 function shared_town_object_public(array $row): array
 {
     $footprint = is_string($row['footprint_json'] ?? null) ? json_decode((string)$row['footprint_json'], true) : ($row['footprint'] ?? null);
+    $layer = (int)($row['layer'] ?? 1);
+    // Older rows used 0 and negative values. Keep those rows visible in the
+    // first editor layer while exposing the new six-layer contract.
+    $layer = max(1, min(6, $layer));
     return ['object_id' => (string)$row['object_id'], 'asset_id' => (string)$row['asset_id'],
         'asset_source' => (string)($row['asset_source'] ?? 'legacy'),
         'owner_user_id' => (string)$row['owner_user_id'], 'chunk_x' => (int)$row['chunk_x'],
         'chunk_y' => (int)$row['chunk_y'], 'tile_x' => (int)$row['tile_x'], 'tile_y' => (int)$row['tile_y'],
         'footprint' => is_array($footprint) ? $footprint : ['width' => 1, 'height' => 1],
-        'layer' => (int)($row['layer'] ?? 0), 'object_version' => (int)$row['object_version']];
+        'layer' => $layer, 'object_version' => (int)$row['object_version']];
 }
 
 function shared_town_terrain_chunk(int $chunkX, int $chunkY): array
@@ -236,7 +248,8 @@ function shared_town_terrain_chunk(int $chunkX, int $chunkY): array
 
 function shared_town_chunk(PDO $pdo, int $chunkX, int $chunkY): array
 {
-    if ($chunkX < 0 || $chunkX >= 8 || $chunkY < 0 || $chunkY >= 8) {
+    $chunkCount = intdiv(SHARED_TOWN_MAP_SIZE, SHARED_TOWN_CHUNK_SIZE);
+    if ($chunkX < 0 || $chunkX >= $chunkCount || $chunkY < 0 || $chunkY >= $chunkCount) {
         throw new ApiError('invalid_chunk', 'The requested town chunk is outside the map.', 400);
     }
     $query = $pdo->prepare('SELECT object_id,asset_id,asset_source,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version '
@@ -382,8 +395,8 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
                 if ($quantity - $personal - $reserved < 1) { throw new ApiError('insufficient_inventory', 'This decoration is already in use.', 409); }
             }
             [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']);
-            $objectId = auth_random_id(); $layer = is_int($body['layer'] ?? null) ? (int)$body['layer'] : 0;
-            if ($layer < -4 || $layer > 4) { throw new ApiError('invalid_object', 'Object layer is invalid.', 400); }
+            $objectId = auth_random_id(); $layer = array_key_exists('layer', $body) ? (is_int($body['layer']) ? (int)$body['layer'] : -1) : 1;
+            if ($layer < 1 || $layer > 6) { throw new ApiError('invalid_object', 'Object layer must be from 1 to 6.', 400); }
             $object = ['object_id' => $objectId, 'asset_id' => $assetId, 'asset_source' => $source, 'owner_user_id' => $userId, 'chunk_x' => $chunkX, 'chunk_y' => $chunkY,
                 'tile_x' => (int)$body['tile_x'], 'tile_y' => (int)$body['tile_y'], 'footprint_json' => json_encode($item['footprint'], JSON_THROW_ON_ERROR), 'layer' => $layer, 'object_version' => 1];
             $pdo->prepare('INSERT INTO town_objects (object_id,world_id,asset_id,asset_source,owner_user_id,chunk_x,chunk_y,tile_x,tile_y,footprint_json,layer,object_version,created_at,updated_at) '
@@ -410,14 +423,17 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
             } else {
                 if (!is_int($body['tile_x'] ?? null) || !is_int($body['tile_y'] ?? null)) { throw new ApiError('invalid_position', 'A tile position is required.', 400); }
                 $item = $assetSource === 'town' ? town_asset_published_item($pdo, $assetId) : ($catalog['by_id'][$assetId] ?? null);
-                if (!is_array($item)) $item = ['footprint' => ['width' => 1, 'height' => 1]];
+                if (!is_array($item)) $item = [];
+                $item['footprint'] = json_decode((string)$row['footprint_json'], true, 16, JSON_THROW_ON_ERROR);
                 $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
                 $occupied = $pdo->query('SELECT * FROM town_objects WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' AND deleted_at IS NULL AND object_id<>' . $pdo->quote($objectId))->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($occupied as $other) { if (shared_town_intersects($rect, shared_town_rectangle($other))) { throw new ApiError('position_conflict', 'The selected tiles are already occupied.', 409); } }
+                $layer = array_key_exists('layer', $body) ? (is_int($body['layer']) ? (int)$body['layer'] : -1) : max(1, min(6, (int)($row['layer'] ?? 1)));
+                if ($layer < 1 || $layer > 6) { throw new ApiError('invalid_object', 'Object layer must be from 1 to 6.', 400); }
                 [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']); $version = (int)$row['object_version'] + 1;
                 $oldChunkX = (int)$row['chunk_x']; $oldChunkY = (int)$row['chunk_y'];
-                $pdo->prepare('UPDATE town_objects SET chunk_x=:cx,chunk_y=:cy,tile_x=:tx,tile_y=:ty,object_version=:version,updated_at=:updated WHERE object_id=:id')->execute([':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'], ':version' => $version, ':updated' => auth_sql_time($now), ':id' => $objectId]);
-                $row['chunk_x'] = $chunkX; $row['chunk_y'] = $chunkY; $row['tile_x'] = (int)$body['tile_x']; $row['tile_y'] = (int)$body['tile_y']; $row['object_version'] = $version;
+                $pdo->prepare('UPDATE town_objects SET chunk_x=:cx,chunk_y=:cy,tile_x=:tx,tile_y=:ty,layer=:layer,object_version=:version,updated_at=:updated WHERE object_id=:id')->execute([':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'], ':layer' => $layer, ':version' => $version, ':updated' => auth_sql_time($now), ':id' => $objectId]);
+                $row['chunk_x'] = $chunkX; $row['chunk_y'] = $chunkY; $row['tile_x'] = (int)$body['tile_x']; $row['tile_y'] = (int)$body['tile_y']; $row['layer'] = $layer; $row['object_version'] = $version;
                 // A cross-chunk move must remove the old instance before the new
                 // chunk receives it; otherwise a viewport that unloads/reloads
                 // chunks can retain a stale copy indefinitely.
@@ -453,24 +469,42 @@ function shared_town_changes(PDO $pdo, int $cursor, array $chunks = []): array
     return ['changes' => $items, 'next_cursor' => $next];
 }
 
-function shared_town_presence_upsert(PDO $pdo, string $userId, array $body, DateTimeImmutable $now): array
+function shared_town_presence_upsert(PDO $pdo, string $userId, array $body, DateTimeImmutable $now, bool $persist = true): array
 {
     foreach (['tile_x', 'tile_y'] as $key) { if (!is_int($body[$key] ?? null) || $body[$key] < 0 || $body[$key] >= SHARED_TOWN_MAP_SIZE) { throw new ApiError('invalid_position', 'Presence position is invalid.', 400); } }
+    $x=$body['pixel_x'] ?? ($body['tile_x']*16+8);
+    $y=$body['pixel_y'] ?? ($body['tile_y']*16+15);
+    if ((!is_int($x) && !is_float($x)) || (!is_int($y) && !is_float($y)) || !is_finite((float)$x) || !is_finite((float)$y)
+        || (int)floor($x/16)!==$body['tile_x'] || (int)floor($y/16)!==$body['tile_y']
+        || !shared_town_player_can_stand((float)$x,(float)$y,shared_town_player_obstacles($pdo))) {
+        throw new ApiError('invalid_position', '人物位置不可站立，请重新载入小镇。', 400);
+    }
     [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']); $nameQuery = $pdo->prepare('SELECT username FROM auth_users WHERE id=:user'); $nameQuery->execute([':user' => $userId]); $name = (string)($nameQuery->fetchColumn() ?: '玩家');
     $last = auth_sql_time($now); $expires = auth_sql_time($now->modify('+' . SHARED_TOWN_PRESENCE_TTL . ' seconds')); $driver = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     $sql = $driver === 'sqlite'
         ? 'INSERT INTO town_presence (world_id,user_id,display_name,chunk_x,chunk_y,tile_x,tile_y,last_seen_at,expires_at) VALUES (:world,:user,:name,:cx,:cy,:tx,:ty,:last,:expires) ON CONFLICT(world_id,user_id) DO UPDATE SET display_name=excluded.display_name,chunk_x=excluded.chunk_x,chunk_y=excluded.chunk_y,tile_x=excluded.tile_x,tile_y=excluded.tile_y,last_seen_at=excluded.last_seen_at,expires_at=excluded.expires_at'
         : 'INSERT INTO town_presence (world_id,user_id,display_name,chunk_x,chunk_y,tile_x,tile_y,last_seen_at,expires_at) VALUES (:world,:user,:name,:cx,:cy,:tx,:ty,:last,:expires) ON DUPLICATE KEY UPDATE display_name=VALUES(display_name),chunk_x=VALUES(chunk_x),chunk_y=VALUES(chunk_y),tile_x=VALUES(tile_x),tile_y=VALUES(tile_y),last_seen_at=VALUES(last_seen_at),expires_at=VALUES(expires_at)';
-    $pdo->prepare($sql)->execute([':world' => SHARED_TOWN_WORLD_ID, ':user' => $userId, ':name' => $name, ':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'], ':last' => $last, ':expires' => $expires]);
-    return ['user_id' => $userId, 'display_name' => $name, 'chunk_x' => $chunkX, 'chunk_y' => $chunkY, 'tile_x' => (int)$body['tile_x'], 'tile_y' => (int)$body['tile_y'], 'expires_at' => $now->modify('+' . SHARED_TOWN_PRESENCE_TTL . ' seconds')->format(DateTimeInterface::ATOM)];
+    $ownTransaction=$persist && !$pdo->inTransaction();
+    if ($ownTransaction) $pdo->beginTransaction();
+    try {
+        if ($persist) {
+            shared_town_player_write($pdo,$userId,(float)$x,(float)$y,$now);
+            $pdo->prepare($sql)->execute([':world' => SHARED_TOWN_WORLD_ID, ':user' => $userId, ':name' => $name, ':cx' => $chunkX, ':cy' => $chunkY, ':tx' => (int)$body['tile_x'], ':ty' => (int)$body['tile_y'], ':last' => $last, ':expires' => $expires]);
+        }
+        if ($ownTransaction) $pdo->commit();
+    } catch (Throwable $error) {
+        if ($ownTransaction && $pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+    return ['user_id' => $userId, 'display_name' => $name, 'chunk_x' => $chunkX, 'chunk_y' => $chunkY, 'tile_x' => (int)$body['tile_x'], 'tile_y' => (int)$body['tile_y'], 'pixel_x' => (float)$x, 'pixel_y' => (float)$y, 'expires_at' => $now->modify('+' . SHARED_TOWN_PRESENCE_TTL . ' seconds')->format(DateTimeInterface::ATOM)];
 }
 
 function shared_town_presence(PDO $pdo, int $chunkX = -1, int $chunkY = -1, ?DateTimeImmutable $now = null): array
 {
     $now ??= api_clock(); $current = auth_sql_time($now); $pdo->prepare('DELETE FROM town_presence WHERE world_id=:world AND expires_at<=:now')->execute([':world' => SHARED_TOWN_WORLD_ID, ':now' => $current]);
-    $sql = 'SELECT user_id,display_name,chunk_x,chunk_y,tile_x,tile_y,expires_at FROM town_presence WHERE world_id=:world AND expires_at>:now'; $params = [':world' => SHARED_TOWN_WORLD_ID, ':now' => $current];
+    $sql = 'SELECT p.user_id,p.display_name,p.chunk_x,p.chunk_y,p.tile_x,p.tile_y,p.expires_at,s.pixel_x,s.pixel_y FROM town_presence p LEFT JOIN town_player_positions s ON s.world_id=p.world_id AND s.user_id=p.user_id WHERE p.world_id=:world AND p.expires_at>:now'; $params = [':world' => SHARED_TOWN_WORLD_ID, ':now' => $current];
     if ($chunkX >= 0 && $chunkY >= 0) { $sql .= ' AND chunk_x BETWEEN :minx AND :maxx AND chunk_y BETWEEN :miny AND :maxy'; $params += [':minx' => $chunkX - 1, ':maxx' => $chunkX + 1, ':miny' => $chunkY - 1, ':maxy' => $chunkY + 1]; }
-    $query = $pdo->prepare($sql . ' ORDER BY user_id'); $query->execute($params); $items = [];
-    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $items[] = ['user_id' => (string)$row['user_id'], 'display_name' => (string)$row['display_name'], 'chunk_x' => (int)$row['chunk_x'], 'chunk_y' => (int)$row['chunk_y'], 'tile_x' => (int)$row['tile_x'], 'tile_y' => (int)$row['tile_y'], 'expires_at' => auth_parse_sql_time((string)$row['expires_at'])->format(DateTimeInterface::ATOM)]; }
+    $query = $pdo->prepare($sql . ' ORDER BY p.user_id'); $query->execute($params); $items = [];
+    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $items[] = ['user_id' => (string)$row['user_id'], 'display_name' => (string)$row['display_name'], 'chunk_x' => (int)$row['chunk_x'], 'chunk_y' => (int)$row['chunk_y'], 'tile_x' => (int)$row['tile_x'], 'tile_y' => (int)$row['tile_y'], 'pixel_x' => isset($row['pixel_x']) ? (float)$row['pixel_x'] : (int)$row['tile_x'] * 16 + 8, 'pixel_y' => isset($row['pixel_y']) ? (float)$row['pixel_y'] : (int)$row['tile_y'] * 16 + 15, 'expires_at' => auth_parse_sql_time((string)$row['expires_at'])->format(DateTimeInterface::ATOM)]; }
     return ['presence' => $items];
 }

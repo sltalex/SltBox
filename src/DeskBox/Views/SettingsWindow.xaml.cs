@@ -146,6 +146,7 @@ public sealed partial class SettingsWindow : Window
     private readonly BackupRestoreActions _backupRestoreActions;
     private readonly IBackupCommands _backupCommands;
     private readonly AccountCloudBackupService _accountCloudBackupService;
+    private readonly AccountDataSyncService _accountDataSyncService;
     private readonly TreeCloudSyncService _treeCloudSyncService;
     private readonly TreeDecorationService _treeDecorationService;
     private readonly AquariumService _aquariumService;
@@ -214,6 +215,7 @@ public sealed partial class SettingsWindow : Window
         IDingTalkDwsClient dingTalkDwsClient,
         DingTalkAccountService dingTalkAccountService,
         AccountCloudBackupService accountCloudBackupService,
+        AccountDataSyncService accountDataSyncService,
         TreeCloudSyncService treeCloudSyncService,
         TreeDecorationService treeDecorationService,
         DingTalkGroupDocumentSyncService dingTalkGroupDocumentSyncService,
@@ -237,6 +239,7 @@ public sealed partial class SettingsWindow : Window
         _backupSettingsViewModel = backupSettings;
         _backupRestoreActions = backupRestoreActions;
         _accountCloudBackupService = accountCloudBackupService;
+        _accountDataSyncService = accountDataSyncService;
         _treeCloudSyncService = treeCloudSyncService;
         _treeDecorationService = treeDecorationService;
         _aquariumService = aquariumService;

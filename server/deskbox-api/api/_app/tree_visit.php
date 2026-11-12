@@ -122,12 +122,10 @@ function tree_visit_snapshot(PDO $pdo, string $account, ?string $viewer = null,
     }
 
     $scene = null;
-    if (strcasecmp((string)$tree['username'], 'sltalex') === 0) {
-        $decoration = $pdo->prepare('SELECT scene_json '
-            . 'FROM tree_decoration_profiles WHERE user_id=:user');
-        $decoration->execute([':user' => $account]);
-        $scene = $decoration->fetch(PDO::FETCH_ASSOC);
-    }
+    $decoration = $pdo->prepare('SELECT scene_json '
+        . 'FROM tree_decoration_profiles WHERE user_id=:user');
+    $decoration->execute([':user' => $account]);
+    $scene = $decoration->fetch(PDO::FETCH_ASSOC);
     $placements = is_array($scene) ? json_decode((string)$scene['scene_json'], true) : null;
     if (is_array($placements)) {
         $activeItems = tree_decoration_catalog_definition()['by_id'];

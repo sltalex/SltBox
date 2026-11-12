@@ -15,6 +15,7 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         await using ServiceProvider provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<AccountCloudBackupService>());
+        Assert.NotNull(provider.GetRequiredService<AccountDataSyncService>());
         Assert.NotNull(provider.GetRequiredService<TreeCloudSyncService>());
     }
 
@@ -47,7 +48,8 @@ public sealed class AccountCloudBackupAndTreeSurfaceTests
         Assert.Contains("Grid.ColumnSpan=\"3\"", account, StringComparison.Ordinal);
         string accountHandlers = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsWindow.Account.cs"));
         Assert.Contains("AccountSyncDataButton_Click", accountHandlers, StringComparison.Ordinal);
-        Assert.Contains("_treeCloudSyncService.SyncNowAsync()", accountHandlers, StringComparison.Ordinal);
+        Assert.Contains("_accountDataSyncService.SyncNowAsync()", accountHandlers, StringComparison.Ordinal);
+        Assert.DoesNotContain("_treeCloudSyncService.SyncNowAsync()", accountHandlers, StringComparison.Ordinal);
         string treeSettings = File.ReadAllText(TestPaths.FromRepository("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs"));
         Assert.DoesNotContain("Settings.Account.SyncData", treeSettings, StringComparison.Ordinal);
         Assert.Contains("_syncButton.Click += SyncButton_Click", treeSettings, StringComparison.Ordinal);

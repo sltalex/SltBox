@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026110801",
-  "releaseDate": "2026-11-08",
+  "version": "2026111201",
+  "releaseDate": "2026-11-12",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026110801/SltBox_Setup_2026110801_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026110801_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111201/SltBox_Setup_2026111201_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026111201_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "44fa8413a78526207748f310759d2f856b95e394489ac49ba0667ba06d07e484",
-  "size": 156768511,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026110801",
+  "sha256": "a86cd4ae9608326847b42e7b59ae72175894ad0393df7f43041cea90f7a373b4",
+  "size": 158237976,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026111201",
   "summary": {
-    "zh-CN": "SltBox 2026110801：果实按品类累加，本人一次采摘整类果实；新增网页后台产果能量与数量范围设置，完善离线及跨设备同步，到访果实数量只显示数字。",
-    "en-US": "SltBox 2026110801 groups fruit by type and harvests an entire type at once, adds administrator settings for fruit energy cost and batch quantity, improves offline and cross-device state reconciliation, and simplifies fruit counts during visits."
+    "zh-CN": "SltBox 2026111201：共享小镇新增 WebSocket 实时多人、NPC Agent、动态通行导航、模型配置、详细活动日志和 Token 报表。",
+    "en-US": "SltBox 2026111201 adds WebSocket town presence, NPC agents, dynamic navigation, model configuration, detailed activity logs, and token reporting."
   }
 }

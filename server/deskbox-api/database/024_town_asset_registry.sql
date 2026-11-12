@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS town_asset_items (
     sheet_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     name VARCHAR(120) NOT NULL,
     category VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    subcategory VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+    subcategory VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '',
     tags_json TEXT NOT NULL,
     x INT UNSIGNED NOT NULL,
     y INT UNSIGNED NOT NULL,

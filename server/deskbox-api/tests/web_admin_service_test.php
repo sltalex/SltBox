@@ -50,6 +50,17 @@ web_check($updateResult === 'update_user'
     && admin_read($pdo, $administrator['user']['id'], 'user', ['id' => $member['user']['id']], $clock)['user']['username'] === 'web_member_new',
     'Saving a user through web management updates the selected account.');
 
+$pdo->exec("CREATE TABLE town_worlds (world_id TEXT PRIMARY KEY, world_version INTEGER NOT NULL, navigation_version INTEGER NOT NULL, updated_at TEXT NOT NULL)");
+$pdo->prepare('INSERT INTO town_worlds (world_id,world_version,navigation_version,updated_at) VALUES (?,?,?,?)')
+    ->execute(['main', 4, 7, '2026-10-21 10:00:00']);
+$navigationResult = admin_page_mutate($pdo, ['user_id' => $administrator['user']['id']],
+    ['csrf' => $_SESSION['csrf'], 'operation' => 'town_navigation_rebuild', 'panel' => 'town_assets']);
+$navigationRow = $pdo->query("SELECT world_version,navigation_version FROM town_worlds WHERE world_id='main'")->fetch(PDO::FETCH_ASSOC);
+web_check($navigationResult === 'town_navigation_rebuild'
+    && (int)$navigationRow['world_version'] === 5
+    && (int)$navigationRow['navigation_version'] === 8,
+    'The web navigation rebuild operation advances both world and navigation versions.');
+
 $adminPage = file_get_contents(__DIR__ . '/../api/admin/index.php');
 web_check(is_string($adminPage) && str_contains($adminPage, 'fruit_web_asset_url'),
     'The fruit catalogue preview resolves an explicit per-fruit web PNG URL.');
@@ -59,6 +70,9 @@ web_check(str_contains((string)$adminPage, '<img src="<?= admin_page_escape($fru
     str_contains((string)$adminPage, 'width="52" height="60"') &&
     str_contains((string)$adminPage, 'object-fit:contain'),
     'The fruit catalogue emits an accessible 52-by-60 individual PNG preview.');
+web_check(str_contains((string)$adminPage, 'town_navigation_rebuild')
+    && str_contains((string)$adminPage, '当前导航版本'),
+    'The shared-town assets page exposes the authenticated navigation rebuild action and version.');
 
 try {
     web_admin_validate_session($pdo, $member['user']['id'], $memberSessionId, $clock);

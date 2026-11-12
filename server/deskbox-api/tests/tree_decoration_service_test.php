@@ -64,11 +64,11 @@ $pdo->exec(file_get_contents(__DIR__ . '/schema.sqlite.sql'));
 $userId = decor_create_user($pdo, 'tree_decorator', 'decor-device', $clock);
 
 $catalog = tree_decoration_catalog($pdo);
-decor_expect($catalog['catalog_version'] === 3 && count($catalog['items']) === 50,
-    'Tree decoration catalog v3 contains the original twenty decorations plus thirty flora products.');
+decor_expect($catalog['catalog_version'] === 4 && count($catalog['items']) === 1500,
+    'Tree decoration catalog v4 contains the full shared-town decoration directory.');
 decor_expect($catalog['single_price'] === 200 && $catalog['ten_price'] === 1800,
     'Tree pack prices expose the independently configured one-draw and ten-draw products.');
-foreach (['tree' => 8, 'ground' => 38, 'large' => 4] as $category => $expected) {
+foreach (['tree' => 500, 'ground' => 500, 'large' => 500] as $category => $expected) {
     decor_expect(count(array_filter($catalog['items'], fn(array $item): bool => $item['category'] === $category)) === $expected,
         "Catalog keeps the expected {$category} decoration count.");
 }
@@ -77,13 +77,13 @@ decor_expect($catalog['rates'] === ['common' => 75, 'rare' => 25] && array_sum($
 decor_expect(count(array_filter($catalog['items'], fn(array $item): bool =>
     $item['category'] === 'theme' || !in_array($item['rarity'], ['common', 'rare'], true))) === 0,
     'Neither the active catalog nor draw rates contains themes.');
-decor_expect(count(array_unique(array_column($catalog['items'], 'id'))) === 50
-    && count(array_unique(array_column($catalog['items'], 'name'))) === 50,
+decor_expect(count(array_unique(array_column($catalog['items'], 'id'))) === 1500
+    && count(array_unique(array_column($catalog['items'], 'name'))) === 1500,
     'Every catalog entry has a distinct stable identifier and name.');
 decor_expect(count(array_unique(array_column($catalog['items'], 'subcategory'))) >= 3
     && count(array_filter($catalog['items'], static fn(array $item): bool =>
         is_string($item['subcategory'] ?? null)
-        && preg_match('/\A[a-z0-9]+(?:[_-][a-z0-9]+)*\z/D', $item['subcategory']) === 1)) === 50,
+        && preg_match('/\A[a-z0-9]+(?:[_-][a-z0-9]+)*\z/D', $item['subcategory']) === 1)) === 1500,
     'Every decoration exposes a stable slug subcategory for the encyclopedia and backpack filters.');
 decor_expect(tree_decoration_subcategory(['category' => 'tree']) === 'tree'
     && tree_decoration_subcategory(['category' => 'tree', 'subcategory' => 'hanging-lights']) === 'hanging-lights',
@@ -102,7 +102,7 @@ $legacyIds = ['red-lantern', 'wishing-ribbons', 'wind-chime', 'birdhouse', 'mush
 foreach ($legacyIds as $id) { decor_expect(tree_decoration_item($id)['id'] === $id, "Legacy {$id} remains usable."); }
 $byRarity = tree_decoration_catalog_definition()['by_rarity'];
 $legacyCatalog = tree_decoration_catalog($pdo, tree_decoration_asset_version(null));
-decor_expect($legacyCatalog['catalog_version'] === 3 && count($legacyCatalog['items']) === 20
+decor_expect($legacyCatalog['catalog_version'] === 4 && count($legacyCatalog['items']) === 20
     && array_column($legacyCatalog['items'], 'id') === $legacyIds,
     'Clients without expanded assets receive the original twenty non-theme products with a purchasable current catalog version.');
 foreach ([null, 0, 2, '2', 'invalid', []] as $version) {
@@ -110,7 +110,9 @@ foreach ([null, 0, 2, '2', 'invalid', []] as $version) {
         'Absent, malformed and old asset versions use the safe legacy catalog.');
 }
 decor_expect(count(tree_decoration_catalog($pdo, tree_decoration_asset_version('3'))['items']) === 50,
-    'The HTTP asset-version parameter serves the current expanded catalog.');
+    'The HTTP asset-version parameter serves the compatibility catalog.');
+decor_expect(count(tree_decoration_catalog($pdo, tree_decoration_asset_version('4'))['items']) === 1500,
+    'The current asset-version parameter serves all shared-town decorations.');
 for ($roll = 1; $roll <= 100; $roll++) {
     foreach ([0, 3] as $assetVersion) foreach ([false, true] as $last) {
         $calls = 0;
@@ -118,7 +120,7 @@ for ($roll = 1; $roll <= 100; $roll++) {
             return $calls++ === 0 ? $roll : ($last ? $maximum : $minimum);
         }, $assetVersion);
         $rarity = $roll <= 75 ? 'common' : 'rare';
-        $pool = tree_decoration_catalog_definition()[$assetVersion < 3 ? 'legacy_by_rarity' : 'by_rarity'][$rarity];
+        $pool = tree_decoration_catalog_definition()[$assetVersion >= 4 ? 'by_rarity' : ($assetVersion >= 3 ? 'compat_by_rarity' : 'legacy_by_rarity')][$rarity];
         decor_expect($id === ($last ? $pool[count($pool) - 1] : $pool[0]),
             "Every probability roll and both item-pool boundaries select an active {$rarity} decoration for asset version {$assetVersion}.");
     }
@@ -192,7 +194,7 @@ $redeemId = $catalog['items'][count($catalog['items']) - 1]['id'];
 $redeemCost = tree_decoration_item($redeemId)['rarity'] === 'common' ? 80 : 240;
 $redeemed = tree_decoration_mutate($pdo, $userId, [
     'action' => 'redeem', 'operation_id' => 'redeem-original-item', 'item_id' => $redeemId,
-    'asset_version' => 3,
+    'asset_version' => 4,
 ], $clock);
 decor_expect($redeemed['shards'] === 800 - $redeemCost && in_array($redeemId, $redeemed['owned_ids'], true),
     'An original catalog decoration redeems with its existing rarity price.');
