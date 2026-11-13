@@ -18,6 +18,56 @@ public sealed class NpcWorkerSchedulingTests
     }
 
     [Fact]
+    public void DeterministicTradeSchedulePreservesActionPayload()
+    {
+        JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"trade\",\"target_id\":\"npc-2\",\"payload\":{\"item_id\":\"seed\",\"quantity\":3,\"amount\":30,\"seller_npc_id\":\"npc-1\",\"buyer_npc_id\":\"npc-2\"}}]").RootElement.Clone();
+        var npc = new Npc("npc-1", "商人", "merchant", true, false, new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), schedule, JsonDocument.Parse("{}").RootElement.Clone());
+        DateTimeOffset utcMondayAtNineInShanghai = new(2026, 11, 2, 1, 0, 0, TimeSpan.Zero);
+
+        PlannedAction action = DeterministicSchedule.Next(npc, utcMondayAtNineInShanghai, DeterministicSchedule.ResolveTimeZone("Asia/Shanghai"));
+
+        Assert.Equal("trade", action.Action);
+        Assert.Equal("seed", action.Payload.GetProperty("trade").GetProperty("item_id").GetString());
+        Assert.Equal(3, action.Payload.GetProperty("trade").GetProperty("quantity").GetInt32());
+        Assert.Equal(30, action.Payload.GetProperty("trade").GetProperty("amount").GetInt64());
+        Assert.Equal("npc-1", action.Payload.GetProperty("trade").GetProperty("seller_npc_id").GetString());
+        Assert.Equal("npc-2", action.Payload.GetProperty("trade").GetProperty("buyer_npc_id").GetString());
+    }
+
+    [Fact]
+    public void BrokeBuyerUsesActiveConfiguredWorkSlotBeforeTrade()
+    {
+        JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"work\",\"target_id\":\"farm-zone-3\",\"job\":\"water_crop\"}]").RootElement.Clone();
+        JsonElement economy = JsonDocument.Parse("{\"balance\":0,\"inventory\":[]}").RootElement.Clone();
+        var npc = new Npc("npc-1", "村民", "farmer", true, false, new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), schedule, JsonDocument.Parse("{}").RootElement.Clone(), Economy: economy);
+        JsonElement payload = JsonDocument.Parse("{\"target_npc_id\":\"npc-2\",\"trade\":{\"seller_npc_id\":\"npc-2\",\"buyer_npc_id\":\"npc-1\",\"item_id\":\"seed\",\"quantity\":1,\"amount\":10}}").RootElement.Clone();
+        PlannedAction proposed = new("trade", "npc-2", payload, "model");
+
+        PlannedAction fallback = DeterministicSchedule.PreferEarningWhenBroke(npc, proposed, new DateTimeOffset(2026, 11, 2, 1, 30, 0, TimeSpan.Zero), DeterministicSchedule.ResolveTimeZone("Asia/Shanghai"));
+
+        Assert.Equal("work", fallback.Action);
+        Assert.Equal("farm-zone-3", fallback.TargetId);
+        Assert.Equal("earn_when_broke", fallback.Reason);
+    }
+
+    [Fact]
+    public void DeterministicSlotKeyChangesByDateAndPayload()
+    {
+        JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"trade\",\"target_id\":\"npc-2\",\"payload\":{\"item_id\":\"seed\",\"quantity\":1,\"amount\":0}}]").RootElement.Clone();
+        var npc = new Npc("npc-1", "商人", "merchant", true, false, new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), schedule, JsonDocument.Parse("{}").RootElement.Clone());
+        TimeZoneInfo zone = DeterministicSchedule.ResolveTimeZone("Asia/Shanghai");
+        DateTimeOffset monday = new(2026, 11, 2, 1, 30, 0, TimeSpan.Zero);
+        DateTimeOffset nextMonday = monday.AddDays(7);
+
+        string? first = DeterministicSchedule.ActiveSlotKey(npc, monday, zone);
+        string? second = DeterministicSchedule.ActiveSlotKey(npc, nextMonday, zone);
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.NotEqual(first, second);
+    }
+
+    [Fact]
     public void InvalidTimezoneFallsBackToUtcAndOutsideScheduleRests()
     {
         JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"work\"}]").RootElement.Clone();
@@ -36,6 +86,23 @@ public sealed class NpcWorkerSchedulingTests
         JsonElement payload = JsonDocument.Parse("{\"dialogue\":\"先去浇水。\",\"required_capabilities\":[\"bridge_kit\"],\"steps\":[{\"action\":\"walk\",\"target\":\"farm-zone-3\"},{\"action\":\"work\",\"job\":\"water_crop\"}]}").RootElement;
 
         Assert.True(AgentPlanValidator.TryValidate("work", "farm-zone-3", "完成今天的浇水", payload, out string error), error);
+    }
+
+    [Fact]
+    public void AgentPlanValidatorAcceptsBoundedTradeIntent()
+    {
+        JsonElement payload = JsonDocument.Parse("{\"target_npc_id\":\"npc-2\",\"trade\":{\"seller_npc_id\":\"npc-1\",\"buyer_npc_id\":\"npc-2\",\"item_id\":\"seed\",\"quantity\":2,\"amount\":20,\"reason\":\"交换种子\"}}").RootElement;
+
+        Assert.True(AgentPlanValidator.TryValidate("trade", "npc-2", "交换两份种子", payload, out string error), error);
+    }
+
+    [Fact]
+    public void AgentPlanValidatorRejectsTradeWithoutInventoryEnvelope()
+    {
+        JsonElement payload = JsonDocument.Parse("{\"target_id\":\"npc-2\",\"item_id\":\"seed\",\"quantity\":1,\"amount\":10}").RootElement;
+
+        Assert.False(AgentPlanValidator.TryValidate("trade", "npc-2", "", payload, out string error));
+        Assert.Contains("trade", error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -122,5 +189,22 @@ public sealed class NpcWorkerSchedulingTests
             new[] { source, target });
 
         Assert.Equal("npc-2", action.TargetId);
+    }
+
+    [Fact]
+    public void SocialScheduleCarriesMostRecentSpatialMemoryToServer()
+    {
+        JsonElement context = JsonDocument.Parse("{\"memories\":[{\"memory_type\":\"conversation\",\"subject_npc_id\":\"npc-2\",\"tile_x\":18,\"tile_y\":7},{\"memory_type\":\"conversation_target_missing\",\"subject_npc_id\":\"npc-2\",\"tile_x\":3,\"tile_y\":3}]} ").RootElement.Clone();
+        var source = new Npc("npc-1", "花青", "merchant", true, false,
+            new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), JsonDocument.Parse("[]").RootElement.Clone(), JsonDocument.Parse("{}").RootElement.Clone(), context);
+        var target = new Npc("npc-2", "林野", "farmer", true, false,
+            new NpcRuntime(11, 10, "rest", null, Array.Empty<string>()), JsonDocument.Parse("[]").RootElement.Clone(), JsonDocument.Parse("{}").RootElement.Clone());
+
+        PlannedAction action = DeterministicSchedule.ResolveTalkTarget(source,
+            new PlannedAction("talk", "npc-2", JsonDocument.Parse("{}").RootElement.Clone(), "memory"),
+            new[] { source, target });
+
+        Assert.Equal(18, action.Payload.GetProperty("known_target").GetProperty("tile_x").GetInt32());
+        Assert.Equal(7, action.Payload.GetProperty("known_target").GetProperty("tile_y").GetInt32());
     }
 }
