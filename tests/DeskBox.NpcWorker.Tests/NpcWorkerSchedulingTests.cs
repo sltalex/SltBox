@@ -51,6 +51,22 @@ public sealed class NpcWorkerSchedulingTests
     }
 
     [Fact]
+    public void BrokeBuyerFindsNextWorkSlotWhenTradeSlotIsActive()
+    {
+        JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"trade\",\"target_id\":\"npc-2\",\"payload\":{\"item_id\":\"seed\",\"quantity\":1,\"amount\":10,\"seller_npc_id\":\"npc-2\",\"buyer_npc_id\":\"npc-1\"}},{\"weekday\":1,\"start_minute\":630,\"end_minute\":690,\"action\":\"work\",\"target_id\":\"farm-zone-3\",\"job\":\"water_crop\"}]").RootElement.Clone();
+        JsonElement economy = JsonDocument.Parse("{\"balance\":0,\"inventory\":[]}").RootElement.Clone();
+        var npc = new Npc("npc-1", "村民", "farmer", true, false, new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), schedule, JsonDocument.Parse("{}").RootElement.Clone(), Economy: economy);
+        PlannedAction trade = DeterministicSchedule.Next(npc, new DateTimeOffset(2026, 11, 2, 1, 30, 0, TimeSpan.Zero), DeterministicSchedule.ResolveTimeZone("Asia/Shanghai"));
+
+        PlannedAction fallback = DeterministicSchedule.PreferEarningWhenBroke(npc, trade, new DateTimeOffset(2026, 11, 2, 1, 30, 0, TimeSpan.Zero), DeterministicSchedule.ResolveTimeZone("Asia/Shanghai"));
+
+        Assert.Equal("work", fallback.Action);
+        Assert.Equal("farm-zone-3", fallback.TargetId);
+        Assert.Equal("water_crop", fallback.Payload.GetProperty("job").GetString());
+        Assert.Equal("earn_when_broke", fallback.Reason);
+    }
+
+    [Fact]
     public void DeterministicSlotKeyChangesByDateAndPayload()
     {
         JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"trade\",\"target_id\":\"npc-2\",\"payload\":{\"item_id\":\"seed\",\"quantity\":1,\"amount\":0}}]").RootElement.Clone();

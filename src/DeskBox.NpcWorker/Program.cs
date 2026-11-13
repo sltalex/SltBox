@@ -616,9 +616,41 @@ public static class DeterministicSchedule
     {
         if (!string.Equals(action.Action, "trade", StringComparison.Ordinal) || !IsBuyer(npc, action) || !IsBroke(npc)) return action;
         PlannedAction scheduled = Next(npc, now, timeZone);
-        return string.Equals(scheduled.Action, "work", StringComparison.Ordinal)
-            ? scheduled with { Reason = "earn_when_broke" }
-            : action;
+        if (string.Equals(scheduled.Action, "work", StringComparison.Ordinal)) return scheduled with { Reason = "earn_when_broke" };
+        PlannedAction? nextWork = NextEarningWork(npc, now, timeZone);
+        return nextWork is null ? action : nextWork with { Reason = "earn_when_broke" };
+    }
+
+    /// <summary>
+    /// Find the nearest configured work slot when the active deterministic slot
+    /// is a purchase the NPC cannot afford. This keeps the no-model fallback
+    /// useful instead of repeatedly submitting an impossible trade.
+    /// </summary>
+    public static PlannedAction? NextEarningWork(Npc npc, DateTimeOffset now, TimeZoneInfo? timeZone = null)
+    {
+        if (npc.Schedule.ValueKind != JsonValueKind.Array) return null;
+        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? TimeZoneInfo.Utc).DateTime;
+        int minute = local.Hour * 60 + local.Minute;
+        int day = (int)local.DayOfWeek;
+        JsonElement? selected = null;
+        int selectedOffset = int.MaxValue;
+        int selectedStart = int.MaxValue;
+        foreach (JsonElement slot in npc.Schedule.EnumerateArray())
+        {
+            if (!slot.TryGetProperty("action", out JsonElement action) || !string.Equals(action.GetString(), "work", StringComparison.Ordinal)) continue;
+            if (!slot.TryGetProperty("weekday", out JsonElement weekday) || !weekday.TryGetInt32(out int slotDay)) continue;
+            if (!slot.TryGetProperty("start_minute", out JsonElement start) || !start.TryGetInt32(out int startMinute)) continue;
+            if (!slot.TryGetProperty("end_minute", out JsonElement end) || !end.TryGetInt32(out int endMinute) || endMinute <= startMinute) continue;
+            int offset = (slotDay - day + 7) % 7;
+            if (offset == 0 && startMinute < minute) offset = 7;
+            if (offset < selectedOffset || (offset == selectedOffset && startMinute < selectedStart))
+            {
+                selected = slot.Clone();
+                selectedOffset = offset;
+                selectedStart = startMinute;
+            }
+        }
+        return selected is JsonElement workSlot ? BuildScheduledAction(npc, workSlot) : null;
     }
 
     private static bool IsBroke(Npc npc)
@@ -730,25 +762,34 @@ public static class DeterministicSchedule
         DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? TimeZoneInfo.Utc).DateTime;
         int minute = local.Hour * 60 + local.Minute; int day = (int)local.DayOfWeek;
         foreach (JsonElement slot in npc.Schedule.EnumerateArray()) if ((slot.TryGetProperty("weekday", out JsonElement weekday) ? weekday.GetInt32() : day) == day && minute >= slot.GetProperty("start_minute").GetInt32() && minute < slot.GetProperty("end_minute").GetInt32()) {
-            string action = slot.GetProperty("action").GetString() ?? "rest"; string? targetId = slot.TryGetProperty("target_id", out JsonElement target) ? target.GetString() : null; string? jobValue = slot.TryGetProperty("job", out JsonElement job) ? job.GetString() : null;
-            Dictionary<string, object?> payload = new() { ["target_id"] = targetId, ["job"] = jobValue };
-            if (slot.TryGetProperty("payload", out JsonElement scheduledPayload) && scheduledPayload.ValueKind == JsonValueKind.Object)
-            {
-                Dictionary<string, JsonElement> extra = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(scheduledPayload.GetRawText()) ?? new();
-                foreach ((string key, JsonElement value) in extra) payload[key] = value;
-            }
-            if (string.Equals(action, "trade", StringComparison.Ordinal)) {
-                JsonElement trade = payload.TryGetValue("trade", out object? tradeValue) && tradeValue is JsonElement tradeElement && tradeElement.ValueKind == JsonValueKind.Object ? tradeElement : default;
-                string? itemId = ReadString(trade, "item_id") ?? ReadString(payload, "item_id");
-                int quantity = ReadInt32(trade, "quantity") ?? ReadInt32(payload, "quantity") ?? 1;
-                long amount = ReadInt64(trade, "amount") ?? ReadInt64(payload, "amount") ?? 0;
-                string? seller = ReadString(trade, "seller_npc_id") ?? ReadString(payload, "seller_npc_id") ?? npc.Id;
-                string? buyer = ReadString(trade, "buyer_npc_id") ?? ReadString(payload, "buyer_npc_id") ?? targetId;
-                payload["target_npc_id"] = targetId; payload["trade"] = new { seller_npc_id = seller, buyer_npc_id = buyer, item_id = itemId ?? "", quantity, amount, reason = "按日程交换物资" };
-            }
-            return new PlannedAction(action, targetId, JsonSerializer.SerializeToElement(payload), "deterministic_schedule");
+            return BuildScheduledAction(npc, slot);
         }
         return new PlannedAction("rest", null, JsonSerializer.SerializeToElement(new { reason = "outside_schedule" }), "outside_schedule");
+    }
+
+    private static PlannedAction BuildScheduledAction(Npc npc, JsonElement slot)
+    {
+        string action = slot.GetProperty("action").GetString() ?? "rest";
+        string? targetId = slot.TryGetProperty("target_id", out JsonElement target) ? target.GetString() : null;
+        string? jobValue = slot.TryGetProperty("job", out JsonElement job) ? job.GetString() : null;
+        Dictionary<string, object?> payload = new() { ["target_id"] = targetId, ["job"] = jobValue };
+        if (slot.TryGetProperty("payload", out JsonElement scheduledPayload) && scheduledPayload.ValueKind == JsonValueKind.Object)
+        {
+            Dictionary<string, JsonElement> extra = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(scheduledPayload.GetRawText()) ?? new();
+            foreach ((string key, JsonElement value) in extra) payload[key] = value;
+        }
+        if (string.Equals(action, "trade", StringComparison.Ordinal))
+        {
+            JsonElement trade = payload.TryGetValue("trade", out object? tradeValue) && tradeValue is JsonElement tradeElement && tradeElement.ValueKind == JsonValueKind.Object ? tradeElement : default;
+            string? itemId = ReadString(trade, "item_id") ?? ReadString(payload, "item_id");
+            int quantity = ReadInt32(trade, "quantity") ?? ReadInt32(payload, "quantity") ?? 1;
+            long amount = ReadInt64(trade, "amount") ?? ReadInt64(payload, "amount") ?? 0;
+            string? seller = ReadString(trade, "seller_npc_id") ?? ReadString(payload, "seller_npc_id") ?? npc.Id;
+            string? buyer = ReadString(trade, "buyer_npc_id") ?? ReadString(payload, "buyer_npc_id") ?? targetId;
+            payload["target_npc_id"] = targetId;
+            payload["trade"] = new { seller_npc_id = seller, buyer_npc_id = buyer, item_id = itemId ?? "", quantity, amount, reason = "按日程交换物资" };
+        }
+        return new PlannedAction(action, targetId, JsonSerializer.SerializeToElement(payload), "deterministic_schedule");
     }
 
     /// <summary>
