@@ -803,6 +803,7 @@ town_npc_decision_policies
 - 房屋拆分发布备份：`/root/deskbox-backups/town-asset-split-20261114-175143/`；`town_asset_items.split_y` 已在线执行为 `SMALLINT`，迁移 SQL、PHP 8.2 语法检查和三份远程 SHA-256 回读均通过。
 - 房屋拆分后台保存调用链已补齐并部署；`admin_web.php`、`town_assets.php`、后台视图和 `045_town_asset_split_occlusion.sql` 的远程 SHA-256 与本地一致。
 - 自动识别批量草稿发布备份：`/root/deskbox-backups/town-asset-bulk-20261114-180826/`；`town_assets.php`、`admin_web.php`、`api/admin/index.php`、`town-assets.js` 均完成 PHP/本地 JS 检查，远程 SHA-256 与本地一致，后台入口公网 HTTP 返回 200。
+- 真实房屋样例已发布到素材版本 14：`town-source-fangwu01`（房屋01）为 `sort_mode=split`、`split_y=96`；发布前状态为 `y_sort / NULL`，可使用发布版本回滚恢复。
 
 ### 17.4 明确暂缓范围
 
