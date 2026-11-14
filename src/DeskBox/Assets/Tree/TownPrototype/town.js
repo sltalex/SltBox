@@ -1,11 +1,11 @@
 import { clone, validateLayout, validatePlacement, playerCanStand, findStandingPosition } from './town-rules.js';
 import { mergePresenceDelta, expirePresence, presencePosition, mergeNpcDelta } from './town-realtime.js';
+import { createResidents } from './town-residents.js';
+import { objectDepth, splitDisplayMetrics, splitForegroundDepth, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER, TOWN_TERRAIN_DEPTH } from './town-depth.js';
 
 // Shared town scene; the authenticated server owns world and player state.
 const $ = id => document.getElementById(id);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-const TOWN_LAYER_STEP = 1000;
-const TOWN_PLAYER_LAYER = 3;
 const state = {
   catalog: null, initial: null, layout: null, scene: null, game: null, world: null, assetSheets: new Map(), townAssets: new Map(), chunks: new Map(), objects: new Map(), presence: new Map(), npcs: new Map(), npcCursor: 0, inventory: new Map(), pendingActions: new Map(), cursor: 0, graylisted: false, requestedChunks: new Set(), shared: true,
   mode: 'roam', category: 'all', selectedAsset: null, selectedInstance: null,
@@ -14,8 +14,26 @@ const state = {
   visible: !document.hidden, hostActive: true, noticeTimer: null, pendingState: null,
   playerReady: false, awaitingSpawn: false, lastSentPosition: null, wasMoving: false,
   lastPresencePollAt: 0, presencePollPendingUntil: 0, lastNpcPollAt: 0, npcPollPendingUntil: 0,
-  status: '正在载入…', fatal: false, realtime: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: [], assetImages: new Map(), assetCatalogReleaseVersion: -1, assetCatalogHash: null, sheetStates: new Map()
+  status: '正在载入…', fatal: false, realtime: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: [], recentAssets: [], assetImages: new Map(), assetCatalogReleaseVersion: -1, assetCatalogHash: null, sheetStates: new Map(), dialogueBubbles: new Map(), showNpcNames: false, showNpcStates: false
 };
+
+const residents = createResidents({
+  host, clearKeys,
+  refreshNpc: () => state.scene?.renderNpcs?.(),
+  avatarUrl: id => catalogItem(id)?.asset || null,
+  locate(id, follow) {
+    const scene = state.scene, npc = state.npcs.get(id); if (!scene || !npc) return;
+    scene.cameras.main.stopFollow();
+    const sprite = scene.npcImages?.get(id), r = npc.runtime || npc;
+    scene.cameras.main.centerOn(sprite?.x ?? (Number(r.tile_x)+.5)*16, sprite?.y ?? (Number(r.tile_y)+1)*16);
+    if (follow && sprite) scene.cameras.main.startFollow(sprite, true, .15, .15);
+  },
+  stopFollowing() {
+    const scene = state.scene; if (!scene) return;
+    scene.cameras.main.stopFollow();
+    if (state.mode === 'roam' && scene.player) scene.cameras.main.startFollow(scene.player, true, .12, .12, 0, 48);
+  }
+});
 
 const townCategoryLabels = {
   character: '人物', animal: '动物', monster: '怪物', terrain: '地形', water: '水面', farmland: '农田',
@@ -74,6 +92,59 @@ function notice(message, duration = 2600) {
   state.noticeTimer = window.setTimeout(() => { $('notice').hidden = true; }, duration);
 }
 
+function renderDialogueBubbles() {
+  const hostElement = $('town-bubbles'), scene = state.scene;
+  if (!hostElement || !scene || !state.catalog || state.fatal) return;
+  const statusOnlyDialogues = new Set(['与玩家交谈', '正在与玩家进行交谈', '交谈中', 'player_talk']);
+  const candidates = [...state.npcs.values()]
+    .filter(npc => npc.enabled !== false && ['talk', 'player_talk'].includes((npc.runtime || npc).state))
+    .map(npc => ({ npc, runtime: npc.runtime || npc, id: npc.npc_id || npc.id, text: String((npc.runtime || npc).dialogue || '').trim() }))
+    .filter(item => item.id && item.text && !statusOnlyDialogues.has(item.text))
+    .sort((a, b) => (a.id === residents.selectedId() ? -1 : 0) - (b.id === residents.selectedId() ? -1 : 0) || a.id.localeCompare(b.id))
+    .slice(0, 4);
+  const active = new Set(candidates.map(item => item.id));
+  for (const [id, entry] of state.dialogueBubbles) {
+    if (!active.has(id)) { entry.node.remove(); state.dialogueBubbles.delete(id); }
+  }
+  const canvas = $('game')?.querySelector('canvas'), viewport = $('map-viewport');
+  if (!canvas || !viewport) return;
+  const canvasRect = canvas.getBoundingClientRect(), viewportRect = viewport.getBoundingClientRect();
+  const camera = scene.cameras.main, internalWidth = Math.max(1, scene.scale.width), internalHeight = Math.max(1, scene.scale.height);
+  const occupied = [];
+  const now = performance.now();
+  for (const item of candidates) {
+    let entry = state.dialogueBubbles.get(item.id);
+    if (!entry || entry.text !== item.text) {
+      entry?.node.remove();
+      const node = document.createElement('button'); node.type = 'button'; node.className = 'town-dialogue-bubble';
+      node.addEventListener('click', () => residents.choose(item.id));
+      state.dialogueBubbles.set(item.id, entry = { node, text: item.text, startedAt: now });
+      hostElement.append(node);
+    }
+    const elapsed = now - entry.startedAt;
+    const lifetime = Math.min(6000, Math.max(3000, 2200 + item.text.length * 105));
+    if (elapsed >= lifetime) { entry.node.remove(); state.dialogueBubbles.delete(item.id); continue; }
+    entry.node.textContent = `${item.npc.name || '村民'}：${item.text}`;
+    entry.node.setAttribute('aria-label', `${item.npc.name || '村民'}说：${item.text}。点击查看聊天记录`);
+    const sprite = scene.npcImages?.get(item.id), worldX = sprite?.x ?? ((Number(item.runtime.tile_x) + .5) * 16), worldY = sprite?.y ?? ((Number(item.runtime.tile_y) + 1) * 16);
+    const px = (worldX - camera.worldView.x) * camera.zoom / internalWidth * canvasRect.width + (canvasRect.left - viewportRect.left);
+    const py = (worldY - camera.worldView.y) * camera.zoom / internalHeight * canvasRect.height + (canvasRect.top - viewportRect.top);
+    const width = entry.node.offsetWidth, height = entry.node.offsetHeight;
+    const offsets = [[0, -height - 8], [0, height + 16], [-width / 2 - 8, -height / 2], [width / 2 + 8, -height / 2]];
+    let chosen = offsets[0], bestScore = Number.POSITIVE_INFINITY;
+    for (const [ox, oy] of offsets) {
+      const left = px + ox - width / 2, top = py + oy - height, right = left + width, bottom = top + height;
+      const overflow = Math.max(0, -left) + Math.max(0, -top) + Math.max(0, right - viewportRect.width) + Math.max(0, bottom - viewportRect.height);
+      const overlap = occupied.reduce((score, box) => score + Math.max(0, Math.min(right, box.right) - Math.max(left, box.left)) * Math.max(0, Math.min(bottom, box.bottom) - Math.max(top, box.top)), 0);
+      const score = overflow * 1000 + overlap;
+      if (score < bestScore) { bestScore = score; chosen = [ox, oy]; }
+    }
+    const left = px + chosen[0], top = py + chosen[1];
+    entry.node.style.left = `${left}px`; entry.node.style.top = `${top}px`;
+    occupied.push({ left: left - width / 2, right: left + width / 2, top: top - height, bottom: top });
+  }
+}
+
 function confirmAction(title, message) {
   clearKeys();
   const dialog = $('confirmation');
@@ -101,6 +172,9 @@ function currentOwner() { return state.world?.account_id || state.world?.account
 function canEditObject(value) { const owner = value?.owner_id || value?.owner_user_id || value?.owner || ''; return !!owner && owner === currentOwner(); }
 
 function updateUI() {
+  const workspace = document.querySelector('.workspace');
+  workspace?.classList.toggle('mode-roam', state.mode === 'roam');
+  workspace?.classList.toggle('mode-edit', state.mode === 'edit');
   if (!state.catalog || !state.layout) return;
   $('roam').classList.toggle('active', state.mode === 'roam');
   $('edit').classList.toggle('active', state.mode === 'edit');
@@ -117,6 +191,10 @@ function updateUI() {
   $('save').textContent = state.saving ? '正在保存…' : '保存小镇';
   $('reload').disabled = state.saving;
   $('version-label').textContent = state.graylisted ? `共享版本 ${state.version} · ${state.realtime ? '实时连接' : '轮询同步'}` : '共享小镇 · 灰度开放';
+  if ($('realtime-label')) $('realtime-label').textContent = state.realtime ? '实时连接' : '轮询同步';
+  if ($('realtime-dot')) $('realtime-dot').className = `status-dot ${state.realtime ? 'ok' : 'busy'}`;
+  if ($('player-action-label')) $('player-action-label').textContent = state.mode === 'edit' ? '编辑地图' : '漫游小镇';
+  if ($('zoom-status')) $('zoom-status').textContent = `${state.zoom}×`;
   $('save-state').textContent = state.status;
   $('save-state').className = `save-state${state.conflict || state.status.includes('失败') || state.status.includes('超时') ? ' error' : state.dirty ? ' dirty' : state.version > 0 ? ' saved' : ''}`;
   const counts = new Map();
@@ -131,8 +209,30 @@ function updateUI() {
   for (const button of document.querySelectorAll('#categories [data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
 }
 
+function selectMaterial(item) {
+  if (!state.graylisted) { notice('共享小镇正在灰度开放'); return; }
+  if (item.asset_source !== 'town' && (state.inventory.get(item.id) ?? 0) <= 0) { notice('这种材料暂无可用库存'); return; }
+  state.recentAssets = [item.id, ...state.recentAssets.filter(id => id !== item.id)].slice(0, 6);
+  state.mode = 'edit'; state.selectedAsset = item.id; state.selectedInstance = null;
+  state.scene?.loadItemTexture(item); state.scene?.cameras.main.stopFollow(); state.scene?.cancelDrag(); state.scene?.refreshGhost(); updateUI(); renderRecentMaterials(); $('game').focus({ preventScroll: true });
+}
+
+function renderRecentMaterials() {
+  const root = $('recent-materials'), list = $('recent-material-list');
+  if (!root || !list) return;
+  const items = state.recentAssets.map(id => catalogItem(id)).filter(Boolean);
+  root.hidden = !items.length;
+  list.replaceChildren(...items.map(item => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'recent-material-item'; button.title = item.name;
+    const image = Object.assign(document.createElement('img'), { src: item.asset || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=', alt: '', draggable: false });
+    button.append(image, Object.assign(document.createElement('span'), { textContent: item.name }));
+    button.addEventListener('click', () => selectMaterial(item)); return button;
+  }));
+}
+
 function renderMaterials() {
   renderCategories();
+  renderRecentMaterials();
   updateAssetStatus();
   const list = townMaterialItems().filter(item => (state.category === 'all' || item.category === state.category) && (state.subcategory === 'all' || item.subcategory === state.subcategory) && (!state.search || `${item.name} ${item.id}`.toLowerCase().includes(state.search.toLowerCase())));
   const pages = Math.max(1, Math.ceil(list.length / 24));
@@ -146,12 +246,7 @@ function renderMaterials() {
     button.dataset.loadState = state.sheetStates.get(item.sheet_id)?.status || 'loading';
     image.addEventListener('error', () => { image.classList.remove('asset-loading'); image.classList.add('asset-error'); image.alt = '素材加载失败'; });
     button.append(image, Object.assign(document.createElement('span'), { className: 'item-name', textContent: item.name }), Object.assign(document.createElement('span'), { className: 'remaining' }));
-    button.addEventListener('click', () => {
-      if (!state.graylisted) { notice('共享小镇正在灰度开放'); return; }
-      if (item.asset_source !== 'town' && (state.inventory.get(item.id) ?? 0) <= 0) { notice('这种材料暂无可用库存'); return; }
-      state.mode = 'edit'; state.selectedAsset = item.id; state.selectedInstance = null;
-      state.scene?.loadItemTexture(item); state.scene?.cameras.main.stopFollow(); state.scene?.cancelDrag(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true });
-    }); return button;
+    button.addEventListener('click', () => selectMaterial(item)); return button;
   });
   $('material-list').replaceChildren(...elements);
   if ($('page-label')) $('page-label').textContent = `${state.page} / ${pages} · ${list.length} 项`;
@@ -299,6 +394,8 @@ function diagnostics() {
 }
 
 window.DeskBoxTownPrototype = {
+  setResidentDetail: residents.detail, setResidentConversations: residents.history,
+  setResidentInviteResult: residents.inviteResult,
   loadState, loadWorld, loadChunks, applyChanges, setPresence, setNpcs, applyNpcChanges, applyRealtimeNpc, applyRealtimePresence, applyRealtimeSnapshot, setRealtimeState, setInventory, setAssetCatalog, setAssetSheet, applyActionResult, setWorld, setChunks,
   setSaveStatus,
   setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
@@ -314,7 +411,7 @@ window.DeskBoxTownPrototype = {
 Object.defineProperty(window, '__townPrototypeDiagnostics', { get: diagnostics });
 
 class TownScene extends (window.Phaser?.Scene || class {}) {
-  constructor() { super('town-prototype'); this.objectImages = new Map(); this.presenceImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
+  constructor() { super('town-prototype'); this.objectImages = new Map(); this.objectForegroundImages = new Map(); this.presenceImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
 
   preload() {
     this.failedAssets = [];
@@ -370,8 +467,8 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
 
   drawTerrain() {
     const size = 16, width = state.catalog.map_width * size, height = state.catalog.map_height * size;
-    this.add.tileSprite(0, 0, width, height, 'terrain-grass').setOrigin(0).setDepth(-100);
-    const g = this.add.graphics().setDepth(-90), world = state.catalog.world || {};
+    this.add.tileSprite(0, 0, width, height, 'terrain-grass').setOrigin(0).setDepth(TOWN_TERRAIN_DEPTH);
+    const g = this.add.graphics().setDepth(TOWN_TERRAIN_DEPTH + 10), world = state.catalog.world || {};
     const road = (x, y, w, h, color = 0xd6c184) => { g.fillStyle(color, 1); g.fillRect(x * size, y * size, w * size, h * size); };
     road(88, 0, 16, state.catalog.map_height); road(0, 88, state.catalog.map_width, 16); road(64, 94, 40, 4, 0xe1cf91);
     const river = world.river;
@@ -422,25 +519,75 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     return false;
   }
 
+  splitCrop(item) {
+    return splitDisplayMetrics(item);
+  }
+
+  destroyObjectVisual(instanceId) {
+    this.objectImages.get(instanceId)?.destroy();
+    this.objectImages.delete(instanceId);
+    this.objectForegroundImages.get(instanceId)?.destroy();
+    this.objectForegroundImages.delete(instanceId);
+  }
+
+  setObjectVisual(placement, item, x, y, alpha = 1, tint = 0xffffff) {
+    const image = this.objectImages.get(placement.instance_id);
+    if (!image) return;
+    const split = this.splitCrop(item);
+    image.setPosition(x, split ? y - split.frontHeight : y)
+      .setDepth(objectDepth(item, placement, y))
+      .setAlpha(alpha).setTint(tint);
+    if (split) {
+      const foreground = this.objectForegroundImages.get(placement.instance_id);
+      foreground?.setPosition(x, y).setDepth(splitForegroundDepth(y)).setAlpha(alpha).setTint(tint);
+    }
+  }
+
+  createObjectImages(placement, item) {
+    let image = this.objectImages.get(placement.instance_id);
+    if (!image) {
+      image = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1);
+      this.objectImages.set(placement.instance_id, image);
+    }
+    const split = this.splitCrop(item);
+    let foreground = this.objectForegroundImages.get(placement.instance_id);
+    if (split && !foreground) {
+      foreground = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1);
+      this.objectForegroundImages.set(placement.instance_id, foreground);
+    }
+    if (!split && foreground) {
+      foreground.destroy();
+      this.objectForegroundImages.delete(placement.instance_id);
+      foreground = null;
+    }
+    image.setTexture(`item-${item.id}`).setCrop(0, 0, item.width, split ? split.splitY : item.height);
+    if (foreground) {
+      foreground.setTexture(`item-${item.id}`).setCrop(0, split.splitY, item.width, item.height - split.splitY);
+      foreground.setDisplaySize(item.display_width, split.frontHeight);
+    }
+    image.setDisplaySize(item.display_width, split ? split.backHeight : item.display_height);
+    return { image, foreground, split };
+  }
+
   renderObjects() {
     if (!state.layout || !this.objectShadows) return;
     const ids = new Set(state.layout.placements.map(item => item.instance_id));
-    for (const [id, image] of this.objectImages) if (!ids.has(id)) { image.destroy(); this.objectImages.delete(id); }
+    for (const id of this.objectImages.keys()) if (!ids.has(id)) this.destroyObjectVisual(id);
+    for (const id of this.objectForegroundImages.keys()) if (!ids.has(id)) this.destroyObjectVisual(id);
     this.objectShadows.clear();
     for (const placement of state.layout.placements) {
       const item = catalogItem(placement.asset_id);
       const bounds = placement.footprint || item?.footprint || { width: 1, height: 1 };
       if (!item || !this.loadItemTexture(item)) {
-        this.objectImages.get(placement.instance_id)?.destroy(); this.objectImages.delete(placement.instance_id);
+        this.destroyObjectVisual(placement.instance_id);
         this.objectShadows.lineStyle(1, canEditObject(placement) ? 0xf7e3a2 : 0x777f68, .95);
         this.objectShadows.strokeRect(placement.tile_x*16, placement.tile_y*16, bounds.width*16, bounds.height*16);
         continue;
       }
-      let image = this.objectImages.get(placement.instance_id);
-      if (!image) { image = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1); this.objectImages.set(placement.instance_id, image); }
+      const { image } = this.createObjectImages(placement, item);
       const {x,y}=visualPosition(item,placement.tile_x,placement.tile_y,bounds);
-      const layer = Math.min(6, Math.max(1, Number(placement.layer || 1)));
-      image.setTexture(`item-${item.id}`).setPosition(x, y).setDisplaySize(item.display_width, item.display_height).setDepth((placement.tile_y+bounds.height)*16 + layer * TOWN_LAYER_STEP).setAlpha(1).clearTint();
+      this.setObjectVisual(placement, item, x, y, 1, 0xffffff);
+      image.clearTint(); this.objectForegroundImages.get(placement.instance_id)?.clearTint();
       if (item.category === 'building') {
         this.objectShadows.fillStyle(0x2f4928, .12);
         this.objectShadows.fillEllipse(x, y - 3, item.footprint.width * 16 + 7, Math.max(8, item.footprint.height * 8));
@@ -478,7 +625,10 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   }
 
   renderNpcs() {
+    residents.update(state.npcs);
     const visible = new Set();
+    let nearbyId = null, nearbyDistance = Infinity;
+    const playerTile = this.player ? { x: this.player.x / 16, y: this.player.y / 16 } : null;
     for (const npc of state.npcs.values()) {
       if (npc.enabled === false) continue;
       const id = npc.npc_id || npc.id;
@@ -487,22 +637,41 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       const runtime = npc.runtime || npc;
       const route = Array.isArray(runtime.route) ? runtime.route.filter(point => Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y))) : [];
       const x = (Number(runtime.tile_x || 0) + .5) * 16, y = (Number(runtime.tile_y || 0) + 1) * 16;
+      if (playerTile) {
+        const distance = Math.hypot(Number(runtime.tile_x || 0) + .5 - playerTile.x, Number(runtime.tile_y || 0) + .5 - playerTile.y);
+        if (distance <= 5 && distance < nearbyDistance) { nearbyId = id; nearbyDistance = distance; }
+      }
       const item = npc.avatar_asset_id ? catalogItem(npc.avatar_asset_id) : null;
       const textureKey = item && this.textures.exists(`item-${item.id}`) ? `item-${item.id}` : 'player';
       let container = this.npcImages.get(id);
       if (!container) {
         const avatar = this.add.sprite(0, 0, textureKey, 0).setOrigin(.5, 1);
         const label = this.add.text(0, -36, npc.name || '村民', { fontFamily: 'Microsoft YaHei', fontSize: '10px', color: '#fffef0', backgroundColor: '#5b3e39dd', padding: { x: 3, y: 2 } }).setOrigin(.5, 1);
-        const bubble = this.add.text(0, -56, '', { fontFamily: 'Microsoft YaHei', fontSize: '9px', color: '#3e2b25', backgroundColor: '#fff8dfdd', padding: { x: 3, y: 2 }, wordWrap: { width: 130 } }).setOrigin(.5, 1);
-        container = this.add.container(x, y, [avatar, label, bubble]);
+        const stateLabel = this.add.text(0, -49, '', { fontFamily: 'Microsoft YaHei', fontSize: '8px', color: '#fffef0', backgroundColor: '#294432cc', padding: { x: 2, y: 1 } }).setOrigin(.5, 1);
+        // Dialogue is rendered by the DOM bubble layer so it can wrap, remain
+        // accessible and follow the same visual style as player chat. Keep a
+        // hidden Phaser slot for compatibility with existing container indices.
+        const bubble = this.add.text(0, -64, '', { fontFamily: 'Microsoft YaHei', fontSize: '9px', color: '#3e2b25', backgroundColor: '#fff8dfdd', padding: { x: 3, y: 2 }, wordWrap: { width: 130 } }).setOrigin(.5, 1).setVisible(false);
+        container = this.add.container(x, y, [avatar, label, stateLabel, bubble]);
         this.npcImages.set(id, container);
       }
-      const avatar = container.list[0], label = container.list[1], bubble = container.list[2];
+      const avatar = container.list[0], label = container.list[1], stateLabel = container.list[2], bubble = container.list[3];
       avatar.setTexture(textureKey, 0);
       if (textureKey === 'player') avatar.setTint(0xffd58a); else avatar.clearTint();
       label.setText(npc.name || '村民');
-      const status = runtime.dialogue || runtime.state || '休息';
-      bubble.setText(status);
+      const stateNames = { walk: '行走', work: '工作', rest: '休息', talk: '交谈', player_talk: '面对面交谈', follow: '跟随', wait: '等待' };
+      const stateName = stateNames[runtime.state] || runtime.state || '休息';
+      stateLabel.setText(stateName);
+      label.setVisible(state.showNpcNames);
+      stateLabel.setVisible(state.showNpcStates);
+      // A dialogue bubble is a confirmed line of speech, not a replacement
+      // for the NPC's state label.  The server only marks a talk task as
+      // dialogue-ready after the target is still available, adjacent, and
+      // facing the initiator; hide stale text as soon as the NPC leaves talk.
+      const dialogue = ['talk', 'player_talk'].includes(runtime.state) && typeof runtime.dialogue === 'string' ? runtime.dialogue.trim() : '';
+      const speech = new Set(['与玩家交谈', '正在与玩家进行交谈', '交谈中', 'player_talk']).has(dialogue) ? '' : dialogue;
+      bubble.setText('');
+      bubble.setVisible(false);
       const depth = y + TOWN_PLAYER_LAYER * TOWN_LAYER_STEP + 3;
       container.setDepth(depth);
       const routeKey = route.length > 1 ? `${runtime.task_id || runtime.current_task_id || ''}:${JSON.stringify(route)}` : '';
@@ -528,12 +697,14 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
           this.tweens.add({ targets: container, x, y, duration: Math.min(900, Math.max(220, Math.hypot(container.x - x, container.y - y) * 3)), ease: 'Sine.easeInOut' });
         } else container.setPosition(x, y);
       }
-      if (runtime.state === 'work' || runtime.state === 'talk') {
+      if (runtime.state === 'work' || runtime.state === 'talk' || runtime.state === 'player_talk') {
         this.tweens.killTweensOf(avatar);
         this.tweens.add({ targets: avatar, y: -2, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       } else this.tweens.killTweensOf(avatar);
     }
     for (const [id, value] of this.npcImages) if (!visible.has(id)) { value.destroy(); this.npcImages.delete(id); }
+    residents.nearby(nearbyId, Number.isFinite(nearbyDistance) ? nearbyDistance : null);
+    renderDialogueBubbles();
   }
 
   drawGrid() {
@@ -556,14 +727,21 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   }
 
   itemAt(x, y) {
-    const values = [...state.layout.placements].filter(value => this.objectImages.has(value.instance_id)).sort((a, b) => this.objectImages.get(b.instance_id).depth - this.objectImages.get(a.instance_id).depth);
+    const depth = placement => Math.max(this.objectImages.get(placement.instance_id)?.depth ?? Number.NEGATIVE_INFINITY, this.objectForegroundImages.get(placement.instance_id)?.depth ?? Number.NEGATIVE_INFINITY);
+    const values = [...state.layout.placements].filter(value => this.objectImages.has(value.instance_id) || this.objectForegroundImages.has(value.instance_id)).sort((a, b) => depth(b) - depth(a));
     for (const placement of values) {
       const image = this.objectImages.get(placement.instance_id);
-      if (!image.getBounds().contains(x, y)) continue;
-      const textureX = Math.floor((x - image.getTopLeft().x) / image.scaleX);
-      const textureY = Math.floor((y - image.getTopLeft().y) / image.scaleY);
-      const alpha = this.textures.getPixelAlpha(textureX, textureY, image.texture.key);
-      if (alpha === null || alpha > 24) return placement;
+      const foreground = this.objectForegroundImages.get(placement.instance_id);
+      const candidates = [];
+      if (foreground?.getBounds().contains(x, y)) candidates.push({ visual: foreground, cropY: this.splitCrop(catalogItem(placement.asset_id))?.splitY || 0 });
+      if (image?.getBounds().contains(x, y)) candidates.push({ visual: image, cropY: 0 });
+      for (const candidate of candidates) {
+        const visual = candidate.visual;
+        const textureX = Math.floor((x - visual.getTopLeft().x) / visual.scaleX);
+        const textureY = candidate.cropY + Math.floor((y - visual.getTopLeft().y) / visual.scaleY);
+        const alpha = this.textures.getPixelAlpha(textureX, textureY, visual.texture.key);
+        if (alpha === null || alpha > 24) return placement;
+      }
     }
     return [...state.layout.placements].reverse().find(value => {
       const foot = value.footprint || catalogItem(value.asset_id)?.footprint || {width:1,height:1};
@@ -642,8 +820,8 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
         this.drag.error = validatePlacement(state.catalog, state.layout, placement.asset_id, this.drag.tileX, this.drag.tileY, placement.instance_id, this.player);
         this.drag.valid = !this.drag.error;
         const item = catalogItem(placement.asset_id);
-         const layer = Math.min(6, Math.max(1, Number(placement.layer || 1)));
-         this.objectImages.get(placement.instance_id)?.setPosition(...Object.values(visualPosition(item,this.drag.tileX,this.drag.tileY,placement.footprint||item.footprint))).setDepth((this.drag.tileY + (placement.footprint || item.footprint).height) * 16 + layer * TOWN_LAYER_STEP).setAlpha(.65).setTint(this.drag.valid ? 0xffffff : 0xef6666);
+         const dragPosition = visualPosition(item, this.drag.tileX, this.drag.tileY, placement.footprint || item.footprint);
+         this.setObjectVisual(placement, item, dragPosition.x, dragPosition.y, .65, this.drag.valid ? 0xffffff : 0xef6666);
       }
     }
     this.refreshGhost();
@@ -670,8 +848,9 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     this.drag = null;
     if (placement) {
       const item = { ...catalogItem(placement.asset_id), footprint: placement.footprint || catalogItem(placement.asset_id)?.footprint || {width:1,height:1} };
-      const layer = Math.min(6, Math.max(1, Number(placement.layer || 1)));
-      this.objectImages.get(placement.instance_id)?.setPosition(...Object.values(visualPosition(item,placement.tile_x,placement.tile_y,placement.footprint||item.footprint))).setDepth((placement.tile_y + item.footprint.height) * 16 + layer * TOWN_LAYER_STEP).setAlpha(1).clearTint();
+      const settledPosition = visualPosition(item, placement.tile_x, placement.tile_y, placement.footprint || item.footprint);
+      this.setObjectVisual(placement, item, settledPosition.x, settledPosition.y, 1, 0xffffff);
+      this.objectImages.get(placement.instance_id)?.clearTint(); this.objectForegroundImages.get(placement.instance_id)?.clearTint();
     }
     this.refreshGhost(); this.drawSelection();
   }
@@ -701,7 +880,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
 
   update(time, delta) {
     if (!this.player || state.fatal) return;
-    const focusedControl = document.activeElement?.matches('input,textarea,select,[contenteditable]');
+    const focusedControl = document.activeElement?.matches('input,textarea,select,[contenteditable]') || document.activeElement?.closest('#resident-panel,#resident-strip');
     const enabled = state.playerReady && !state.awaitingSpawn && state.visible && state.hostActive && !document.hidden && !state.modal && !focusedControl;
     let dx = 0, dy = 0;
     if (enabled) {
@@ -709,10 +888,12 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       dy = Number(this.keys.DOWN.isDown || this.keys.S.isDown) - Number(this.keys.UP.isDown || this.keys.W.isDown);
     }
     if (state.mode === 'edit') {
+      if (dx || dy) residents.cancelCamera();
       if (dx || dy) this.cameras.main.setScroll(this.cameras.main.scrollX+dx*240*Math.min(delta,50)/1000/state.zoom, this.cameras.main.scrollY+dy*240*Math.min(delta,50)/1000/state.zoom);
       dx=0;dy=0;
     }
     drawMinimap();
+    renderDialogueBubbles();
     for(const item of state.townAssets.values())if(item.decodedFrames?.length>1){
       const frame=Math.floor(time/140)%item.decodedFrames.length;
       if(item.animationFrame===frame)continue;item.animationFrame=frame;
@@ -743,6 +924,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       state.lastNpcPollAt = now; state.npcPollPendingUntil = now + 5000; host({ type: 'npcChangesRequested' });
     }
     const moving=!!(dx||dy);
+    if (moving) residents.cancelCamera();
     sendPlayerPresence(state.wasMoving && !moving); state.wasMoving=moving;
     if (state.graylisted && state.playerReady && (!state.lastViewportAt || Date.now() - state.lastViewportAt > 1200)) {
       state.lastViewportAt = Date.now(); const view = this.cameras.main.worldView, chunks = [];
@@ -768,6 +950,7 @@ function loadWorld(payload) {
   const incomingEpoch = Number.isSafeInteger(payload.session_epoch) ? payload.session_epoch : state.epoch;
   if(incomingEpoch<state.epoch)return;
   if(incomingEpoch!==state.epoch) {
+    residents.reset(incomingEpoch);
     state.realtime=false;
     state.playerReady=false;state.awaitingSpawn=false;state.lastSentPosition=null;state.lastHeartbeatAt=0;state.wasMoving=false;
     state.scene?.player?.setVisible(false);state.scene?.playerShadow?.setVisible(false);
@@ -779,6 +962,7 @@ function loadWorld(payload) {
   state.graylisted = !!(payload.enabled ?? meta.enabled ?? payload.graylisted ?? meta.graylisted ?? false);
   state.authenticated = typeof payload.authenticated==='boolean' ? payload.authenticated : !!payload.account_id;
   state.canSave = state.graylisted && state.authenticated;
+  if (!state.graylisted) residents.reset(incomingEpoch);
   // The v2 endpoint is authoritative for catalog metadata, while local assets
   // provide the packaged image paths. Merge by stable id so old clients and
   // partial server catalogs remain renderable.
@@ -878,7 +1062,11 @@ function setNpcs(payload) {
   if(payload?.session_epoch!==state.epoch)return;
   if(state.realtime && !payload.realtime_snapshot)return;
   state.npcs.clear();
-  for(const value of payload?.npcs || []) state.npcs.set(value.npc_id || value.id, value);
+  for(const value of payload?.npcs || []) {
+    const id = value.npc_id || value.id;
+    if (!id) continue;
+    state.npcs.set(id, value);
+  }
   state.npcCursor = Number(payload?.cursor || state.npcCursor || 0);
   state.scene?.renderNpcs?.();
 }
@@ -1050,6 +1238,14 @@ function drawMinimap(){
   $('minimap-coordinates').textContent=`X: ${Math.floor(player.x/16)} · Y: ${Math.floor(player.y/16)}`;
 }
 function setupControls() {
+  $('show-npc-names')?.addEventListener('change', event => { state.showNpcNames = event.target.checked === true; state.scene?.renderNpcs?.(); });
+  $('show-npc-states')?.addEventListener('change', event => { state.showNpcStates = event.target.checked === true; state.scene?.renderNpcs?.(); });
+  $('materials-toggle')?.addEventListener('click', () => {
+    const workspace = document.querySelector('.workspace');
+    const collapsed = workspace.classList.toggle('materials-collapsed');
+    $('materials-toggle').setAttribute('aria-label', collapsed ? '展开素材栏' : '收起素材栏');
+    $('materials-toggle').title = collapsed ? '展开素材栏' : '收起素材栏';
+  });
   $('retry-assets').onclick=()=>{if(state.catalogError){state.catalogError=false;state.catalogLoading=true;updateAssetStatus();host({type:'retryAssetsRequested'});return;}for(const sheet of state.sheetStates.values())if(sheet.status==='error')requestSheet(sheet);};
   $('minimap').onclick=event=>{if(state.mode!=='edit')return;const rect=event.target.getBoundingClientRect();state.scene?.cameras.main.centerOn((event.clientX-rect.left)/rect.width*state.catalog.map_width*16,(event.clientY-rect.top)/rect.height*state.catalog.map_height*16);};
   $('object-delete').onclick=()=>{$('object-menu').hidden=true;removeSelected();};
@@ -1066,8 +1262,8 @@ function setupControls() {
   $('subcategory')?.addEventListener('change', event => { state.subcategory = event.target.value; state.page = 1; renderMaterials(); });
   $('page-prev')?.addEventListener('click', () => { state.page--; renderMaterials(); });
   $('page-next')?.addEventListener('click', () => { state.page++; renderMaterials(); });
-  $('roam').addEventListener('click', () => { $('object-menu').hidden=true; state.mode = 'roam'; state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.centerOn(state.scene.player.x,state.scene.player.y); state.scene?.cameras.main.startFollow(state.scene.player, true, 1, 1, 0, 0); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
-  $('edit').addEventListener('click', () => { state.mode = 'edit'; clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
+  $('roam').addEventListener('click', () => { residents.cancelCamera(); $('object-menu').hidden=true; state.mode = 'roam'; document.querySelector('.workspace')?.classList.add('mode-roam'); document.querySelector('.workspace')?.classList.remove('mode-edit'); state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.centerOn(state.scene.player.x,state.scene.player.y); state.scene?.cameras.main.startFollow(state.scene.player, true, 1, 1, 0, 0); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
+  $('edit').addEventListener('click', () => { residents.cancelCamera(); state.mode = 'edit'; document.querySelector('.workspace')?.classList.add('mode-edit'); document.querySelector('.workspace')?.classList.remove('mode-roam'); clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
   $('stage').addEventListener('change', () => window.DeskBoxTownPrototype.setStage(Number($('stage').value)));
   $('save').addEventListener('click', save);
   $('delete').addEventListener('click', removeSelected);
@@ -1089,7 +1285,7 @@ function setupControls() {
   window.addEventListener('blur', () => { clearKeys(); state.scene?.cancelDrag(); });
   document.addEventListener('visibilitychange', () => { state.visible = !document.hidden; applyVisibility(); });
   window.addEventListener('keydown', event => {
-    if (document.activeElement?.matches('input,textarea,select,[contenteditable]') || state.modal) return;
+    if (document.activeElement?.matches('input,textarea,select,[contenteditable]') || document.activeElement?.closest('#resident-panel,#resident-strip') || state.modal) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save(); return; }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $('undo').click(); return; }
     if (state.mode === 'edit' && (event.key === 'Delete' || event.key === 'Backspace')) { event.preventDefault(); removeSelected(); }

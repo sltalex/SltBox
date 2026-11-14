@@ -62,17 +62,26 @@ web_check($navigationResult === 'town_navigation_rebuild'
     'The web navigation rebuild operation advances both world and navigation versions.');
 
 $adminPage = file_get_contents(__DIR__ . '/../api/admin/index.php');
-web_check(is_string($adminPage) && str_contains($adminPage, 'fruit_web_asset_url'),
+$adminWeb = file_get_contents(__DIR__ . '/../api/_app/admin_web.php');
+$adminTreeView = file_get_contents(__DIR__ . '/../api/admin/views/tree.php');
+$adminTownAssetsView = file_get_contents(__DIR__ . '/../api/admin/views/town_assets.php');
+web_check(is_string($adminTreeView) && str_contains($adminTreeView, 'fruit_web_asset_url'),
     'The fruit catalogue preview resolves an explicit per-fruit web PNG URL.');
-web_check(!str_contains((string)$adminPage, 'fruits-atlas.png') && !str_contains((string)$adminPage, 'background-position'),
+web_check(!str_contains((string)$adminTreeView, 'fruits-atlas.png') && !str_contains((string)$adminTreeView, 'background-position'),
     'The fruit catalogue preview no longer crops the legacy fruit atlas.');
-web_check(str_contains((string)$adminPage, '<img src="<?= admin_page_escape($fruitImageUrl) ?>"') &&
-    str_contains((string)$adminPage, 'width="52" height="60"') &&
-    str_contains((string)$adminPage, 'object-fit:contain'),
+web_check(str_contains((string)$adminTreeView, '<img src="<?= admin_page_escape($fruitImageUrl) ?>"') &&
+    str_contains((string)$adminTreeView, 'width="52" height="60"') &&
+    str_contains((string)$adminTreeView, 'object-fit:contain'),
     'The fruit catalogue emits an accessible 52-by-60 individual PNG preview.');
-web_check(str_contains((string)$adminPage, 'town_navigation_rebuild')
-    && str_contains((string)$adminPage, '当前导航版本'),
+web_check(str_contains((string)$adminTownAssetsView, 'town_navigation_rebuild')
+    && str_contains((string)$adminTownAssetsView, '当前导航版本'),
     'The shared-town assets page exposes the authenticated navigation rebuild action and version.');
+web_check(str_contains((string)$adminWeb, "'sort_mode' => \$post['sort_mode']")
+    && str_contains((string)$adminWeb, "'split_y' => \$post['split_y']"),
+    'The web asset save path forwards split sorting fields to the asset service.');
+web_check(str_contains((string)$adminWeb, "town_asset_save_items_bulk")
+    && str_contains((string)$adminPage, 'town_asset_bulk_item'),
+    'The web management page exposes the automatic scan bulk-draft operation.');
 
 try {
     web_admin_validate_session($pdo, $member['user']['id'], $memberSessionId, $clock);

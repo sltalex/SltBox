@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {assetSortMode, objectDepth, splitDisplayMetrics, splitForegroundDepth, TOWN_BACKGROUND_DEPTH, TOWN_FOREGROUND_DEPTH, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER} from '../src/DeskBox/Assets/Tree/TownPrototype/town-depth.js';
+
+const code = await readFile(new URL('../src/DeskBox/Assets/Tree/TownPrototype/town.js', import.meta.url), 'utf8');
+assert.match(code, /setDepth\(objectDepth\(item, placement, y\)\)/);
+assert.doesNotMatch(code, /setDepth\(\(placement\.tile_y\+bounds\.height\)\*16 \+ layer \* TOWN_LAYER_STEP\)/);
+assert.equal(assetSortMode({category: 'water'}), 'background');
+assert.equal(assetSortMode({sort_mode: 'foreground', category: 'building'}), 'foreground');
+assert.equal(assetSortMode({sort_mode: 'split', category: 'building'}), 'split');
+assert.equal(assetSortMode({sort_mode: 'manual'}), 'manual');
+assert.equal(objectDepth({sort_mode: 'y_sort'}, {layer: 1}, 120), 120 + TOWN_PLAYER_LAYER * TOWN_LAYER_STEP);
+assert.equal(objectDepth({sort_mode: 'background'}, {layer: 6}, 120), TOWN_BACKGROUND_DEPTH + 120);
+assert.equal(objectDepth({sort_mode: 'split'}, {layer: 6}, 120), TOWN_BACKGROUND_DEPTH + 120);
+assert.equal(objectDepth({sort_mode: 'foreground'}, {layer: 1}, 120), TOWN_FOREGROUND_DEPTH + 120);
+assert.equal(splitForegroundDepth(120), TOWN_FOREGROUND_DEPTH + 120);
+assert.equal(objectDepth({sort_mode: 'manual'}, {layer: 6}, 120), 120 + 6 * TOWN_LAYER_STEP);
+assert.deepEqual(splitDisplayMetrics({sort_mode: 'split', height: 128, display_height: 256, split_y: 64}), {splitY: 64, frontHeight: 128, backHeight: 128, ratio: .5});
+assert.equal(splitDisplayMetrics({sort_mode: 'split', height: 128, display_height: 256, split_y: 128}), null);
+assert.match(code, /destroyObjectVisual\(placement\.instance_id\)/);
+assert.match(code, /cropY: this\.splitCrop\(catalogItem\(placement\.asset_id\)\)/);
+console.log('Town asset automatic sort-mode checks passed');
