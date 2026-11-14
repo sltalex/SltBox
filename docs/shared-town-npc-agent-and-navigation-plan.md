@@ -804,6 +804,7 @@ town_npc_decision_policies
 - 房屋拆分后台保存调用链已补齐并部署；`admin_web.php`、`town_assets.php`、后台视图和 `045_town_asset_split_occlusion.sql` 的远程 SHA-256 与本地一致。
 - 自动识别批量草稿发布备份：`/root/deskbox-backups/town-asset-bulk-20261114-180826/`；`town_assets.php`、`admin_web.php`、`api/admin/index.php`、`town-assets.js` 均完成 PHP/本地 JS 检查，远程 SHA-256 与本地一致，后台入口公网 HTTP 返回 200。
 - 真实房屋样例已发布到素材版本 14：`town-source-fangwu01`（房屋01）为 `sort_mode=split`、`split_y=96`；发布前状态为 `y_sort / NULL`，可使用发布版本回滚恢复。
+- x64 Release 已按 `Platform=x64`、`RuntimeIdentifier=win-x64`、`SelfContained=false`、`WindowsAppSDKSelfContained=false` 生成；产物为 `src/DeskBox/bin/x64/Release/net10.0-windows10.0.22621.0/win-x64/publish/DeskBox.exe`，SHA-256 为 `6B65665FC85562CD7A6ECD6D9985E2E88D2BF9DF2366CCCE377780E323279E44`。尚未上传 GitHub 或对外发布。
 
 ### 17.4 明确暂缓范围
 
@@ -822,6 +823,6 @@ town_npc_decision_policies
 1. **房屋前后景拆分收口**：实现、后台保存、数据库迁移和线上部署已完成；还需用一个真实完整房屋素材设置 `split_y`，在人物从房屋后方、墙体中段和屋檐前方经过时完成人工画面验收，并记录截图/结果。
 2. **素材批量工作流收口**：自动识别结果批量生成草稿、事务保存和地图连续铺设笔刷已完成；后续可优化自动命名预览以及批量确认/撤销，不再阻塞第一版素材编辑。
 3. **真实 UI 视觉回归**：在 16:9、窄窗口和不同素材数量下确认素材抽屉、居民面板、气泡、顶部状态和地图上下文栏不遮挡、不溢出。
-4. **发布范围控制**：桌面端动态排序代码位于本地 DeskBox；若要让其他用户使用，需要按桌面版本发布流程构建并发布客户端，Web/数据库发布不会自动更新桌面程序。
+4. **发布范围控制**：桌面端动态排序、房屋拆分和连续铺设代码已经生成 x64 Release 产物；若要让其他用户使用，还需要把该产物按桌面版本发布流程上传并更新分发入口，Web/数据库发布不会自动更新桌面程序。
 
 后续每次修改后仍需记录：修改文件、数据库迁移、测试命令、线上备份目录、远程哈希/HTTP 回读，以及未完成的人工画面验收。
