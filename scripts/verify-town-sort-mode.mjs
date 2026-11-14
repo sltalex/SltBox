@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {assetSortMode, objectDepth, splitDisplayMetrics, splitForegroundDepth, TOWN_BACKGROUND_DEPTH, TOWN_FOREGROUND_DEPTH, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER} from '../src/DeskBox/Assets/Tree/TownPrototype/town-depth.js';
 
 const code = await readFile(new URL('../src/DeskBox/Assets/Tree/TownPrototype/town.js', import.meta.url), 'utf8');
+const html = await readFile(new URL('../src/DeskBox/Assets/Tree/TownPrototype/index.html', import.meta.url), 'utf8');
 assert.match(code, /setDepth\(objectDepth\(item, placement, y\)\)/);
 assert.doesNotMatch(code, /setDepth\(\(placement\.tile_y\+bounds\.height\)\*16 \+ layer \* TOWN_LAYER_STEP\)/);
 assert.equal(assetSortMode({category: 'water'}), 'background');
@@ -19,4 +20,6 @@ assert.deepEqual(splitDisplayMetrics({sort_mode: 'split', height: 128, display_h
 assert.equal(splitDisplayMetrics({sort_mode: 'split', height: 128, display_height: 256, split_y: 128}), null);
 assert.match(code, /destroyObjectVisual\(placement\.instance_id\)/);
 assert.match(code, /cropY: this\.splitCrop\(catalogItem\(placement\.asset_id\)\)/);
+assert.match(code, /placeSelectedAsset\(world\)/);
+assert.match(html, /id="brush-toggle"/);
 console.log('Town asset automatic sort-mode checks passed');

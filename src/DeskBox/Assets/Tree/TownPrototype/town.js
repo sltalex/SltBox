@@ -14,7 +14,7 @@ const state = {
   visible: !document.hidden, hostActive: true, noticeTimer: null, pendingState: null,
   playerReady: false, awaitingSpawn: false, lastSentPosition: null, wasMoving: false,
   lastPresencePollAt: 0, presencePollPendingUntil: 0, lastNpcPollAt: 0, npcPollPendingUntil: 0,
-  status: '正在载入…', fatal: false, realtime: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: [], recentAssets: [], assetImages: new Map(), assetCatalogReleaseVersion: -1, assetCatalogHash: null, sheetStates: new Map(), dialogueBubbles: new Map(), showNpcNames: false, showNpcStates: false
+  status: '正在载入…', fatal: false, realtime: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: [], recentAssets: [], assetImages: new Map(), assetCatalogReleaseVersion: -1, assetCatalogHash: null, sheetStates: new Map(), dialogueBubbles: new Map(), showNpcNames: false, showNpcStates: false, brushMode: false, brushLastTile: null
 };
 
 const residents = createResidents({
@@ -195,6 +195,12 @@ function updateUI() {
   if ($('realtime-dot')) $('realtime-dot').className = `status-dot ${state.realtime ? 'ok' : 'busy'}`;
   if ($('player-action-label')) $('player-action-label').textContent = state.mode === 'edit' ? '编辑地图' : '漫游小镇';
   if ($('zoom-status')) $('zoom-status').textContent = `${state.zoom}×`;
+  const brush = $('brush-toggle');
+  if (brush) {
+    brush.hidden = state.mode !== 'edit';
+    brush.classList.toggle('active', state.brushMode && state.mode === 'edit');
+    brush.setAttribute('aria-pressed', String(state.brushMode && state.mode === 'edit'));
+  }
   $('save-state').textContent = state.status;
   $('save-state').className = `save-state${state.conflict || state.status.includes('失败') || state.status.includes('超时') ? ' error' : state.dirty ? ' dirty' : state.version > 0 ? ' saved' : ''}`;
   const counts = new Map();
@@ -523,6 +529,27 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     return splitDisplayMetrics(item);
   }
 
+  placeSelectedAsset(world) {
+    if (!state.selectedAsset) return false;
+    const position = this.placementPosition(world, state.selectedAsset);
+    const error = validatePlacement(state.catalog, state.layout, state.selectedAsset, position.x, position.y, null, this.player);
+    if (error) { if (!state.brushMode) notice(error); return false; }
+    const item = catalogItem(state.selectedAsset);
+    if (!item || !this.loadItemTexture(item)) { if (!state.brushMode) notice(state.sheetStates.get(item?.sheet_id)?.status === 'error' ? '素材加载失败，请点击“重试素材”' : '素材加载中，请稍候'); return false; }
+    const brushKey = `${position.x},${position.y}`;
+    if (state.brushMode && state.brushLastTile === brushKey) return false;
+    recordHistory();
+    const operationId = crypto.randomUUID().replaceAll('-', ''), optimisticId = crypto.randomUUID().replaceAll('-', '');
+    const object = { instance_id: optimisticId, object_id: optimisticId, asset_id: state.selectedAsset, decoration_id: state.selectedAsset, owner_id: currentOwner(), tile_x: position.x, tile_y: position.y, layer: 1, object_version: 1 };
+    state.layout.placements.push(object);
+    state.brushLastTile = brushKey;
+    markChanged();
+    state.pendingActions.set(operationId, { action: 'place', optimisticId });
+    host({ type: 'townActionRequested', action: 'place', payload: { operation_id: operationId, asset_id: object.asset_id, tile_x: object.tile_x, tile_y: object.tile_y, chunk_x: Math.floor(object.tile_x / 24), chunk_y: Math.floor(object.tile_y / 24), layer: object.layer } });
+    this.renderObjects();
+    return true;
+  }
+
   destroyObjectVisual(instanceId) {
     this.objectImages.get(instanceId)?.destroy();
     this.objectImages.delete(instanceId);
@@ -775,19 +802,8 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     if (this.drag?.clickMove) { this.pointerUp(true); return; }
     const world = this.worldPoint(pointer); this.pointerInside = true; this.lastPointer = world;
     if (state.selectedAsset) {
-      const position = this.placementPosition(world, state.selectedAsset);
-      const error = validatePlacement(state.catalog, state.layout, state.selectedAsset, position.x, position.y, null, this.player);
-      if (error) { notice(error); return; }
-      const item = catalogItem(state.selectedAsset);
-      if (!item || !this.loadItemTexture(item)) { notice(state.sheetStates.get(item?.sheet_id)?.status === 'error' ? '素材加载失败，请点击“重试素材”' : '素材加载中，请稍候'); return; }
-      recordHistory();
-      const operationId = crypto.randomUUID().replaceAll('-', ''), optimisticId = crypto.randomUUID().replaceAll('-', '');
-       const object = { instance_id: optimisticId, object_id: optimisticId, asset_id: state.selectedAsset, decoration_id: state.selectedAsset, owner_id: currentOwner(), tile_x: position.x, tile_y: position.y, layer: 1, object_version: 1 };
-      state.layout.placements.push(object);
-      markChanged();
-      state.pendingActions.set(operationId, { action: 'place', optimisticId });
-       host({ type: 'townActionRequested', action: 'place', payload: { operation_id: operationId, asset_id: object.asset_id, tile_x: object.tile_x, tile_y: object.tile_y, chunk_x: Math.floor(object.tile_x / 24), chunk_y: Math.floor(object.tile_y / 24), layer: object.layer } });
-      this.refreshGhost();
+      state.brushLastTile = null;
+      this.placeSelectedAsset(world);
       return;
     }
     const selected = this.itemAt(world.x, world.y);
@@ -810,6 +826,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       return;
     }
     const world = this.worldPoint(pointer); this.pointerInside = true; this.lastPointer = world;
+    if (state.selectedAsset && state.brushMode && pointer.isDown) this.placeSelectedAsset(world);
     if (this.drag && (pointer.isDown || this.drag.clickMove)) {
       const placement = state.layout.placements.find(item => item.instance_id === this.drag.id);
       if (!placement) { this.cancelDrag(); return; }
@@ -829,9 +846,10 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
 
   pointerUp(confirm = false) {
     if (this.drag?.clickMove && confirm !== true) return;
-    if (this.pan) { this.pan = null; return; }
-    if (!this.drag) return;
+    if (this.pan) { this.pan = null; state.brushLastTile = null; return; }
+    if (!this.drag) { state.brushLastTile = null; return; }
     const drag = this.drag; this.drag = null;
+    state.brushLastTile = null;
     if (drag.moved) {
       if (drag.valid) {
         const placement = state.layout.placements.find(item => item.instance_id === drag.id);
@@ -1246,6 +1264,13 @@ function setupControls() {
     $('materials-toggle').setAttribute('aria-label', collapsed ? '展开素材栏' : '收起素材栏');
     $('materials-toggle').title = collapsed ? '展开素材栏' : '收起素材栏';
   });
+  $('brush-toggle')?.addEventListener('click', () => {
+    if (state.mode !== 'edit') return;
+    state.brushMode = !state.brushMode;
+    state.brushLastTile = null;
+    updateUI();
+    notice(state.brushMode ? '连续铺设已开启，按住鼠标拖动即可铺设' : '连续铺设已关闭');
+  });
   $('retry-assets').onclick=()=>{if(state.catalogError){state.catalogError=false;state.catalogLoading=true;updateAssetStatus();host({type:'retryAssetsRequested'});return;}for(const sheet of state.sheetStates.values())if(sheet.status==='error')requestSheet(sheet);};
   $('minimap').onclick=event=>{if(state.mode!=='edit')return;const rect=event.target.getBoundingClientRect();state.scene?.cameras.main.centerOn((event.clientX-rect.left)/rect.width*state.catalog.map_width*16,(event.clientY-rect.top)/rect.height*state.catalog.map_height*16);};
   $('object-delete').onclick=()=>{$('object-menu').hidden=true;removeSelected();};
@@ -1262,8 +1287,8 @@ function setupControls() {
   $('subcategory')?.addEventListener('change', event => { state.subcategory = event.target.value; state.page = 1; renderMaterials(); });
   $('page-prev')?.addEventListener('click', () => { state.page--; renderMaterials(); });
   $('page-next')?.addEventListener('click', () => { state.page++; renderMaterials(); });
-  $('roam').addEventListener('click', () => { residents.cancelCamera(); $('object-menu').hidden=true; state.mode = 'roam'; document.querySelector('.workspace')?.classList.add('mode-roam'); document.querySelector('.workspace')?.classList.remove('mode-edit'); state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.centerOn(state.scene.player.x,state.scene.player.y); state.scene?.cameras.main.startFollow(state.scene.player, true, 1, 1, 0, 0); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
-  $('edit').addEventListener('click', () => { residents.cancelCamera(); state.mode = 'edit'; document.querySelector('.workspace')?.classList.add('mode-edit'); document.querySelector('.workspace')?.classList.remove('mode-roam'); clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
+  $('roam').addEventListener('click', () => { residents.cancelCamera(); $('object-menu').hidden=true; state.mode = 'roam'; state.brushMode = false; state.brushLastTile = null; document.querySelector('.workspace')?.classList.add('mode-roam'); document.querySelector('.workspace')?.classList.remove('mode-edit'); state.selectedAsset = null; state.selectedInstance = null; state.scene?.cancelDrag(); clearKeys(); state.scene?.cameras.main.centerOn(state.scene.player.x,state.scene.player.y); state.scene?.cameras.main.startFollow(state.scene.player, true, 1, 1, 0, 0); state.scene?.drawSelection(); state.scene?.drawGrid(); state.scene?.refreshGhost(); updateUI(); $('game').focus({ preventScroll: true }); });
+  $('edit').addEventListener('click', () => { residents.cancelCamera(); state.mode = 'edit'; state.brushLastTile = null; document.querySelector('.workspace')?.classList.add('mode-edit'); document.querySelector('.workspace')?.classList.remove('mode-roam'); clearKeys(); state.scene?.cameras.main.stopFollow(); state.scene?.drawGrid(); updateUI(); $('game').focus({ preventScroll: true }); });
   $('stage').addEventListener('change', () => window.DeskBoxTownPrototype.setStage(Number($('stage').value)));
   $('save').addEventListener('click', save);
   $('delete').addEventListener('click', removeSelected);
@@ -1289,7 +1314,7 @@ function setupControls() {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save(); return; }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $('undo').click(); return; }
     if (state.mode === 'edit' && (event.key === 'Delete' || event.key === 'Backspace')) { event.preventDefault(); removeSelected(); }
-    if (event.key === 'Escape') { $('object-menu').hidden=true; state.scene?.cancelDrag(); state.selectedAsset = null; state.selectedInstance = null; state.scene?.refreshGhost(); state.scene?.drawSelection(); updateUI(); }
+    if (event.key === 'Escape') { $('object-menu').hidden=true; state.scene?.cancelDrag(); state.selectedAsset = null; state.selectedInstance = null; state.brushLastTile = null; state.brushMode = false; state.scene?.refreshGhost(); state.scene?.drawSelection(); updateUI(); }
   });
   window.addEventListener('pagehide', () => { clearKeys(); state.game?.destroy(true); });
 }
