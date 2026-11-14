@@ -804,7 +804,7 @@ town_npc_decision_policies
 - 房屋拆分后台保存调用链已补齐并部署；`admin_web.php`、`town_assets.php`、后台视图和 `045_town_asset_split_occlusion.sql` 的远程 SHA-256 与本地一致。
 - 自动识别批量草稿发布备份：`/root/deskbox-backups/town-asset-bulk-20261114-180826/`；`town_assets.php`、`admin_web.php`、`api/admin/index.php`、`town-assets.js` 均完成 PHP/本地 JS 检查，远程 SHA-256 与本地一致，后台入口公网 HTTP 返回 200。
 - 真实房屋样例已发布到素材版本 14：`town-source-fangwu01`（房屋01）为 `sort_mode=split`、`split_y=96`；发布前状态为 `y_sort / NULL`，可使用发布版本回滚恢复。
-- x64 Release 已按 `Platform=x64`、`RuntimeIdentifier=win-x64`、`SelfContained=false`、`WindowsAppSDKSelfContained=false` 重新生成；产物为 `src/DeskBox/bin/x64/Release/net10.0-windows10.0.22621.0/win-x64/publish/DeskBox.exe`，SHA-256 为 `6B65665FC85562CD7A6ECD6D9985E2E88D2BF9DF2366CCCE377780E323279E44`。已生成 `release-manifest.json` 和 `SHA256SUMS`，但工作树仍为 dirty，尚未上传 GitHub 或对外发布。
+- x64 Release 已在独立干净 worktree 按 `Platform=x64`、`RuntimeIdentifier=win-x64`、`SelfContained=false`、`WindowsAppSDKSelfContained=false` 重新生成；对应提交为 `4bd213a1`，发布清单标记 `dirty=false`，共 8339 个文件。产物为 `.artifacts/town-release-clean/src/DeskBox/bin/x64/Release/net10.0-windows10.0.22621.0/win-x64/publish/DeskBox.exe`，SHA-256 为 `E915E794ECCB5C9CAA5BCD6E0C9742D27DCA21336F98EA0482F9C1E0989FEFB4`，并已生成 `release-manifest.json` 和 `SHA256SUMS`。源码分支已推送到 GitHub，但安装器、GitHub Release 附件和 HTTP `stable.json` 尚未发布。
 
 本轮验证（2026-11-14）：
 
@@ -831,6 +831,6 @@ town_npc_decision_policies
 1. **房屋前后景拆分收口**：实现、后台保存、数据库迁移和线上部署已完成；还需用一个真实完整房屋素材设置 `split_y`，在人物从房屋后方、墙体中段和屋檐前方经过时完成人工画面验收，并记录截图/结果。
 2. **素材批量工作流收口**：自动识别结果批量生成草稿、事务保存和地图连续铺设笔刷已完成；后续可优化自动命名预览以及批量确认/撤销，不再阻塞第一版素材编辑。
 3. **真实 UI 视觉回归**：浏览器布局基线已覆盖 1280×720、720×540、640×480，并确认素材栏收起、居民面板和页面边界不溢出；仍需在 DeskBox 原生 WebView 中补一次 16:9、窄窗口和不同素材数量的人工画面确认，尤其是气泡和地图上下文栏。
-4. **发布范围控制**：桌面端动态排序、房屋拆分和连续铺设代码已经生成 x64 Release 产物；若要让其他用户使用，还需要把该产物按桌面版本发布流程上传并更新分发入口，Web/数据库发布不会自动更新桌面程序。
+4. **发布范围控制**：源码分支 `codex/town-prototype` 已推送到 GitHub，干净 x64 Release 产物和哈希证据已生成；若要让其他用户使用，还需要按桌面版本发布流程生成/核验正式安装器，上传 GitHub Release 和 HTTP 镜像，并更新 `update/stable.json`。Web/数据库发布不会自动更新桌面程序。
 
 后续每次修改后仍需记录：修改文件、数据库迁移、测试命令、线上备份目录、远程哈希/HTTP 回读，以及未完成的人工画面验收。
