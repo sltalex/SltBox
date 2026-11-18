@@ -274,7 +274,7 @@
                                             IsHitTestVisible="False"
                                             MaxLines="{Binding PreviewMaxLines}"
                                             UseInternalScrollViewer="False"
-                                            Visibility="{Binding TextPreviewVisibility}" />
+                                            Visibility="{Binding TextPreviewVisibility}"`r`n                                            x:SuppressXamlTrimWarnings="True" />
                                         <TextBlock
                                             FontSize="{Binding SecondaryTextSize}"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
