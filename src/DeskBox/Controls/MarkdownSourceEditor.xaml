@@ -93,20 +93,19 @@
             <Button x:Name="HeadingButton" Click="FormatButton_Click" Style="{StaticResource MarkdownFormattingButtonStyle}" Tag="Heading">
                 <FontIcon FontSize="12" Glyph="&#xE8D2;" Style="{StaticResource MarkdownFormattingIconStyle}" />
             </Button>
-            <Button x:Name="ColorButton" Style="{StaticResource MarkdownFormattingButtonStyle}">
+            <Button x:Name="ColorButton" Click="ColorPaletteToggle_Click" Style="{StaticResource MarkdownFormattingButtonStyle}">
                 <FontIcon FontSize="14" Glyph="A" Foreground="#D14A61" Style="{StaticResource MarkdownFormattingIconStyle}" />
-                <Button.Flyout><Flyout Placement="BottomEdgeAlignedLeft"><WrapGrid MaximumRowsOrColumns="6" Orientation="Horizontal" Width="168">
-                    <Button Click="ColorButton_Click" Tag="#D14A61" Content="●" Foreground="#D14A61" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#E67E22" Content="●" Foreground="#E67E22" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#F1C40F" Content="●" Foreground="#F1C40F" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#27AE60" Content="●" Foreground="#27AE60" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#2980B9" Content="●" Foreground="#2980B9" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#8E44AD" Content="●" Foreground="#8E44AD" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#000000" Content="●" Foreground="#000000" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                    <Button Click="ColorButton_Click" Tag="#7F8C8D" Content="●" Foreground="#7F8C8D" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                </WrapGrid></Flyout></Button.Flyout>
             </Button>
-            <Button x:Name="ListButton" Click="FormatButton_Click" Style="{StaticResource MarkdownFormattingButtonStyle}" Tag="List" Visibility="Collapsed">
+            <StackPanel x:Name="ColorPalettePanel" Orientation="Horizontal" Spacing="1" Visibility="Collapsed">
+                <Button Click="ColorButton_Click" Tag="#D14A61" Content="●" Foreground="#D14A61" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#E67E22" Content="●" Foreground="#E67E22" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#F1C40F" Content="●" Foreground="#F1C40F" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#27AE60" Content="●" Foreground="#27AE60" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#2980B9" Content="●" Foreground="#2980B9" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#8E44AD" Content="●" Foreground="#8E44AD" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#000000" Content="●" Foreground="#000000" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+                <Button Click="ColorButton_Click" Tag="#7F8C8D" Content="●" Foreground="#7F8C8D" Style="{StaticResource MarkdownFormattingButtonStyle}" />
+            </StackPanel>            <Button x:Name="ListButton" Click="FormatButton_Click" Style="{StaticResource MarkdownFormattingButtonStyle}" Tag="List" Visibility="Collapsed">
                 <FontIcon FontSize="12" Glyph="&#xE8FD;" Style="{StaticResource MarkdownFormattingIconStyle}" />
             </Button>
             <Button x:Name="TaskButton" Click="FormatButton_Click" Style="{StaticResource MarkdownFormattingButtonStyle}" Tag="Task" Visibility="Collapsed">
@@ -165,22 +164,11 @@
                                     <TextBlock x:Name="HeadingMenuButtonText" Grid.Column="1" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
-                            <Button x:Name="ColorMenuButton" Style="{StaticResource MarkdownFormattingMenuButtonStyle}" Tag="Color">
+                            <Button x:Name="ColorMenuButton" Click="ColorPaletteToggle_Click" Style="{StaticResource MarkdownFormattingMenuButtonStyle}" Tag="Color">
                                 <Grid ColumnSpacing="7"><Grid.ColumnDefinitions><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                     <FontIcon FontSize="13" Glyph="A" Foreground="#D14A61" /><TextBlock x:Name="ColorMenuButtonText" Grid.Column="1" VerticalAlignment="Center" />
                                 </Grid>
-                                <Button.Flyout><Flyout Placement="RightEdgeAlignedTop"><WrapGrid MaximumRowsOrColumns="4" Orientation="Horizontal" Width="112">
-                                    <Button Click="ColorButton_Click" Tag="#D14A61" Content="●" Foreground="#D14A61" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#E67E22" Content="●" Foreground="#E67E22" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#F1C40F" Content="●" Foreground="#F1C40F" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#27AE60" Content="●" Foreground="#27AE60" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#2980B9" Content="●" Foreground="#2980B9" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#8E44AD" Content="●" Foreground="#8E44AD" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#000000" Content="●" Foreground="#000000" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                    <Button Click="ColorButton_Click" Tag="#7F8C8D" Content="●" Foreground="#7F8C8D" Style="{StaticResource MarkdownFormattingButtonStyle}" />
-                                </WrapGrid></Flyout></Button.Flyout>
-                            </Button>
-                            <Button x:Name="ListMenuButton" Click="FormatButton_Click" Style="{StaticResource MarkdownFormattingMenuButtonStyle}" Tag="List">
+                            </Button>                            <Button x:Name="ListMenuButton" Click="FormatButton_Click" Style="{StaticResource MarkdownFormattingMenuButtonStyle}" Tag="List">
                                 <Grid ColumnSpacing="7">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                     <FontIcon HorizontalAlignment="Center" FontSize="12" Glyph="&#xE8FD;" />

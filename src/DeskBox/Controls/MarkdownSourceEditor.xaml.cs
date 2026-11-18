@@ -268,11 +268,24 @@ public sealed partial class MarkdownSourceEditor : UserControl
             string replacement = prefix + selected + suffix;
             ApplyTextEdit(new MarkdownTextEdit(start, length, replacement, start + prefix.Length, selected.Length));
             RestoreEditorViewport(viewport);
+            ColorPalettePanel.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex)
         {
             App.Log($"[MarkdownSourceEditor] Color formatting failed: {ex.Message}");
         }
+    }
+
+    private void ColorPaletteToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        ColorPalettePanel.Visibility = ColorPalettePanel.Visibility == Visibility.Visible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     private static bool TryResolveCommand(string action, out MarkdownEditCommand command)
