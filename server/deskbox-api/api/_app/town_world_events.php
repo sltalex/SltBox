@@ -136,7 +136,7 @@ function town_world_event_project_npc(PDO $pdo, int $npcEventId, string $npcId, 
         try {
             $encoded = json_encode($payload[$key], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             if (strlen($encoded) <= 4096) $publicPayload[$key] = json_decode($encoded, true, 16, JSON_THROW_ON_ERROR);
-        } catch (JsonException) { /* Do not project malformed or oversized replay details. */ }
+        } catch (JsonException $error) { /* Do not project malformed or oversized replay details. */ }
     }
     if ($type === 'conversation' && is_string($payload['dialogue'] ?? null)) {
         $dialogue = trim((string)$payload['dialogue']);
