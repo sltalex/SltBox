@@ -884,7 +884,7 @@ Godot 的 GDScript 只作为行为和数据契约参考，不直接移植 `Node`
 | P1-4 图片参与对话 | 设计完成 | 对话 Worker 临时事实转换 | 先锁定图片上限、供应商超时和隐私日志策略 |
 | P2-1 居民生命周期 | 已完成本地和线上垂直切片 | `049_town_npc_lifecycle_v1.sql`、管理后台状态保存、Worker 到期恢复、行动/任务生命周期守卫、NPC 目标过滤、WebSocket 生命周期增量、客户端隐藏离镇实体并显示恢复状态 | 线上迁移和 Worker 已完成；仍需用认证账号验收离开、受伤、恢复、断线重连；死亡和替补仍不在本阶段 |
 | P2-2 社会冲突与调解 | 结构和权威任务闭环已部署，功能开关关闭 | `050/051` 已在线执行；承诺绑定 `town_npc_tasks`，任务完成或失败会回写承诺；Worker 调度代码、嵌套 JSON 兼容、idle rest 接管和 35 项 Worker 测试通过；PHP 文件已备份、上传并完成远程 SHA-256 回读；MySQL 结构与 `FOR UPDATE` 锁测试通过；线上 Worker 健康正常。 | 仍需开启前完成并发/权限和候选动作的线上认证验收；功能开关必须保持关闭直到验收完成。 |
-| P2-3 世界快照与恢复 | 首版保存闭环已部署并验证 | 新增 `052_town_world_snapshots_v1.sql`、快照哈希校验、最新快照读取接口；远程数据库和 PHP 已部署，Worker `v38-p2-snapshots` 已切换并实际创建快照 `4d69801bda93d119ed06e34750bb3cc1`，健康接口 `ok=true`、重启次数 0 | 尚未用真实用户会话读取最新快照；增量事件日志、受控重放/恢复写入和线上灾备演练仍未完成；当前接口只读恢复点，不自动修改生产状态 |
+| P2-3 世界快照与恢复 | 快照和增量 journal 首版已部署并验证 | `052_town_world_snapshots_v1.sql`、`053_town_world_event_journal_v1.sql`、快照哈希校验、幂等 journal 追加、最新快照读取接口已完成；远程数据库和 PHP 已部署，Worker `v38-p2-snapshots` 已切换并创建快照，快照游标已读取 journal 序列（线上验证为快照游标 3、journal 最新序列 4） | 尚未用真实用户会话读取最新快照；事件过滤/重放执行器、受控恢复写入和线上灾备演练仍未完成；当前接口只读恢复点，不自动修改生产状态 |
 | P2-4 地图语义生成 | 设计完成 | 复用素材扫描/发布流程 | 草稿预览和校验器通过后才能发布 |
 | P2-5 运行时遥测 | 设计完成 | 复用 Worker/Phaser 生命周期 | 先定义采样字段和管理员权限 |
 | P2-6 触控适配 | 条件项 | 尚未启用 | 明确触屏发行目标后再开工 |
@@ -1351,3 +1351,4 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - 2026-11-18 P2-3 首版快照保存：新增迁移 `052_town_world_snapshots_v1.sql`、服务端快照编码/哈希校验、认证读取最新快照接口和 Worker 租约接口；Worker 每 10 分钟生成一次不可变恢复点并保留最近 20 个。PHP 结构/确定性哈希测试、Worker 36 项和 Worker 构建均通过。当前代码已推送到 `codex/town-prototype`，但迁移、PHP 文件和 Worker 镜像尚未部署到线上；增量事件日志、受控重放写入和灾备演练仍未完成。
 - 2026-11-18 P2-3 线上首批部署：远程 MySQL 已执行 `052_town_world_snapshots_v1.sql`，确认 `town_world_snapshots` 及全部字段存在；三个 PHP 文件已上传到正确 `/api/_app`、`/api/v2/town` 路径，远程 SHA-256 与本地一致，PHP lint 通过。未认证公网请求返回应用层 JSON 错误，未出现 Nginx 404；尚未用真实认证会话创建快照，Worker 容器仍为旧镜像，等待新 Worker 镜像发布后再做端到端自动快照验证。
 - 2026-11-18 P2-3 Worker 发布与自动快照验证：远程构建并切换 `deskbox-npc-worker:v38-p2-snapshots`，旧 `v37-p1p2-plan-validation` 容器改名保留用于回滚；健康接口返回 `ok=true`，重启次数为 0，Worker 的租约、NPC 快照、行动请求持续返回 HTTP 200。新 Worker 已在租约内实际创建快照 `4d69801bda93d119ed06e34750bb3cc1`。仍缺真实认证用户读取快照的验证，以及事件日志、受控恢复和灾备演练。
+- 2026-11-18 P2-3 增量 journal 首版：新增 `053_town_world_event_journal_v1.sql` 和 `town_world_event_journal.php`；公共世界事件按 `public_event:<event_id>` 幂等追加，快照 `event_cursor` 优先使用 journal 序列，迁移缺失时保留滚动发布兼容。`town_world_event_journal_test.php`、公共事件回归和迁移结构测试通过；线上迁移执行成功，journal 已有 4 条记录，重启 `v38-p2-snapshots` 后新快照 `9e4e3093eb5d7a1139067569c6f156a1` 的 `event_cursor=3`，随后 journal 最新序列为 4。仍缺事件增量重放、受控恢复写入和灾备演练。

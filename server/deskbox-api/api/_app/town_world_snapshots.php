@@ -4,6 +4,7 @@ declare(strict_types=1);
 if (!defined('DESKBOX_API_ENTRY')) { http_response_code(404); exit; }
 require_once __DIR__ . '/town_world_clock.php';
 require_once __DIR__ . '/town_npcs.php';
+require_once __DIR__ . '/town_world_event_journal.php';
 
 function town_world_snapshot_canonical(mixed $value): mixed
 {
@@ -41,8 +42,10 @@ function town_world_snapshot_create(PDO $pdo, string $createdBy, ?DateTimeImmuta
     $state = town_world_snapshot_state($pdo);
     [$json, $sha] = town_world_snapshot_encode($state);
     $world = $state['world']; $npcCursor = (int)($state['npcs']['cursor'] ?? 0);
-    $eventCursor = 0;
-    try { $eventCursor = (int)($pdo->query('SELECT COALESCE(MAX(event_id),0) FROM town_world_events')->fetchColumn() ?: 0); } catch (Throwable $error) { }
+    $eventCursor = town_world_event_journal_latest_sequence($pdo, SHARED_TOWN_WORLD_ID);
+    if ($eventCursor === 0) {
+        try { $eventCursor = (int)($pdo->query('SELECT COALESCE(MAX(event_id),0) FROM town_world_events')->fetchColumn() ?: 0); } catch (Throwable $error) { }
+    }
     $find = $pdo->prepare('SELECT snapshot_id,state_json,state_sha256,created_at FROM town_world_snapshots WHERE world_id=:world AND world_version=:version AND change_cursor=:change AND npc_cursor=:npc AND event_cursor=:event LIMIT 1');
     $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':version' => (int)$world['world_version'], ':change' => (int)$world['change_cursor'], ':npc' => $npcCursor, ':event' => $eventCursor]);
     $existing = $find->fetch(PDO::FETCH_ASSOC);

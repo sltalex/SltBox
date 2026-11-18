@@ -6,7 +6,8 @@ $events = file_get_contents($root . '/database/047_town_world_events_interest.sq
 $clock = file_get_contents($root . '/database/048_town_world_clock_weather.sql');
 $social = file_get_contents($root . '/database/050_town_social_matters_v1.sql');
 $snapshots = file_get_contents($root . '/database/052_town_world_snapshots_v1.sql');
-if ($events === false || $clock === false || $social === false || $snapshots === false) throw new RuntimeException('migration_files_missing');
+$journal = file_get_contents($root . '/database/053_town_world_event_journal_v1.sql');
+if ($events === false || $clock === false || $social === false || $snapshots === false || $journal === false) throw new RuntimeException('migration_files_missing');
 
 if (preg_match('/CREATE TABLE IF NOT EXISTS town_world_events.*?world_id VARCHAR\\(64\\)/is', $events)) {
     throw new RuntimeException('town_world_events_world_id_must_match_town_worlds');
@@ -29,4 +30,9 @@ if (!preg_match('/CREATE TABLE IF NOT EXISTS town_world_snapshots.*?world_id VAR
     || !preg_match('/CREATE TABLE IF NOT EXISTS town_world_snapshots.*?event_cursor BIGINT/is', $snapshots)) {
     throw new RuntimeException('p2_snapshot_migration_shape_missing');
 }
-echo "town_p1p2_migration_shape_test: 9 checks ok\n";
+if (!preg_match('/CREATE TABLE IF NOT EXISTS town_world_event_journal.*?world_id VARCHAR\\(32\\)/is', $journal)
+    || !preg_match('/town_world_event_journal.*?idempotency_key VARCHAR\\(191\\)/is', $journal)
+    || !preg_match('/town_world_event_journal.*?schema_version SMALLINT/is', $journal)) {
+    throw new RuntimeException('p2_event_journal_migration_shape_missing');
+}
+echo "town_p1p2_migration_shape_test: 12 checks ok\n";
