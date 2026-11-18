@@ -19,6 +19,15 @@
   let activeFrameInput = null;
   let activeFrameList = null;
   const previewStates = new Map();
+  const autoScanButton = document.getElementById('town-auto-scan');
+  const autoScanStatus = document.getElementById('town-auto-scan-status');
+  const autoScanResults = document.getElementById('town-auto-scan-results');
+
+  function setAutoScanStatus(message, isError) {
+    if (!autoScanStatus) return;
+    autoScanStatus.textContent = message;
+    autoScanStatus.dataset.state = isError ? 'error' : 'ready';
+  }
 
   function previewState(input, list) {
     if (!input || !input.id) return null;
@@ -284,6 +293,113 @@
     return { x: point.x / scale, y: point.y / scale };
   }
 
+  function chooseRegion(rect) {
+    selection = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+    setField('sheet_id', picker.value);
+    setField('x', rect.x);
+    setField('y', rect.y);
+    setField('width', rect.w);
+    setField('height', rect.h);
+    setField('display_width', rect.w);
+    setField('display_height', rect.h);
+    recalculateFootprint(form);
+    draw();
+  }
+
+  function scanTransparentGrid() {
+    if (!image.complete || !image.naturalWidth || !image.naturalHeight) {
+      throw new Error('图集仍在加载，请稍后再试。');
+    }
+    const scan = document.createElement('canvas');
+    scan.width = image.naturalWidth;
+    scan.height = image.naturalHeight;
+    const scanContext = scan.getContext('2d', { willReadFrequently: true });
+    scanContext.drawImage(image, 0, 0);
+    const pixels = scanContext.getImageData(0, 0, scan.width, scan.height).data;
+    const scanner = window.townAssetScan;
+    if (!scanner || typeof scanner.findTransparentGridRegions !== 'function') {
+      throw new Error('自动识别模块未加载，请刷新页面后重试。');
+    }
+    return scanner.findTransparentGridRegions(
+      scan.width,
+      scan.height,
+      (x, y) => pixels[(y * scan.width + x) * 4 + 3],
+      GRID,
+      8
+    );
+  }
+
+  function renderAutoScanResults() {
+    if (!autoScanResults) return;
+    autoScanResults.replaceChildren();
+    let regions;
+    try {
+      regions = scanTransparentGrid();
+    } catch (error) {
+      setAutoScanStatus(error instanceof Error ? error.message : '自动识别失败，请刷新页面后重试。', true);
+      return;
+    }
+    setAutoScanStatus(regions.length ? `识别到 ${regions.length} 个候选区域，点击候选区域即可填入表单。` : '没有识别到透明素材。', false);
+    if (regions.length) {
+      const bulkButton = document.createElement('button');
+      bulkButton.type = 'button';
+      bulkButton.className = 'town-auto-scan-bulk';
+      bulkButton.textContent = `全部加入草稿（${Math.min(regions.length, 500)} 个）`;
+      bulkButton.title = regions.length > 500 ? '超过 500 个候选区域，只保存前 500 个' : '将所有候选区域批量保存为素材草稿';
+      bulkButton.addEventListener('click', () => submitBulkDrafts(regions));
+      autoScanResults.appendChild(bulkButton);
+    }
+    for (const [index, region] of regions.entries()) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'quiet';
+      button.textContent = `#${index + 1} ${region.x},${region.y} ${region.w}×${region.h}`;
+      button.title = '使用这个自动识别区域';
+      button.addEventListener('click', () => chooseRegion(region));
+      autoScanResults.appendChild(button);
+    }
+  }
+
+  function submitBulkDrafts(regions) {
+    if (!form || !picker.value || !regions.length) return;
+    const optionText = picker.selectedOptions[0]?.textContent?.trim() || '图集';
+    const prefix = optionText.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'sheet';
+    const sheetId = picker.value;
+    const items = regions.slice(0, 500).map((region, index) => {
+      const ordinal = String(index + 1).padStart(4, '0');
+      const coordinate = `${region.x}-${region.y}-${region.w}-${region.h}`;
+      return {
+        asset_id: `auto-${sheetId.slice(0, 12)}-${region.x}-${region.y}`,
+        sheet_id: sheetId,
+        name: `${prefix}-自动素材-${ordinal}`,
+        category: 'object',
+        subcategory: 'auto-scan',
+        tags: JSON.stringify(['auto-scan', `region:${coordinate}`]),
+        x: region.x, y: region.y, width: region.w, height: region.h,
+        display_width: region.w, display_height: region.h,
+        anchor: JSON.stringify({ x: .5, y: 1 }),
+        footprint: '',
+        collision: JSON.stringify({ x: .1, y: .55, width: .8, height: .4 }),
+        frames: '[]', navigation: JSON.stringify({ type: 'blocked', blocked_npc: true, required_capabilities: [] }),
+        sort_mode: 'y_sort', split_y: ''
+      };
+    });
+    const batchForm = document.createElement('form');
+    batchForm.method = 'post';
+    batchForm.action = window.location.href.split('#')[0];
+    const add = (name, value) => {
+      const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; batchForm.appendChild(input);
+    };
+    add('csrf', form.elements.namedItem('csrf')?.value || '');
+    add('operation', 'town_asset_bulk_item');
+    add('panel', 'town_assets');
+    add('items', JSON.stringify(items));
+    autoScanButton.disabled = true;
+    setAutoScanStatus(`正在保存 ${items.length} 个素材草稿…`, false);
+    document.body.appendChild(batchForm);
+    batchForm.submit();
+  }
+
   function snapRect(start, end) {
     const left = Math.floor(Math.min(start.x, end.x) / GRID) * GRID;
     const top = Math.floor(Math.min(start.y, end.y) / GRID) * GRID;
@@ -445,6 +561,10 @@
   });
 
   picker.addEventListener('change', loadSheet);
+  autoScanButton?.addEventListener('click', event => {
+    event.preventDefault();
+    renderAutoScanResults();
+  });
   canvas.addEventListener('pointerdown', function (event) {
     if (!imageWidth || !imageHeight || event.button !== 0) return;
     event.preventDefault();

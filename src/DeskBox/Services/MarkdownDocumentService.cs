@@ -52,6 +52,7 @@ public sealed partial class MarkdownDocumentService
         var builder = new StringBuilder(result.Source.Length);
         AppendContainer(result.Document, builder);
         string decoded = WebUtility.HtmlDecode(builder.ToString());
+        decoded = ColorMarkupRegex().Replace(decoded, string.Empty);
         decoded = HorizontalWhitespaceRegex().Replace(decoded, " ");
         decoded = BlankLinesRegex().Replace(decoded, "\n");
         return decoded.Trim();
@@ -209,6 +210,9 @@ public sealed partial class MarkdownDocumentService
 
     [GeneratedRegex(@"[^\S\r\n]+")]
     private static partial Regex HorizontalWhitespaceRegex();
+
+    [GeneratedRegex("</?span\\s+data-deskbox-color\\s*=\\s*['\"]#[0-9A-Fa-f]{6}['\"]\\s*>", RegexOptions.IgnoreCase)]
+    private static partial Regex ColorMarkupRegex();
 
     [GeneratedRegex(@"\n{2,}")]
     private static partial Regex BlankLinesRegex();

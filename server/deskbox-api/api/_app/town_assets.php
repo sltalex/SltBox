@@ -55,6 +55,46 @@ function town_asset_has_navigation_column(PDO $pdo): bool
     } catch (PDOException) { return $cache[$key] = false; }
 }
 
+function town_asset_has_sort_mode_column(PDO $pdo): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo);
+    if (isset($cache[$key])) return $cache[$key];
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $columns = $pdo->query('PRAGMA table_info(town_asset_items)')->fetchAll(PDO::FETCH_ASSOC);
+            return $cache[$key] = in_array('sort_mode', array_column($columns, 'name'), true);
+        }
+        $query = $pdo->query('SHOW COLUMNS FROM town_asset_items LIKE \'sort_mode\'');
+        return $cache[$key] = (bool)$query->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException) { return $cache[$key] = false; }
+}
+
+function town_asset_has_split_y_column(PDO $pdo): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo);
+    if (isset($cache[$key])) return $cache[$key];
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $columns = $pdo->query('PRAGMA table_info(town_asset_items)')->fetchAll(PDO::FETCH_ASSOC);
+            return $cache[$key] = in_array('split_y', array_column($columns, 'name'), true);
+        }
+        $query = $pdo->query('SHOW COLUMNS FROM town_asset_items LIKE \'split_y\'');
+        return $cache[$key] = (bool)$query->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException) { return $cache[$key] = false; }
+}
+
+function town_asset_sort_mode(mixed $value, string $category = 'object'): string
+{
+    $mode = strtolower(trim((string)$value));
+    if ($mode === '') $mode = in_array($category, ['terrain', 'water', 'path'], true) ? 'background' : 'y_sort';
+    if (!in_array($mode, ['manual', 'y_sort', 'background', 'foreground', 'split'], true)) {
+        throw new ApiError('invalid_sort_mode', '素材排序模式无效。', 400);
+    }
+    return $mode;
+}
+
 function town_asset_item_public(array $row, array $sheet): array
 {
     $json = static function (mixed $value, array $fallback): array {
@@ -62,9 +102,10 @@ function town_asset_item_public(array $row, array $sheet): array
         if (is_string($value)) { $decoded = json_decode($value, true); if (is_array($decoded)) return $decoded; }
         return $fallback;
     };
+    $category = (string)$row['category'];
     return [
         'id' => (string)$row['asset_id'], 'name' => (string)$row['name'],
-        'category' => (string)$row['category'], 'subcategory' => (string)$row['subcategory'],
+        'category' => $category, 'subcategory' => (string)$row['subcategory'],
         'tags' => $json($row['tags_json'] ?? null, []), 'sheet_id' => (string)$row['sheet_id'],
         'x' => (int)$row['x'], 'y' => (int)$row['y'], 'width' => (int)$row['region_width'],
         'height' => (int)$row['region_height'], 'display_width' => (int)$row['display_width'],
@@ -72,6 +113,8 @@ function town_asset_item_public(array $row, array $sheet): array
         'anchor' => $json($row['anchor_json'] ?? null, ['x' => .5, 'y' => 1]),
         'footprint' => $json($row['footprint_json'] ?? null, ['width' => 1, 'height' => 1]),
         'collision' => $json($row['collision_json'] ?? null, ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4]),
+        'sort_mode' => town_asset_sort_mode($row['sort_mode'] ?? null, $category),
+        'split_y' => isset($row['split_y']) && $row['split_y'] !== null ? (int)$row['split_y'] : null,
         'navigation' => $json($row['navigation_json'] ?? null, ['type' => 'blocked', 'blocked_npc' => true, 'required_capabilities' => []]),
         'frames' => $json($row['frames_json'] ?? null, []), 'manual_locked' => (bool)$row['manual_locked'],
         'sheet' => ['sheet_id' => (string)$sheet['sheet_id'], 'width' => (int)($sheet['image_width'] ?? $sheet['width'] ?? 0),
@@ -143,6 +186,14 @@ function town_asset_validate_region(array $body, array $sheet): array
     $navigationType = strtolower(trim((string)($navigation['type'] ?? 'blocked')));
     if (!in_array($navigationType, ['plain', 'blocked', 'stairs', 'water', 'bridge'], true)) throw new ApiError('invalid_navigation', '素材导航类型无效。', 400);
     $navigation['type'] = $navigationType;
+    $sortMode = town_asset_sort_mode($body['sort_mode'] ?? null, $category);
+    $splitY = null;
+    if ($sortMode === 'split') {
+        $splitY = filter_var($body['split_y'] ?? null, FILTER_VALIDATE_INT);
+        if ($splitY === false || $splitY < 16 || $splitY >= $height || $splitY % 16 !== 0) {
+            throw new ApiError('invalid_split_y', '前后景拆分线必须是素材高度内的 16 像素网格位置。', 400);
+        }
+    }
     foreach ($frames as $frame) {
         if (!is_array($frame)) throw new ApiError('invalid_frames', 'The animation frame metadata is invalid.', 400);
         $fx = filter_var($frame['x'] ?? null, FILTER_VALIDATE_INT);
@@ -178,7 +229,8 @@ function town_asset_validate_region(array $body, array $sheet): array
         'footprint_json' => json_encode($footprint, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'collision_json' => json_encode($collision, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'frames_json' => json_encode($frames, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-        'navigation_json' => json_encode($navigation, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)];
+        'navigation_json' => json_encode($navigation, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        'sort_mode' => $sortMode, 'split_y' => $splitY];
 }
 
 function town_asset_upload_sheet(PDO $pdo, string $userId, array $file, DateTimeImmutable $now): array
@@ -208,19 +260,48 @@ function town_asset_save_item(PDO $pdo, string $userId, array $body, DateTimeImm
     $dup->execute([':name' => $values['name'], ':id' => $id]);
     if ($dup->fetchColumn() !== false) throw new ApiError('duplicate_name', 'The town asset name is already in use.', 409);
     $hasNavigation = town_asset_has_navigation_column($pdo);
-    $insertColumns = '(asset_id,sheet_id,name,category,subcategory,tags_json,x,y,region_width,region_height,display_width,display_height,anchor_json,footprint_json,collision_json,frames_json' . ($hasNavigation ? ',navigation_json' : '') . ',manual_locked,updated_by,created_at,updated_at)';
-    $insertValues = 'VALUES (:id,:sheet,:name,:category,:subcategory,:tags,:x,:y,:width,:height,:display_width,:display_height,:anchor,:footprint,:collision,:frames' . ($hasNavigation ? ',:navigation' : '') . ',1,:user,:created,:updated)';
+    $hasSortMode = town_asset_has_sort_mode_column($pdo);
+    $hasSplitY = town_asset_has_split_y_column($pdo);
+    $insertColumns = '(asset_id,sheet_id,name,category,subcategory,tags_json,x,y,region_width,region_height,display_width,display_height,anchor_json,footprint_json,collision_json,frames_json' . ($hasNavigation ? ',navigation_json' : '') . ($hasSortMode ? ',sort_mode' : '') . ($hasSplitY ? ',split_y' : '') . ',manual_locked,updated_by,created_at,updated_at)';
+    $insertValues = 'VALUES (:id,:sheet,:name,:category,:subcategory,:tags,:x,:y,:width,:height,:display_width,:display_height,:anchor,:footprint,:collision,:frames' . ($hasNavigation ? ',:navigation' : '') . ($hasSortMode ? ',:sort_mode' : '') . ($hasSplitY ? ',:split_y' : '') . ',1,:user,:created,:updated)';
     $sql = 'INSERT INTO town_asset_items ' . $insertColumns . ' ' . $insertValues;
     if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-        $sql .= ' ON CONFLICT(asset_id) DO UPDATE SET sheet_id=excluded.sheet_id,name=excluded.name,category=excluded.category,subcategory=excluded.subcategory,tags_json=excluded.tags_json,x=excluded.x,y=excluded.y,region_width=excluded.region_width,region_height=excluded.region_height,display_width=excluded.display_width,display_height=excluded.display_height,anchor_json=excluded.anchor_json,footprint_json=excluded.footprint_json,collision_json=excluded.collision_json,frames_json=excluded.frames_json' . ($hasNavigation ? ',navigation_json=excluded.navigation_json' : '') . ',manual_locked=1,updated_by=excluded.updated_by,updated_at=excluded.updated_at';
+        $sql .= ' ON CONFLICT(asset_id) DO UPDATE SET sheet_id=excluded.sheet_id,name=excluded.name,category=excluded.category,subcategory=excluded.subcategory,tags_json=excluded.tags_json,x=excluded.x,y=excluded.y,region_width=excluded.region_width,region_height=excluded.region_height,display_width=excluded.display_width,display_height=excluded.display_height,anchor_json=excluded.anchor_json,footprint_json=excluded.footprint_json,collision_json=excluded.collision_json,frames_json=excluded.frames_json' . ($hasNavigation ? ',navigation_json=excluded.navigation_json' : '') . ($hasSortMode ? ',sort_mode=excluded.sort_mode' : '') . ($hasSplitY ? ',split_y=excluded.split_y' : '') . ',manual_locked=1,updated_by=excluded.updated_by,updated_at=excluded.updated_at';
     } else {
-        $sql .= ' ON DUPLICATE KEY UPDATE sheet_id=VALUES(sheet_id),name=VALUES(name),category=VALUES(category),subcategory=VALUES(subcategory),tags_json=VALUES(tags_json),x=VALUES(x),y=VALUES(y),region_width=VALUES(region_width),region_height=VALUES(region_height),display_width=VALUES(display_width),display_height=VALUES(display_height),anchor_json=VALUES(anchor_json),footprint_json=VALUES(footprint_json),collision_json=VALUES(collision_json),frames_json=VALUES(frames_json)' . ($hasNavigation ? ',navigation_json=VALUES(navigation_json)' : '') . ',manual_locked=1,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)';
+        $sql .= ' ON DUPLICATE KEY UPDATE sheet_id=VALUES(sheet_id),name=VALUES(name),category=VALUES(category),subcategory=VALUES(subcategory),tags_json=VALUES(tags_json),x=VALUES(x),y=VALUES(y),region_width=VALUES(region_width),region_height=VALUES(region_height),display_width=VALUES(display_width),display_height=VALUES(display_height),anchor_json=VALUES(anchor_json),footprint_json=VALUES(footprint_json),collision_json=VALUES(collision_json),frames_json=VALUES(frames_json)' . ($hasNavigation ? ',navigation_json=VALUES(navigation_json)' : '') . ($hasSortMode ? ',sort_mode=VALUES(sort_mode)' : '') . ($hasSplitY ? ',split_y=VALUES(split_y)' : '') . ',manual_locked=1,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)';
     }
     $timestamp = auth_sql_time($now);
     $parameters = [':id' => $id, ':sheet' => $sheetId, ':name' => $values['name'], ':category' => $values['category'], ':subcategory' => $values['subcategory'], ':tags' => $values['tags_json'], ':x' => $values['x'], ':y' => $values['y'], ':width' => $values['region_width'], ':height' => $values['region_height'], ':display_width' => $values['display_width'], ':display_height' => $values['display_height'], ':anchor' => $values['anchor_json'], ':footprint' => $values['footprint_json'], ':collision' => $values['collision_json'], ':frames' => $values['frames_json'], ':user' => $userId, ':created' => $timestamp, ':updated' => $timestamp];
     if ($hasNavigation) $parameters[':navigation'] = $values['navigation_json'];
+    if ($hasSortMode) $parameters[':sort_mode'] = $values['sort_mode'];
+    if ($hasSplitY) $parameters[':split_y'] = $values['split_y'];
     $statement = $pdo->prepare($sql); $statement->execute($parameters);
     $read = $pdo->prepare('SELECT i.*,s.image_width,s.image_height,s.sha256 FROM town_asset_items i JOIN town_asset_sheets s ON s.sheet_id=i.sheet_id WHERE i.asset_id=:id'); $read->execute([':id' => $id]); $row = $read->fetch(PDO::FETCH_ASSOC); return is_array($row) ? town_asset_item_public($row, $sheet) : [];
+}
+
+/**
+ * Saves automatically scanned regions as one transactional draft batch. The
+ * caller supplies complete item payloads so the same service validation and
+ * defaulting rules are used for single and bulk saves.
+ */
+function town_asset_save_items_bulk(PDO $pdo, string $userId, array $items, DateTimeImmutable $now): array
+{
+    if (count($items) < 1) throw new ApiError('empty_asset_batch', '没有可保存的素材候选区域。', 400);
+    if (count($items) > 500) throw new ApiError('asset_batch_too_large', '单次最多批量保存 500 个素材候选区域。', 413);
+    $started = false;
+    try {
+        if (!$pdo->inTransaction()) { $pdo->beginTransaction(); $started = true; }
+        $saved = [];
+        foreach (array_values($items) as $item) {
+            if (!is_array($item)) throw new ApiError('invalid_asset_batch', '素材候选区域格式无效。', 400);
+            $saved[] = town_asset_save_item($pdo, $userId, $item, $now);
+        }
+        if ($started) $pdo->commit();
+        return ['count' => count($saved), 'items' => $saved];
+    } catch (Throwable $error) {
+        if ($started && $pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
 }
 
 function town_asset_delete_item(PDO $pdo, string $assetId): void

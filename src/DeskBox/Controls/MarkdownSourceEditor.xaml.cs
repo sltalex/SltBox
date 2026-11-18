@@ -248,6 +248,46 @@ public sealed partial class MarkdownSourceEditor : UserControl
         RestoreEditorViewport(viewport);
     }
 
+    private void ColorButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string color } ||
+            !Regex.IsMatch(color, "^#[0-9A-Fa-f]{6}$"))
+        {
+            return;
+        }
+
+        try
+        {
+            EditorViewportSnapshot viewport = PrepareEditorCommandViewport();
+            int start = viewport.SelectionStart;
+            int length = viewport.SelectionLength;
+            string source = EditorTextBox.Text;
+            string prefix = $"<span data-deskbox-color=\"{color.ToUpperInvariant()}\">";
+            const string suffix = "</span>";
+            string selected = source.Substring(start, length);
+            string replacement = prefix + selected + suffix;
+            ApplyTextEdit(new MarkdownTextEdit(start, length, replacement, start + prefix.Length, selected.Length));
+            RestoreEditorViewport(viewport);
+            ColorPalettePanel.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[MarkdownSourceEditor] Color formatting failed: {ex.Message}");
+        }
+    }
+
+    private void ColorPaletteToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        ColorPalettePanel.Visibility = ColorPalettePanel.Visibility == Visibility.Visible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
     private static bool TryResolveCommand(string action, out MarkdownEditCommand command)
     {
         command = action switch
@@ -329,6 +369,7 @@ public sealed partial class MarkdownSourceEditor : UserControl
             ItalicButton,
             StrikeButton,
             HeadingButton,
+            ColorButton,
             ListButton,
             TaskButton,
             LinkButton,
@@ -342,6 +383,7 @@ public sealed partial class MarkdownSourceEditor : UserControl
             ItalicMenuButton,
             StrikeMenuButton,
             HeadingMenuButton,
+            ColorMenuButton,
             ListMenuButton,
             TaskMenuButton,
             LinkMenuButton,
@@ -673,7 +715,7 @@ public sealed partial class MarkdownSourceEditor : UserControl
 
         EditorTextBox.Focus(FocusState.Programmatic);
         EditorTextBox.Select(start, length);
-        RestoreScrollOffset();
+        RestoreScrollOffsetSafely(viewport);
         _lastEditorViewport = viewport with
         {
             SelectionStart = start,
@@ -683,15 +725,23 @@ public sealed partial class MarkdownSourceEditor : UserControl
 
         DispatcherQueue.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            RestoreScrollOffset);
+            () => RestoreScrollOffsetSafely(viewport));
 
-        void RestoreScrollOffset()
+    }
+
+    private void RestoreScrollOffsetSafely(EditorViewportSnapshot viewport)
+    {
+        try
         {
             FindDescendant<ScrollViewer>(EditorTextBox)?.ChangeView(
                 viewport.HorizontalOffset,
                 viewport.VerticalOffset,
                 null,
                 disableAnimation: true);
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            App.Log($"[MarkdownSourceEditor] Ignored stale viewport COM error: {ex.Message}");
         }
     }
 
@@ -789,6 +839,7 @@ public sealed partial class MarkdownSourceEditor : UserControl
         SetButtonText(BoldButton, "Markdown.Editor.Bold", "Bold");
         SetButtonText(ItalicButton, "Markdown.Editor.Italic", "Italic");
         SetButtonText(HeadingButton, "Markdown.Editor.Heading", "Heading");
+        SetButtonText(ColorButton, "Markdown.Editor.Color", "Text color");
         SetButtonText(StrikeButton, "Markdown.Editor.Strikethrough", "Strikethrough");
         SetButtonText(ListButton, "Markdown.Editor.List", "List");
         SetButtonText(TaskButton, "Markdown.Editor.Task", "Task list");
@@ -801,6 +852,7 @@ public sealed partial class MarkdownSourceEditor : UserControl
         SetButtonText(ItalicMenuButton, ItalicMenuButtonText, "Markdown.Editor.Italic", "Italic");
         SetButtonText(StrikeMenuButton, StrikeMenuButtonText, "Markdown.Editor.Strikethrough", "Strikethrough");
         SetButtonText(HeadingMenuButton, HeadingMenuButtonText, "Markdown.Editor.Heading", "Heading");
+        SetButtonText(ColorMenuButton, ColorMenuButtonText, "Markdown.Editor.Color", "Text color");
         SetButtonText(ListMenuButton, ListMenuButtonText, "Markdown.Editor.List", "List");
         SetButtonText(TaskMenuButton, TaskMenuButtonText, "Markdown.Editor.Task", "Task list");
         SetButtonText(LinkMenuButton, LinkMenuButtonText, "Markdown.Editor.Link", "Link");

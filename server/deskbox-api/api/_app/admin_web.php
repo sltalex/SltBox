@@ -139,9 +139,20 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             'display_width' => $post['display_width'] ?? null, 'display_height' => $post['display_height'] ?? null,
             'anchor' => $post['anchor'] ?? ['x' => .5, 'y' => 1], 'footprint' => $post['footprint'] ?? '',
             'collision' => $post['collision'] ?? ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4], 'frames' => $post['frames'] ?? [],
-            'navigation' => $post['navigation'] ?? ['type' => 'blocked'],
+            'navigation' => $post['navigation'] ?? ['type' => 'blocked'], 'sort_mode' => $post['sort_mode'] ?? null,
+            'split_y' => $post['split_y'] ?? null,
         ], api_clock());
         return 'town_asset_item';
+    }
+    if ($operation === 'town_asset_bulk_item') {
+        $rawItems = $post['items'] ?? '';
+        if (is_string($rawItems)) {
+            try { $rawItems = json_decode($rawItems, true, 32, JSON_THROW_ON_ERROR); }
+            catch (JsonException) { throw new ApiError('invalid_asset_batch', '批量素材数据不是有效 JSON。', 400); }
+        }
+        if (!is_array($rawItems)) throw new ApiError('invalid_asset_batch', '批量素材数据格式无效。', 400);
+        town_asset_save_items_bulk($pdo, $actor['user_id'], $rawItems, api_clock());
+        return 'town_asset_bulk_item';
     }
     if ($operation === 'town_asset_delete') {
         town_asset_delete_item($pdo, isset($post['asset_id']) && is_string($post['asset_id']) ? $post['asset_id'] : '');
@@ -203,6 +214,32 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
             town_npc_replace_inventory($pdo, $id, ['ladder' => (int)($post['ladder_quantity'] ?? 0), 'bridge_kit' => (int)($post['bridge_kit_quantity'] ?? 0)], api_clock());
             return 'town_npc_inventory_save';
+        }
+        if ($operation === 'town_npc_home_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $decode = static function (mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException) { throw new ApiError('invalid_npc_home', '家的交互配置必须是有效 JSON。', 400); } };
+            town_npc_save_home($pdo, $id, ['home_asset_id' => $post['home_asset_id'] ?? '', 'home_asset_name' => $post['home_asset_name'] ?? '', 'tile_x' => (int)($post['home_tile_x'] ?? 0), 'tile_y' => (int)($post['home_tile_y'] ?? 0), 'interaction' => $decode($post['home_interaction'] ?? '')], api_clock());
+            return 'town_npc_home_save';
+        }
+        if ($operation === 'town_npc_policy_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            town_npc_save_decision_policy($pdo, $id, ['decision_interval_seconds' => (int)($post['decision_interval_seconds'] ?? 60), 'observation_interval_seconds' => (int)($post['observation_interval_seconds'] ?? 300), 'dialogue_cooldown_seconds' => (int)($post['dialogue_cooldown_seconds'] ?? 60), 'max_decisions_per_hour' => (int)($post['max_decisions_per_hour'] ?? 60)], api_clock());
+            return 'town_npc_policy_save';
+        }
+        if ($operation === 'town_npc_global_policy_save') {
+            town_npc_save_global_policy($pdo, ['enabled' => ($post['global_policy_enabled'] ?? '') === '1', 'decision_interval_seconds' => (int)($post['global_decision_interval_seconds'] ?? 60), 'observation_interval_seconds' => (int)($post['global_observation_interval_seconds'] ?? 300), 'dialogue_cooldown_seconds' => (int)($post['global_dialogue_cooldown_seconds'] ?? 60), 'max_decisions_per_hour' => (int)($post['global_max_decisions_per_hour'] ?? 60)], api_clock());
+            return 'town_npc_global_policy_save';
+        }
+        if ($operation === 'town_npc_economy_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $items = [];
+            if (is_string($post['economy_inventory'] ?? null) && trim((string)$post['economy_inventory']) !== '') {
+                try { $decoded = json_decode((string)$post['economy_inventory'], true, 32, JSON_THROW_ON_ERROR); if (!is_array($decoded)) throw new JsonException('not object'); $items = $decoded; }
+                catch (JsonException) { throw new ApiError('invalid_npc_economy', 'NPC 库存必须是 JSON 对象，例如 {"seed":10}。', 400); }
+            }
+            town_npc_set_wallet($pdo, $id, max(0, (int)($post['wallet_balance'] ?? 0)), $actor['user_id'], api_clock());
+            town_npc_set_economy_inventory($pdo, $id, $items, api_clock());
+            return 'town_npc_economy_save';
         }
         if ($operation === 'town_npc_schedule_save') {
             $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';

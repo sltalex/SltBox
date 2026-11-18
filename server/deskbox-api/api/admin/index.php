@@ -109,7 +109,8 @@ try {
     $done = isset($_GET['done']) && is_string($_GET['done']) ? $_GET['done'] : '';
     if ($done === 'town_model_provider_test') { $message = '模型连接成功，未发送对话请求。'; }
     elseif ($done === 'town_navigation_rebuild') { $message = '导航已重建，运行中的村民会在下一次行动校验时重新规划路线。'; }
-    elseif ($done !== '') { $message = 'Operation completed.'; }
+    elseif ($done === 'town_asset_bulk_item') { $message = '自动识别的素材候选已批量加入草稿，可在下方逐项调整后发布。'; }
+    elseif ($done !== '') { $message = '操作已完成。'; }
 } catch (ApiError $exception) {
     if ($exception->apiCode === 'invalid_session' || $exception->apiCode === 'admin_forbidden') {
         web_admin_sign_out();
@@ -123,8 +124,110 @@ try {
 
 if ($actor === null):
 ?><!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SltBox 管理后台</title><style>
-body{margin:0;background:#f4f7fb;color:#182033;font:15px/1.5 system-ui,"Microsoft YaHei",sans-serif}.login{width:min(400px,calc(100% - 40px));margin:12vh auto;padding:30px;border-radius:18px;background:#fff;box-shadow:0 16px 48px #1b2a4a1a}h1{margin:0 0 6px;font-size:26px}.muted{color:#65708a}.field{display:grid;gap:6px;margin-top:16px}input,select,button{box-sizing:border-box;font:inherit;border-radius:9px}input,select{width:100%;border:1px solid #c9d3e5;padding:10px}button{border:0;background:#2167d4;color:#fff;padding:10px 14px;cursor:pointer}.error{margin-top:16px;padding:10px;border-radius:9px;background:#fff0f0;color:#a32121}</style></head><body><main class="login"><h1>SltBox 管理后台</h1><p class="muted">使用管理员 SltBox 账号登录以管理用户。</p><?php if (!api_is_https($_SERVER)): ?><p class="error">当前连接使用 HTTP，账号密码和会话可能被截获。请仅在受信任网络中使用。</p><?php endif; ?><?php if ($error !== ''): ?><p class="error"><?= admin_page_escape($error) ?></p><?php endif; ?><form method="post"><input type="hidden" name="operation" value="login"><label class="field">账号<input name="username" autocomplete="username" required></label><label class="field">密码<input type="password" name="password" autocomplete="current-password" required></label><p><button type="submit">登录管理后台</button></p></form></main></body></html><?php
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SltBox 管理后台</title><style>:root{color-scheme:light}
+*,*::before,*::after{box-sizing:border-box}
+body{
+margin:0;
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:24px;
+background:#f4f6fb;
+color:#16202f;
+font:15px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased;
+}
+.login{
+width:min(408px,100%);
+padding:34px 32px 30px;
+border-radius:20px;
+background:#fff;
+border:1px solid #e5eaf3;
+box-shadow:0 1px 2px rgba(16,24,40,.04),0 24px 60px rgba(16,24,40,.10);
+}
+.login h1{
+display:flex;
+align-items:center;
+gap:11px;
+margin:0 0 8px;
+font-size:21px;
+font-weight:600;
+letter-spacing:-.01em;
+}
+.login h1::before{
+content:"S";
+flex:0 0 auto;
+width:30px;
+height:30px;
+border-radius:9px;
+background:#2563eb;
+color:#fff;
+font-size:16px;
+font-weight:500;
+display:inline-flex;
+align-items:center;
+justify-content:center;
+box-shadow:0 4px 10px rgba(37,99,235,.28);
+}
+.login .muted{
+margin:6px 0 0;
+font-size:13px;
+color:#5b6b85;
+}
+.field{
+display:grid;
+gap:6px;
+margin-top:16px;
+font-size:12.5px;
+font-weight:500;
+color:#5b6b85;
+}
+input{
+width:100%;
+height:40px;
+padding:0 12px;
+border:1px solid #d2dbea;
+border-radius:10px;
+background:#fff;
+color:#16202f;
+font:inherit;
+font-size:14px;
+transition:border-color .15s ease,box-shadow .15s ease;
+}
+input:hover{border-color:#bcc9dd}
+input:focus{
+outline:none;
+border-color:#2563eb;
+box-shadow:0 0 0 3px rgba(37,99,235,.15);
+}
+.login form p{margin:18px 0 0}
+button{
+width:100%;
+height:42px;
+border:0;
+border-radius:10px;
+background:#2563eb;
+color:#fff;
+font:inherit;
+font-size:14px;
+font-weight:500;
+cursor:pointer;
+transition:background .15s ease;
+}
+button:hover{background:#1d4ed8}
+button:active{background:#1a43bd}
+.login .error{
+margin:16px 0 0;
+padding:10px 12px;
+border-radius:10px;
+background:#fdeded;
+color:#9c1c1c;
+border:1px solid #f6d5d5;
+font-size:13px;
+line-height:1.55;
+}
+</style></head><body><main class="login"><h1>SltBox 管理后台</h1><p class="muted">使用管理员 SltBox 账号登录以管理用户。</p><?php if (!api_is_https($_SERVER)): ?><p class="error">当前连接使用 HTTP，账号密码和会话可能被截获。请仅在受信任网络中使用。</p><?php endif; ?><?php if ($error !== ''): ?><p class="error"><?= admin_page_escape($error) ?></p><?php endif; ?><form method="post"><input type="hidden" name="operation" value="login"><label class="field">账号<input name="username" autocomplete="username" required></label><label class="field">密码<input type="password" name="password" autocomplete="current-password" required></label><p><button type="submit">登录管理后台</button></p></form></main></body></html><?php
 exit;
 endif;
 
@@ -132,6 +235,10 @@ $csrf = web_admin_csrf_token();
 $query = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
 $panel = isset($_GET['panel']) && is_string($_GET['panel']) && in_array($_GET['panel'], ['users', 'shop', 'tree', 'tree_settings', 'aquarium', 'wildlife', 'town_assets', 'town_npcs', 'town_agent', 'report'], true)
     ? $_GET['panel'] : 'users';
+$townView = isset($_GET['view']) && is_string($_GET['view']) && in_array($_GET['view'], ['list', 'workpoints', 'memory', 'economy'], true) ? $_GET['view'] : 'list';
+$panelView = $panel === 'town_npcs'
+    ? ($townView === 'workpoints' ? 'town_workpoints.php' : ($townView === 'memory' ? 'town_memories.php' : ($townView === 'economy' ? 'town_economy.php' : 'town_npcs.php')))
+    : $panel . '.php';
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $list = null;
 $overview = null;
@@ -155,15 +262,19 @@ $townCharacterAssets = [];
 $townWorkPoints = [];
 $townNpcRelationships = [];
 $townNpcMemories = [];
+$townNpcTransactions = [];
+$townNpcGlobalPolicy = town_npc_life_policy_defaults();
 $townNpcRelationPage = isset($_GET['relationship_page']) && is_string($_GET['relationship_page']) ? max(0, min(2000, (int)$_GET['relationship_page'])) : 0;
 $townNpcMemoryPage = isset($_GET['memory_page']) && is_string($_GET['memory_page']) ? max(0, min(2000, (int)$_GET['memory_page'])) : 0;
 $townNpcSocialNpcId = isset($_GET['social_npc_id']) && is_string($_GET['social_npc_id']) && preg_match('/\A[a-f0-9]{32}\z/D', $_GET['social_npc_id']) ? $_GET['social_npc_id'] : null;
 $townNpcSocialPageSize = 50;
 if (in_array($panel, ['town_npcs', 'town_agent'], true)) { try { $townNpcs = town_npc_rows_safe($pdo, true); } catch (Throwable $error) { $townNpcs = []; $error = 'NPC 数据表尚未迁移，请先执行 028_shared_town_npc_v1.sql。'; } }
 if ($panel === 'town_npcs') {
+    $townNpcGlobalPolicy = town_npc_life_global_policy($pdo);
     $townWorkPoints = town_npc_work_points($pdo, true);
     $townNpcRelationships = town_npc_relationship_rows($pdo, $townNpcSocialNpcId, $townNpcSocialPageSize, $townNpcRelationPage * $townNpcSocialPageSize);
     $townNpcMemories = town_npc_memory_rows($pdo, $townNpcSocialNpcId, $townNpcSocialPageSize, $townNpcMemoryPage * $townNpcSocialPageSize);
+    $townNpcTransactions = town_npc_transaction_rows($pdo, $townNpcSocialNpcId, 100);
 }
 if ($panel === 'town_npcs') {
     try {
@@ -210,101 +321,404 @@ if ($panel === 'users' && $selectedId !== '') {
     }
 }
 ?><!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SltBox 管理后台</title><style>
- :root{color-scheme:light}body{margin:0;background:#f4f7fb;color:#182033;font:14px/1.45 system-ui,"Microsoft YaHei",sans-serif}.shell{max-width:1240px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px}.top h1{margin:0;font-size:25px}.muted{color:#65708a}.module-nav{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center}.module-group{display:flex;align-items:center;gap:6px;padding-left:10px;border-left:1px solid #d9e2f1}.module-group:first-child{padding-left:0;border-left:0}.module-label{font-size:12px;color:#65708a}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:20px 0}.card{background:#fff;border:1px solid #e2e8f3;border-radius:13px;padding:15px;box-shadow:0 5px 16px #2736570b}.metric{font-size:24px;font-weight:700}.grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(330px,.9fr);gap:16px}.panel{background:#fff;border:1px solid #e2e8f3;border-radius:13px;padding:16px;overflow:auto}h2{font-size:17px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{padding:9px 7px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top}th{font-size:12px;color:#65708a}input,select,button{box-sizing:border-box;font:inherit;border-radius:8px}input,select{border:1px solid #c9d3e5;padding:8px;max-width:100%}button{border:0;background:#2167d4;color:#fff;padding:8px 11px;cursor:pointer}.quiet{background:#e8eef9;color:#164c9f}.danger{background:#bc3131}.form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:end}.form-row label{display:grid;gap:4px;flex:1 1 120px}.notice{margin:12px 0;padding:10px;border-radius:9px;background:#e8f6ed;color:#16643a}.error{margin:12px 0;padding:10px;border-radius:9px;background:#fff0f0;color:#a32121}.pill{display:inline-block;padding:2px 7px;border-radius:99px;background:#e8f6ed;color:#16643a}.pill.off{background:#fff1e9;color:#a54a14}.audit{max-height:300px;overflow:auto}.actions{display:flex;flex-wrap:wrap;gap:7px}.actions form{display:inline}.table-scroll{max-height:68vh;overflow:auto}.table-scroll th{position:sticky;top:0;background:#fff;z-index:1}.town-frame-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.town-frame-item{display:inline-flex;align-items:center;gap:3px;padding:3px 5px;border:1px solid #d9e2f1;border-radius:6px;background:#f8faff;font-size:12px}.town-frame-item button{padding:2px 5px;font-size:12px}.town-frame-item button:disabled{opacity:.45}.town-frame-list:empty{display:block;color:#65708a;font-size:12px}.town-sheet-layout{display:grid;grid-template-columns:minmax(0,620px) minmax(260px,1fr);gap:16px;align-items:start}.town-sheet-preview{max-width:620px;max-height:1250px;overflow:auto;border:1px solid #c9d3e5;background:#f8faff}.town-sheet-preview canvas{display:block;max-width:620px;max-height:1250px;width:auto;height:auto;image-rendering:pixelated;cursor:crosshair}.town-sheet-controls{display:grid;gap:12px;align-content:start}.town-assets-items{grid-column:1/-1;min-width:0}.town-assets-items h3{margin:0 0 10px}.town-assets-items .table-scroll{max-height:68vh}.town-sheet-controls .form-row{margin:0}.town-sheet-list{min-width:0;max-height:52vh;overflow:auto}.town-sheet-list table{font-size:12px}.town-sheet-list code{word-break:break-all}.town-frame-preview-host{display:block;flex-basis:100%;margin:6px 0}.town-frame-preview{display:inline-flex;align-items:center;gap:8px;padding:5px 7px;border:1px solid #d9e2f1;border-radius:7px;background:#fff}.town-frame-preview-canvas{width:auto;height:auto;max-width:128px;max-height:96px;image-rendering:pixelated;background:repeating-conic-gradient(#f2f5fa 0 25%,#fff 0 50%) 0/10px 10px}.town-frame-preview-controls{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}.town-frame-preview-controls button{padding:3px 6px;font-size:12px}.town-frame-preview-label{color:#65708a;white-space:nowrap}@media(max-width:850px){.town-sheet-layout{grid-template-columns:1fr}.town-sheet-preview{max-width:100%}.town-sheet-preview canvas{max-width:100%;height:auto}.grid{grid-template-columns:1fr}.shell{padding:14px}.module-group{width:100%;padding-left:0;border-left:0}} </style></head><body><main class="shell">
-<header class="top"><div><h1>SltBox 管理后台</h1><div class="muted">已登录：<?= admin_page_escape($actor['username']) ?></div><nav class="module-nav"><div class="module-group"><a class="<?= $panel === 'users' ? 'pill' : '' ?>" href="?panel=users">用户管理</a></div><div class="module-group"><span class="module-label">水族馆</span><a class="<?= $panel === 'shop' ? 'pill' : '' ?>" href="?panel=shop">商城管理</a><a class="<?= $panel === 'aquarium' ? 'pill' : '' ?>" href="?panel=aquarium">水族馆图鉴</a></div><div class="module-group"><span class="module-label">果树</span><a class="<?= $panel === 'tree_settings' ? 'pill' : '' ?>" href="?panel=tree_settings">产果设置</a><a class="<?= $panel === 'tree' ? 'pill' : '' ?>" href="?panel=tree">果实图鉴</a><a class="<?= $panel === 'wildlife' ? 'pill' : '' ?>" href="?panel=wildlife">动物图鉴</a></div><div class="module-group"><a class="<?= $panel === 'town_assets' ? 'pill' : '' ?>" href="?panel=town_assets">共享小镇素材</a><a class="<?= $panel === 'town_npcs' ? 'pill' : '' ?>" href="?panel=town_npcs">村民管理</a><a class="<?= $panel === 'town_agent' ? 'pill' : '' ?>" href="?panel=town_agent">Agent 模型</a><a class="<?= $panel === 'report' ? 'pill' : '' ?>" href="?panel=report">图鉴报表</a></div></nav></div><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="logout"><button class="quiet">退出登录</button></form></header>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SltBox 管理后台</title><style>:root{
+color-scheme:light;
+--bg:#f2f5fa;
+--surface:#fff;
+--surface-2:#f7f9fc;
+--border:#e6ebf3;
+--border-strong:#d5dcea;
+--text:#172033;
+--text-2:#5b6b85;
+--text-3:#8a97ab;
+--brand:#2563eb;
+--brand-ink:#1d4ed8;
+--brand-soft:#eaf1fe;
+--ok:#0b6b45;
+--ok-soft:#e9f7f0;
+--warn:#96540f;
+--warn-soft:#fdf4e7;
+--danger:#b91c1c;
+--danger-soft:#fdeded;
+--radius:12px;
+--radius-sm:8px;
+--shadow-sm:0 1px 2px rgba(16,24,40,.05);
+--shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.05);
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+margin:0;
+background:var(--bg);
+color:var(--text);
+font:14px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased;
+}
+a{color:var(--brand-ink);text-decoration:none}
+a:hover{text-decoration:underline}
+td a{white-space:nowrap}
+code{
+font-family:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace;
+font-size:12px;
+background:var(--surface-2);
+border:1px solid var(--border);
+border-radius:5px;
+padding:1px 5px;
+}
+/* ---------- 整体框架：左侧栏 + 右侧内容 ---------- */
+.app{display:flex;min-height:100vh}
+.side{
+flex:0 0 236px;
+position:sticky;
+top:0;
+height:100vh;
+overflow-y:auto;
+background:#fff;
+border-right:1px solid var(--border);
+display:flex;
+flex-direction:column;
+}
+.side-brand{
+display:flex;
+align-items:center;
+gap:11px;
+padding:18px 18px 14px;
+border-bottom:1px solid var(--border);
+}
+.side-brand .logo{
+flex:0 0 auto;
+width:34px;height:34px;
+border-radius:10px;
+background:var(--brand);
+color:#fff;
+font-size:18px;font-weight:600;
+display:inline-flex;align-items:center;justify-content:center;
+box-shadow:0 4px 10px rgba(37,99,235,.28);
+}
+.side-brand .brand-title{font-size:15px;font-weight:600;line-height:1.25}
+.side-brand .brand-sub{font-size:11.5px;color:var(--text-3);margin-top:1px}
+.side-nav{flex:1 1 auto;padding:10px 10px 20px}
+.side-group{margin-bottom:4px}
+.side-group-label{
+display:flex;align-items:center;justify-content:space-between;gap:6px;
+width:100%;
+padding:8px 10px;
+border:0;border-radius:8px;
+background:transparent;
+color:var(--text-3);
+font-size:12px;font-weight:600;letter-spacing:.02em;
+cursor:pointer;white-space:nowrap;
+}
+.side-group-label:hover{background:var(--surface-2);color:var(--text-2)}
+.side-group-label::after{
+content:"";flex:0 0 auto;
+width:6px;height:6px;
+border-right:1.5px solid currentColor;
+border-bottom:1.5px solid currentColor;
+transform:rotate(-45deg);
+transition:transform .15s ease;
+}
+.side-group.collapsed .side-group-label::after{transform:rotate(45deg)}
+.side-items{display:flex;flex-direction:column;gap:2px;margin:2px 0 6px}
+.side-group.collapsed .side-items{display:none}
+.side-link{
+display:flex;align-items:center;
+height:34px;padding:0 10px 0 14px;
+border-radius:8px;
+font-size:13px;color:var(--text-2);
+white-space:nowrap;text-decoration:none;
+}
+.side-link:hover{background:var(--surface-2);color:var(--text);text-decoration:none}
+.side-link.active{
+background:var(--brand-soft);color:var(--brand-ink);font-weight:600;
+}
+.main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.topbar{
+position:sticky;top:0;z-index:20;
+display:flex;align-items:center;justify-content:space-between;gap:16px;
+padding:11px 24px;
+background:#fff;border-bottom:1px solid var(--border);
+}
+.topbar .crumb{font-size:15px;font-weight:600}
+.topbar .crumb .sep{color:var(--text-3);margin:0 8px;font-weight:400}
+.topbar .crumb .current{color:var(--text-3);font-weight:400;font-size:13px}
+.topbar form{margin:0}
+.shell{flex:1 1 auto;width:100%;max-width:none;padding:18px 24px 48px}
+/* ---------- 指标卡 ---------- */
+.cards{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+gap:12px;
+margin:0 0 16px;
+}
+.card{
+position:relative;overflow:hidden;
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:var(--radius);
+padding:13px 15px 12px;
+box-shadow:var(--shadow-sm);
+}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand)}
+.cards .card:nth-child(2)::before{background:#0d9488}
+.cards .card:nth-child(3)::before{background:#d97706}
+.cards .card:nth-child(4)::before{background:#7c3aed}
+.cards .card:nth-child(5)::before{background:#db2777}
+.metric{font-size:24px;font-weight:600;line-height:1.15;letter-spacing:-.02em}
+.card .muted{margin-top:2px;font-size:12px}
+/* ---------- 面板与栅格 ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.9fr);gap:14px}
+.panel{
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:var(--radius);
+padding:16px 18px;
+box-shadow:var(--shadow);
+overflow:auto;min-width:0;
+}
+h2{display:flex;align-items:center;gap:9px;margin:0 0 12px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.panel>h2::before{content:"";flex:0 0 auto;width:3px;height:14px;border-radius:2px;background:var(--brand)}
+.panel h3{margin:14px 0 8px;font-size:13px;font-weight:600}
+.panel p{margin:0 0 10px}
+.panel p:last-child{margin-bottom:0}
+.panel img{max-width:100%;height:auto;border-radius:8px}
+.muted{color:var(--text-2)}
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #f0f3f9}
+th{font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--text-3);background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:#f8fbff}
+tbody tr:last-child td{border-bottom:0}
+.table-scroll{max-height:66vh;overflow:auto;margin-top:8px;border:1px solid var(--border);border-radius:10px}
+.table-scroll table{font-size:12.5px}
+.table-scroll th{position:sticky;top:0;z-index:2;background:var(--surface-2);box-shadow:inset 0 -1px 0 var(--border)}
+.audit{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:10px}
+.audit table{font-size:12.5px}
+/* ---------- 表单控件 ---------- */
+input,select,textarea,button{box-sizing:border-box;font:inherit}
+input,select,textarea{
+width:auto;max-width:100%;
+padding:6px 9px;
+border:1px solid var(--border-strong);
+border-radius:var(--radius-sm);
+background:#fff;color:var(--text);font-size:12.5px;
+transition:border-color .15s ease,box-shadow .15s ease;
+}
+input,select{height:32px}
+textarea{min-height:52px;line-height:1.5;resize:vertical}
+input:hover,select:hover,textarea:hover{border-color:#bcc9dd}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+input::placeholder{color:var(--text-3)}
+button{
+height:32px;padding:0 12px;
+border:1px solid transparent;border-radius:var(--radius-sm);
+background:var(--brand);color:#fff;font-size:12.5px;font-weight:500;
+cursor:pointer;white-space:nowrap;
+transition:background .15s ease,transform .06s ease;
+}
+button:hover{background:var(--brand-ink)}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.quiet{background:var(--brand-soft);color:var(--brand-ink)}
+.quiet:hover{background:#dbe8fd}
+.danger{background:#dc2626}
+.danger:hover{background:#b91c1c}
+a.quiet{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:var(--radius-sm);background:var(--brand-soft);color:var(--brand-ink);font-size:12.5px;font-weight:500}
+a.quiet:hover{background:#dbe8fd;text-decoration:none}
+/* 表单行：标签顶对齐，控件内自适应，多控件并排 */
+.form-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px}
+.form-row label{display:grid;gap:4px;flex:1 1 150px;min-width:0;align-content:start;font-size:12px;font-weight:500;color:var(--text-2)}
+.form-row label input,.form-row label select,.form-row label textarea{font-size:12.5px;font-weight:400;color:var(--text)}
+.form-row form{margin:0}
+.form-row button{flex:0 0 auto;align-self:flex-end}
+.inline-inputs{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.inline-inputs input,.inline-inputs select{flex:1 1 72px;min-width:60px}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.actions form{display:inline-flex;margin:0}
+/* ---------- 提示 ---------- */
+.notice{margin:0 0 14px;padding:10px 13px;border:1px solid #cdeddd;border-left:3px solid #12a06e;border-radius:var(--radius-sm);background:var(--ok-soft);color:#0b5f3d;font-size:13px}
+.error{margin:0 0 14px;padding:10px 13px;border:1px solid #f6d5d5;border-left:3px solid #dc2626;border-radius:var(--radius-sm);background:var(--danger-soft);color:#9c1c1c;font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border:1px solid #c9ecd9;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-size:11px;font-weight:500;line-height:1.7;white-space:nowrap}
+.pill.off{border-color:#f5dfc2;background:var(--warn-soft);color:var(--warn)}
+.pill.neutral{border-color:var(--border-strong);background:var(--surface-2);color:var(--text-2)}
+/* ---------- 折叠块 ---------- */
+details{margin:8px 0;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+details[open]{border-color:var(--border-strong);box-shadow:0 2px 10px rgba(16,24,40,.05)}
+summary{display:flex;align-items:center;gap:4px;padding:10px 0;font-size:13px;color:var(--text);cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"";flex:0 0 auto;width:6px;height:6px;margin-right:6px;border-right:1.5px solid var(--text-3);border-bottom:1.5px solid var(--text-3);transform:rotate(-45deg);transition:transform .15s ease}
+details[open]>summary::before{transform:rotate(45deg)}
+summary:hover{color:var(--brand-ink)}
+summary strong{font-weight:600}
+details>form{padding-bottom:12px}
+/* ---------- 村民卡片 ---------- */
+.npc-card{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);margin-bottom:12px;overflow:hidden}
+.npc-card-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.npc-card-head .name{font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+.npc-card-head .meta{font-size:12px;color:var(--text-2);display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.npc-card-head .head-actions{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.npc-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--border);background:#fff}
+.npc-tab{
+height:34px;padding:0 14px;
+border:0;border-radius:8px 8px 0 0;
+background:transparent;color:var(--text-2);font-size:13px;font-weight:500;
+cursor:pointer;white-space:nowrap;
+border-bottom:2px solid transparent;
+}
+.npc-tab:hover{color:var(--text);background:var(--surface-2)}
+.npc-tab.active{color:var(--brand-ink);font-weight:600;border-bottom-color:var(--brand)}
+.npc-tab-body{padding:14px}
+.npc-tab-panel{display:none}
+.npc-tab-panel.active{display:block}
+.npc-sub{margin:0 0 12px;font-size:12px;color:var(--text-3)}
+/* ---------- 分页 ---------- */
+.pager{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:10px}
+.pager button,.pager .pg-info{
+height:28px;min-width:28px;padding:0 8px;
+border:1px solid var(--border);border-radius:7px;
+background:#fff;color:var(--text-2);font-size:12px;font-weight:500;
+}
+.pager button:hover{background:var(--surface-2);color:var(--text)}
+.pager button.cur{background:var(--brand);border-color:var(--brand);color:#fff}
+.pager .pg-info{border:0;background:transparent;color:var(--text-3)}
+/* ---------- 素材编辑器（保持原布局） ---------- */
+.town-frame-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.town-frame-item{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface-2);font-size:12px;color:var(--text-2)}
+.town-frame-item button{height:24px;padding:0 7px;font-size:11.5px;border-radius:6px}
+.town-frame-item button:disabled{opacity:.45}
+.town-frame-list:empty{display:block;color:var(--text-3);font-size:12px}
+.town-sheet-layout{display:grid;grid-template-columns:minmax(0,620px) minmax(260px,1fr);gap:16px;align-items:start}
+.town-sheet-preview{max-width:620px;max-height:1250px;overflow:auto;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface-2)}
+.town-sheet-preview canvas{display:block;max-width:620px;max-height:1250px;width:auto;height:auto;image-rendering:pixelated;cursor:crosshair}
+.town-sheet-controls{display:grid;gap:10px;align-content:start}
+.town-assets-items{grid-column:1/-1;min-width:0}
+.town-assets-items h3{margin:0 0 8px}
+.town-assets-items .table-scroll{max-height:66vh}
+.town-sheet-controls .form-row{margin:0}
+.town-sheet-list{min-width:0;max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:10px}
+.town-sheet-list table{font-size:12px}
+.town-sheet-list code{word-break:break-all}
+.town-frame-preview-host{display:block;flex-basis:100%;margin:6px 0}
+.town-frame-preview{display:inline-flex;align-items:center;gap:8px;padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:#fff}
+.town-frame-preview-canvas{width:auto;height:auto;max-width:128px;max-height:96px;image-rendering:pixelated;background:repeating-conic-gradient(#f2f5fa 0 25%,#fff 0 50%) 0/10px 10px}
+.town-frame-preview-controls{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.town-frame-preview-controls button{height:26px;padding:0 7px;font-size:11.5px;border-radius:6px}
+.town-frame-preview-label{color:var(--text-3);white-space:nowrap}
+.town-auto-scan{display:grid;gap:6px;padding:8px;border:1px dashed var(--border);border-radius:8px;background:var(--surface-2)}
+.town-auto-scan-results{display:flex;flex-wrap:wrap;gap:5px;max-height:180px;overflow:auto}
+.town-auto-scan-results button{font-size:11px;padding:3px 6px}
+/* ---------- 响应式 ---------- */
+@media(max-width:1080px){
+.side{flex-basis:200px}
+.grid{grid-template-columns:1fr}
+}
+@media(max-width:850px){
+.app{flex-direction:column}
+.side{position:static;flex:none;height:auto;width:100%;max-height:46vh}
+.shell{padding:14px 14px 40px}
+.topbar{padding:10px 14px}
+.panel{padding:14px}
+.town-sheet-layout{grid-template-columns:1fr}
+.town-sheet-preview{max-width:100%}
+.town-sheet-preview canvas{max-width:100%;height:auto}
+.form-row label{flex:1 1 100%}
+}
+/* ---------- 二级菜单 ---------- */
+.side-sub{display:flex;flex-direction:column;gap:2px;margin:0 0 4px;padding-left:12px;border-left:2px solid var(--border)}
+.side-link.sub{height:32px;padding-left:16px;font-size:12.5px;color:var(--text-3)}
+.side-link.sub:hover{color:var(--text)}
+.side-link.sub.active{color:var(--brand-ink);font-weight:600;background:var(--brand-soft)}
+/* ---------- 面板操作栏 ---------- */
+.panel-actions{display:flex;align-items:center;gap:8px}
+.panel-actions .modal-open{background:var(--brand);color:#fff}
+/* ---------- 悬浮窗 ---------- */
+.modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;background:rgba(15,23,42,.48);overflow-y:auto}
+.modal-backdrop[hidden]{display:none}
+.modal{width:100%;max-width:680px;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(16,24,40,.32);overflow:hidden}
+.modal-lg{max-width:920px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal-head h3{margin:0;font-size:15px;font-weight:600}
+.modal-close{flex:0 0 auto;width:30px;height:30px;padding:0;border-radius:8px;background:var(--surface-2);color:var(--text-2);font-size:18px;line-height:1;border:1px solid var(--border)}
+.modal-close:hover{background:#eef2f9;color:var(--text)}
+.modal-body{padding:16px 18px 20px;max-height:78vh;overflow-y:auto}
+.modal-body .form-row{margin:0}
+/* 填写说明折叠块 */
+.help-box{margin:0 0 4px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
+.help-box summary{font-size:13px;font-weight:600;color:var(--brand-ink)}
+.help-table{font-size:12px}
+.help-table th{white-space:nowrap}
+.help-table td{vertical-align:top;line-height:1.55}
+.help-table td:first-child{white-space:nowrap;font-weight:600;color:var(--text)}
+.help-table td:nth-child(2){white-space:nowrap;color:var(--brand-ink)}
+</style></head><body><div class="app">
+<aside class="side">
+<div class="side-brand">
+<span class="logo">S</span>
+<div>
+<div class="brand-title">SltBox 管理后台</div>
+<div class="brand-sub">已登录：<?= admin_page_escape($actor['username']) ?></div>
+</div>
+</div>
+<nav class="side-nav">
+<div class="side-group">
+<button type="button" class="side-group-label">用户与运营</button>
+<div class="side-items">
+<a class="side-link<?= $panel === 'users' ? ' active' : '' ?>" href="?panel=users">用户管理</a>
+<a class="side-link<?= $panel === 'report' ? ' active' : '' ?>" href="?panel=report">图鉴报表</a>
+</div>
+</div>
+<div class="side-group">
+<button type="button" class="side-group-label">商城与图鉴</button>
+<div class="side-items">
+<a class="side-link<?= $panel === 'shop' ? ' active' : '' ?>" href="?panel=shop">商城管理</a>
+<a class="side-link<?= $panel === 'aquarium' ? ' active' : '' ?>" href="?panel=aquarium">水族馆图鉴</a>
+<a class="side-link<?= $panel === 'tree' ? ' active' : '' ?>" href="?panel=tree">果实图鉴</a>
+<a class="side-link<?= $panel === 'wildlife' ? ' active' : '' ?>" href="?panel=wildlife">动物图鉴</a>
+</div>
+</div>
+<div class="side-group">
+<button type="button" class="side-group-label">果树</button>
+<div class="side-items">
+<a class="side-link<?= $panel === 'tree_settings' ? ' active' : '' ?>" href="?panel=tree_settings">产果设置</a>
+</div>
+</div>
+<div class="side-group">
+<button type="button" class="side-group-label">共享小镇</button>
+<div class="side-items">
+<a class="side-link<?= $panel === 'town_assets' ? ' active' : '' ?>" href="?panel=town_assets">素材编辑</a>
+<a class="side-link<?= $panel === 'town_npcs' ? ' active' : '' ?>" href="?panel=town_npcs">村民管理</a>
+<div class="side-sub">
+<a class="side-link sub<?= $panel === 'town_npcs' && $townView === 'list' ? ' active' : '' ?>" href="?panel=town_npcs">村民列表</a>
+<a class="side-link sub<?= $panel === 'town_npcs' && $townView === 'workpoints' ? ' active' : '' ?>" href="?panel=town_npcs&amp;view=workpoints">工作地点</a>
+<a class="side-link sub<?= $panel === 'town_npcs' && $townView === 'memory' ? ' active' : '' ?>" href="?panel=town_npcs&amp;view=memory">村民记忆</a>
+<a class="side-link sub<?= $panel === 'town_npcs' && $townView === 'economy' ? ' active' : '' ?>" href="?panel=town_npcs&amp;view=economy">交易记录</a>
+</div>
+<a class="side-link<?= $panel === 'town_agent' ? ' active' : '' ?>" href="?panel=town_agent">Agent 模型</a>
+</div>
+</div>
+</nav>
+</aside>
+<div class="main">
+<header class="topbar">
+<?php $panelTitles = ['users'=>'用户管理','shop'=>'商城管理','aquarium'=>'水族馆图鉴','tree'=>'果实图鉴','tree_settings'=>'产果设置','wildlife'=>'动物图鉴','town_assets'=>'素材编辑','town_npcs'=>'村民管理','town_agent'=>'Agent 模型','report'=>'图鉴报表'];
+$townTitles = ['list'=>'村民列表','workpoints'=>'工作地点','memory'=>'村民记忆','economy'=>'交易记录'];
+$crumbTitle = $panel === 'town_npcs' ? ($townTitles[$townView] ?? '村民管理') : ($panelTitles[$panel] ?? '控制台'); ?>
+<div class="crumb">SltBox 管理后台<span class="sep">/</span><span class="current"><?= admin_page_escape($crumbTitle) ?></span></div>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
+<input type="hidden" name="operation" value="logout">
+<button class="quiet" type="submit">退出登录</button>
+</form>
+</header>
+<main class="shell">
+
+
 <?php if ($message !== ''): ?><p class="notice"><?= admin_page_escape($message) ?></p><?php endif; ?><?php if ($error !== ''): ?><p class="error"><?= admin_page_escape($error) ?></p><?php endif; ?>
 <?php if ($panel === 'users'): ?><section class="cards"><div class="card"><div class="metric"><?= (int)$overview['users'] ?></div><div class="muted">用户总数</div></div><div class="card"><div class="metric"><?= (int)$overview['active_users'] ?></div><div class="muted">正常账号</div></div><div class="card"><div class="metric"><?= (int)$overview['sessions'] ?></div><div class="muted">有效会话</div></div><div class="card"><div class="metric"><?= (int)$overview['backups'] ?></div><div class="muted">云备份</div></div><div class="card"><div class="metric"><?= (int)$overview['tree_participants'] ?></div><div class="muted">种树参与者</div></div></section><?php endif; ?>
-<section class="grid"><?php if ($panel === 'users'): ?><div class="panel" <?= is_array($detail) ? '' : 'style="grid-column:1/-1"' ?>><h2>用户管理</h2><form method="get" class="form-row"><input type="hidden" name="panel" value="users"><label>搜索账号<input name="q" value="<?= admin_page_escape($query) ?>" maxlength="32"></label><button type="submit">搜索</button></form><table><thead><tr><th>账号</th><th>状态</th><th>注册时间</th><th></th></tr></thead><tbody><?php foreach ($list['users'] as $user): ?><tr><td><?= admin_page_escape($user['username']) ?> <?= (int)$user['is_admin'] === 1 ? '<span class="pill">管理员</span>' : '' ?></td><td><span class="pill <?= $user['status'] === 'active' ? '' : 'off' ?>"><?= admin_page_escape($user['status']) ?></span></td><td><?= admin_page_escape($user['created_at']) ?></td><td><a href="?panel=users&amp;id=<?= rawurlencode($user['id']) ?>">管理</a></td></tr><?php endforeach; ?></tbody></table><p class="muted">第 <?= (int)$list['page'] ?> / <?= (int)$list['page_count'] ?> 页，共 <?= (int)$list['total'] ?> 个用户</p><div class="actions"><?php if ((int)$list['page'] > 1): ?><a class="quiet" href="?panel=users&amp;q=<?= rawurlencode($query) ?>&amp;page=<?= (int)$list['page'] - 1 ?>">上一页</a><?php endif; ?><?php if ((int)$list['page'] < (int)$list['page_count']): ?><a class="quiet" href="?panel=users&amp;q=<?= rawurlencode($query) ?>&amp;page=<?= (int)$list['page'] + 1 ?>">下一页</a><?php endif; ?></div></div><?php endif; ?>
-<?php if ($panel === 'aquarium'): ?><div class="panel" id="aquarium-panel" style="grid-column:1/-1">
-<h2>水族馆藏品图鉴 · <?= count($aquariumCatalog) ?> 项</h2>
-<nav class="actions"><a href="?panel=aquarium">全部</a><?php foreach (array_unique(array_column($aquariumCatalog, 'category')) as $category): ?><a href="?panel=aquarium&amp;category=<?= rawurlencode($category) ?>"><?= admin_page_escape($aquariumCategories[$category] ?? $category) ?></a><?php endforeach; ?></nav>
-<p class="muted">藏品目录沿用现有水族馆配置。卡包售价请到“商城管理”修改。</p>
-<table><thead><tr><th>名称</th><th>ID</th><th>分类</th><th>金币</th><th>资源</th></tr></thead><tbody>
-<?php foreach ($aquariumCatalog as $item): if ($aquariumCategory !== '' && $item['category'] !== $aquariumCategory) continue; ?><tr><td><?= admin_page_escape($item['name']) ?></td><td><?= admin_page_escape($item['id']) ?></td><td><?= admin_page_escape($aquariumCategories[$item['category']] ?? $item['category']) ?></td><td><?= (int)$item['price'] ?></td><td><?= admin_page_escape($item['asset_key']) ?></td></tr><?php endforeach; ?>
-</tbody></table></div><?php endif; ?>
-<?php if ($panel === 'tree'): ?><div class="panel" id="tree-panel" style="grid-column:1/-1">
-<h2>果实图鉴 · <?= count($fruitCatalog) ?> 种</h2>
-<nav class="actions"><a href="?panel=tree">全部</a><?php foreach ($fruitCategories as $category): ?><a href="?panel=tree&amp;category=<?= rawurlencode($category) ?>"><?= admin_page_escape($category) ?></a><?php endforeach; ?></nav>
-<p class="muted">权重仅在启用的果实之间参与抽取；价格每天在设定范围内生成一次，最近 7 天保留历史。</p>
-<table><thead><tr><th>预览</th><th>名称 / ID</th><th>分类</th><th>权重</th><th>最低价</th><th>最高价</th><th>状态</th><th></th></tr></thead><tbody>
-<?php foreach ($fruitCatalog as $fruit): if ($fruitCategory !== '' && $fruit['category'] !== $fruitCategory) continue; $formId = 'fruit-' . $fruit['id']; $fruitImageUrl = fruit_web_asset_url((string)$fruit['id']); ?><tr>
-<td><?php if ($fruitImageUrl !== null): ?><img src="<?= admin_page_escape($fruitImageUrl) ?>" alt="<?= admin_page_escape($fruit['name']) ?>" width="52" height="60" loading="lazy" decoding="async" style="display:block;object-fit:contain"><?php else: ?><span class="muted" aria-label="<?= admin_page_escape($fruit['name']) ?>">—</span><?php endif; ?></td>
-<td><form id="<?= admin_page_escape($formId) ?>" method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="fruit_catalog_item"><input type="hidden" name="panel" value="tree"><input type="hidden" name="fruit_id" value="<?= admin_page_escape($fruit['id']) ?>"></form><input form="<?= admin_page_escape($formId) ?>" name="fruit_name" value="<?= admin_page_escape($fruit['name']) ?>" maxlength="60" required style="width:115px"><br><small><?= admin_page_escape($fruit['id']) ?></small></td>
-<td><select form="<?= admin_page_escape($formId) ?>" name="category"><?php foreach ($fruitCategories as $category): ?><option value="<?= admin_page_escape($category) ?>" <?= $category === $fruit['category'] ? 'selected' : '' ?>><?= admin_page_escape($category) ?></option><?php endforeach; ?></select></td>
-<td><input form="<?= admin_page_escape($formId) ?>" name="probability" type="number" min="0" step="0.0001" value="<?= admin_page_escape($fruit['probability']) ?>" required style="width:85px"></td>
-<td><input form="<?= admin_page_escape($formId) ?>" name="min_price" type="number" min="0" max="1000000" value="<?= (int)$fruit['min_price'] ?>" required style="width:75px"></td>
-<td><input form="<?= admin_page_escape($formId) ?>" name="max_price" type="number" min="0" max="1000000" value="<?= (int)$fruit['max_price'] ?>" required style="width:75px"></td>
-<td><label><input form="<?= admin_page_escape($formId) ?>" name="enabled" type="checkbox" value="1" <?= (int)$fruit['enabled'] ? 'checked' : '' ?>>启用</label></td>
-<td><button form="<?= admin_page_escape($formId) ?>" type="submit">保存</button></td></tr><?php endforeach; ?>
-</tbody></table></div><?php endif; ?>
-<?php if ($panel === 'wildlife'): ?><div class="panel" id="wildlife-panel" style="grid-column:1/-1">
-<h2>动物图鉴 · <?= count($wildlifeCatalog) ?> 种</h2>
-<nav class="actions"><a href="?panel=wildlife">全部</a><?php foreach (['昆虫','飞鸟','小动物'] as $category): ?><a href="?panel=wildlife&amp;category=<?= rawurlencode($category) ?>"><?= admin_page_escape($category) ?></a><?php endforeach; ?></nav>
-<p class="muted">名称、启用状态和出现权重由服务端控制。已获得的动物即使停用，仍保留在用户图鉴中。</p>
-<div class="table-scroll"><table><thead><tr><th>名称 / ID</th><th>分类</th><th>季节</th><th>时段</th><th>天气</th><th>出现权重</th><th>状态</th><th></th></tr></thead><tbody>
-<?php foreach ($wildlifeCatalog as $species): if ($wildlifeCategory !== '' && $species['category'] !== $wildlifeCategory) continue; $formId = 'wildlife-' . $species['id']; ?><tr>
-<td><form id="<?= admin_page_escape($formId) ?>" method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="wildlife_catalog_item"><input type="hidden" name="panel" value="wildlife"><input type="hidden" name="species_id" value="<?= admin_page_escape($species['id']) ?>"></form><input form="<?= admin_page_escape($formId) ?>" name="species_name" value="<?= admin_page_escape($species['name']) ?>" maxlength="40" required style="width:130px"><br><small><?= admin_page_escape($species['id']) ?></small></td>
-<td><?= admin_page_escape($species['category']) ?></td><td><?= admin_page_escape(implode('、', array_map(static fn(string $value): string => $wildlifeSeasons[$value] ?? $value, $species['seasons']))) ?></td><td><?= admin_page_escape(implode('、', array_map(static fn(string $value): string => $wildlifePeriods[$value] ?? $value, $species['periods']))) ?></td><td><?= admin_page_escape(implode('、', array_map(static fn(string $value): string => $wildlifeWeathers[$value] ?? $value, $species['weathers']))) ?></td>
-<td><input form="<?= admin_page_escape($formId) ?>" name="encounter_weight" type="number" min="1" max="100" value="<?= (int)$species['encounter_weight'] ?>" required style="width:76px"></td>
-<td><label><input form="<?= admin_page_escape($formId) ?>" name="enabled" type="checkbox" value="1" <?= $species['enabled'] ? 'checked' : '' ?>>启用</label></td><td><button form="<?= admin_page_escape($formId) ?>" type="submit">保存</button></td></tr><?php endforeach; ?>
-</tbody></table></div></div><?php endif; ?>
-<?php if ($panel === 'town_assets' && is_array($townAssetState)): ?><div class="panel" id="town-assets-panel" style="grid-column:1/-1">
-<div class="actions" style="justify-content:space-between;align-items:center"><h2 style="margin:0">共享小镇素材 · 整图标记</h2><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_navigation_rebuild"><input type="hidden" name="panel" value="town_assets"><button type="submit">导航重建</button></form></div>
-<p class="muted">当前导航版本：v<?= (int)$townNavigationVersion ?>。保存素材的通行语义后点击“导航重建”，NPC 才会清除旧路线并重新规划。</p>
-<p class="muted">上传整张 PNG 后只保存坐标标记，不会生成裁剪文件。草稿在点击发布前不会进入小镇。</p>
-<div class="town-sheet-layout">
-<div class="town-sheet-preview"><canvas id="town-sheet-canvas" width="620" height="1250"></canvas></div>
-<aside class="town-sheet-controls"><form method="post" enctype="multipart/form-data" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_upload"><input type="hidden" name="panel" value="town_assets"><label>整张 PNG<input type="file" name="sheet" accept="image/png" required></label><button type="submit">上传图集</button></form><label>框选图集<select id="town-sheet-picker"><?php foreach ($townAssetState['sheets'] as $sheet): ?><option value="<?= admin_page_escape($sheet['sheet_id']) ?>" data-width="<?= (int)$sheet['width'] ?>" data-height="<?= (int)$sheet['height'] ?>"><?= admin_page_escape($sheet['original_name']) ?></option><?php endforeach; ?></select></label><p class="muted">按 16×16 网格识别；拖动框选会自动吸附到 16 的倍数。<br><span id="town-frame-hint"></span></p><section class="town-sheet-list"><h3>图集</h3><table><thead><tr><th>预览</th><th>文件</th><th>尺寸</th><th>SHA-256</th><th>状态</th></tr></thead><tbody><?php foreach ($townAssetState['sheets'] as $sheet): ?><tr><td><img src="?panel=town_assets&amp;sheet=<?= rawurlencode((string)$sheet['sheet_id']) ?>" alt="" style="max-width:180px;max-height:100px;image-rendering:pixelated"></td><td><?= admin_page_escape($sheet['original_name']) ?><br><small><?= admin_page_escape($sheet['sheet_id']) ?></small></td><td><?= (int)$sheet['width'] ?> × <?= (int)$sheet['height'] ?></td><td><code><?= admin_page_escape($sheet['sha256']) ?></code></td><td><?= admin_page_escape($sheet['status']) ?></td></tr><?php endforeach; ?></tbody></table></section><form id="town-new-asset" method="post" class="form-row" style="margin-top:12px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_item"><input type="hidden" name="panel" value="town_assets"><label>图集<select name="sheet_id" required><option value="">选择图集</option><?php foreach ($townAssetState['sheets'] as $sheet): ?><option value="<?= admin_page_escape($sheet['sheet_id']) ?>"><?= admin_page_escape($sheet['original_name']) ?> (<?= (int)$sheet['width'] ?>×<?= (int)$sheet['height'] ?>)</option><?php endforeach; ?></select></label><label>资源 ID<input name="asset_id" pattern="(?:town-source-)?[A-Za-z0-9][A-Za-z0-9._-]{0,96}" title="可填写 town-source- 前缀，也可省略；支持字母、数字、点、短横线和下划线" placeholder="fall_town.zh-CN_01" required></label><label>名称<input name="name" required></label><label>分类<select name="category"><?php foreach (TOWN_ASSET_CATEGORIES as $category): ?><option value="<?= admin_page_escape($category) ?>"><?= admin_page_escape(admin_town_asset_category_label($category)) ?></option><?php endforeach; ?></select></label><label>子分类<input name="subcategory" placeholder="house"></label><label>标签（JSON）<input name="tags" value="[]"></label><label>X/Y/宽/高<input name="x" type="number" min="0" step="16" value="0" required><input name="y" type="number" min="0" step="16" value="0" required><input name="width" type="number" min="16" step="16" value="16" required><input name="height" type="number" min="16" step="16" value="16" required></label><label>显示宽/高<input name="display_width" type="number" min="16" step="16" value="16" required><input name="display_height" type="number" min="16" step="16" value="16" required></label><label>锚点（JSON）<input name="anchor" value='{"x":0.5,"y":1}'></label><label>占地（JSON）<input name="footprint" value="" placeholder="框选后自动识别"><button type="button" data-recalculate-footprint>重新计算占地</button><small data-footprint-status></small></label><label>碰撞（JSON）<input name="collision" value='{"x":0.1,"y":0.55,"width":0.8,"height":0.4}'></label><label>导航语义（JSON）<input name="navigation" value='{"type":"blocked","blocked_npc":true,"required_capabilities":[]}'></label><label>动画帧（JSON）<input id="town-new-frames" name="frames" value="[]"><button type="button" data-frame-add data-frame-input="town-new-frames">＋框选添加帧</button><span class="town-frame-list" data-frame-list="town-new-frames"></span></label><button type="submit">新增标记</button></form></aside></div><div class="town-assets-items"><h3>已标记素材 · <?= count($townAssetState['items']) ?> 项</h3><div class="table-scroll"><table><thead><tr><th>资源</th><th>图集</th><th>坐标</th><th>分类</th><th>操作</th></tr></thead><tbody><?php foreach ($townAssetState['items'] as $item): $editId = 'town-edit-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string)$item['id']); ?><tr><td><form id="<?= admin_page_escape($editId) ?>" method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_item"><input type="hidden" name="panel" value="town_assets"><input type="hidden" name="asset_id" value="<?= admin_page_escape($item['id']) ?>"><input type="hidden" name="tags" value="<?= admin_page_escape(json_encode($item['tags'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"><input type="hidden" name="anchor" value="<?= admin_page_escape(json_encode($item['anchor'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"><input type="hidden" name="footprint" value="<?= admin_page_escape(json_encode($item['footprint'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"><input type="hidden" name="collision" value="<?= admin_page_escape(json_encode($item['collision'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"><input type="hidden" id="<?= admin_page_escape($editId) ?>-frames" name="frames" value="<?= admin_page_escape(json_encode($item['frames'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"><label>导航 JSON<textarea form="<?= admin_page_escape($editId) ?>" name="navigation" rows="2"><?= admin_page_escape(admin_page_json($item['navigation'] ?? ['type'=>'blocked'])) ?></textarea></label></form><strong><?= admin_page_escape($item['name']) ?></strong><br><small><?= admin_page_escape($item['id']) ?></small></td><td><select form="<?= admin_page_escape($editId) ?>" name="sheet_id"><?php foreach ($townAssetState['sheets'] as $sheet): ?><option value="<?= admin_page_escape($sheet['sheet_id']) ?>" <?= $sheet['sheet_id'] === $item['sheet_id'] ? 'selected' : '' ?>><?= admin_page_escape($sheet['original_name']) ?></option><?php endforeach; ?></select></td><td><input form="<?= admin_page_escape($editId) ?>" name="x" type="number" min="0" step="16" value="<?= (int)$item['x'] ?>" required style="width:64px"><input form="<?= admin_page_escape($editId) ?>" name="y" type="number" min="0" step="16" value="<?= (int)$item['y'] ?>" required style="width:64px"><input form="<?= admin_page_escape($editId) ?>" name="width" type="number" min="16" step="16" value="<?= (int)$item['width'] ?>" required style="width:64px"><input form="<?= admin_page_escape($editId) ?>" name="height" type="number" min="16" step="16" value="<?= (int)$item['height'] ?>" required style="width:64px"><input form="<?= admin_page_escape($editId) ?>" name="display_width" type="hidden" value="<?= (int)$item['display_width'] ?>"><input form="<?= admin_page_escape($editId) ?>" name="display_height" type="hidden" value="<?= (int)$item['display_height'] ?>"></td><td><select form="<?= admin_page_escape($editId) ?>" name="category"><?php foreach (TOWN_ASSET_CATEGORIES as $category): ?><option value="<?= admin_page_escape($category) ?>" <?= $category === $item['category'] ? 'selected' : '' ?>><?= admin_page_escape(admin_town_asset_category_label($category)) ?></option><?php endforeach; ?></select><input form="<?= admin_page_escape($editId) ?>" name="subcategory" value="<?= admin_page_escape($item['subcategory']) ?>" placeholder="子分类"><input form="<?= admin_page_escape($editId) ?>" name="name" value="<?= admin_page_escape($item['name']) ?>" required></td><td><button type="button" data-frame-add data-frame-input="<?= admin_page_escape($editId) ?>-frames">＋框选添加帧</button><span class="town-frame-list" data-frame-list="<?= admin_page_escape($editId) ?>-frames"></span><button form="<?= admin_page_escape($editId) ?>" type="submit">保存</button><form method="post" style="margin-top:5px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_delete"><input type="hidden" name="panel" value="town_assets"><input type="hidden" name="asset_id" value="<?= admin_page_escape($item['id']) ?>"><button class="danger" type="submit">删除</button></form></td></tr><?php endforeach; ?></tbody></table></div></div>
-<div class="panel"><a href="?panel=town_assets&amp;preview_reflow=1">预演全部占地重算与就近调整</a>
-<?php if($townReflowError): ?><p class="error"><?= admin_page_escape($townReflowError) ?></p><?php endif; ?>
-<?php if(is_array($townReflow)): ?><p>预演完成：<?= count($townReflow['draft_items']) ?> 项草稿，<?= count($townReflow['config']['items']) ?> 项已发布素材，<?= count($townReflow['objects']) ?> 个对象。仅更新当前已发布项目的配置，不发布其他草稿。</p>
-<table><tr><th>对象</th><th>原坐标 / 占地</th><th>新坐标 / 占地</th></tr><?php foreach($townReflow['objects'] as $change): ?><tr><td><?= admin_page_escape($change['object_id']) ?></td><td><?= admin_page_escape(json_encode($change['before'])) ?></td><td><?= admin_page_escape(json_encode($change['after'])) ?></td></tr><?php endforeach; ?></table>
-<form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_reflow"><input type="hidden" name="panel" value="town_assets"><input type="hidden" name="plan_sha256" value="<?= admin_page_escape($townReflow['plan_sha256']) ?>"><button>应用此预演（保留历史版本）</button></form><?php endif; ?></div>
-<script src="town-assets.js?v=20261109-editor5" defer></script>
-<p class="muted">当前发布：<?= admin_page_escape($townAssetState['active']['release_id'] ?? '无') ?> · <?= (int)($townAssetState['active']['item_count'] ?? 0) ?> 项 · <?= admin_page_escape($townAssetState['active']['config_sha256'] ?? '') ?></p>
-
-<div class="actions" style="margin-top:12px"><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_publish"><input type="hidden" name="panel" value="town_assets"><button type="submit">发布当前草稿</button></form><?php foreach ($townAssetState['releases'] as $release): ?><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_asset_rollback"><input type="hidden" name="panel" value="town_assets"><input type="hidden" name="release_id" value="<?= admin_page_escape($release['release_id']) ?>"><button class="quiet" type="submit">回滚到 v<?= (int)$release['release_version'] ?></button></form><?php endforeach; ?></div>
-</div><?php endif; ?>
-<?php if ($panel === 'town_npcs'): ?><div class="panel" id="town-npcs-panel" style="grid-column:1/-1">
-<h2>共享小镇村民 · <?= count($townNpcs) ?> 人</h2>
-<p class="muted">配置姓名、外观、人格、家庭背景、目标、职业和日程。没有模型配置时，Worker 按日程状态机运行。</p>
-<form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_save"><input type="hidden" name="panel" value="town_npcs"><label>姓名<input name="name" required maxlength="80"></label><label>职业<select name="occupation"><option value="farmer">农夫</option><option value="merchant">商人</option><option value="craftsman">工匠</option></select></label><label>人物素材<select name="avatar_asset_id"><option value="">默认样式</option><?php foreach ($townCharacterAssets as $asset): ?><option value="<?= admin_page_escape($asset['id'] ?? '') ?>"><?= admin_page_escape(($asset['name'] ?? $asset['id'] ?? '') . ' · ' . ($asset['id'] ?? '')) ?></option><?php endforeach; ?></select></label><label>出生 X/Y<input name="tile_x" type="number" value="96"><input name="tile_y" type="number" value="100"></label><label>人格 JSON<textarea name="personality" rows="2">{"traits":["勤劳"]}</textarea></label><label>家庭背景<textarea name="family_background" rows="2"></textarea></label><label>短期目标<input name="short_term_goal"></label><label>长期目标<input name="long_term_goal"></label><label>说话方式<input name="speech_style"></label><label>价值观 JSON<textarea name="values" rows="2">[]</textarea></label><label>恐惧 JSON<textarea name="fears" rows="2">[]</textarea></label><label>日程 JSON<textarea name="schedule" rows="2">[{"weekday":1,"start_minute":480,"end_minute":720,"action":"work","target_id":"farm-zone-3","job":"water_crop"}]</textarea></label><button type="submit">新增村民</button></form>
-<form id="town-npc-bulk-form" method="post" class="form-row" style="margin:12px 0"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_bulk_toggle"><input type="hidden" name="panel" value="town_npcs"><label style="flex:0 0 auto">批量操作<select name="field"><option value="agent_paused">Agent 状态</option><option value="enabled">村民状态</option></select></label><label style="flex:0 0 auto">设为<select name="value"><option value="0">关闭 / 停用</option><option value="1">开启 / 启用</option></select></label><span class="muted">先勾选下方村民，单次最多 100 个。</span><button type="submit">应用批量操作</button></form>
-<div class="table-scroll"><table><thead><tr><th>选择</th><th>姓名 / 职业</th><th>人格与目标</th><th>位置 / 状态</th><th>运行控制</th></tr></thead><tbody><?php foreach ($townNpcs as $npc): ?><tr><td><input type="checkbox" form="town-npc-bulk-form" name="npc_ids[]" value="<?= admin_page_escape($npc['npc_id']) ?>"></td><td><strong><?= admin_page_escape($npc['name']) ?></strong><br><small><?= admin_page_escape($npc['occupation']) ?> · <?= admin_page_escape($npc['npc_id']) ?></small></td><td><?= admin_page_escape(json_encode($npc['profile']['personality'], JSON_UNESCAPED_UNICODE)) ?><br><small><?= admin_page_escape($npc['profile']['short_term_goal']) ?></small></td><td><?= (int)$npc['runtime']['tile_x'] ?>, <?= (int)$npc['runtime']['tile_y'] ?><br><span class="pill"><?= admin_page_escape($npc['runtime']['state']) ?></span><?php if ($npc['runtime']['dialogue'] !== ''): ?><br><small><?= admin_page_escape($npc['runtime']['dialogue']) ?></small><?php endif; ?></td><td class="actions"><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_toggle"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><input type="hidden" name="field" value="agent_paused"><input type="hidden" name="value" value="<?= $npc['agent_paused'] ? '0' : '1' ?>"><button class="quiet"><?= $npc['agent_paused'] ? '恢复 Agent' : '暂停 Agent' ?></button></form><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_toggle"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><input type="hidden" name="field" value="enabled"><input type="hidden" name="value" value="<?= $npc['enabled'] ? '0' : '1' ?>"><button class="quiet"><?= $npc['enabled'] ? '停用' : '启用' ?></button></form><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_delete"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><button class="danger">删除</button></form></td></tr><?php endforeach; ?></tbody></table></div></div><?php endif; ?>
-<?php if ($panel === 'town_npcs'): ?><div class="panel" id="town-npc-editor-panel" style="grid-column:1/-1"><h2>村民完整资料编辑</h2><p class="muted">保存位置前会检查当前任务；日程 JSON 的 weekday 使用 0～6（周日到周六），时间使用分钟数。</p><?php foreach ($townNpcs as $npc): $profile = is_array($npc['profile'] ?? null) ? $npc['profile'] : []; $runtime = is_array($npc['runtime'] ?? null) ? $npc['runtime'] : []; $avatarId = (string)($npc['avatar_asset_id'] ?? ''); ?><details><summary><strong><?= admin_page_escape($npc['name']) ?></strong> · <?= admin_page_escape($npc['occupation']) ?> · <?= (int)($runtime['tile_x'] ?? 0) ?>,<?= (int)($runtime['tile_y'] ?? 0) ?> · <?= admin_page_escape($runtime['state'] ?? 'rest') ?></summary><form method="post" class="form-row" style="margin-top:10px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_save"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><input type="hidden" name="set_position" value="1"><label>姓名<input name="name" value="<?= admin_page_escape($npc['name']) ?>" maxlength="80" required></label><label>职业<select name="occupation"><?php foreach (['farmer'=>'农夫','merchant'=>'商人','craftsman'=>'工匠'] as $occupation => $label): ?><option value="<?= $occupation ?>" <?= $occupation === $npc['occupation'] ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label><label>人物素材<select name="avatar_asset_id"><option value="">默认样式</option><?php if ($avatarId !== '' && !array_filter($townCharacterAssets, static fn(array $asset): bool => (string)($asset['id'] ?? '') === $avatarId)): ?><option value="<?= admin_page_escape($avatarId) ?>" selected><?= admin_page_escape($avatarId) ?>（当前）</option><?php endif; ?><?php foreach ($townCharacterAssets as $asset): $assetId = (string)($asset['id'] ?? ''); ?><option value="<?= admin_page_escape($assetId) ?>" <?= $assetId === $avatarId ? 'selected' : '' ?>><?= admin_page_escape(($asset['name'] ?? $assetId) . ' · ' . $assetId) ?></option><?php endforeach; ?></select></label><label>当前位置 X/Y<input name="tile_x" type="number" min="0" value="<?= (int)($runtime['tile_x'] ?? 0) ?>"><input name="tile_y" type="number" min="0" value="<?= (int)($runtime['tile_y'] ?? 0) ?>"></label><label>外观 JSON<textarea name="appearance" rows="2"><?= admin_page_escape(admin_page_json($npc['appearance'] ?? [])) ?></textarea></label><label>人格 JSON<textarea name="personality" rows="2"><?= admin_page_escape(admin_page_json($profile['personality'] ?? [])) ?></textarea></label><label>家庭背景<textarea name="family_background" rows="2"><?= admin_page_escape($profile['family_background'] ?? '') ?></textarea></label><label>短期目标<input name="short_term_goal" value="<?= admin_page_escape($profile['short_term_goal'] ?? '') ?>"></label><label>长期目标<input name="long_term_goal" value="<?= admin_page_escape($profile['long_term_goal'] ?? '') ?>"></label><label>说话方式<input name="speech_style" value="<?= admin_page_escape($profile['speech_style'] ?? '') ?>"></label><label>价值观 JSON<textarea name="values" rows="2"><?= admin_page_escape(admin_page_json($profile['values'] ?? [])) ?></textarea></label><label>恐惧 JSON<textarea name="fears" rows="2"><?= admin_page_escape(admin_page_json($profile['fears'] ?? [])) ?></textarea></label><label>日程 JSON<textarea name="schedule" rows="4"><?= admin_page_escape(admin_page_json($npc['schedule'] ?? [])) ?></textarea></label><button type="submit">保存人物资料</button></form><form method="post" class="form-row" style="margin-top:8px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_inventory_save"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><label>梯子数量<input name="ladder_quantity" type="number" min="0" max="9999" value="<?= (int)(array_column($runtime['inventory'] ?? [], 'quantity', 'item_id')['ladder'] ?? 0) ?>"></label><label>桥梁工具数量<input name="bridge_kit_quantity" type="number" min="0" max="9999" value="<?= (int)(array_column($runtime['inventory'] ?? [], 'quantity', 'item_id')['bridge_kit'] ?? 0) ?>"></label><button type="submit">保存道具库存</button></form><div class="actions" style="margin-top:8px"><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_clear_memory"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><button class="quiet">清除长期记忆</button></form><details><summary>强制分配任务</summary><form method="post" class="form-row" style="margin-top:8px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_force_task"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><label>动作<select name="force_action"><option value="walk">行走</option><option value="work">工作</option><option value="talk">交谈</option><option value="rest">休息</option></select></label><label>目标 ID<input name="force_target_id" placeholder="farm-zone-3"></label><label>目标 X/Y<input name="force_tile_x" type="number" min="0" value="<?= (int)($runtime['tile_x'] ?? 0) ?>"><input name="force_tile_y" type="number" min="0" value="<?= (int)($runtime['tile_y'] ?? 0) ?>"></label><label>工作内容<input name="force_job" placeholder="water_crop"></label><label>持续分钟<input name="force_duration_minutes" type="number" min="0" max="1440" value="20"></label><label>对话<input name="force_dialogue" maxlength="500"></label><button type="submit">分配任务</button></form></details></div></details><?php endforeach; ?></div><?php endif; ?>
-<?php if ($panel === 'town_npcs'): ?><div class="panel" id="town-npc-schedule-panel" style="grid-column:1/-1"><h2>村民可视化日程</h2><p class="muted">每行代表一个时间段。空白动作不会保存；保存时会按星期和开始时间排序，并拒绝结束时间早于或等于开始时间的行。</p><?php foreach ($townNpcs as $npc): $entries = is_array($npc['schedule'] ?? null) ? array_values($npc['schedule']) : []; $rowCount = max(7, count($entries)); ?><details><summary><strong><?= admin_page_escape($npc['name']) ?></strong> · 当前 <?= count($entries) ?> 条日程</summary><form method="post" style="margin-top:10px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_schedule_save"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>"><div class="table-scroll"><table><thead><tr><th>星期</th><th>开始</th><th>结束</th><th>动作</th><th>目标 ID</th><th>工作内容</th><th>优先级</th></tr></thead><tbody><?php for ($i = 0; $i < $rowCount; $i++): $entry = is_array($entries[$i] ?? null) ? $entries[$i] : []; ?><tr><td><select name="schedule_rows[<?= $i ?>][weekday]"><?php foreach (['周日','周一','周二','周三','周四','周五','周六'] as $weekday => $label): ?><option value="<?= $weekday ?>" <?= (int)($entry['weekday'] ?? 0) === $weekday ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></td><td><input type="time" name="schedule_rows[<?= $i ?>][start_minute]" value="<?= admin_page_escape(admin_page_time_value($entry['start_minute'] ?? 0)) ?>"></td><td><input type="time" name="schedule_rows[<?= $i ?>][end_minute]" value="<?= admin_page_escape(admin_page_time_value($entry['end_minute'] ?? 1440, 1440)) ?>"></td><td><select name="schedule_rows[<?= $i ?>][action]"><option value="">空</option><?php foreach (['walk'=>'行走','work'=>'工作','rest'=>'休息','talk'=>'交谈'] as $action => $label): ?><option value="<?= $action ?>" <?= $action === ($entry['action'] ?? '') ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></td><td><input name="schedule_rows[<?= $i ?>][target_id]" value="<?= admin_page_escape($entry['target_id'] ?? '') ?>" placeholder="farm-zone-3"></td><td><input name="schedule_rows[<?= $i ?>][job]" value="<?= admin_page_escape($entry['job'] ?? '') ?>" placeholder="water_crop"></td><td><input name="schedule_rows[<?= $i ?>][priority]" type="number" min="0" max="255" value="<?= (int)($entry['priority'] ?? 0) ?>" style="width:70px"></td></tr><?php endfor; ?></tbody></table></div><button type="submit" style="margin-top:8px">保存日程</button></form></details><?php endforeach; ?></div><?php endif; ?>
-<?php if ($panel === 'town_npcs'): ?><div class="panel" id="town-work-points-panel" style="grid-column:1/-1"><h2>地图工作点</h2><p class="muted">工作点是村民真正进入并完成工作的设施。目标 ID 必须使用稳定的英文/数字键，工作完成后会写入工作运行记录。</p><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_work_point_save"><input type="hidden" name="panel" value="town_npcs"><label>工作点 ID<input name="point_key" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,127}" placeholder="farm-zone-4" required></label><label>名称<input name="point_name" maxlength="80" required></label><label>类型<select name="point_kind"><option value="farm">农田</option><option value="market">集市</option><option value="workshop">工坊</option><option value="public">公共设施</option></select></label><label>坐标 X/Y<input name="point_tile_x" type="number" min="0" value="96"><input name="point_tile_y" type="number" min="0" value="96"></label><label>交互 JSON<textarea name="point_interaction" rows="2">{"radius":1,"occupations":["farmer"]}</textarea></label><label>结果 JSON<textarea name="point_result" rows="2">{"effect":"water_crop","resource":"crop_watered"}</textarea></label><button type="submit">新增工作点</button></form><div class="table-scroll" style="margin-top:12px"><table><thead><tr><th>ID / 名称</th><th>坐标 / 类型</th><th>交互和结果</th><th>操作</th></tr></thead><tbody><?php foreach ($townWorkPoints as $point): $pointForm = 'town-work-point-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string)$point['point_id']); ?><tr><td><form id="<?= admin_page_escape($pointForm) ?>" method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_work_point_save"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="point_id" value="<?= admin_page_escape($point['point_id']) ?>"></form><input form="<?= admin_page_escape($pointForm) ?>" name="point_key" value="<?= admin_page_escape($point['point_key']) ?>" pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,127}" required><br><input form="<?= admin_page_escape($pointForm) ?>" name="point_name" value="<?= admin_page_escape($point['name']) ?>" maxlength="80" required></td><td><select form="<?= admin_page_escape($pointForm) ?>" name="point_kind"><?php foreach (['farm'=>'农田','market'=>'集市','workshop'=>'工坊','public'=>'公共设施'] as $kind => $label): ?><option value="<?= $kind ?>" <?= $kind === $point['kind'] ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select><br><input form="<?= admin_page_escape($pointForm) ?>" name="point_tile_x" type="number" min="0" value="<?= (int)$point['tile_x'] ?>" style="width:70px"><input form="<?= admin_page_escape($pointForm) ?>" name="point_tile_y" type="number" min="0" value="<?= (int)$point['tile_y'] ?>" style="width:70px"></td><td><textarea form="<?= admin_page_escape($pointForm) ?>" name="point_interaction" rows="2"><?= admin_page_escape(admin_page_json($point['interaction'] ?? [])) ?></textarea><textarea form="<?= admin_page_escape($pointForm) ?>" name="point_result" rows="2"><?= admin_page_escape(admin_page_json($point['result'] ?? [])) ?></textarea></td><td class="actions"><button form="<?= admin_page_escape($pointForm) ?>" type="submit">保存</button><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_work_point_toggle"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="point_id" value="<?= admin_page_escape($point['point_id']) ?>"><input type="hidden" name="value" value="<?= $point['enabled'] ? '0' : '1' ?>"><button class="quiet"><?= $point['enabled'] ? '停用' : '启用' ?></button></form><span class="pill <?= $point['enabled'] ? '' : 'off' ?>"><?= $point['enabled'] ? '启用中' : '已停用' ?></span></td></tr><?php endforeach; ?></tbody></table></div></div><?php endif; ?>
-<?php if ($panel === 'town_npcs'): ?><div class="panel" id="town-npc-social-panel" style="grid-column:1/-1">
-<h2>关系与长期记忆</h2>
-<p class="muted">这里显示服务器已经沉淀的 NPC 对话关系和记忆。关系按方向保存，因此一次交谈会看到双方各一条记录；清除操作仍在上面的村民编辑区执行。</p><form method="get" class="form-row"><input type="hidden" name="panel" value="town_npcs"><label>按村民筛选<select name="social_npc_id"><option value="">全部村民</option><?php foreach ($townNpcs as $npc): ?><option value="<?= admin_page_escape($npc['npc_id']) ?>" <?= $townNpcSocialNpcId === $npc['npc_id'] ? 'selected' : '' ?>><?= admin_page_escape($npc['name']) ?></option><?php endforeach; ?></select></label><button class="quiet" type="submit">筛选</button></form>
-<h3>村民关系</h3><nav class="actions"><span class="muted">第 <?= $townNpcRelationPage + 1 ?> 页</span><?php if ($townNpcRelationPage > 0): ?><a href="?panel=town_npcs&amp;social_npc_id=<?= rawurlencode((string)$townNpcSocialNpcId) ?>&amp;relationship_page=<?= $townNpcRelationPage - 1 ?>&amp;memory_page=<?= $townNpcMemoryPage ?>">上一页</a><?php endif; ?><?php if (count($townNpcRelationships) >= $townNpcSocialPageSize): ?><a href="?panel=town_npcs&amp;social_npc_id=<?= rawurlencode((string)$townNpcSocialNpcId) ?>&amp;relationship_page=<?= $townNpcRelationPage + 1 ?>&amp;memory_page=<?= $townNpcMemoryPage ?>">下一页</a><?php endif; ?></nav>
-<div class="table-scroll"><table><thead><tr><th>村民</th><th>对象</th><th>好感</th><th>最近互动</th><th>更新时间</th><th>管理</th></tr></thead><tbody><?php if ($townNpcRelationships === []): ?><tr><td colspan="6" class="muted">暂无关系记录</td></tr><?php else: foreach ($townNpcRelationships as $relationship): $relationshipMeta = is_array($relationship['relationship'] ?? null) ? $relationship['relationship'] : []; ?><tr><td><?= admin_page_escape((string)($relationship['npc_name'] ?? $relationship['npc_id'])) ?></td><td><?= admin_page_escape((string)($relationship['other_name'] ?? $relationship['other_npc_id'])) ?></td><td><span class="pill"><?= (int)$relationship['affinity'] ?></span></td><td><?= admin_page_escape((string)($relationshipMeta['last_interaction'] ?? '')) ?><?php if (!empty($relationshipMeta['last_dialogue'])): ?><br><small><?= admin_page_escape((string)$relationshipMeta['last_dialogue']) ?></small><?php endif; ?></td><td><?= admin_page_escape((string)($relationship['updated_at'] ?? '')) ?></td><td><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_npc_relationship_save"><input type="hidden" name="panel" value="town_npcs"><input type="hidden" name="npc_id" value="<?= admin_page_escape($relationship['npc_id']) ?>"><input type="hidden" name="other_npc_id" value="<?= admin_page_escape($relationship['other_npc_id']) ?>"><input name="affinity" type="number" min="-100" max="100" value="<?= (int)$relationship['affinity'] ?>" style="width:74px"><button class="quiet" type="submit">保存双方好感</button></form></td></tr><?php endforeach; endif; ?></tbody></table></div>
-<h3>最近长期记忆</h3><nav class="actions"><span class="muted">第 <?= $townNpcMemoryPage + 1 ?> 页</span><?php if ($townNpcMemoryPage > 0): ?><a href="?panel=town_npcs&amp;social_npc_id=<?= rawurlencode((string)$townNpcSocialNpcId) ?>&amp;relationship_page=<?= $townNpcRelationPage ?>&amp;memory_page=<?= $townNpcMemoryPage - 1 ?>">上一页</a><?php endif; ?><?php if (count($townNpcMemories) >= $townNpcSocialPageSize): ?><a href="?panel=town_npcs&amp;social_npc_id=<?= rawurlencode((string)$townNpcSocialNpcId) ?>&amp;relationship_page=<?= $townNpcRelationPage ?>&amp;memory_page=<?= $townNpcMemoryPage + 1 ?>">下一页</a><?php endif; ?></nav>
-<div class="table-scroll"><table><thead><tr><th>时间</th><th>村民</th><th>类型</th><th>重要度</th><th>内容</th><th>过期时间</th></tr></thead><tbody><?php if ($townNpcMemories === []): ?><tr><td colspan="6" class="muted">暂无长期记忆</td></tr><?php else: foreach ($townNpcMemories as $memory): ?><tr><td><?= admin_page_escape((string)$memory['created_at']) ?></td><td><?= admin_page_escape((string)($memory['npc_name'] ?? $memory['npc_id'])) ?></td><td><span class="pill"><?= admin_page_escape((string)$memory['memory_type']) ?></span></td><td><?= (int)$memory['importance'] ?></td><td><?= admin_page_escape((string)$memory['content']) ?></td><td><?= admin_page_escape((string)($memory['expires_at'] ?? '')) ?></td></tr><?php endforeach; endif; ?></tbody></table></div>
-</div><?php endif; ?>
-<?php if ($panel === 'town_agent' && is_array($townModelProvider) && is_array($townAgentReport)): ?><div class="panel" id="town-agent-panel" style="grid-column:1/-1">
-<h2>共享小镇 Agent 模型与村民运行报表</h2>
-<p class="muted">这里记录每个村民的模型调用、行动、说话、路线和心情变化。日志只保存行动所需的结构化摘要，不保存 API Key 或完整提示词。</p>
-<form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_model_provider_save"><input type="hidden" name="panel" value="town_agent"><label>配置名称<input name="name" maxlength="80" value="<?= admin_page_escape($townModelProvider['name'] ?? '默认模型') ?>" required></label><label>OpenAI 兼容 Base URL<input name="base_url" maxlength="255" placeholder="https://api.openai.com/v1" value="<?= admin_page_escape($townModelProvider['base_url'] ?? '') ?>" required></label><label>模型名称<input name="model_name" maxlength="128" placeholder="gpt-4o-mini" value="<?= admin_page_escape($townModelProvider['model_name'] ?? '') ?>" required></label><label>API Key<input name="api_key" type="password" autocomplete="new-password" placeholder="留空表示保留原密钥"></label><label>温度<input name="temperature" type="number" min="0" max="2" step="0.01" value="<?= admin_page_escape((string)($townModelProvider['temperature'] ?? '0.40')) ?>" required></label><label>超时（秒）<input name="timeout_seconds" type="number" min="5" max="300" value="<?= (int)($townModelProvider['timeout_seconds'] ?? 20) ?>" required></label><label>月额度（0 表示不限）<input name="monthly_quota" type="number" min="0" value="<?= (int)($townModelProvider['monthly_quota'] ?? 0) ?>" required></label><label>币种<input name="currency" maxlength="3" value="<?= admin_page_escape($townModelProvider['pricing']['currency'] ?? 'USD') ?>" required></label><label>输入 Token / 百万<input name="input_per_million" type="number" min="0" max="100000" step="0.000001" value="<?= admin_page_escape((string)($townModelProvider['pricing']['input_per_million'] ?? '0')) ?>" required></label><label>输出 Token / 百万<input name="output_per_million" type="number" min="0" max="100000" step="0.000001" value="<?= admin_page_escape((string)($townModelProvider['pricing']['output_per_million'] ?? '0')) ?>" required></label><label><input name="enabled" type="checkbox" value="1" <?= !empty($townModelProvider['enabled']) ? 'checked' : '' ?>>启用模型</label><button type="submit">保存模型配置</button></form><form method="post" class="form-row" style="margin-top:8px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="town_model_provider_test"><input type="hidden" name="panel" value="town_agent"><button class="quiet" type="submit">测试模型连接</button><span class="muted">使用已保存配置访问 /models，不会发送对话。</span></form>
-<p class="muted">当前状态：<?= !empty($townModelProvider['enabled']) ? '已启用' : '未启用' ?> · API Key：<?= !empty($townModelProvider['api_key_set']) ? '已保存' : '未设置' ?><?= !empty($townModelProvider['updated_at']) ? ' · 更新时间：' . admin_page_escape($townModelProvider['updated_at']) : '' ?></p>
-<form method="get" class="form-row" style="margin-top:12px"><input type="hidden" name="panel" value="town_agent"><label>统计范围<select name="days"><option value="1" <?= $townAgentDays === 1 ? 'selected' : '' ?>>最近 1 天</option><option value="7" <?= $townAgentDays === 7 ? 'selected' : '' ?>>最近 7 天</option><option value="30" <?= $townAgentDays === 30 ? 'selected' : '' ?>>最近 30 天</option><option value="90" <?= $townAgentDays === 90 ? 'selected' : '' ?>>最近 90 天</option></select></label><label>村民<select name="npc_id"><option value="">全部村民</option><?php foreach ($townNpcs as $npc): ?><option value="<?= admin_page_escape($npc['npc_id']) ?>" <?= $townAgentNpcId === $npc['npc_id'] ? 'selected' : '' ?>><?= admin_page_escape($npc['name']) ?></option><?php endforeach; ?></select></label><button class="quiet" type="submit">刷新报表</button></form>
-<div class="cards"><div class="card"><div class="muted">模型/回退次数</div><div class="metric"><?= (int)$townAgentReport['summary']['runs'] ?></div><div class="muted">成功 <?= (int)$townAgentReport['summary']['completed'] ?> · 回退 <?= (int)$townAgentReport['summary']['fallback'] ?> · 失败 <?= (int)$townAgentReport['summary']['failed'] ?></div></div><div class="card"><div class="muted">总 Token</div><div class="metric"><?= number_format((int)$townAgentReport['summary']['total_tokens']) ?></div><div class="muted">输入 <?= number_format((int)$townAgentReport['summary']['prompt_tokens']) ?> · 输出 <?= number_format((int)$townAgentReport['summary']['completion_tokens']) ?></div></div><div class="card"><div class="muted">平均响应</div><div class="metric"><?= (int)$townAgentReport['summary']['avg_latency_ms'] ?> ms</div><div class="muted">最近 <?= (int)$townAgentReport['days'] ?> 天</div></div></div>
-<div class="card"><div class="muted">累计费用</div><div class="metric"><?= number_format((float)($townAgentReport['summary']['cost_amount'] ?? 0), 6) ?> <?= admin_page_escape((string)($townAgentReport['summary']['cost_currency'] ?? 'USD')) ?></div><div class="muted">按调用时保存的输入/输出单价计算</div></div><div class="card" style="margin-top:12px"><div class="muted">本月模型 Token 额度</div><?php $quota = $townAgentReport['quota'] ?? []; ?><div class="metric"><?= !empty($quota['unlimited']) ? '不限' : number_format((int)($quota['used_tokens'] ?? 0)) . ' / ' . number_format((int)($quota['quota_tokens'] ?? 0)) ?></div><div class="muted"><?= !empty($quota['unlimited']) ? '当前未启用额度限制' : '剩余 ' . number_format((int)($quota['remaining_tokens'] ?? 0)) . ' Token' ?></div></div><h3>按人物统计</h3><div class="table-scroll"><table><thead><tr><th>人物</th><th>调用次数</th><th>总 Token</th><th>输入 / 输出</th><th>最近调用</th></tr></thead><tbody><?php foreach ($townAgentReport['by_npc'] as $row): ?><tr><td><a href="?panel=town_agent&amp;days=<?= (int)$townAgentReport['days'] ?>&amp;npc_id=<?= rawurlencode($row['npc_id']) ?>"><?= admin_page_escape($row['name']) ?></a><br><small class="muted"><?= admin_page_escape($row['npc_id']) ?></small></td><td><?= (int)$row['runs'] ?></td><td><?= number_format((int)$row['total_tokens']) ?></td><td><?= number_format((int)$row['prompt_tokens']) ?> / <?= number_format((int)$row['completion_tokens']) ?></td><td><?= admin_page_escape((string)($row['last_run'] ?? '')) ?></td></tr><?php endforeach; ?></tbody></table></div>
-<h3>详细活动日志</h3><p class="muted">类型包括 agent_run（模型调用）、action（执行动作）、speech（说话）、path（路线）和 mood（心情）。</p><div class="table-scroll"><table><thead><tr><th>时间</th><th>人物 / 类型</th><th>摘要</th><th>详细数据</th></tr></thead><tbody><?php foreach ($townAgentReport['logs'] as $log): ?><tr><td><?= admin_page_escape($log['created_at']) ?></td><td><strong><?= admin_page_escape((string)($log['name'] ?? $log['npc_id'])) ?></strong><br><span class="pill"><?= admin_page_escape($log['log_type']) ?></span></td><td><?= admin_page_escape($log['summary']) ?></td><td><code><?= admin_page_escape(json_encode($log['detail'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></code></td></tr><?php endforeach; ?></tbody></table></div>
-<h3>费用明细</h3><p class="muted">每条记录使用调用完成时的价格快照；没有配置价格或没有产生模型调用时这里为空。</p><div class="table-scroll"><table><thead><tr><th>时间</th><th>村民</th><th>输入 / 输出 Token</th><th>单价（输入 / 输出）</th><th>金额</th><th>币种</th></tr></thead><tbody><?php $costRows = $townAgentReport['cost_rows'] ?? []; if ($costRows === []): ?><tr><td colspan="6" class="muted">暂无费用记录</td></tr><?php else: foreach ($costRows as $costRow): ?><tr><td><?= admin_page_escape((string)$costRow['created_at']) ?></td><td><?= admin_page_escape((string)($costRow['npc_name'] ?? $costRow['npc_id'] ?? '')) ?></td><td><?= number_format((int)$costRow['prompt_tokens']) ?> / <?= number_format((int)$costRow['completion_tokens']) ?></td><td><?= number_format((float)$costRow['input_per_million'], 6) ?> / <?= number_format((float)$costRow['output_per_million'], 6) ?></td><td><?= number_format((float)$costRow['amount'], 8) ?></td><td><?= admin_page_escape((string)$costRow['currency']) ?></td></tr><?php endforeach; endif; ?></tbody></table></div>
-<h3>供应商配置修订历史</h3><p class="muted">历史快照不包含 API Key；用于核对模型、额度和价格配置何时发生变化。</p><div class="table-scroll"><table><thead><tr><th>时间</th><th>供应商</th><th>动作</th><th>模型 / 额度</th><th>价格</th></tr></thead><tbody><?php $providerRevisions = $townAgentReport['provider_revisions'] ?? []; if ($providerRevisions === []): ?><tr><td colspan="5" class="muted">暂无修订记录</td></tr><?php else: foreach ($providerRevisions as $revision): $revisionSnapshot = is_array($revision['snapshot'] ?? null) ? $revision['snapshot'] : []; ?><tr><td><?= admin_page_escape((string)$revision['created_at']) ?></td><td><?= admin_page_escape((string)($revision['provider_name'] ?? $revision['provider_id'])) ?></td><td><span class="pill"><?= admin_page_escape((string)$revision['action']) ?></span></td><td><?= admin_page_escape((string)($revisionSnapshot['model_name'] ?? '')) ?><br><small>月额度 <?= number_format((int)($revisionSnapshot['monthly_quota'] ?? 0)) ?> · <?= !empty($revisionSnapshot['enabled']) ? '启用' : '停用' ?></small></td><td><?= admin_page_escape((string)($revisionSnapshot['currency'] ?? '')) ?><br><small><?= number_format((float)($revisionSnapshot['input_per_million'] ?? 0), 6) ?> / <?= number_format((float)($revisionSnapshot['output_per_million'] ?? 0), 6) ?></small></td></tr><?php endforeach; endif; ?></tbody></table></div>
-</div><?php endif; ?>
-<?php if ($panel === 'report'): ?><div class="panel" id="catalog-report" style="grid-column:1/-1">
-<h2>全体用户图鉴获得报表</h2><p class="muted">当前数量与持有用户数按现有背包统计；曾获得用户数按发现记录和现有背包去重。水族馆卡包不计入图鉴。</p>
-<div class="cards"><?php foreach ($reportNames as $type => $label): ?><div class="card"><div class="muted"><?= admin_page_escape($label) ?></div><div class="metric"><?= (int)$report[$type]['quantity'] ?></div><div class="muted">当前持有总数 · <?= (int)$report[$type]['obtained_species'] ?> / <?= (int)$report[$type]['species'] ?> 种曾被获得</div></div><?php endforeach; ?></div>
-<nav class="actions"><?php foreach ($reportNames as $type => $label): ?><a class="<?= $reportType === $type ? 'pill' : '' ?>" href="?panel=report&amp;type=<?= rawurlencode($type) ?>"><?= admin_page_escape($label) ?></a><?php endforeach; ?></nav>
-<nav class="actions"><a href="?panel=report&amp;type=<?= rawurlencode($reportType) ?>">全部分类</a><?php foreach (array_unique(array_column($report[$reportType]['items'], 'category')) as $category): ?><a href="?panel=report&amp;type=<?= rawurlencode($reportType) ?>&amp;category=<?= rawurlencode($category) ?>"><?= admin_page_escape($reportType === 'aquarium' ? ($aquariumCategories[$category] ?? $category) : $category) ?></a><?php endforeach; ?></nav>
-<div class="table-scroll"><table><thead><tr><th>名称 / ID</th><th>分类</th><th>当前数量</th><th>持有用户数</th><th>曾获得用户数</th></tr></thead><tbody>
-<?php foreach ($report[$reportType]['items'] as $item): if ($reportCategory !== '' && $item['category'] !== $reportCategory) continue; ?><tr><td><?= admin_page_escape($item['name']) ?><br><small class="muted"><?= admin_page_escape($item['id']) ?></small></td><td><?= admin_page_escape($reportType === 'aquarium' ? ($aquariumCategories[$item['category']] ?? $item['category']) : $item['category']) ?></td><td><?= (int)$item['quantity'] ?></td><td><?= (int)$item['holders'] ?></td><td><?= (int)$item['obtained_users'] ?></td></tr><?php endforeach; ?>
-</tbody></table></div></div><?php endif; ?>
-<?php if ($panel === 'shop'): ?><div class="panel" id="shop-panel" style="grid-column:1/-1"><h2>商城设置</h2><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="shop_price"><input type="hidden" name="panel" value="shop"><label>水族卡包金币<input name="card_pack_price" type="number" min="0" value="<?= (int)$shop['card_pack_price'] ?>" required></label><button type="submit">保存</button></form><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="tree_pack_prices"><input type="hidden" name="panel" value="shop"><label>树木卡包（抽 1 次）金币<input name="tree_card_pack_single_price" type="number" min="0" value="<?= (int)$shop['tree_card_pack_single_price'] ?>" required></label><label>树木卡包（抽 10 次）金币<input name="tree_card_pack_ten_price" type="number" min="0" value="<?= (int)$shop['tree_card_pack_ten_price'] ?>" required></label><button type="submit">保存</button></form><p class="muted">用户端下次刷新商城或进入水族馆设置时获取最新价格。</p></div><?php endif; ?>
-<?php if ($panel === 'tree_settings'): ?><div class="panel" id="tree-settings-panel" style="grid-column:1/-1"><h2>果树产果设置</h2><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="tree_fruit_settings"><input type="hidden" name="panel" value="tree_settings"><label>每多少能量触发一次<input name="energy_cost" type="number" min="1" max="1000000000" value="<?= (int)$treeFruitSettings['energy_cost'] ?>" required></label><label>每次最少果实数<input name="min_batch" type="number" min="1" max="1000" value="<?= (int)$treeFruitSettings['min_batch'] ?>" required></label><label>每次最多果实数<input name="max_batch" type="number" min="1" max="1000" value="<?= (int)$treeFruitSettings['max_batch'] ?>" required></label><button type="submit">保存</button></form><p class="muted">设置对全体用户生效；每次结果仍随机选择一个果实品类。同品类会累加，已有果实不受影响。</p></div><?php endif; ?>
-<?php if ($panel === 'users' && is_array($detail)): $user = $detail['user']; ?><div class="panel"><h2>管理用户：<?= admin_page_escape($user['username']) ?></h2><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="update_user"><input type="hidden" name="panel" value="users"><input type="hidden" name="target_id" value="<?= admin_page_escape($user['id']) ?>"><input type="hidden" name="return_id" value="<?= admin_page_escape($user['id']) ?>"><label>账号<input name="username" value="<?= admin_page_escape($user['username']) ?>" maxlength="32" required></label><label>状态<select name="status"><option value="active" <?= $user['status'] === 'active' ? 'selected' : '' ?>>正常</option><option value="disabled" <?= $user['status'] === 'disabled' ? 'selected' : '' ?> <?= (int)$user['is_admin'] === 1 ? 'disabled' : '' ?>>已禁用</option></select></label><button type="submit">保存用户</button></form><div class="actions"><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="<?= $user['status'] === 'active' ? 'disable' : 'enable' ?>"><input type="hidden" name="panel" value="users"><input type="hidden" name="target_id" value="<?= admin_page_escape($user['id']) ?>"><input type="hidden" name="return_id" value="<?= admin_page_escape($user['id']) ?>"><button class="<?= $user['status'] === 'active' ? 'danger' : 'quiet' ?>" <?= (int)$user['is_admin'] === 1 ? 'disabled' : '' ?>><?= $user['status'] === 'active' ? '禁用账号' : '启用账号' ?></button></form><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="revoke_all"><input type="hidden" name="panel" value="users"><input type="hidden" name="target_id" value="<?= admin_page_escape($user['id']) ?>"><input type="hidden" name="return_id" value="<?= admin_page_escape($user['id']) ?>"><button class="quiet" <?= (int)$user['is_admin'] === 1 ? 'disabled' : '' ?>>撤销全部会话</button></form></div><form method="post" class="form-row" style="margin-top:12px"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="set_coins"><input type="hidden" name="panel" value="users"><input type="hidden" name="target_id" value="<?= admin_page_escape($user['id']) ?>"><input type="hidden" name="return_id" value="<?= admin_page_escape($user['id']) ?>"><label>水族馆金币<input name="coins" type="number" min="0" value="<?= (int)$detail['aquarium']['coins'] ?>" required></label><button type="submit">保存金币</button></form><h2 style="margin-top:20px">会话</h2><table><thead><tr><th>设备</th><th>最近更新</th><th></th></tr></thead><tbody><?php foreach ($detail['sessions'] as $session): ?><tr><td><?= admin_page_escape($session['device_id']) ?></td><td><?= admin_page_escape($session['updated_at']) ?></td><td><?php if ($session['revoked_at'] === null): ?><form method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="revoke_session"><input type="hidden" name="panel" value="users"><input type="hidden" name="target_id" value="<?= admin_page_escape($user['id']) ?>"><input type="hidden" name="session_id" value="<?= admin_page_escape($session['id']) ?>"><input type="hidden" name="return_id" value="<?= admin_page_escape($user['id']) ?>"><button class="quiet">撤销</button></form><?php endif; ?></td></tr><?php endforeach; ?></tbody></table><?php if ((int)$user['is_admin'] !== 1): ?><h2 style="margin-top:20px">删除账号</h2><form method="post" class="form-row"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="delete_user"><input type="hidden" name="panel" value="users"><input type="hidden" name="target_id" value="<?= admin_page_escape($user['id']) ?>"><label>确认账号<input name="confirm_username" placeholder="<?= admin_page_escape($user['username']) ?>" required></label><label>管理员密码<input type="password" name="admin_password" autocomplete="current-password" required></label><button class="danger" type="submit">删除账号</button></form><?php endif; ?></div><?php endif; ?>
-<?php if ($panel === 'users'): ?><div class="panel" style="grid-column:1/-1"><h2>最近操作</h2><div class="audit"><table><thead><tr><th>时间</th><th>操作</th><th>结果</th></tr></thead><tbody><?php foreach ($audit as $entry): ?><tr><td><?= admin_page_escape($entry['created_at']) ?></td><td><?= admin_page_escape($entry['action']) ?></td><td><?= admin_page_escape($entry['result']) ?></td></tr><?php endforeach; ?></tbody></table></div></div><?php endif; ?>
-</section></main></body></html>
+<section class="grid">
+<?php require __DIR__ . '/views/' . $panelView; ?>
+</section>
+</main>
+</div></div>
+<script src="town-admin.js?v=20261114"></script>
+</body></html>
