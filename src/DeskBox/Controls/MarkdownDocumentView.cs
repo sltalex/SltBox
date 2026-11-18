@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeskBox.Helpers;
 using DeskBox.Models;
 using DeskBox.Services;
@@ -46,6 +47,7 @@ public sealed partial class MarkdownDocumentView : UserControl
     private readonly MarkdownDocumentService _markdownService;
     private Brush _contentForeground = new SolidColorBrush(Microsoft.UI.Colors.Black);
     private Brush _semanticForeground = new SolidColorBrush(Microsoft.UI.Colors.Black);
+    private Brush? _activeInlineForeground;
     private Func<string, string?>? _attachmentResolver;
     private int _taskListIndex;
     private bool _isLoaded;
@@ -338,6 +340,7 @@ public sealed partial class MarkdownDocumentView : UserControl
             $"length={source.Length} format={ContentFormat} width={ActualWidth:F1}");
         UpdateForegrounds();
         _documentText.Blocks.Clear();
+        _activeInlineForeground = null;
         _taskListIndex = 0;
         WasTruncated = false;
         if (source.Length == 0)
@@ -1022,7 +1025,7 @@ public sealed partial class MarkdownDocumentView : UserControl
         switch (inline)
         {
             case LiteralInline literal:
-                destination.Add(new Run { Text = literal.Content.ToString() });
+                AppendLiteral(destination, literal.Content.ToString());
                 break;
             case CodeInline code:
                 destination.Add(new Run
@@ -1046,6 +1049,10 @@ public sealed partial class MarkdownDocumentView : UserControl
                 break;
             case EmphasisInline emphasis:
                 var span = new Span();
+                if (_activeInlineForeground is not null)
+                {
+                    span.Foreground = _activeInlineForeground;
+                }
                 if (emphasis.DelimiterChar == '~')
                 {
                     span.TextDecorations = Windows.UI.Text.TextDecorations.Strikethrough;
@@ -1065,6 +1072,52 @@ public sealed partial class MarkdownDocumentView : UserControl
                 AppendContainer(destination, nested);
                 break;
         }
+    }
+
+    private void AppendLiteral(InlineCollection destination, string text)
+    {
+        const string pattern = "<span\\s+data-deskbox-color\\s*=\\s*[\\\"'](?<color>#[0-9A-Fa-f]{6})[\\\"']\\s*>|</span>";
+        int cursor = 0;
+        foreach (Match match in Regex.Matches(text, pattern, RegexOptions.IgnoreCase))
+        {
+            AddLiteralRun(destination, text[cursor..match.Index]);
+            if (match.Value.StartsWith("</", StringComparison.Ordinal))
+            {
+                _activeInlineForeground = null;
+            }
+            else if (TryParseColor(match.Groups["color"].Value, out Windows.UI.Color color))
+            {
+                _activeInlineForeground = new SolidColorBrush(color);
+            }
+
+            cursor = match.Index + match.Length;
+        }
+
+        AddLiteralRun(destination, text[cursor..]);
+    }
+
+    private void AddLiteralRun(InlineCollection destination, string text)
+    {
+        if (text.Length > 0)
+        {
+            destination.Add(new Run
+            {
+                Text = text,
+                Foreground = _activeInlineForeground ?? _contentForeground
+            });
+        }
+    }
+
+    private static bool TryParseColor(string value, out Windows.UI.Color color)
+    {
+        color = default;
+        if (value.Length != 7 || !uint.TryParse(value[1..], System.Globalization.NumberStyles.HexNumber, null, out uint rgb))
+        {
+            return false;
+        }
+
+        color = Windows.UI.Color.FromArgb(0xFF, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+        return true;
     }
 
     private void AppendImage(InlineCollection destination, LinkInline link)
