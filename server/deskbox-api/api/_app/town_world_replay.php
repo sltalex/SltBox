@@ -107,9 +107,9 @@ function town_world_snapshot_restore(PDO $pdo, string $snapshotId, string $confi
     $snapshot = $report['snapshot'] ?? [];
     if (!$report['ok']) throw new ApiError('recovery_blocked', 'Snapshot validation failed; no production state was changed.', 409);
     if (!hash_equals(strtolower($confirmSha256), strtolower((string)($snapshot['state_sha256'] ?? '')))) throw new ApiError('recovery_confirmation_mismatch', 'The snapshot checksum confirmation does not match.', 409);
-    if (($report['journal']['event_count'] ?? 0) > 0 || ($report['journal']['has_more'] ?? false)) {
-        throw new ApiError('recovery_requires_replay', 'Journal entries exist after this snapshot; apply adapters before restoring production state.', 409);
-    }
+    $eventCursor = (int)($snapshot['event_cursor'] ?? 0);
+    $journal = town_world_event_journal_since($pdo, SHARED_TOWN_WORLD_ID, $eventCursor, 500);
+    if ($journal['has_more']) throw new ApiError('recovery_requires_replay', 'The recovery window is larger than the bounded replay batch.', 409);
     $state = is_array($snapshot['state'] ?? null) ? $snapshot['state'] : [];
     $worldState = is_array($state['world'] ?? null) ? $state['world'] : [];
     $objects = is_array($state['objects'] ?? null) ? $state['objects'] : [];
@@ -123,6 +123,7 @@ function town_world_snapshot_restore(PDO $pdo, string $snapshotId, string $confi
         $currentWorld = $worldQuery->fetch(PDO::FETCH_ASSOC);
         if (!is_array($currentWorld)) throw new ApiError('town_unavailable', 'The shared town is not initialized.', 503);
         if ((int)$currentWorld['world_version'] !== $expectedWorldVersion) throw new ApiError('world_revision_conflict', 'The live world changed; read a fresh snapshot before restoring.', 409);
+        town_world_replay_restore_clock($pdo, is_array($state['clock'] ?? null) ? $state['clock'] : [], $now);
         $activeIds = [];
         foreach ($objects as $object) {
             if (!is_array($object)) throw new ApiError('invalid_snapshot_state', 'The snapshot contains an invalid object.', 409);
@@ -162,6 +163,7 @@ function town_world_snapshot_restore(PDO $pdo, string $snapshotId, string $confi
             if (town_npc_life_column_exists($pdo, 'town_npc_runtime_states', 'mood_json')) { $set .= ',mood_json=:mood'; $params[':mood'] = json_encode(is_array($runtime['mood'] ?? null) ? $runtime['mood'] : [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR); }
             $pdo->prepare('UPDATE town_npc_runtime_states SET ' . $set . ' WHERE npc_id=:npc')->execute($params);
         }
+        foreach ($journal['events'] as $event) town_world_replay_apply_event($pdo, $event, $now);
         $nextWorldVersion = (int)$currentWorld['world_version'] + 1;
         $nextChangeCursor = (int)$currentWorld['change_cursor'] + 1;
         $nextNavigationVersion = max((int)$currentWorld['navigation_version'], (int)($worldState['navigation_version'] ?? 1)) + 1;
@@ -173,4 +175,56 @@ function town_world_snapshot_restore(PDO $pdo, string $snapshotId, string $confi
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $error;
     }
+}
+
+/** Restore the snapshot's clock before applying ordered clock events. */
+function town_world_replay_restore_clock(PDO $pdo, array $clock, DateTimeImmutable $now): void
+{
+    if ($clock === []) return;
+    $query = $pdo->prepare('SELECT world_id FROM town_world_state WHERE world_id=:world LIMIT 1');
+    try { $query->execute([':world' => SHARED_TOWN_WORLD_ID]); }
+    catch (PDOException $error) { throw new ApiError('recovery_clock_unavailable', 'The world clock table is unavailable; recovery was rolled back.', 409); }
+    if ($query->fetchColumn() === false) throw new ApiError('recovery_clock_unavailable', 'The world clock is not initialized; recovery was rolled back.', 409);
+    $weather = strtolower(trim((string)($clock['weather_code'] ?? 'clear')));
+    if (!in_array($weather, ['clear', 'cloudy', 'rain', 'storm', 'snow', 'fog'], true)) throw new ApiError('invalid_snapshot_state', 'The snapshot contains an invalid weather code.', 409);
+    $started = (string)($clock['weather_started_at'] ?? $now->format('Y-m-d H:i:s'));
+    $next = $clock['next_weather_change_at'] !== null ? (string)$clock['next_weather_change_at'] : null;
+    $update = $pdo->prepare('UPDATE town_world_state SET absolute_minute=:absolute,calendar_day=:day,weather_code=:weather,weather_started_at=:started,next_weather_change_at=:next,revision=:revision,updated_at=:updated WHERE world_id=:world');
+    $update->execute([':absolute' => max(0, (int)($clock['absolute_minute'] ?? 0)), ':day' => max(1, (int)($clock['calendar_day'] ?? 1)), ':weather' => $weather, ':started' => $started, ':next' => $next, ':revision' => max(0, (int)($clock['revision'] ?? 0)), ':updated' => auth_sql_time($now), ':world' => SHARED_TOWN_WORLD_ID]);
+}
+
+/** Apply one public journal record only when this version has a deterministic adapter. */
+function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable $now): void
+{
+    if ((string)($event['event_type'] ?? '') !== 'public_event') throw new ApiError('recovery_requires_adapter', 'The journal event has no public-event adapter.', 409);
+    $outer = is_array($event['payload'] ?? null) ? $event['payload'] : [];
+    $eventId = filter_var($outer['event_id'] ?? null, FILTER_VALIDATE_INT);
+    $type = strtolower(trim((string)($outer['event_type'] ?? '')));
+    $sourceKey = trim((string)($outer['source_key'] ?? ''));
+    $payload = is_array($outer['payload'] ?? null) ? $outer['payload'] : [];
+    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || !in_array($type, ['time_advanced', 'weather_changed'], true)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
+    $find = $pdo->prepare('SELECT event_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
+    $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
+    if ($find->fetchColumn() === false) {
+        $created = (string)($event['created_at'] ?? $now->format('Y-m-d H:i:s'));
+        $insert = $pdo->prepare('INSERT INTO town_world_events (event_id,world_id,source_key,event_type,actor_npc_id,target_npc_id,public_payload_json,visibility,occurred_at,expires_at,created_at) VALUES (:id,:world,:source,:type,NULL,NULL,:payload,\'public\',:occurred,NULL,:created)');
+        $insert->execute([':id' => (int)$eventId, ':world' => SHARED_TOWN_WORLD_ID, ':source' => $sourceKey, ':type' => $type, ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':occurred' => $created, ':created' => $created]);
+    }
+    $clock = $pdo->prepare('SELECT absolute_minute,calendar_day,revision,weather_code FROM town_world_state WHERE world_id=:world LIMIT 1');
+    $clock->execute([':world' => SHARED_TOWN_WORLD_ID]); $row = $clock->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) throw new ApiError('recovery_clock_unavailable', 'The world clock is unavailable while replaying an event.', 409);
+    $revision = (int)$row['revision'] + 1;
+    if ($type === 'time_advanced') {
+        $minutes = filter_var($payload['minutes'] ?? null, FILTER_VALIDATE_INT);
+        if ($minutes === false || $minutes < 1 || $minutes > 120) throw new ApiError('recovery_event_invalid', 'The time_advanced payload is invalid.', 409);
+        $absolute = (int)$row['absolute_minute'] + (int)$minutes;
+        $day = max(1, (int)$row['calendar_day'] + intdiv($absolute, 1440) - intdiv((int)$row['absolute_minute'], 1440));
+        $pdo->prepare('UPDATE town_world_state SET absolute_minute=:absolute,calendar_day=:day,revision=:revision,updated_at=:updated WHERE world_id=:world')->execute([':absolute' => $absolute, ':day' => $day, ':revision' => $revision, ':updated' => auth_sql_time($now), ':world' => SHARED_TOWN_WORLD_ID]);
+        return;
+    }
+    $weather = strtolower(trim((string)($payload['weather_code'] ?? '')));
+    if (!in_array($weather, ['clear', 'cloudy', 'rain', 'storm', 'snow', 'fog'], true)) throw new ApiError('recovery_event_invalid', 'The weather_changed payload is invalid.', 409);
+    $duration = max(0, min(10080, (int)($payload['duration_minutes'] ?? 0)));
+    $next = $duration > 0 ? $now->modify('+' . $duration . ' minutes')->format('Y-m-d H:i:s') : null;
+    $pdo->prepare('UPDATE town_world_state SET weather_code=:weather,weather_started_at=:started,next_weather_change_at=:next,revision=:revision,updated_at=:updated WHERE world_id=:world')->execute([':weather' => $weather, ':started' => auth_sql_time($now), ':next' => $next, ':revision' => $revision, ':updated' => auth_sql_time($now), ':world' => SHARED_TOWN_WORLD_ID]);
 }
