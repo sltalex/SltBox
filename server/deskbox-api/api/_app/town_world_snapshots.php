@@ -30,8 +30,8 @@ function town_world_snapshot_state(PDO $pdo): array
     foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) $objects[] = shared_town_object_public($row);
     $state = ['schema_version' => 1, 'world' => $world, 'objects' => $objects, 'npcs' => town_npc_snapshot($pdo),
         'clock' => town_world_clock_read($pdo)];
-    try { $state['farm'] = ['plots' => town_farm_snapshot($pdo)]; } catch (Throwable) { $state['farm'] = ['plots' => []]; }
-    try { $state['economy'] = town_economy_snapshot($pdo); } catch (Throwable) { $state['economy'] = []; }
+    try { $state['farm'] = ['plots' => town_farm_snapshot($pdo)]; } catch (Throwable $error) { $state['farm'] = ['plots' => []]; }
+    try { $state['economy'] = town_economy_snapshot($pdo); } catch (Throwable $error) { $state['economy'] = []; }
     return $state;
 }
 
@@ -42,7 +42,7 @@ function town_world_snapshot_create(PDO $pdo, string $createdBy, ?DateTimeImmuta
     [$json, $sha] = town_world_snapshot_encode($state);
     $world = $state['world']; $npcCursor = (int)($state['npcs']['cursor'] ?? 0);
     $eventCursor = 0;
-    try { $eventCursor = (int)($pdo->query('SELECT COALESCE(MAX(event_id),0) FROM town_world_events')->fetchColumn() ?: 0); } catch (Throwable) { }
+    try { $eventCursor = (int)($pdo->query('SELECT COALESCE(MAX(event_id),0) FROM town_world_events')->fetchColumn() ?: 0); } catch (Throwable $error) { }
     $find = $pdo->prepare('SELECT snapshot_id,state_json,state_sha256,created_at FROM town_world_snapshots WHERE world_id=:world AND world_version=:version AND change_cursor=:change AND npc_cursor=:npc AND event_cursor=:event LIMIT 1');
     $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':version' => (int)$world['world_version'], ':change' => (int)$world['change_cursor'], ':npc' => $npcCursor, ':event' => $eventCursor]);
     $existing = $find->fetch(PDO::FETCH_ASSOC);
