@@ -201,7 +201,7 @@
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="viewModels:QuickCaptureItemViewModel">
                             <Border
                                 x:Name="QuickCaptureSurfaceItemRoot"
                                 AllowDrop="True"
@@ -266,16 +266,16 @@
                                         MinWidth="0"
                                         VerticalAlignment="Center"
                                         Spacing="2">
-                                        <!-- MaxLines="{Binding PreviewMaxLines}" remains the preview line-count contract. -->
                                         <controls:MarkdownDocumentView
                                             Markdown="{Binding PreviewMarkdown}"
                                             ContentFormat="{Binding ContentFormat}"
                                             FontSize="{Binding TextSize}"
                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                             IsHitTestVisible="False"
-                                            MaxHeight="72"
+                                            MaxLines="{x:Bind PreviewMaxLines, Mode=OneWay}"
                                             UseInternalScrollViewer="False"
-                                            Visibility="{Binding TextPreviewVisibility}" />
+                                            Visibility="{Binding TextPreviewVisibility}"
+                                            />
                                         <TextBlock
                                             FontSize="{Binding SecondaryTextSize}"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
