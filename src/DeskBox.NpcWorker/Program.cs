@@ -1,12 +1,14 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -18,6 +20,7 @@ builder.Services.AddHttpClient<TownApiClient>((services, client) =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddSingleton<OpenAiCompatiblePlanner>();
+builder.Services.AddSingleton<PhotoFactExtractor>();
 builder.Services.AddSingleton<TownRealtimeHub>();
 builder.Services.AddHostedService<NpcWorkerService>();
 int realtimePort = int.TryParse(builder.Configuration["REALTIME_PORT"], out int configuredPort) && configuredPort is > 0 and <= 65535
@@ -33,13 +36,49 @@ app.Map("/ws/town", async context =>
     await context.RequestServices.GetRequiredService<TownRealtimeHub>().HandleAsync(context);
 });
 app.MapGet("/health", (TownRealtimeHub hub) => Results.Ok(new { ok = true, service = "npc-worker", realtime = hub.Metrics }));
+app.MapPost("/internal/photo-facts", async (HttpContext context, PhotoFactExtractor extractor, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+    string expected = (configuration["NPC_WORKER_TOKEN"] ?? "").Trim();
+    string provided = context.Request.Headers["X-DeskBox-Agent-Token"].ToString().Trim();
+    if (expected.Length == 0 || provided.Length == 0 || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(provided)))
+        return Results.Json(new { code = "agent_forbidden", message = "NPC worker authentication is required." }, statusCode: StatusCodes.Status403Forbidden);
+    if (!context.Request.HasFormContentType)
+        return Results.Json(new { code = "invalid_photo", message = "图片请求必须使用 multipart/form-data。" }, statusCode: StatusCodes.Status415UnsupportedMediaType);
+    IFormCollection form;
+    try { form = await context.Request.ReadFormAsync(cancellationToken); }
+    catch (InvalidDataException) { return Results.Json(new { code = "invalid_photo", message = "图片请求无法读取。" }, statusCode: StatusCodes.Status400BadRequest); }
+    IFormFile? image = form.Files.GetFile("image");
+    if (image is null || image.Length < 1 || image.Length > PhotoFactExtractor.MaxBytes)
+        return Results.Json(new { code = "invalid_photo", message = "图片大小必须在 1 B～4 MB 之间。" }, statusCode: StatusCodes.Status413PayloadTooLarge);
+    string mime = (form["mime"].FirstOrDefault() ?? image.ContentType ?? "").Trim().ToLowerInvariant();
+    int width = int.TryParse(form["width"].FirstOrDefault(), out int parsedWidth) ? parsedWidth : 0;
+    int height = int.TryParse(form["height"].FirstOrDefault(), out int parsedHeight) ? parsedHeight : 0;
+    if (width < 1 || height < 1 || (long)width * height > PhotoFactExtractor.MaxPixels)
+        return Results.Json(new { code = "invalid_photo", message = "图片像素超过限制。" }, statusCode: StatusCodes.Status413PayloadTooLarge);
+    await using Stream stream = image.OpenReadStream();
+    using var memory = new MemoryStream((int)Math.Min(image.Length, PhotoFactExtractor.MaxBytes));
+    await stream.CopyToAsync(memory, cancellationToken);
+    if (memory.Length > PhotoFactExtractor.MaxBytes)
+        return Results.Json(new { code = "invalid_photo", message = "图片大小超过限制。" }, statusCode: StatusCodes.Status413PayloadTooLarge);
+    try
+    {
+        PhotoFactResult result = await extractor.ExtractAsync(memory.ToArray(), mime, width, height, cancellationToken);
+        return Results.Json(result);
+    }
+    catch (PhotoFactException error)
+    {
+        return Results.Json(new { code = error.Code, message = error.Message }, statusCode: error.StatusCode);
+    }
+});
 await app.RunAsync();
 
 public sealed record Lease(string Token, DateTimeOffset ExpiresAt);
 public sealed record NpcRuntime(int TileX, int TileY, string State, string? CurrentTaskId, string[] Capabilities);
 public sealed record NpcDecisionPolicy(int DecisionIntervalSeconds, int ObservationIntervalSeconds, int DialogueCooldownSeconds, int MaxDecisionsPerHour);
-public sealed record Npc(string Id, string Name, string Occupation, bool Enabled, bool AgentPaused, NpcRuntime Runtime, JsonElement Schedule, JsonElement Profile, JsonElement AgentContext = default, NpcDecisionPolicy? DecisionPolicy = null, JsonElement Economy = default);
-public sealed record NpcSnapshot(long NavigationVersion, IReadOnlyList<Npc> Npcs);
+public sealed record NpcLifecycle(string State, string ReasonCode, DateTimeOffset? ExpectedReturnAt, long Revision);
+public sealed record Npc(string Id, string Name, string Occupation, bool Enabled, bool AgentPaused, NpcRuntime Runtime, JsonElement Schedule, JsonElement Profile, JsonElement AgentContext = default, NpcDecisionPolicy? DecisionPolicy = null, JsonElement Economy = default, NpcLifecycle? Lifecycle = null);
+public sealed record NpcSnapshot(long NavigationVersion, IReadOnlyList<Npc> Npcs, NpcDecisionPolicy GlobalPolicy);
+public sealed record WorldClock(long Revision, int AbsoluteMinute, int CalendarDay, int MinuteOfDay, string TimeLabel, string WeatherCode);
 public sealed record PlannedAction(string Action, string? TargetId, JsonElement Payload, string Reason);
 public sealed record AgentPlanResult(PlannedAction? Action, string Status, int PromptTokens, int CompletionTokens, int TotalTokens, int LatencyMs, string ModelName, string ProviderId, string ErrorCode, string ErrorMessage, string ReservationId = "");
 public sealed record QuotaReservation(string ReservationId, int ReservedTokens, int RemainingTokens);
@@ -55,16 +94,51 @@ public sealed record ModelProvider(
     int RemainingTokens = 0,
     int ReservedTokens = 0);
 
+public sealed record PhotoFactResult(
+    [property: JsonPropertyName("ok")]
+    bool Ok,
+    [property: JsonPropertyName("mode")]
+    string Mode,
+    [property: JsonPropertyName("extracted_text")]
+    string ExtractedText,
+    [property: JsonPropertyName("fact_summary")]
+    string FactSummary,
+    [property: JsonPropertyName("model_name")]
+    string ModelName,
+    [property: JsonPropertyName("error_code")]
+    string ErrorCode = "");
+
+public sealed class PhotoFactException(string code, string message, int statusCode = 502) : Exception(message)
+{
+    public string Code { get; } = code;
+    public int StatusCode { get; } = statusCode;
+}
+
 public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
 {
-    private readonly string _workerToken = configuration["NPC_WORKER_TOKEN"] ?? "";
-    private readonly string _workerId = configuration["NPC_WORKER_ID"] ?? Environment.MachineName;
+    // Environment-file whitespace is easy to introduce during a container
+    // rollout. Trim the service credential at the boundary so a trailing
+    // space cannot turn every authenticated API call into a misleading 403.
+    private readonly string _workerToken = (configuration["NPC_WORKER_TOKEN"] ?? "").Trim();
+    private readonly string _workerId = (configuration["NPC_WORKER_ID"] ?? Environment.MachineName).Trim();
     // Lease renewal/acquisition mutates the token used by every other request.
     // Keep those mutations serialized and never let a failed stale renewal clear
     // a newer lease acquired by another in-flight operation.
     private readonly SemaphoreSlim _leaseMutationGate = new(1, 1);
     private readonly object _leaseSync = new();
     private Lease? _lease;
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode) return;
+        string body = string.Empty;
+        try { body = await response.Content.ReadAsStringAsync(cancellationToken); }
+        catch (Exception error) when (error is IOException or ObjectDisposedException or OperationCanceledException) { }
+        body = body.Trim();
+        if (body.Length > 512) body = body[..512] + "…";
+        string suffix = body.Length == 0 ? string.Empty : ": " + body;
+        throw new HttpRequestException($"Town API {response.RequestMessage?.Method} {response.RequestMessage?.RequestUri?.AbsolutePath} returned {(int)response.StatusCode} {response.ReasonPhrase}{suffix}");
+    }
 
     private string? CurrentLeaseToken()
     {
@@ -163,17 +237,97 @@ public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
         using HttpRequestMessage request = await RequestAsync(HttpMethod.Get, "api/v2/town/npcs/snapshot.php", null, cancellationToken);
         using HttpResponseMessage response = await http.SendAsync(request, cancellationToken); response.EnsureSuccessStatusCode();
         using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
-        long version = document.RootElement.GetProperty("navigation_version").GetInt64(); var list = new List<Npc>();
+        long version = document.RootElement.GetProperty("navigation_version").GetInt64();
+        JsonElement global = document.RootElement.TryGetProperty("global_decision_policy", out JsonElement configuredGlobal) ? configuredGlobal : default;
+        int GlobalInt(string name, int fallback) => global.ValueKind == JsonValueKind.Object && global.TryGetProperty(name, out JsonElement item) && item.TryGetInt32(out int parsed) ? parsed : fallback;
+        bool globalEnabled = global.ValueKind == JsonValueKind.Object && global.TryGetProperty("enabled", out JsonElement enabled) && enabled.ValueKind == JsonValueKind.True;
+        NpcDecisionPolicy globalPolicy = new(Math.Clamp(GlobalInt("decision_interval_seconds", 60), 5, 86400), Math.Clamp(GlobalInt("observation_interval_seconds", 300), 5, 86400), Math.Clamp(GlobalInt("dialogue_cooldown_seconds", 60), 0, 86400), globalEnabled ? Math.Clamp(GlobalInt("max_decisions_per_hour", 60), 1, 10000) : int.MaxValue);
+        var list = new List<Npc>();
         foreach (JsonElement value in document.RootElement.GetProperty("npcs").EnumerateArray()) {
             JsonElement runtime = value.GetProperty("runtime");
             string? currentTaskId = runtime.TryGetProperty("current_task_id", out JsonElement task) && task.ValueKind == JsonValueKind.String ? task.GetString() : null;
             JsonElement agentContext = value.TryGetProperty("agent_context", out JsonElement context) ? context.Clone() : JsonSerializer.SerializeToElement(new { relationships = Array.Empty<object>(), memories = Array.Empty<object>() });
             JsonElement economy = value.TryGetProperty("economy", out JsonElement configuredEconomy) ? configuredEconomy.Clone() : JsonSerializer.SerializeToElement(new { balance = 0, inventory = Array.Empty<object>() });
+            JsonElement lifecycle = value.TryGetProperty("lifecycle", out JsonElement configuredLifecycle) && configuredLifecycle.ValueKind == JsonValueKind.Object ? configuredLifecycle : default;
+            string lifecycleState = lifecycle.ValueKind == JsonValueKind.Object && lifecycle.TryGetProperty("state", out JsonElement lifecycleStateValue) ? lifecycleStateValue.GetString() ?? "active" : "active";
+            string lifecycleReason = lifecycle.ValueKind == JsonValueKind.Object && lifecycle.TryGetProperty("reason_code", out JsonElement lifecycleReasonValue) ? lifecycleReasonValue.GetString() ?? "" : "";
+            DateTimeOffset? expectedReturn = null;
+            if (lifecycle.ValueKind == JsonValueKind.Object && lifecycle.TryGetProperty("expected_return_at", out JsonElement expectedReturnValue) && expectedReturnValue.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(expectedReturnValue.GetString(), out DateTimeOffset parsedReturn)) expectedReturn = parsedReturn;
+            long lifecycleRevision = lifecycle.ValueKind == JsonValueKind.Object && lifecycle.TryGetProperty("revision", out JsonElement lifecycleRevisionValue) && lifecycleRevisionValue.TryGetInt64(out long parsedRevision) ? parsedRevision : 1;
             JsonElement policy = value.TryGetProperty("decision_policy", out JsonElement configuredPolicy) ? configuredPolicy : default;
             int PolicyInt(string name, int fallback) => policy.ValueKind == JsonValueKind.Object && policy.TryGetProperty(name, out JsonElement item) && item.TryGetInt32(out int parsed) ? parsed : fallback;
-            list.Add(new Npc(value.GetProperty("npc_id").GetString()!, value.GetProperty("name").GetString() ?? "NPC", value.GetProperty("occupation").GetString() ?? "farmer", value.GetProperty("enabled").GetBoolean(), value.GetProperty("agent_paused").GetBoolean(), new NpcRuntime(runtime.GetProperty("tile_x").GetInt32(), runtime.GetProperty("tile_y").GetInt32(), runtime.GetProperty("state").GetString() ?? "rest", currentTaskId, runtime.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString() ?? "").ToArray()), value.GetProperty("schedule").Clone(), value.GetProperty("profile").Clone(), agentContext, new NpcDecisionPolicy(Math.Clamp(PolicyInt("decision_interval_seconds", 60), 5, 86400), Math.Clamp(PolicyInt("observation_interval_seconds", 300), 5, 86400), Math.Clamp(PolicyInt("dialogue_cooldown_seconds", 60), 0, 86400), Math.Clamp(PolicyInt("max_decisions_per_hour", 60), 1, 10000)), economy));
+            list.Add(new Npc(value.GetProperty("npc_id").GetString()!, value.GetProperty("name").GetString() ?? "NPC", value.GetProperty("occupation").GetString() ?? "farmer", value.GetProperty("enabled").GetBoolean(), value.GetProperty("agent_paused").GetBoolean(), new NpcRuntime(runtime.GetProperty("tile_x").GetInt32(), runtime.GetProperty("tile_y").GetInt32(), runtime.GetProperty("state").GetString() ?? "rest", currentTaskId, runtime.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString() ?? "").ToArray()), value.GetProperty("schedule").Clone(), value.GetProperty("profile").Clone(), agentContext, new NpcDecisionPolicy(Math.Clamp(PolicyInt("decision_interval_seconds", 60), 5, 86400), Math.Clamp(PolicyInt("observation_interval_seconds", 300), 5, 86400), Math.Clamp(PolicyInt("dialogue_cooldown_seconds", 60), 0, 86400), Math.Clamp(PolicyInt("max_decisions_per_hour", 60), 1, 10000)), economy, new NpcLifecycle(lifecycleState, lifecycleReason, expectedReturn, Math.Max(1, lifecycleRevision))));
         }
-        return new NpcSnapshot(version, list);
+        return new NpcSnapshot(version, list, globalPolicy);
+    }
+
+    public async Task<WorldClock?> ReadClockAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using HttpRequestMessage request = await RequestAsync(HttpMethod.Get, "api/v2/town/clock.php", null, cancellationToken);
+            using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            using JsonDocument document = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+            return ReadClock(document.RootElement);
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<WorldClock?> AdvanceClockAsync(WorldClock current, int minutes, CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage response = await SendLeaseRequestAsync(
+            HttpMethod.Post,
+            "api/v2/town/clock-advance.php",
+            new { expected_revision = current.Revision, minutes },
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        using JsonDocument document = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        return ReadClock(document.RootElement);
+    }
+
+    public async Task<string?> CreateWorldSnapshotAsync(CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage response = await SendLeaseRequestAsync(
+            HttpMethod.Post,
+            "api/v2/town/agent/snapshot.php",
+            new { },
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        using JsonDocument document = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        return document.RootElement.TryGetProperty("snapshot", out JsonElement snapshot)
+            && snapshot.TryGetProperty("snapshot_id", out JsonElement id)
+            && id.ValueKind == JsonValueKind.String ? id.GetString() : null;
+    }
+
+    public async Task<IReadOnlyList<JsonElement>> RecoverDueAsync(CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage response = await SendLeaseRequestAsync(
+            HttpMethod.Post,
+            "api/v2/town/agent/lifecycle.php",
+            new { operation = "recover_due" },
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        using JsonDocument document = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        if (!document.RootElement.TryGetProperty("changed", out JsonElement changed) || changed.ValueKind != JsonValueKind.Array)
+            return Array.Empty<JsonElement>();
+        return changed.EnumerateArray().Select(item => item.Clone()).ToArray();
+    }
+
+    private static WorldClock? ReadClock(JsonElement root)
+    {
+        if (!root.TryGetProperty("clock", out JsonElement clock) || clock.ValueKind != JsonValueKind.Object) return null;
+        int Int(string name) => clock.TryGetProperty(name, out JsonElement value) && value.TryGetInt32(out int parsed) ? parsed : 0;
+        long Long(string name) => clock.TryGetProperty(name, out JsonElement value) && value.TryGetInt64(out long parsed) ? parsed : 0;
+        string String(string name) => clock.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
+        return new WorldClock(Long("revision"), Int("absolute_minute"), Int("calendar_day"), Int("minute_of_day"), String("time_label"), String("weather_code"));
     }
 
     public async Task<string?> RecordRunAsync(Npc npc, PlannedAction action, AgentPlanResult plan, string status, CancellationToken cancellationToken, string? runId = null)
@@ -235,6 +389,20 @@ public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
         }
     }
 
+    public async Task<bool> TryReserveDecisionSlotAsync(string npcId, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = await RequestAsync(HttpMethod.Post, "api/v2/town/agent/decision-slot.php", new { npc_id = npcId, lease_token = CurrentLeaseToken() }, cancellationToken);
+        using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+        if ((int)response.StatusCode == 429)
+        {
+            // The server-side global hourly cap is a normal scheduling result,
+            // not a worker failure. The next hour will open a new slot.
+            return false;
+        }
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
     public async Task UpdateRunAsync(Npc npc, string runId, string status, string errorCode, string errorMessage, CancellationToken cancellationToken)
     {
         var body = new { operation = "update", run_id = runId, npc_id = npc.Id, status, error_code = errorCode, error_message = errorMessage };
@@ -250,7 +418,7 @@ public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
         if (!string.IsNullOrWhiteSpace(runId)) actionPayload["run_id"] = runId;
         var payload = new Dictionary<string, object?> { ["npc_id"] = npc.Id, ["action"] = action.Action, ["payload"] = actionPayload };
         using HttpResponseMessage response = await SendLeaseRequestAsync(HttpMethod.Post, "api/v2/town/npcs/actions.php", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         using JsonDocument document = await JsonDocument.ParseAsync(
             await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
         return document.RootElement.Clone();
@@ -259,7 +427,18 @@ public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
     public async Task<JsonElement> AdvanceAsync(Npc npc, CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await SendLeaseRequestAsync(HttpMethod.Post, "api/v2/town/npcs/advance.php", new { npc_id = npc.Id }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
+        using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        return document.RootElement.Clone();
+    }
+
+    /** Execute one server-authoritative social matter operation.  The worker
+     * may propose an option or report a commitment result, but the PHP service
+     * validates candidates, quotas, deadlines and idempotency. */
+    public async Task<JsonElement> SocialAsync(object operation, CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage response = await SendLeaseRequestAsync(HttpMethod.Post, "api/v2/town/agent/social.php", operation, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
         using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
         return document.RootElement.Clone();
     }
@@ -277,6 +456,88 @@ public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
             int reservedTokens = provider.TryGetProperty("reserved_tokens", out JsonElement reserved) ? reserved.GetInt32() : 0;
             return new ModelProvider(provider.TryGetProperty("provider_id", out JsonElement id) ? id.GetString() ?? "" : "", provider.GetProperty("base_url").GetString() ?? "", provider.GetProperty("model_name").GetString() ?? "", provider.GetProperty("api_key").GetString() ?? "", provider.GetProperty("temperature").GetDouble(), provider.GetProperty("timeout_seconds").GetInt32(), monthlyQuota, usedTokens, remainingTokens, reservedTokens);
         } catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException) { return null; }
+    }
+}
+
+public sealed class PhotoFactExtractor(
+    IConfiguration configuration,
+    IHttpClientFactory clientFactory,
+    TownApiClient api,
+    ILogger<PhotoFactExtractor> logger)
+{
+    public const int MaxBytes = 4 * 1024 * 1024;
+    public const int MaxPixels = 4_000_000;
+
+    public async Task<PhotoFactResult> ExtractAsync(byte[] image, string mime, int width, int height, CancellationToken cancellationToken)
+    {
+        if (image.Length is < 1 or > MaxBytes) throw new PhotoFactException("invalid_photo", "图片大小必须在 1 B～4 MB 之间。", 413);
+        if (width < 1 || height < 1 || (long)width * height > MaxPixels) throw new PhotoFactException("invalid_photo", "图片像素超过限制。", 413);
+        if (!mime.Equals("image/png", StringComparison.OrdinalIgnoreCase)
+            && !mime.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase)
+            && !mime.Equals("image/webp", StringComparison.OrdinalIgnoreCase))
+            throw new PhotoFactException("invalid_photo", "只支持 PNG、JPEG 或 WebP 图片。", 415);
+
+        ModelProvider? provider = await api.ModelProviderAsync(cancellationToken);
+        string baseUrl = provider?.BaseUrl ?? configuration["OPENAI_BASE_URL"] ?? "";
+        string apiKey = provider?.ApiKey ?? configuration["OPENAI_API_KEY"] ?? "";
+        string model = provider?.ModelName ?? configuration["OPENAI_MODEL"] ?? "";
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))
+            return MetadataFallback(mime, width, height);
+
+        try
+        {
+            using HttpClient client = clientFactory.CreateClient();
+            client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(provider?.TimeoutSeconds ?? 20, 5, 60));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            string dataUrl = "data:" + mime.ToLowerInvariant() + ";base64," + Convert.ToBase64String(image);
+            var body = new
+            {
+                model,
+                temperature = Math.Clamp(provider?.Temperature ?? 0.2, 0, 1),
+                max_tokens = 512,
+                response_format = new { type = "json_object" },
+                messages = new object[]
+                {
+                    new { role = "system", content = "只返回 JSON：{\\\"extracted_text\\\":\\\"图片中可确认的简短事实\\\",\\\"fact_summary\\\":\\\"给村民记忆使用的一句话摘要\\\"}。不要猜测身份、地址、隐私或图片外的信息；每个字段最多 240 个字符。" },
+                    new { role = "user", content = new object[]
+                    {
+                        new { type = "text", text = $"请描述这张图片中可以直接确认的事实。图片尺寸 {width}×{height}。" },
+                        new { type = "image_url", image_url = new { url = dataUrl } }
+                    } }
+                }
+            };
+            using HttpResponseMessage response = await client.PostAsJsonAsync("chat/completions", body, cancellationToken);
+            if (!response.IsSuccessStatusCode) throw new PhotoFactException("photo_model_failed", "图片理解模型暂时不可用。", 502);
+            using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+            string content = document.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+            using JsonDocument output = JsonDocument.Parse(content);
+            string extracted = Clean(output.RootElement, "extracted_text");
+            string summary = Clean(output.RootElement, "fact_summary");
+            if (extracted == "" || summary == "") throw new PhotoFactException("photo_model_invalid", "图片理解模型返回了无效事实。", 502);
+            return new PhotoFactResult(true, "model", extracted, summary, model);
+        }
+        catch (PhotoFactException) { throw; }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            logger.LogWarning("NPC photo fact extraction failed: {ErrorType}", error.GetType().Name);
+            throw new PhotoFactException(error is TaskCanceledException ? "photo_model_timeout" : "photo_model_failed", "图片理解失败，请稍后重试。", 502);
+        }
+    }
+
+    public static PhotoFactResult MetadataFallback(string mime, int width, int height)
+    {
+        string label = mime.ToLowerInvariant() switch { "image/png" => "PNG", "image/jpeg" => "JPEG", "image/webp" => "WebP", _ => "图片" };
+        string text = $"收到一张 {label} 图片，尺寸为 {width}×{height}。";
+        return new PhotoFactResult(true, "metadata_fallback", text, text, "");
+    }
+
+    private static string Clean(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out JsonElement value) || value.ValueKind != JsonValueKind.String) return "";
+        string text = value.GetString() ?? "";
+        text = new string(text.Where(ch => !char.IsControl(ch)).ToArray()).Trim();
+        return text.Length > 240 ? text[..240] : text;
     }
 }
 
@@ -374,16 +635,35 @@ public static class AgentPlanValidator
         }
         if (payload.TryGetProperty("steps", out JsonElement steps))
         {
-            if (steps.ValueKind != JsonValueKind.Array || steps.GetArrayLength() > 16)
+            if (steps.ValueKind != JsonValueKind.Array || steps.GetArrayLength() < 1 || steps.GetArrayLength() > 16)
             { error = "steps 必须是最多 16 步的数组"; return false; }
+            bool completedAction = false;
+            int stepIndex = 0;
+            int stepCount = steps.GetArrayLength();
             foreach (JsonElement step in steps.EnumerateArray())
             {
                 if (step.ValueKind != JsonValueKind.Object || !step.TryGetProperty("action", out JsonElement stepAction) || stepAction.ValueKind != JsonValueKind.String || !Actions.Contains(stepAction.GetString() ?? ""))
                 { error = "steps 包含不支持的行动"; return false; }
-                if (step.TryGetProperty("target", out JsonElement target) && target.ValueKind == JsonValueKind.String && (target.GetString()?.Length ?? 0) > 128)
+                string stepName = stepAction.GetString() ?? "";
+                if (completedAction)
+                { error = "最终行动之后不能继续追加步骤"; return false; }
+                if (stepName == "walk")
+                {
+                    if (!step.TryGetProperty("target", out JsonElement walkTarget) || walkTarget.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(walkTarget.GetString()) || (walkTarget.GetString()?.Length ?? 0) > 128)
+                    { error = "walk 步骤必须包含有界目标标识"; return false; }
+                }
+                else if (step.TryGetProperty("target", out JsonElement target) && target.ValueKind == JsonValueKind.String && (target.GetString()?.Length ?? 0) > 128)
                 { error = "steps 目标标识过长"; return false; }
                 if (step.TryGetProperty("job", out JsonElement job) && job.ValueKind == JsonValueKind.String && (job.GetString()?.Length ?? 0) > 64)
                 { error = "steps 工作标识过长"; return false; }
+                if (stepIndex == stepCount - 1)
+                {
+                    if (!string.Equals(stepName, action, StringComparison.Ordinal))
+                    { error = "最终步骤必须匹配请求的行动"; return false; }
+                    completedAction = true;
+                }
+                else if (stepName != "walk") completedAction = true;
+                stepIndex++;
             }
         }
         error = "";
@@ -405,6 +685,7 @@ public sealed class NpcWorkerService(
     private readonly Dictionary<string, DateTimeOffset> _retryAfter = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PendingPlan> _pendingPlans = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Queue<DateTimeOffset>> _decisionHistory = new(StringComparer.Ordinal);
+    private readonly Queue<DateTimeOffset> _globalDecisionHistory = new();
     // A deterministic schedule slot is one decision window, not an instruction
     // to repeat the same task every decision interval. Remember terminal slots
     // for the current date so a completed trade/work/talk cannot loop until the
@@ -413,11 +694,28 @@ public sealed class NpcWorkerService(
     private readonly HashSet<string> _completedDeterministicSlots = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _deterministicTaskSlots = new(StringComparer.Ordinal);
     private readonly TimeZoneInfo _scheduleTimeZone = DeterministicSchedule.ResolveTimeZone(configuration["TOWN_TIME_ZONE"]);
+    private readonly TimeSpan _clockAdvanceInterval = TimeSpan.FromSeconds(
+        Math.Clamp(int.TryParse(configuration["TOWN_CLOCK_ADVANCE_INTERVAL_SECONDS"], out int clockInterval) ? clockInterval : 60, 10, 3600));
+    private readonly int _clockAdvanceMinutes = Math.Clamp(
+        int.TryParse(configuration["TOWN_CLOCK_ADVANCE_MINUTES"], out int clockMinutes) ? clockMinutes : 5, 1, 120);
+    // Social matters are intentionally opt-in while the first production
+    // rollout is being observed.  Once enabled, the worker only assigns
+    // support responses returned by the server projection and uses an
+    // idempotency key derived from that response.
+    private readonly bool _socialMattersEnabled = bool.TryParse(configuration["TOWN_SOCIAL_MATTERS_ENABLED"], out bool socialEnabled) && socialEnabled;
+    private readonly TimeSpan _socialMatterInterval = TimeSpan.FromSeconds(
+        Math.Clamp(int.TryParse(configuration["TOWN_SOCIAL_MATTER_INTERVAL_SECONDS"], out int socialInterval) ? socialInterval : 30, 10, 3600));
+    private readonly int _socialMatterBatchSize = Math.Clamp(
+        int.TryParse(configuration["TOWN_SOCIAL_MATTER_BATCH_SIZE"], out int socialBatch) ? socialBatch : 8, 1, 50);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         Lease? lease = null;
         DateTimeOffset nextRenew = DateTimeOffset.MinValue;
+        DateTimeOffset nextClockAdvance = DateTimeOffset.MinValue;
+        DateTimeOffset nextLifecycleRecovery = DateTimeOffset.MinValue;
+        DateTimeOffset nextSocialMatterPoll = DateTimeOffset.MinValue;
+        DateTimeOffset nextWorldSnapshot = DateTimeOffset.MinValue;
         long leaseGeneration = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -438,8 +736,57 @@ public sealed class NpcWorkerService(
 
                 if (lease is not null)
                 {
+                    if (now >= nextLifecycleRecovery)
+                    {
+                        nextLifecycleRecovery = now.AddSeconds(10);
+                        try
+                        {
+                            foreach (JsonElement lifecycle in await api.RecoverDueAsync(stoppingToken))
+                                await hub.BroadcastNpcLifecycleAsync(lifecycle, stoppingToken);
+                        }
+                        catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
+                        {
+                            logger.LogWarning("NPC lifecycle recovery skipped: {Error}", error.Message);
+                        }
+                    }
+                    if (now >= nextWorldSnapshot)
+                    {
+                        nextWorldSnapshot = now.AddMinutes(10);
+                        try
+                        {
+                            string? snapshotId = await api.CreateWorldSnapshotAsync(stoppingToken);
+                            if (!string.IsNullOrWhiteSpace(snapshotId)) logger.LogInformation("Created shared town recovery snapshot {SnapshotId}", snapshotId);
+                        }
+                        catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
+                        { logger.LogWarning("Shared town recovery snapshot skipped: {Error}", error.Message); }
+                    }
+                    if (_socialMattersEnabled && now >= nextSocialMatterPoll)
+                    {
+                        nextSocialMatterPoll = now.Add(_socialMatterInterval);
+                        try { await ProcessSocialMattersAsync(stoppingToken); }
+                        catch (Exception error) when (error is not OperationCanceledException)
+                        { logger.LogWarning("Social matter scheduler failed: {Error}", error.Message); }
+                    }
+                    if (now >= nextClockAdvance)
+                    {
+                        nextClockAdvance = now.Add(_clockAdvanceInterval);
+                        try
+                        {
+                            WorldClock? clock = await api.ReadClockAsync(stoppingToken);
+                            if (clock is not null)
+                            {
+                                WorldClock? advanced = await api.AdvanceClockAsync(clock, _clockAdvanceMinutes, stoppingToken);
+                                if (advanced is not null) await hub.BroadcastWorldClockAsync(advanced, stoppingToken);
+                            }
+                        }
+                        catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
+                        {
+                            logger.LogWarning("Town clock advance skipped: {Error}", error.Message);
+                        }
+                    }
                     NpcSnapshot snapshot = await api.SnapshotAsync(stoppingToken);
-                    Npc[] active = snapshot.Npcs.Where(item => item.Enabled && !item.AgentPaused).ToArray();
+                    Npc[] active = snapshot.Npcs.Where(item => item.Enabled && !item.AgentPaused &&
+                        string.Equals(item.Lifecycle?.State ?? "active", "active", StringComparison.OrdinalIgnoreCase)).ToArray();
 
                     // Progress every existing task before touching model planning.
                     // A slow model therefore cannot stop NPCs that are already walking
@@ -482,11 +829,12 @@ public sealed class NpcWorkerService(
                     now = DateTimeOffset.UtcNow;
                     foreach (Npc npc in active.Where(item => string.IsNullOrWhiteSpace(item.Runtime.CurrentTaskId)))
                     {
-                        if (_pendingPlans.ContainsKey(npc.Id) || IsCoolingDown(npc.Id, now) || !CanScheduleDecision(npc, now)) continue;
+                        if (_pendingPlans.ContainsKey(npc.Id) || IsCoolingDown(npc.Id, now) || !CanScheduleDecision(npc, snapshot.GlobalPolicy, now)) continue;
                         string? deterministicSlot = DeterministicSchedule.ActiveSlotKey(npc, now, _scheduleTimeZone);
                         if (deterministicSlot is not null && _completedDeterministicSlots.Contains(deterministicSlot)) continue;
+                        if (!await api.TryReserveDecisionSlotAsync(npc.Id, stoppingToken)) continue;
                         _pendingPlans[npc.Id] = new PendingPlan(npc, planner.TryPlanAsync(npc, modelProvider, stoppingToken), leaseGeneration);
-                        RecordDecision(npc, now);
+                        RecordDecision(npc, snapshot.GlobalPolicy, now);
                     }
 
                     foreach (PendingPlan pending in _pendingPlans.Values.Where(item => item.Completion.IsCompleted).ToArray())
@@ -550,23 +898,58 @@ public sealed class NpcWorkerService(
         }
     }
 
+    private async Task ProcessSocialMattersAsync(CancellationToken cancellationToken)
+    {
+        // Expiry is deliberately performed before the list read so a stale
+        // collecting matter cannot receive a new commitment in this cycle.
+        await api.SocialAsync(new { operation = "expire", limit = _socialMatterBatchSize }, cancellationToken);
+        JsonElement response = await api.SocialAsync(new { operation = "list", state = "collecting", limit = _socialMatterBatchSize }, cancellationToken);
+        foreach (SocialMatterAssignment assignment in SocialMatterScheduler.SelectAssignments(response, _socialMatterBatchSize))
+        {
+            try
+            {
+                await api.SocialAsync(new
+                {
+                    operation = "assign",
+                    matter_id = assignment.MatterId,
+                    owner_npc_id = assignment.ResidentId,
+                    option_id = assignment.OptionId,
+                    action_id = assignment.ActionId,
+                    idempotency_key = "response:" + assignment.ResponseId,
+                }, cancellationToken);
+                logger.LogInformation("Assigned social matter {MatterId} response {ResponseId} to NPC {NpcId}", assignment.MatterId, assignment.ResponseId, assignment.ResidentId);
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                // A competing worker or a server-side eligibility check can
+                // reject one response without preventing the remaining batch
+                // from being attempted.
+                logger.LogWarning("Social matter {MatterId} response {ResponseId} was not assigned: {Error}", assignment.MatterId, assignment.ResponseId, error.Message);
+            }
+        }
+    }
+
     private bool IsCoolingDown(string npcId, DateTimeOffset now) => _retryAfter.TryGetValue(npcId, out DateTimeOffset retryAt) && retryAt > now;
 
     private static NpcDecisionPolicy Policy(Npc npc) => npc.DecisionPolicy ?? new NpcDecisionPolicy(60, 300, 60, 60);
 
-    private bool CanScheduleDecision(Npc npc, DateTimeOffset now)
+    private bool CanScheduleDecision(Npc npc, NpcDecisionPolicy globalPolicy, DateTimeOffset now)
     {
         NpcDecisionPolicy policy = Policy(npc);
         if (_lastActions.TryGetValue(npc.Id, out DateTimeOffset last) && now - last < TimeSpan.FromSeconds(policy.DecisionIntervalSeconds)) return false;
+        while (_globalDecisionHistory.Count > 0 && now - _globalDecisionHistory.Peek() >= TimeSpan.FromHours(1)) _globalDecisionHistory.Dequeue();
+        if (_globalDecisionHistory.Count >= globalPolicy.MaxDecisionsPerHour) return false;
         if (!_decisionHistory.TryGetValue(npc.Id, out Queue<DateTimeOffset>? history)) return true;
         while (history.Count > 0 && now - history.Peek() >= TimeSpan.FromHours(1)) history.Dequeue();
         return history.Count < policy.MaxDecisionsPerHour;
     }
 
-    private void RecordDecision(Npc npc, DateTimeOffset now)
+    private void RecordDecision(Npc npc, NpcDecisionPolicy globalPolicy, DateTimeOffset now)
     {
         if (!_decisionHistory.TryGetValue(npc.Id, out Queue<DateTimeOffset>? history)) _decisionHistory[npc.Id] = history = new Queue<DateTimeOffset>();
         history.Enqueue(now);
+        while (_globalDecisionHistory.Count > 0 && now - _globalDecisionHistory.Peek() >= TimeSpan.FromHours(1)) _globalDecisionHistory.Dequeue();
+        _globalDecisionHistory.Enqueue(now);
     }
 
     private void ClearFailure(string npcId)
@@ -587,9 +970,11 @@ public sealed class NpcWorkerService(
 
 public static class DeterministicSchedule
 {
+    private const string DefaultTownTimeZoneId = "Asia/Shanghai";
+
     public static TimeZoneInfo ResolveTimeZone(string? timeZoneId)
     {
-        if (string.IsNullOrWhiteSpace(timeZoneId)) return TimeZoneInfo.Utc;
+        if (string.IsNullOrWhiteSpace(timeZoneId)) timeZoneId = DefaultTownTimeZoneId;
         try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
         catch (TimeZoneNotFoundException) { return TimeZoneInfo.Utc; }
         catch (InvalidTimeZoneException) { return TimeZoneInfo.Utc; }
@@ -629,7 +1014,7 @@ public static class DeterministicSchedule
     public static PlannedAction? NextEarningWork(Npc npc, DateTimeOffset now, TimeZoneInfo? timeZone = null)
     {
         if (npc.Schedule.ValueKind != JsonValueKind.Array) return null;
-        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? TimeZoneInfo.Utc).DateTime;
+        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? ResolveTimeZone(null)).DateTime;
         int minute = local.Hour * 60 + local.Minute;
         int day = (int)local.DayOfWeek;
         JsonElement? selected = null;
@@ -759,7 +1144,7 @@ public static class DeterministicSchedule
     public static PlannedAction Next(Npc npc, DateTimeOffset now, TimeZoneInfo? timeZone = null)
     {
         if (npc.Schedule.ValueKind != JsonValueKind.Array) return new PlannedAction("rest", null, JsonSerializer.SerializeToElement(new { reason = "no_schedule" }), "no_schedule");
-        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? TimeZoneInfo.Utc).DateTime;
+        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? ResolveTimeZone(null)).DateTime;
         int minute = local.Hour * 60 + local.Minute; int day = (int)local.DayOfWeek;
         foreach (JsonElement slot in npc.Schedule.EnumerateArray()) if ((slot.TryGetProperty("weekday", out JsonElement weekday) ? weekday.GetInt32() : day) == day && minute >= slot.GetProperty("start_minute").GetInt32() && minute < slot.GetProperty("end_minute").GetInt32()) {
             return BuildScheduledAction(npc, slot);
@@ -800,7 +1185,7 @@ public static class DeterministicSchedule
     public static string? ActiveSlotKey(Npc npc, DateTimeOffset now, TimeZoneInfo? timeZone = null)
     {
         if (npc.Schedule.ValueKind != JsonValueKind.Array) return null;
-        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? TimeZoneInfo.Utc).DateTime;
+        DateTime local = TimeZoneInfo.ConvertTime(now, timeZone ?? ResolveTimeZone(null)).DateTime;
         int minute = local.Hour * 60 + local.Minute;
         int day = (int)local.DayOfWeek;
         foreach (JsonElement slot in npc.Schedule.EnumerateArray())
