@@ -23,6 +23,8 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
 
     $errors = [];
     $warnings = [];
+    $replayable = true;
+    $replayBlockers = [];
     $snapshot = null;
     try {
         $snapshot = town_world_snapshot_public($row, null, true);
@@ -52,15 +54,24 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
         $lastSequence = max($lastSequence, $sequence);
         if ($key === '' || isset($keys[$key])) $errors[] = ['code' => 'journal_idempotency', 'sequence' => $sequence, 'message' => 'Journal idempotency keys must be present and unique in the replay window.'];
         $keys[$key] = true;
-        if (!in_array($type, $knownTypes, true)) $warnings[] = ['code' => 'unknown_event_type', 'sequence' => $sequence, 'event_type' => $type, 'message' => 'The event type is preserved but has no replay adapter in this version.'];
+        if (!in_array($type, $knownTypes, true)) {
+            $warnings[] = ['code' => 'unknown_event_type', 'sequence' => $sequence, 'event_type' => $type, 'message' => 'The event type is preserved but has no replay adapter in this version.'];
+            $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $type];
+        }
         if (!is_array($payload) || array_is_list($payload)) {
             $errors[] = ['code' => 'event_payload', 'sequence' => $sequence, 'message' => 'Journal payload must be a JSON object.'];
+            $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $type];
             continue;
         }
         if ($type !== 'public_event') continue;
+        $innerType = strtolower(trim((string)($payload['event_type'] ?? '')));
+        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true)) {
+            $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $innerType ?: 'missing'];
+        }
         $eventId = filter_var($payload['event_id'] ?? null, FILTER_VALIDATE_INT);
         if ($eventId === false || (int)$eventId < 1) {
             $errors[] = ['code' => 'public_event_id', 'sequence' => $sequence, 'message' => 'Public event journal entries require a positive event_id.'];
+            $replayable = false;
             continue;
         }
         if (isset($eventIds[(int)$eventId])) $errors[] = ['code' => 'public_event_duplicate', 'sequence' => $sequence, 'message' => 'A public event appears more than once in the replay window.'];
@@ -83,6 +94,8 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
     }
     return [
         'ok' => $errors === [],
+        'replayable' => $replayable,
+        'replay_blockers' => $replayBlockers,
         'mode' => 'dry_run',
         'writes_applied' => false,
         'snapshot' => $snapshot === null ? ['snapshot_id' => (string)($row['snapshot_id'] ?? ''), 'state_sha256' => (string)($row['state_sha256'] ?? ''), 'event_cursor' => $eventCursor] : $snapshot,
@@ -106,6 +119,7 @@ function town_world_snapshot_restore(PDO $pdo, string $snapshotId, string $confi
     $report = town_world_replay_dry_run($pdo, $snapshotId, 500);
     $snapshot = $report['snapshot'] ?? [];
     if (!$report['ok']) throw new ApiError('recovery_blocked', 'Snapshot validation failed; no production state was changed.', 409);
+    if (!($report['replayable'] ?? false)) throw new ApiError('recovery_requires_adapter', 'The snapshot journal contains event types without deterministic recovery adapters.', 409);
     if (!hash_equals(strtolower($confirmSha256), strtolower((string)($snapshot['state_sha256'] ?? '')))) throw new ApiError('recovery_confirmation_mismatch', 'The snapshot checksum confirmation does not match.', 409);
     $eventCursor = (int)($snapshot['event_cursor'] ?? 0);
     $journal = town_world_event_journal_since($pdo, SHARED_TOWN_WORLD_ID, $eventCursor, 500);
