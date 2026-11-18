@@ -201,7 +201,7 @@
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="viewModels:QuickCaptureItemViewModel">
                             <Border
                                 x:Name="QuickCaptureSurfaceItemRoot"
                                 AllowDrop="True"
