@@ -131,7 +131,7 @@ function town_world_event_project_npc(PDO $pdo, int $npcEventId, string $npcId, 
     foreach (['action', 'task_id', 'task_status', 'state', 'summary', 'reason', 'failure_reason', 'other_npc_id', 'item_id', 'quantity', 'amount', 'tile_x', 'tile_y'] as $key) {
         if (array_key_exists($key, $payload) && is_scalar($payload[$key])) $publicPayload[$key] = $payload[$key];
     }
-    foreach (['replay', 'trade'] as $key) {
+    foreach (['replay', 'trade', 'work_result', 'work_point'] as $key) {
         if (!is_array($payload[$key] ?? null)) continue;
         try {
             $encoded = json_encode($payload[$key], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);

@@ -72,13 +72,17 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
             && preg_match('/\A[a-zA-Z0-9._:-]{1,128}\z/D', (string)($payload['payload']['trade']['item_id'] ?? ''))
             && filter_var($payload['payload']['trade']['quantity'] ?? null, FILTER_VALIDATE_INT) !== false
             && filter_var($payload['payload']['trade']['amount'] ?? null, FILTER_VALIDATE_INT) !== false;
+        $workReplay = $innerType === 'npc_task_replay_delta'
+            && is_array($payload['payload']['work_result'] ?? null)
+            && is_array($payload['payload']['work_point'] ?? null)
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''));
         $npcRestReplay = $innerType === 'npc_task_completed'
             && strtolower(trim((string)($payload['payload']['action'] ?? ''))) === 'rest'
             && strtolower(trim((string)($payload['payload']['task_status'] ?? ''))) === 'completed'
             && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''))
             && filter_var($payload['payload']['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
             && filter_var($payload['payload']['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
-        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay && !$tradeReplay) {
+        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay && !$tradeReplay && !$workReplay) {
             $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $innerType ?: 'missing'];
         }
         $eventId = filter_var($payload['event_id'] ?? null, FILTER_VALIDATE_INT);
@@ -236,13 +240,17 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
         && preg_match('/\A[a-zA-Z0-9._:-]{1,128}\z/D', (string)($trade['item_id'] ?? ''))
         && filter_var($trade['quantity'] ?? null, FILTER_VALIDATE_INT) !== false
         && filter_var($trade['amount'] ?? null, FILTER_VALIDATE_INT) !== false;
+    $workReplay = $type === 'npc_task_replay_delta'
+        && is_array($payload['work_result'] ?? null)
+        && is_array($payload['work_point'] ?? null)
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''));
     $npcTaskRest = $type === 'npc_task_completed'
         && strtolower(trim((string)($payload['action'] ?? ''))) === 'rest'
         && strtolower(trim((string)($payload['task_status'] ?? ''))) === 'completed'
         && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''))
         && filter_var($payload['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
         && filter_var($payload['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
-    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest && !$npcTradeReplay)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
+    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest && !$npcTradeReplay && !$workReplay)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
     $find = $pdo->prepare('SELECT event_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
     $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
     if ($find->fetchColumn() === false) {
@@ -275,6 +283,41 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
         }
         $result = town_npc_trade($pdo, (string)$trade['seller_npc_id'], (string)$trade['buyer_npc_id'], (string)$trade['item_id'], (int)$trade['quantity'], (int)$trade['amount'], (string)($trade['reason'] ?? '重放 NPC 交易'), $now);
         if ($transactionId !== '' && (string)($result['transaction_id'] ?? '') !== $transactionId) throw new ApiError('recovery_event_invalid', 'The replayed trade transaction id does not match the journal.', 409);
+        return;
+    }
+    if ($workReplay) {
+        $actorQuery = $pdo->prepare('SELECT actor_npc_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
+        $actorQuery->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
+        $actor = (string)($actorQuery->fetchColumn() ?: '');
+        if (!preg_match('/\A[a-f0-9]{32}\z/D', $actor)) throw new ApiError('recovery_event_invalid', 'The work replay event has no valid actor.', 409);
+        $workRunId = trim((string)($payload['work_result']['work_run_id'] ?? ''));
+        if ($workRunId !== '') {
+            try { $exists = $pdo->prepare('SELECT 1 FROM town_work_runs WHERE run_id=:run LIMIT 1'); $exists->execute([':run' => $workRunId]); if ($exists->fetchColumn() !== false) return; } catch (PDOException $error) { }
+        }
+        $pointId = trim((string)($payload['work_point']['point_id'] ?? ''));
+        $point = null;
+        try {
+            $pointQuery = $pdo->prepare('SELECT point_id,point_key,name,kind,tile_x,tile_y,interaction_json,result_json FROM town_work_points WHERE point_id=:point LIMIT 1');
+            $pointQuery->execute([':point' => $pointId]); $row = $pointQuery->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) $point = ['point_id' => (string)$row['point_id'], 'point_key' => (string)$row['point_key'], 'name' => (string)$row['name'], 'kind' => (string)$row['kind'], 'tile_x' => (int)$row['tile_x'], 'tile_y' => (int)$row['tile_y'], 'interaction' => town_npc_decode($row['interaction_json'] ?? [], []), 'result' => town_npc_decode($row['result_json'] ?? [], [])];
+        } catch (PDOException $error) { }
+        if (!is_array($point)) throw new ApiError('recovery_event_invalid', 'The work point is missing for a replay event.', 409);
+        $workResult = is_array($payload['work_result']['work_result'] ?? null) ? $payload['work_result']['work_result'] : [];
+        $effect = is_array($workResult['world_effect'] ?? null) ? $workResult['world_effect'] : [];
+        if ((string)($effect['effect'] ?? '') === 'water_crop') town_npc_apply_farm_result($pdo, $point, $effect + ['effect' => 'water_crop'], $now);
+        elseif ((string)($effect['effect'] ?? '') === 'restock_market') town_npc_apply_market_result($pdo, $point, $effect + ['effect' => 'restock_market'], $now);
+        elseif ((string)($effect['effect'] ?? '') === 'craft_item') {
+            $outputId = trim((string)($effect['output_id'] ?? ''));
+            if ($outputId !== '') {
+                $insert = $pdo->prepare('INSERT INTO town_workshop_outputs (output_id,world_id,point_id,npc_id,task_id,item_id,quantity,produced_at) VALUES (:output,:world,:point,:npc,:task,:item,:quantity,:produced)');
+                try { $insert->execute([':output' => $outputId, ':world' => SHARED_TOWN_WORLD_ID, ':point' => $pointId, ':npc' => $actor, ':task' => (string)$payload['task_id'], ':item' => (string)($effect['item_id'] ?? 'crafted_item'), ':quantity' => max(1, (int)($effect['quantity'] ?? 1)), ':produced' => (string)($effect['produced_at'] ?? auth_sql_time($now))]); } catch (PDOException $error) { }
+            }
+        }
+        $income = max(0, (int)($workResult['income'] ?? 0));
+        if ($income > 0) town_npc_record_income($pdo, $actor, $income, '重放工作收入', $now);
+        if ($workRunId !== '') {
+            try { $insertRun = $pdo->prepare('INSERT INTO town_work_runs (run_id,point_id,npc_id,task_id,job,status,result_json,started_at,completed_at) VALUES (:run,:point,:npc,:task,:job,\'completed\',:result,:started,:completed)'); $insertRun->execute([':run' => $workRunId, ':point' => $pointId, ':npc' => $actor, ':task' => (string)$payload['task_id'], ':job' => '', ':result' => json_encode($workResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':started' => (string)($event['created_at'] ?? auth_sql_time($now)), ':completed' => (string)($event['created_at'] ?? auth_sql_time($now))]); } catch (PDOException $error) { }
+        }
         return;
     }
     $clock = $pdo->prepare('SELECT absolute_minute,calendar_day,revision,weather_code FROM town_world_state WHERE world_id=:world LIMIT 1');
