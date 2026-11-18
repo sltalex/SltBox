@@ -11,7 +11,7 @@ require dirname(__DIR__) . '/api/_app/town_model_provider.php';
 $checks = 0;
 function cost_expect(bool $condition, string $message): void { global $checks; $checks++; if (!$condition) throw new RuntimeException($message); }
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$now = new DateTimeImmutable('2026-11-11T10:00:00Z'); $stamp = auth_sql_time($now);
+$now = api_clock()->modify('-1 hour'); $stamp = auth_sql_time($now);
 $provider = str_repeat('a', 32); $npc = str_repeat('b', 32); $run = str_repeat('c', 32);
 $pdo->exec("CREATE TABLE town_model_providers (provider_id TEXT PRIMARY KEY,name TEXT,base_url TEXT,model_name TEXT,api_key_ciphertext TEXT,temperature REAL,timeout_seconds INTEGER,monthly_quota INTEGER,enabled INTEGER,updated_at TEXT);
 CREATE TABLE town_model_provider_pricing (provider_id TEXT PRIMARY KEY,currency TEXT,input_per_million REAL,output_per_million REAL,updated_at TEXT);
