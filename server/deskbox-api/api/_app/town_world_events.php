@@ -125,11 +125,18 @@ function town_world_event_append(PDO $pdo, array $event, ?DateTimeImmutable $now
  */
 function town_world_event_project_npc(PDO $pdo, int $npcEventId, string $npcId, string $type, array $payload, DateTimeImmutable $now): void
 {
-    $publicTypes = ['conversation', 'task_completed', 'task_failed', 'trade', 'home_blocked', 'relationship_changed'];
+    $publicTypes = ['conversation', 'task_completed', 'task_failed', 'task_replay_delta', 'trade', 'home_blocked', 'relationship_changed'];
     if (!in_array($type, $publicTypes, true) || $npcEventId < 1) return;
     $publicPayload = ['npc_event_id' => $npcEventId];
     foreach (['action', 'task_id', 'task_status', 'state', 'summary', 'reason', 'failure_reason', 'other_npc_id', 'item_id', 'quantity', 'amount', 'tile_x', 'tile_y'] as $key) {
         if (array_key_exists($key, $payload) && is_scalar($payload[$key])) $publicPayload[$key] = $payload[$key];
+    }
+    foreach (['replay', 'trade'] as $key) {
+        if (!is_array($payload[$key] ?? null)) continue;
+        try {
+            $encoded = json_encode($payload[$key], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            if (strlen($encoded) <= 4096) $publicPayload[$key] = json_decode($encoded, true, 16, JSON_THROW_ON_ERROR);
+        } catch (JsonException) { /* Do not project malformed or oversized replay details. */ }
     }
     if ($type === 'conversation' && is_string($payload['dialogue'] ?? null)) {
         $dialogue = trim((string)$payload['dialogue']);

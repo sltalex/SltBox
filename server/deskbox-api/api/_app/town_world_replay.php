@@ -65,13 +65,20 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
         }
         if ($type !== 'public_event') continue;
         $innerType = strtolower(trim((string)($payload['event_type'] ?? '')));
+        $tradeReplay = $innerType === 'npc_task_completed'
+            && is_array($payload['payload']['trade'] ?? null)
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['trade']['seller_npc_id'] ?? ''))
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['trade']['buyer_npc_id'] ?? ''))
+            && preg_match('/\A[a-zA-Z0-9._:-]{1,128}\z/D', (string)($payload['payload']['trade']['item_id'] ?? ''))
+            && filter_var($payload['payload']['trade']['quantity'] ?? null, FILTER_VALIDATE_INT) !== false
+            && filter_var($payload['payload']['trade']['amount'] ?? null, FILTER_VALIDATE_INT) !== false;
         $npcRestReplay = $innerType === 'npc_task_completed'
             && strtolower(trim((string)($payload['payload']['action'] ?? ''))) === 'rest'
             && strtolower(trim((string)($payload['payload']['task_status'] ?? ''))) === 'completed'
             && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''))
             && filter_var($payload['payload']['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
             && filter_var($payload['payload']['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
-        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay) {
+        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay && !$tradeReplay) {
             $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $innerType ?: 'missing'];
         }
         $eventId = filter_var($payload['event_id'] ?? null, FILTER_VALIDATE_INT);
@@ -222,13 +229,20 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
     $type = strtolower(trim((string)($outer['event_type'] ?? '')));
     $sourceKey = trim((string)($outer['source_key'] ?? ''));
     $payload = is_array($outer['payload'] ?? null) ? $outer['payload'] : [];
+    $trade = is_array($payload['trade'] ?? null) ? $payload['trade'] : [];
+    $npcTradeReplay = $type === 'npc_task_completed'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($trade['seller_npc_id'] ?? ''))
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($trade['buyer_npc_id'] ?? ''))
+        && preg_match('/\A[a-zA-Z0-9._:-]{1,128}\z/D', (string)($trade['item_id'] ?? ''))
+        && filter_var($trade['quantity'] ?? null, FILTER_VALIDATE_INT) !== false
+        && filter_var($trade['amount'] ?? null, FILTER_VALIDATE_INT) !== false;
     $npcTaskRest = $type === 'npc_task_completed'
         && strtolower(trim((string)($payload['action'] ?? ''))) === 'rest'
         && strtolower(trim((string)($payload['task_status'] ?? ''))) === 'completed'
         && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''))
         && filter_var($payload['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
         && filter_var($payload['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
-    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
+    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest && !$npcTradeReplay)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
     $find = $pdo->prepare('SELECT event_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
     $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
     if ($find->fetchColumn() === false) {
@@ -250,6 +264,17 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
             $task = $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,failure_reason=\'\' WHERE task_id=:task AND npc_id=:npc');
             $task->execute([':completed' => (string)($event['created_at'] ?? auth_sql_time($now)), ':task' => (string)$payload['task_id'], ':npc' => $actor]);
         } catch (PDOException $error) { /* Task history is optional on older rolling nodes. */ }
+        return;
+    }
+    if ($npcTradeReplay) {
+        $transactionId = trim((string)($trade['transaction_id'] ?? ''));
+        if ($transactionId !== '') {
+            $existingTrade = $pdo->prepare('SELECT transaction_id FROM town_npc_transactions WHERE transaction_id=:id LIMIT 1');
+            $existingTrade->execute([':id' => $transactionId]);
+            if ($existingTrade->fetchColumn() !== false) return;
+        }
+        $result = town_npc_trade($pdo, (string)$trade['seller_npc_id'], (string)$trade['buyer_npc_id'], (string)$trade['item_id'], (int)$trade['quantity'], (int)$trade['amount'], (string)($trade['reason'] ?? '重放 NPC 交易'), $now);
+        if ($transactionId !== '' && (string)($result['transaction_id'] ?? '') !== $transactionId) throw new ApiError('recovery_event_invalid', 'The replayed trade transaction id does not match the journal.', 409);
         return;
     }
     $clock = $pdo->prepare('SELECT absolute_minute,calendar_day,revision,weather_code FROM town_world_state WHERE world_id=:world LIMIT 1');
