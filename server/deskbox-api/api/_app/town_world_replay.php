@@ -65,7 +65,13 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
         }
         if ($type !== 'public_event') continue;
         $innerType = strtolower(trim((string)($payload['event_type'] ?? '')));
-        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true)) {
+        $npcRestReplay = $innerType === 'npc_task_completed'
+            && strtolower(trim((string)($payload['payload']['action'] ?? ''))) === 'rest'
+            && strtolower(trim((string)($payload['payload']['task_status'] ?? ''))) === 'completed'
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''))
+            && filter_var($payload['payload']['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
+            && filter_var($payload['payload']['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
+        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay) {
             $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $innerType ?: 'missing'];
         }
         $eventId = filter_var($payload['event_id'] ?? null, FILTER_VALIDATE_INT);
@@ -216,13 +222,35 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
     $type = strtolower(trim((string)($outer['event_type'] ?? '')));
     $sourceKey = trim((string)($outer['source_key'] ?? ''));
     $payload = is_array($outer['payload'] ?? null) ? $outer['payload'] : [];
-    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || !in_array($type, ['time_advanced', 'weather_changed'], true)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
+    $npcTaskRest = $type === 'npc_task_completed'
+        && strtolower(trim((string)($payload['action'] ?? ''))) === 'rest'
+        && strtolower(trim((string)($payload['task_status'] ?? ''))) === 'completed'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''))
+        && filter_var($payload['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
+        && filter_var($payload['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
+    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
     $find = $pdo->prepare('SELECT event_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
     $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
     if ($find->fetchColumn() === false) {
         $created = (string)($event['created_at'] ?? $now->format('Y-m-d H:i:s'));
         $insert = $pdo->prepare('INSERT INTO town_world_events (event_id,world_id,source_key,event_type,actor_npc_id,target_npc_id,public_payload_json,visibility,occurred_at,expires_at,created_at) VALUES (:id,:world,:source,:type,NULL,NULL,:payload,\'public\',:occurred,NULL,:created)');
         $insert->execute([':id' => (int)$eventId, ':world' => SHARED_TOWN_WORLD_ID, ':source' => $sourceKey, ':type' => $type, ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':occurred' => $created, ':created' => $created]);
+    }
+    if ($npcTaskRest) {
+        try {
+            $actorQuery = $pdo->prepare('SELECT actor_npc_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
+            $actorQuery->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
+            $actor = (string)($actorQuery->fetchColumn() ?: '');
+        } catch (PDOException $error) { $actor = ''; }
+        if (!preg_match('/\A[a-f0-9]{32}\z/D', $actor)) throw new ApiError('recovery_event_invalid', 'The NPC task event has no valid actor.', 409);
+        $runtime = $pdo->prepare('UPDATE town_npc_runtime_states SET tile_x=:x,tile_y=:y,state=\'rest\',current_task_id=NULL,dialogue=\'\',state_version=state_version+1,updated_at=:updated WHERE npc_id=:npc');
+        $runtime->execute([':x' => (int)$payload['tile_x'], ':y' => (int)$payload['tile_y'], ':updated' => auth_sql_time($now), ':npc' => $actor]);
+        if ($runtime->rowCount() < 1) throw new ApiError('recovery_event_invalid', 'The NPC runtime state is missing for a task event.', 409);
+        try {
+            $task = $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,failure_reason=\'\' WHERE task_id=:task AND npc_id=:npc');
+            $task->execute([':completed' => (string)($event['created_at'] ?? auth_sql_time($now)), ':task' => (string)$payload['task_id'], ':npc' => $actor]);
+        } catch (PDOException $error) { /* Task history is optional on older rolling nodes. */ }
+        return;
     }
     $clock = $pdo->prepare('SELECT absolute_minute,calendar_day,revision,weather_code FROM town_world_state WHERE world_id=:world LIMIT 1');
     $clock->execute([':world' => SHARED_TOWN_WORLD_ID]); $row = $clock->fetch(PDO::FETCH_ASSOC);
