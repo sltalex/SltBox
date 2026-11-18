@@ -54,3 +54,30 @@ function town_world_event_journal_latest_sequence(PDO $pdo, string $worldId): in
         throw $error;
     }
 }
+
+/** Return bounded journal entries strictly after a snapshot cursor. */
+function town_world_event_journal_since(PDO $pdo, string $worldId, int $afterSequence = 0, int $limit = 200): array
+{
+    if ($afterSequence < 0) throw new ApiError('invalid_journal_cursor', 'The journal cursor is invalid.', 400);
+    $limit = max(1, min(500, $limit));
+    $query = $pdo->prepare('SELECT sequence,world_id,event_type,payload_json,schema_version,idempotency_key,created_at FROM town_world_event_journal WHERE world_id=:world AND sequence>:after ORDER BY sequence LIMIT ' . ($limit + 1));
+    $query->execute([':world' => $worldId, ':after' => $afterSequence]);
+    $rows = $query->fetchAll(PDO::FETCH_ASSOC);
+    $hasMore = count($rows) > $limit;
+    if ($hasMore) array_pop($rows);
+    $events = [];
+    foreach ($rows as $row) {
+        $payload = json_decode((string)$row['payload_json'], true);
+        $events[] = [
+            'sequence' => (int)$row['sequence'],
+            'world_id' => (string)$row['world_id'],
+            'event_type' => (string)$row['event_type'],
+            'payload' => is_array($payload) ? $payload : [],
+            'schema_version' => (int)$row['schema_version'],
+            'idempotency_key' => (string)$row['idempotency_key'],
+            'created_at' => (string)$row['created_at'],
+        ];
+    }
+    $next = $events === [] ? $afterSequence : (int)$events[array_key_last($events)]['sequence'];
+    return ['events' => $events, 'cursor' => $next, 'has_more' => $hasMore];
+}
