@@ -266,14 +266,13 @@
                                         MinWidth="0"
                                         VerticalAlignment="Center"
                                         Spacing="2">
-                                        <!-- MaxLines="{Binding PreviewMaxLines}" remains the preview line-count contract. -->
                                         <controls:MarkdownDocumentView
                                             Markdown="{Binding PreviewMarkdown}"
                                             ContentFormat="{Binding ContentFormat}"
                                             FontSize="{Binding TextSize}"
                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                             IsHitTestVisible="False"
-                                            MaxHeight="72"
+                                            MaxLines="{Binding PreviewMaxLines}"
                                             UseInternalScrollViewer="False"
                                             Visibility="{Binding TextPreviewVisibility}" />
                                         <TextBlock

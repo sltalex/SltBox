@@ -75,7 +75,11 @@ public sealed partial class MarkdownDocumentView : UserControl
         ApplyContentHost();
         RegisterPropertyChangedCallback(
             FontSizeProperty,
-            (_, _) => InvalidateRenderForAppearanceChange("font-size"));
+            (_, _) =>
+            {
+                ApplyMaxLines();
+                InvalidateRenderForAppearanceChange("font-size");
+            });
         RegisterPropertyChangedCallback(
             ForegroundProperty,
             (_, _) => InvalidateRenderForAppearanceChange("foreground"));
@@ -124,6 +128,12 @@ public sealed partial class MarkdownDocumentView : UserControl
         typeof(MarkdownDocumentView),
         new PropertyMetadata(true, OnContentHostPropertyChanged));
 
+    public static readonly DependencyProperty MaxLinesProperty = DependencyProperty.Register(
+        nameof(MaxLines),
+        typeof(int),
+        typeof(MarkdownDocumentView),
+        new PropertyMetadata(0, OnMaxLinesChanged));
+
     public string Markdown
     {
         get => (string)GetValue(MarkdownProperty);
@@ -156,6 +166,13 @@ public sealed partial class MarkdownDocumentView : UserControl
     {
         get => (bool)GetValue(UseInternalScrollViewerProperty);
         set => SetValue(UseInternalScrollViewerProperty, value);
+    }
+
+    /// <summary>Limits compact previews; zero keeps the document unbounded.</summary>
+    public int MaxLines
+    {
+        get => (int)GetValue(MaxLinesProperty);
+        set => SetValue(MaxLinesProperty, value);
     }
 
     public Func<string, string?>? AttachmentResolver
@@ -301,6 +318,18 @@ public sealed partial class MarkdownDocumentView : UserControl
         DependencyObject sender,
         DependencyPropertyChangedEventArgs args) =>
         ((MarkdownDocumentView)sender).ApplyContentHost();
+
+    private static void OnMaxLinesChanged(
+        DependencyObject sender,
+        DependencyPropertyChangedEventArgs args) =>
+        ((MarkdownDocumentView)sender).ApplyMaxLines();
+
+    private void ApplyMaxLines()
+    {
+        MaxHeight = MaxLines > 0
+            ? Math.Ceiling(Math.Max(11, BaseFontSize) * BodyLineHeightRatio * MaxLines + 8)
+            : double.PositiveInfinity;
+    }
 
     private void ApplyContentHost()
     {
