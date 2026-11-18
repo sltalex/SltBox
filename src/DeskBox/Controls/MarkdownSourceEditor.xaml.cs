@@ -256,21 +256,23 @@ public sealed partial class MarkdownSourceEditor : UserControl
             return;
         }
 
-        if (sender is Button button)
+        try
         {
-            button.Flyout?.Hide();
+            EditorViewportSnapshot viewport = PrepareEditorCommandViewport();
+            int start = viewport.SelectionStart;
+            int length = viewport.SelectionLength;
+            string source = EditorTextBox.Text;
+            string prefix = $"<span data-deskbox-color=\"{color.ToUpperInvariant()}\">";
+            const string suffix = "</span>";
+            string selected = source.Substring(start, length);
+            string replacement = prefix + selected + suffix;
+            ApplyTextEdit(new MarkdownTextEdit(start, length, replacement, start + prefix.Length, selected.Length));
+            RestoreEditorViewport(viewport);
         }
-
-        EditorViewportSnapshot viewport = PrepareEditorCommandViewport();
-        int start = viewport.SelectionStart;
-        int length = viewport.SelectionLength;
-        string source = EditorTextBox.Text;
-        string prefix = $"<span data-deskbox-color=\"{color.ToUpperInvariant()}\">";
-        const string suffix = "</span>";
-        string selected = source.Substring(start, length);
-        string replacement = prefix + selected + suffix;
-        ApplyTextEdit(new MarkdownTextEdit(start, length, replacement, start + prefix.Length, selected.Length));
-        RestoreEditorViewport(viewport);
+        catch (Exception ex)
+        {
+            App.Log($"[MarkdownSourceEditor] Color formatting failed: {ex.Message}");
+        }
     }
 
     private static bool TryResolveCommand(string action, out MarkdownEditCommand command)
@@ -700,7 +702,7 @@ public sealed partial class MarkdownSourceEditor : UserControl
 
         EditorTextBox.Focus(FocusState.Programmatic);
         EditorTextBox.Select(start, length);
-        RestoreScrollOffset();
+        RestoreScrollOffsetSafely(viewport);
         _lastEditorViewport = viewport with
         {
             SelectionStart = start,
@@ -710,15 +712,23 @@ public sealed partial class MarkdownSourceEditor : UserControl
 
         DispatcherQueue.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            RestoreScrollOffset);
+            () => RestoreScrollOffsetSafely(viewport));
 
-        void RestoreScrollOffset()
+    }
+
+    private void RestoreScrollOffsetSafely(EditorViewportSnapshot viewport)
+    {
+        try
         {
             FindDescendant<ScrollViewer>(EditorTextBox)?.ChangeView(
                 viewport.HorizontalOffset,
                 viewport.VerticalOffset,
                 null,
                 disableAnimation: true);
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            App.Log($"[MarkdownSourceEditor] Ignored stale viewport COM error: {ex.Message}");
         }
     }
 
