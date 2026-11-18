@@ -73,6 +73,9 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
 
     public string DisplayText => _displayText ??= CreateDisplayText();
 
+    /// <summary>Source text for the compact list preview, retaining inline formatting.</summary>
+    public string PreviewMarkdown => CreatePreviewSource();
+
     public int HighlightStartIndex => GetHighlightStartIndex();
 
     public int HighlightLength => string.IsNullOrEmpty(_searchText) || HighlightStartIndex < 0
@@ -263,6 +266,7 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
             OnPropertyChanged(nameof(Body));
             OnPropertyChanged(nameof(CopyText));
             OnPropertyChanged(nameof(DisplayText));
+            OnPropertyChanged(nameof(PreviewMarkdown));
             OnPropertyChanged(nameof(HighlightStartIndex));
             OnPropertyChanged(nameof(HighlightLength));
             OnPropertyChanged(nameof(HighlightVisibility));
@@ -306,6 +310,7 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
             OnPropertyChanged(nameof(TitleVisibility));
             OnPropertyChanged(nameof(CopyText));
             OnPropertyChanged(nameof(DisplayText));
+            OnPropertyChanged(nameof(PreviewMarkdown));
             OnPropertyChanged(nameof(HighlightStartIndex));
             OnPropertyChanged(nameof(HighlightLength));
             OnPropertyChanged(nameof(HighlightVisibility));
@@ -468,6 +473,23 @@ public sealed partial class QuickCaptureItemViewModel : ObservableObject
             ? s_markdownService.ToPlainText(source)
             : source;
         return isTruncated ? $"{displayText}…" : displayText;
+    }
+
+    private string CreatePreviewSource()
+    {
+        string source = CopyText;
+        if (source.Length <= MaxDisplaySourceCharacters)
+        {
+            return source;
+        }
+
+        int length = MaxDisplaySourceCharacters;
+        if (length > 0 && char.IsHighSurrogate(source[length - 1]))
+        {
+            length--;
+        }
+
+        return source[..length] + "…";
     }
 
     private void RefreshAttachments()
