@@ -854,7 +854,9 @@ town_npc_decision_policies
 1. **房屋前后景拆分收口**：已完成。实现、后台保存、数据库迁移和线上部署均已完成；`town-source-fangwu01` 使用 `split_lines=[96,144]`，三段独立纹理和中段 y-sort 已在原生 Debug WebView 验收：人物从房屋后方、墙体中段和屋檐前方经过时，中段连续可见，上段始终在人物前，下段始终在人物后。
 2. **素材批量工作流收口**：自动识别结果批量生成草稿、事务保存和地图连续铺设笔刷已完成；后续可优化自动命名预览以及批量确认/撤销，不再阻塞第一版素材编辑。
 3. **真实 UI 视觉回归**：浏览器布局基线已覆盖 1280×720、720×540、640×480，并确认素材栏收起、居民面板和页面边界不溢出；仍需在 DeskBox 原生 WebView 中补一次 16:9、窄窗口和不同素材数量的人工画面确认，尤其是气泡和地图上下文栏。
-4. **发布范围控制**：源码分支 `codex/town-prototype` 已推送并已合并到 GitHub `main`（合并提交 `ea67ddf2a999874d56de16d3b8e7309a58266582`）。`v2026111801` 正式安装器、GitHub Release、FTP/HTTP 镜像和 `update/stable.json` 均已发布并核对版本、大小和 SHA-256。Web/数据库发布不会自动更新桌面程序。
+4. **P1-4 图片对话真实验收**：服务端、Worker、客户端上传链路和自动回归已完成，仍需可用真实登录会话选择图片并确认线上识别结果与对话渲染。
+5. **P2-2 社会事务受控验收**：功能开关保持关闭；仍需认证管理员创建一次受控样例，验证候选资格、并发响应、权限和失败回滚后再考虑开启。
+6. **发布范围控制**：源码已推送并合并到 GitHub `main`（当前发布提交为 `4e9e2649`）。`v2026111902` 正式安装器、GitHub Release、HTTP 镜像和 `update/stable.json` 均已发布并核对版本、大小和 SHA-256。Web/数据库发布不会自动更新桌面程序。
 
 后续每次修改后仍需记录：修改文件、数据库迁移、测试命令、线上备份目录、远程哈希/HTTP 回读，以及未完成的人工画面验收。
 
@@ -1424,4 +1426,5 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - 2026-11-19 本机安装器状态：运行 `SltBox_Setup_2026111901_x64.exe` 时检测到 `D:\kaifa_tool\deskbox-smoke-install` 和仓库 Debug 输出目录两个已有 DeskBox 安装，安装器按保护逻辑暂停，未覆盖或卸载任何版本。需要用户决定保留哪个本机版本后，才能继续进行安装后的真实登录会话验收。
 - 2026-11-19 会话过期地图请求修复：`SharedTownSession` 收到区块接口 401 时现在立即清空区块、关闭小镇会话并显示“登录已过期，请重新登录后查看共享小镇”，后续 viewport 事件不会继续每 20 秒重复请求。新增 `ExpiredSessionStopsRepeatedChunkRequests`，共享小镇客户端测试 22/22 通过；Debug 构建 0 错误并按流程重启 canonical 实例 PID 25808。该客户端修复尚未进入线上安装包，需下一次真实登录会话复测后再发布。
 - 2026-11-19 本轮线上部署：已先创建远程备份 `/root/deskbox-backups/deploy-20261119-190859/`（API 与 database），将当前 `server/deskbox-api/api` 运行目录同步到 `/www/wwwroot/sltbox.2leaves.cn/api`（保留远端 `_private_uploads` 和配置），并上传全部数据库迁移文件。远程 MySQL 逐项重放 039–054，全部完成；PHP 8.2 对 142 个活动 PHP 文件 lint 失败数为 0。Worker 使用当前源码构建并滚动升级为 `deskbox-npc-worker:v40-world-clock`，健康检查返回 `ok=true`、`realtime.activeConnections=1`，旧 `v39-world-clock` 容器保留为停止状态回滚副本，备份位于 `/root/deskbox-backups/worker-v40-20261119-111716/`。匿名世界接口继续返回预期 `401 invalid_session`。本轮未重新发布桌面端安装包，客户端会话过期修复仍需真实登录验收后再进入正式桌面发布。
+- 2026-11-19 P2-3 受控灾备写入演练完成：在 Worker 有效租约下使用最新快照 `6eec4c08a74a7cf07c7fa16153b293fa` 执行一次真实恢复，服务端返回 `ok=true`、`writes_applied=true`，恢复后世界版本为 `303`，并生成恢复后快照 `814887a0306b36bb7191b15791045c3b`（SHA-256 `11914c2a0d474330c52b172d857bc47e4a8647ddb9ad91abbcbae8467dc5209e`）。恢复前 Journal 增量 11 条（序号 `1580–1591`）；随后 dry-run 从 `1591` 到 `1592` 仅发现 1 条增量，返回 `replayable=true`、`replay_blockers=[]`、`errors=[]`，确认恢复后的状态仍可继续回放。农田 `farm-plot-3-1` 保持 `watered / watering_count=8`，市场库存 `market-stock-1` 为 `104`，导航版本 `298`。P2-3 的线上写入演练和幂等前置证据已完成，后续只需按运维周期重复演练，不再作为第一版阻塞项。
 - 2026-11-19 桌面端发布闸门复核：按 `-p:Platform=x64` 执行 `DeskBox.Tests`，5368 项中 5353 通过、15 项失败；失败集中在既有 AOT Stage 5 基线脚本冻结计数 `ExpectedWmc1510Count` 和生产文件清单契约，不是共享小镇运行时测试。由于全量桌面发布门未通过，本轮不生成新的正式安装包或更新 `stable.json`。canonical Debug 已按仓库流程重建并启动，运行路径为 `src/DeskBox/bin/Debug/net10.0-windows10.0.22621.0/DeskBox.exe`，PID 21228，构建 0 错误、9 个既有警告。
