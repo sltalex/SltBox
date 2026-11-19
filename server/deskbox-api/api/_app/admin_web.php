@@ -141,6 +141,8 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             'collision' => $post['collision'] ?? ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4], 'frames' => $post['frames'] ?? [],
             'navigation' => $post['navigation'] ?? ['type' => 'blocked'], 'sort_mode' => $post['sort_mode'] ?? null,
             'split_y' => $post['split_y'] ?? null,
+            'split_lines' => $post['split_lines'] ?? null,
+            'create_only' => isset($post['create_only']) && (string)$post['create_only'] === '1',
         ], api_clock());
         return 'town_asset_item';
     }
@@ -148,7 +150,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
         $rawItems = $post['items'] ?? '';
         if (is_string($rawItems)) {
             try { $rawItems = json_decode($rawItems, true, 32, JSON_THROW_ON_ERROR); }
-            catch (JsonException) { throw new ApiError('invalid_asset_batch', '批量素材数据不是有效 JSON。', 400); }
+            catch (JsonException $error) { throw new ApiError('invalid_asset_batch', '批量素材数据不是有效 JSON。', 400); }
         }
         if (!is_array($rawItems)) throw new ApiError('invalid_asset_batch', '批量素材数据格式无效。', 400);
         town_asset_save_items_bulk($pdo, $actor['user_id'], $rawItems, api_clock());
@@ -159,7 +161,15 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
         return 'town_asset_delete';
     }
     if ($operation === 'town_asset_publish') {
-        town_asset_publish($pdo, $actor['user_id'], api_clock());
+        $previewHash = isset($post['navigation_preview_sha256']) && is_string($post['navigation_preview_sha256']) ? trim($post['navigation_preview_sha256']) : '';
+        if ($previewHash !== '') {
+            require_once __DIR__ . '/town_assets.php';
+            $preview = town_asset_navigation_preview($pdo);
+            if (!preg_match('/\A[a-f0-9]{64}\z/D', $previewHash) || !hash_equals($previewHash, (string)$preview['preview_sha256'])) {
+                throw new ApiError('navigation_preview_stale', '导航影响预览已过期，请重新预览后再发布。', 409);
+            }
+        }
+        town_asset_publish($pdo, $actor['user_id'], api_clock(), $previewHash !== '' ? $previewHash : null);
         return 'town_asset_publish';
     }
     if ($operation === 'town_asset_rollback') {
@@ -191,6 +201,14 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             $statement = $pdo->prepare("UPDATE town_npcs SET {$field}=:value,updated_at=:updated WHERE npc_id=:id"); $statement->execute([':value' => $value, ':updated' => auth_sql_time(api_clock()), ':id' => $id]);
             return 'town_npc_toggle';
         }
+        if ($operation === 'town_npc_lifecycle_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $state = is_string($post['lifecycle_state'] ?? null) ? trim((string)$post['lifecycle_state']) : '';
+            $returnAt = is_string($post['expected_return_at'] ?? null) && trim((string)$post['expected_return_at']) !== ''
+                ? trim((string)$post['expected_return_at']) : null;
+            town_npc_transition_lifecycle($pdo, $id, $state, (string)($post['reason_code'] ?? ''), $returnAt, api_clock(), $actor['user_id']);
+            return 'town_npc_lifecycle_save';
+        }
         if ($operation === 'town_npc_bulk_toggle') {
             $rawIds = $post['npc_ids'] ?? [];
             if (!is_array($rawIds)) $rawIds = [$rawIds];
@@ -217,7 +235,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
         }
         if ($operation === 'town_npc_home_save') {
             $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
-            $decode = static function (mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException) { throw new ApiError('invalid_npc_home', '家的交互配置必须是有效 JSON。', 400); } };
+            $decode = static function (mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException $error) { throw new ApiError('invalid_npc_home', '家的交互配置必须是有效 JSON。', 400); } };
             town_npc_save_home($pdo, $id, ['home_asset_id' => $post['home_asset_id'] ?? '', 'home_asset_name' => $post['home_asset_name'] ?? '', 'tile_x' => (int)($post['home_tile_x'] ?? 0), 'tile_y' => (int)($post['home_tile_y'] ?? 0), 'interaction' => $decode($post['home_interaction'] ?? '')], api_clock());
             return 'town_npc_home_save';
         }
@@ -235,7 +253,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             $items = [];
             if (is_string($post['economy_inventory'] ?? null) && trim((string)$post['economy_inventory']) !== '') {
                 try { $decoded = json_decode((string)$post['economy_inventory'], true, 32, JSON_THROW_ON_ERROR); if (!is_array($decoded)) throw new JsonException('not object'); $items = $decoded; }
-                catch (JsonException) { throw new ApiError('invalid_npc_economy', 'NPC 库存必须是 JSON 对象，例如 {"seed":10}。', 400); }
+                catch (JsonException $error) { throw new ApiError('invalid_npc_economy', 'NPC 库存必须是 JSON 对象，例如 {"seed":10}。', 400); }
             }
             town_npc_set_wallet($pdo, $id, max(0, (int)($post['wallet_balance'] ?? 0)), $actor['user_id'], api_clock());
             town_npc_set_economy_inventory($pdo, $id, $items, api_clock());
@@ -249,7 +267,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             return 'town_npc_schedule_save';
         }
         if ($operation === 'town_work_point_save') {
-            $decode = static function (mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException) { throw new ApiError('invalid_work_point', '工作点交互和结果必须是有效 JSON。', 400); } };
+            $decode = static function (mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException $error) { throw new ApiError('invalid_work_point', '工作点交互和结果必须是有效 JSON。', 400); } };
             $id = is_string($post['point_id'] ?? null) && trim((string)$post['point_id']) !== '' ? trim((string)$post['point_id']) : null;
             town_npc_save_work_point($pdo, ['point_key' => $post['point_key'] ?? '', 'name' => $post['point_name'] ?? '', 'kind' => $post['point_kind'] ?? 'workshop', 'tile_x' => (int)($post['point_tile_x'] ?? 0), 'tile_y' => (int)($post['point_tile_y'] ?? 0), 'interaction' => $decode($post['point_interaction'] ?? ''), 'result' => $decode($post['point_result'] ?? '')], api_clock(), $id);
             return 'town_work_point_save';
@@ -281,7 +299,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             return 'town_npc_force_task';
         }
         if ($operation === 'town_npc_save') {
-            $decode = static function(mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException) { throw new ApiError('invalid_npc', '人格、外观或日程必须是有效 JSON。', 400); } };
+            $decode = static function(mixed $value): array { if (is_array($value)) return $value; if (!is_string($value) || trim($value) === '') return []; try { $decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR); return is_array($decoded) ? $decoded : []; } catch (JsonException $error) { throw new ApiError('invalid_npc', '人格、外观或日程必须是有效 JSON。', 400); } };
             $id = is_string($post['npc_id'] ?? null) && trim((string)$post['npc_id']) !== '' ? trim((string)$post['npc_id']) : null;
             $enabled = true; $agentPaused = false;
             if ($id !== null) {
@@ -337,3 +355,4 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
     admin_mutate($pdo, $actor['user_id'], $body, 'api_clock');
     return $operation;
 }
+

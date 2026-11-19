@@ -1,0 +1,15 @@
+<div class="panel" id="tree-panel" style="grid-column:1/-1">
+<h2>果实图鉴 · <?= count($fruitCatalog) ?> 种</h2>
+<nav class="actions"><a href="?panel=tree">全部</a><?php foreach ($fruitCategories as $category): ?><a href="?panel=tree&amp;category=<?= rawurlencode($category) ?>"><?= admin_page_escape($category) ?></a><?php endforeach; ?></nav>
+<p class="muted">权重仅在启用的果实之间参与抽取；价格每天在设定范围内生成一次，最近 7 天保留历史。</p>
+<table><thead><tr><th>预览</th><th>名称 / ID</th><th>分类</th><th>权重</th><th>最低价</th><th>最高价</th><th>状态</th><th></th></tr></thead><tbody>
+<?php foreach ($fruitCatalog as $fruit): if ($fruitCategory !== '' && $fruit['category'] !== $fruitCategory) continue; $formId = 'fruit-' . $fruit['id']; $fruitImageUrl = fruit_web_asset_url((string)$fruit['id']); ?><tr>
+<td><?php if ($fruitImageUrl !== null): ?><img src="<?= admin_page_escape($fruitImageUrl) ?>" alt="<?= admin_page_escape($fruit['name']) ?>" width="52" height="60" loading="lazy" decoding="async" style="display:block;object-fit:contain"><?php else: ?><span class="muted" aria-label="<?= admin_page_escape($fruit['name']) ?>">—</span><?php endif; ?></td>
+<td><form id="<?= admin_page_escape($formId) ?>" method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="fruit_catalog_item"><input type="hidden" name="panel" value="tree"><input type="hidden" name="fruit_id" value="<?= admin_page_escape($fruit['id']) ?>"></form><input form="<?= admin_page_escape($formId) ?>" name="fruit_name" value="<?= admin_page_escape($fruit['name']) ?>" maxlength="60" required style="width:115px"><br><small><?= admin_page_escape($fruit['id']) ?></small></td>
+<td><select form="<?= admin_page_escape($formId) ?>" name="category"><?php foreach ($fruitCategories as $category): ?><option value="<?= admin_page_escape($category) ?>" <?= $category === $fruit['category'] ? 'selected' : '' ?>><?= admin_page_escape($category) ?></option><?php endforeach; ?></select></td>
+<td><input form="<?= admin_page_escape($formId) ?>" name="probability" type="number" min="0" step="0.0001" value="<?= admin_page_escape($fruit['probability']) ?>" required style="width:85px"></td>
+<td><input form="<?= admin_page_escape($formId) ?>" name="min_price" type="number" min="0" max="1000000" value="<?= (int)$fruit['min_price'] ?>" required style="width:75px"></td>
+<td><input form="<?= admin_page_escape($formId) ?>" name="max_price" type="number" min="0" max="1000000" value="<?= (int)$fruit['max_price'] ?>" required style="width:75px"></td>
+<td><label><input form="<?= admin_page_escape($formId) ?>" name="enabled" type="checkbox" value="1" <?= (int)$fruit['enabled'] ? 'checked' : '' ?>>启用</label></td>
+<td><button form="<?= admin_page_escape($formId) ?>" type="submit">保存</button></td></tr><?php endforeach; ?>
+</tbody></table>

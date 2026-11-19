@@ -82,7 +82,43 @@ function town_world_replay_dry_run(PDO $pdo, ?string $snapshotId = null, int $li
             && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''))
             && filter_var($payload['payload']['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
             && filter_var($payload['payload']['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
-        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay && !$tradeReplay && !$workReplay) {
+        $npcWalkReplay = $innerType === 'npc_task_completed'
+            && strtolower(trim((string)($payload['payload']['action'] ?? ''))) === 'walk'
+            && strtolower(trim((string)($payload['payload']['task_status'] ?? ''))) === 'completed'
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''))
+            && filter_var($payload['payload']['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
+            && filter_var($payload['payload']['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
+        // Work completion carries the NPC's final position. Its durable
+        // world effect is replayed separately by npc_task_replay_delta.
+        $npcWorkReplay = $innerType === 'npc_task_completed'
+            && strtolower(trim((string)($payload['payload']['action'] ?? ''))) === 'work'
+            && strtolower(trim((string)($payload['payload']['task_status'] ?? ''))) === 'completed'
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''))
+            && filter_var($payload['payload']['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
+            && filter_var($payload['payload']['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
+        $npcFailureReplay = $innerType === 'npc_task_failed'
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['task_id'] ?? ''));
+        $socialCommitmentState = strpos($innerType, 'social_matter_commitment_') === 0 ? substr($innerType, strlen('social_matter_commitment_')) : '';
+        $socialCommitmentReplay = in_array($socialCommitmentState, ['assigned', 'executing', 'completed', 'failed', 'cancelled'], true)
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['matter_id'] ?? ''))
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['commitment_id'] ?? ''))
+            && filter_var($payload['payload']['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+        $socialMatterState = strpos($innerType, 'social_matter_') === 0 ? substr($innerType, strlen('social_matter_')) : '';
+        $socialMatterReplay = in_array($socialMatterState, ['closed', 'failed', 'cancelled'], true)
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['matter_id'] ?? ''))
+            && filter_var($payload['payload']['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+        $socialMatterOpenedReplay = $innerType === 'social_matter_opened'
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['matter_id'] ?? ''))
+            && preg_match('/\A[a-zA-Z0-9._:-]{1,64}\z/D', (string)($payload['payload']['kind'] ?? ''))
+            && is_scalar($payload['payload']['summary'] ?? null)
+            && filter_var($payload['payload']['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+        $socialMatterResponseReplay = $innerType === 'social_matter_response'
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['matter_id'] ?? ''))
+            && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['payload']['resident_id'] ?? ''))
+            && preg_match('/\A[a-zA-Z0-9._:-]{1,64}\z/D', (string)($payload['payload']['option_id'] ?? ''))
+            && preg_match('/\A[a-zA-Z0-9._:-]{1,32}\z/D', (string)($payload['payload']['response_kind'] ?? 'support'))
+            && filter_var($payload['payload']['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+        if (!in_array($innerType, ['time_advanced', 'weather_changed'], true) && !$npcRestReplay && !$npcWalkReplay && !$npcWorkReplay && !$npcFailureReplay && !$tradeReplay && !$workReplay && !$socialCommitmentReplay && !$socialMatterReplay && !$socialMatterOpenedReplay && !$socialMatterResponseReplay) {
             $replayable = false; $replayBlockers[] = ['sequence' => $sequence, 'event_type' => $innerType ?: 'missing'];
         }
         $eventId = filter_var($payload['event_id'] ?? null, FILTER_VALIDATE_INT);
@@ -250,7 +286,44 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
         && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''))
         && filter_var($payload['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
         && filter_var($payload['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
-    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest && !$npcTradeReplay && !$workReplay)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
+    $npcTaskWalk = $type === 'npc_task_completed'
+        && strtolower(trim((string)($payload['action'] ?? ''))) === 'walk'
+        && strtolower(trim((string)($payload['task_status'] ?? ''))) === 'completed'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''))
+        && filter_var($payload['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
+        && filter_var($payload['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
+    // Work completion only restores the NPC runtime position. The associated
+    // farm/market/workshop mutation is carried by a following replay delta.
+    $npcTaskWork = $type === 'npc_task_completed'
+        && strtolower(trim((string)($payload['action'] ?? ''))) === 'work'
+        && strtolower(trim((string)($payload['task_status'] ?? ''))) === 'completed'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''))
+        && filter_var($payload['tile_x'] ?? null, FILTER_VALIDATE_INT) !== false
+        && filter_var($payload['tile_y'] ?? null, FILTER_VALIDATE_INT) !== false;
+    $npcTaskFailure = $type === 'npc_task_failed'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['task_id'] ?? ''));
+    $socialCommitmentStates = ['assigned', 'executing', 'completed', 'failed', 'cancelled'];
+    $socialCommitmentState = str_starts_with($type, 'social_matter_commitment_') ? substr($type, strlen('social_matter_commitment_')) : '';
+    $socialCommitmentReplay = in_array($socialCommitmentState, $socialCommitmentStates, true)
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['matter_id'] ?? ''))
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['commitment_id'] ?? ''))
+        && filter_var($payload['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+    $socialMatterState = str_starts_with($type, 'social_matter_') ? substr($type, strlen('social_matter_')) : '';
+    $socialMatterReplay = in_array($socialMatterState, ['closed', 'failed', 'cancelled'], true)
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['matter_id'] ?? ''))
+        && filter_var($payload['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+    $socialMatterOpenedReplay = $type === 'social_matter_opened'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['matter_id'] ?? ''))
+        && preg_match('/\A[a-zA-Z0-9._:-]{1,64}\z/D', (string)($payload['kind'] ?? ''))
+        && is_scalar($payload['summary'] ?? null)
+        && filter_var($payload['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+    $socialMatterResponseReplay = $type === 'social_matter_response'
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['matter_id'] ?? ''))
+        && preg_match('/\A[a-f0-9]{32}\z/D', (string)($payload['resident_id'] ?? ''))
+        && preg_match('/\A[a-zA-Z0-9._:-]{1,64}\z/D', (string)($payload['option_id'] ?? ''))
+        && preg_match('/\A[a-zA-Z0-9._:-]{1,32}\z/D', (string)($payload['response_kind'] ?? 'support'))
+        && filter_var($payload['revision'] ?? null, FILTER_VALIDATE_INT) !== false;
+    if ($eventId === false || (int)$eventId < 1 || $sourceKey === '' || (!in_array($type, ['time_advanced', 'weather_changed'], true) && !$npcTaskRest && !$npcTaskWalk && !$npcTaskWork && !$npcTaskFailure && !$npcTradeReplay && !$workReplay && !$socialCommitmentReplay && !$socialMatterReplay && !$socialMatterOpenedReplay && !$socialMatterResponseReplay)) throw new ApiError('recovery_requires_adapter', 'The journal contains an event type without a deterministic recovery adapter.', 409);
     $find = $pdo->prepare('SELECT event_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
     $find->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
     if ($find->fetchColumn() === false) {
@@ -258,19 +331,25 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
         $insert = $pdo->prepare('INSERT INTO town_world_events (event_id,world_id,source_key,event_type,actor_npc_id,target_npc_id,public_payload_json,visibility,occurred_at,expires_at,created_at) VALUES (:id,:world,:source,:type,NULL,NULL,:payload,\'public\',:occurred,NULL,:created)');
         $insert->execute([':id' => (int)$eventId, ':world' => SHARED_TOWN_WORLD_ID, ':source' => $sourceKey, ':type' => $type, ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':occurred' => $created, ':created' => $created]);
     }
-    if ($npcTaskRest) {
+    if ($npcTaskRest || $npcTaskWalk || $npcTaskWork || $npcTaskFailure) {
         try {
             $actorQuery = $pdo->prepare('SELECT actor_npc_id FROM town_world_events WHERE world_id=:world AND event_id=:event LIMIT 1');
             $actorQuery->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
             $actor = (string)($actorQuery->fetchColumn() ?: '');
         } catch (PDOException $error) { $actor = ''; }
         if (!preg_match('/\A[a-f0-9]{32}\z/D', $actor)) throw new ApiError('recovery_event_invalid', 'The NPC task event has no valid actor.', 409);
-        $runtime = $pdo->prepare('UPDATE town_npc_runtime_states SET tile_x=:x,tile_y=:y,state=\'rest\',current_task_id=NULL,dialogue=\'\',state_version=state_version+1,updated_at=:updated WHERE npc_id=:npc');
-        $runtime->execute([':x' => (int)$payload['tile_x'], ':y' => (int)$payload['tile_y'], ':updated' => auth_sql_time($now), ':npc' => $actor]);
-        if ($runtime->rowCount() < 1) throw new ApiError('recovery_event_invalid', 'The NPC runtime state is missing for a task event.', 409);
+        if (!$npcTaskFailure) {
+            $runtime = $pdo->prepare('UPDATE town_npc_runtime_states SET tile_x=:x,tile_y=:y,state=\'rest\',current_task_id=NULL,dialogue=\'\',state_version=state_version+1,updated_at=:updated WHERE npc_id=:npc');
+            $runtime->execute([':x' => (int)$payload['tile_x'], ':y' => (int)$payload['tile_y'], ':updated' => auth_sql_time($now), ':npc' => $actor]);
+            if ($runtime->rowCount() < 1) throw new ApiError('recovery_event_invalid', 'The NPC runtime state is missing for a task event.', 409);
+        } else {
+            $runtime = $pdo->prepare('UPDATE town_npc_runtime_states SET state=\'rest\',current_task_id=NULL,dialogue=\'\',state_version=state_version+1,updated_at=:updated WHERE npc_id=:npc');
+            $runtime->execute([':updated' => auth_sql_time($now), ':npc' => $actor]);
+        }
         try {
-            $task = $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,failure_reason=\'\' WHERE task_id=:task AND npc_id=:npc');
-            $task->execute([':completed' => (string)($event['created_at'] ?? auth_sql_time($now)), ':task' => (string)$payload['task_id'], ':npc' => $actor]);
+            $status = $npcTaskFailure ? 'failed' : 'completed';
+            $task = $pdo->prepare('UPDATE town_npc_tasks SET status=:status,completed_at=:completed,failure_reason=:reason WHERE task_id=:task AND npc_id=:npc');
+            $task->execute([':status' => $status, ':completed' => (string)($event['created_at'] ?? auth_sql_time($now)), ':reason' => $npcTaskFailure ? substr((string)($payload['failure_reason'] ?? $payload['reason'] ?? 'replayed_failure'), 0, 255) : '', ':task' => (string)$payload['task_id'], ':npc' => $actor]);
         } catch (PDOException $error) { /* Task history is optional on older rolling nodes. */ }
         return;
     }
@@ -290,7 +369,7 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
         $actorQuery->execute([':world' => SHARED_TOWN_WORLD_ID, ':event' => (int)$eventId]);
         $actor = (string)($actorQuery->fetchColumn() ?: '');
         if (!preg_match('/\A[a-f0-9]{32}\z/D', $actor)) throw new ApiError('recovery_event_invalid', 'The work replay event has no valid actor.', 409);
-        $workRunId = trim((string)($payload['work_result']['work_run_id'] ?? ''));
+        $workRunId = trim((string)($payload['work_run_id'] ?? ''));
         if ($workRunId !== '') {
             try { $exists = $pdo->prepare('SELECT 1 FROM town_work_runs WHERE run_id=:run LIMIT 1'); $exists->execute([':run' => $workRunId]); if ($exists->fetchColumn() !== false) return; } catch (PDOException $error) { }
         }
@@ -302,7 +381,7 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
             if (is_array($row)) $point = ['point_id' => (string)$row['point_id'], 'point_key' => (string)$row['point_key'], 'name' => (string)$row['name'], 'kind' => (string)$row['kind'], 'tile_x' => (int)$row['tile_x'], 'tile_y' => (int)$row['tile_y'], 'interaction' => town_npc_decode($row['interaction_json'] ?? [], []), 'result' => town_npc_decode($row['result_json'] ?? [], [])];
         } catch (PDOException $error) { }
         if (!is_array($point)) throw new ApiError('recovery_event_invalid', 'The work point is missing for a replay event.', 409);
-        $workResult = is_array($payload['work_result']['work_result'] ?? null) ? $payload['work_result']['work_result'] : [];
+        $workResult = is_array($payload['work_result'] ?? null) ? $payload['work_result'] : [];
         $effect = is_array($workResult['world_effect'] ?? null) ? $workResult['world_effect'] : [];
         if ((string)($effect['effect'] ?? '') === 'water_crop') town_npc_apply_farm_result($pdo, $point, $effect + ['effect' => 'water_crop'], $now);
         elseif ((string)($effect['effect'] ?? '') === 'restock_market') town_npc_apply_market_result($pdo, $point, $effect + ['effect' => 'restock_market'], $now);
@@ -316,8 +395,72 @@ function town_world_replay_apply_event(PDO $pdo, array $event, DateTimeImmutable
         $income = max(0, (int)($workResult['income'] ?? 0));
         if ($income > 0) town_npc_record_income($pdo, $actor, $income, '重放工作收入', $now);
         if ($workRunId !== '') {
-            try { $insertRun = $pdo->prepare('INSERT INTO town_work_runs (run_id,point_id,npc_id,task_id,job,status,result_json,started_at,completed_at) VALUES (:run,:point,:npc,:task,:job,\'completed\',:result,:started,:completed)'); $insertRun->execute([':run' => $workRunId, ':point' => $pointId, ':npc' => $actor, ':task' => (string)$payload['task_id'], ':job' => '', ':result' => json_encode($workResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':started' => (string)($event['created_at'] ?? auth_sql_time($now)), ':completed' => (string)($event['created_at'] ?? auth_sql_time($now))]); } catch (PDOException $error) { }
+            try { $insertRun = $pdo->prepare('INSERT INTO town_work_runs (run_id,point_id,npc_id,task_id,job,status,result_json,started_at,completed_at) VALUES (:run,:point,:npc,:task,:job,\'completed\',:result,:started,:completed)'); $insertRun->execute([':run' => $workRunId, ':point' => $pointId, ':npc' => $actor, ':task' => (string)$payload['task_id'], ':job' => (string)($payload['job'] ?? ''), ':result' => json_encode($workResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':started' => (string)($event['created_at'] ?? auth_sql_time($now)), ':completed' => (string)($event['created_at'] ?? auth_sql_time($now))]); } catch (PDOException $error) { }
         }
+        return;
+    }
+    if ($socialMatterOpenedReplay || $socialMatterResponseReplay || $socialCommitmentReplay || $socialMatterReplay) {
+        $stamp = (string)($event['created_at'] ?? auth_sql_time($now));
+        if ($socialMatterOpenedReplay) {
+            $matter = $pdo->prepare('SELECT matter_id,state,revision FROM town_social_matters WHERE matter_id=:matter LIMIT 1');
+            $matter->execute([':matter' => (string)$payload['matter_id']]);
+            $row = $matter->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row)) throw new ApiError('recovery_event_invalid', 'The social matter is missing for an open event.', 409);
+            $pdo->prepare('UPDATE town_social_matters SET kind=:kind,public_summary=:summary,state=CASE WHEN state IN (\'closed\',\'failed\',\'cancelled\') THEN state ELSE \'open\' END,revision=CASE WHEN revision<:revision THEN :revision ELSE revision END,updated_at=:updated WHERE matter_id=:matter')->execute([':kind' => substr((string)$payload['kind'], 0, 32), ':summary' => substr((string)$payload['summary'], 0, 255), ':revision' => (int)$payload['revision'], ':updated' => $stamp, ':matter' => (string)$payload['matter_id']]);
+            return;
+        }
+        if ($socialMatterResponseReplay) {
+            $matter = $pdo->prepare('SELECT state FROM town_social_matters WHERE matter_id=:matter LIMIT 1');
+            $matter->execute([':matter' => (string)$payload['matter_id']]);
+            if ($matter->fetchColumn() === false) throw new ApiError('recovery_event_invalid', 'The social matter is missing for a response event.', 409);
+            $idempotency = 'replay:' . (int)$eventId;
+            try {
+                $insert = $pdo->prepare('INSERT INTO town_social_responses (response_id,matter_id,resident_id,option_id,response_kind,public_text,idempotency_key,created_at) VALUES (:id,:matter,:resident,:option,:kind,:text,:key,:created)');
+                $insert->execute([':id' => md5(SHARED_TOWN_WORLD_ID . ':' . (int)$eventId), ':matter' => (string)$payload['matter_id'], ':resident' => (string)$payload['resident_id'], ':option' => (string)$payload['option_id'], ':kind' => (string)($payload['response_kind'] ?? 'support'), ':text' => substr((string)($payload['public_text'] ?? ''), 0, 255), ':key' => $idempotency, ':created' => $stamp]);
+            } catch (PDOException $error) {
+                $existing = $pdo->prepare('SELECT option_id FROM town_social_responses WHERE matter_id=:matter AND resident_id=:resident LIMIT 1');
+                $existing->execute([':matter' => (string)$payload['matter_id'], ':resident' => (string)$payload['resident_id']]);
+                if ((string)$existing->fetchColumn() !== (string)$payload['option_id']) throw new ApiError('recovery_event_conflict', 'The resident already has a different social response.', 409);
+            }
+            $pdo->prepare('UPDATE town_social_matters SET state=CASE WHEN state=\'open\' THEN \'collecting\' ELSE state END,revision=CASE WHEN revision<:revision THEN :revision ELSE revision END,updated_at=:updated WHERE matter_id=:matter')->execute([':revision' => (int)$payload['revision'], ':updated' => $stamp, ':matter' => (string)$payload['matter_id']]);
+            return;
+        }
+        if ($socialCommitmentReplay) {
+            $commitment = $pdo->prepare('SELECT commitment_id,matter_id,state FROM town_social_commitments WHERE commitment_id=:commitment AND matter_id=:matter LIMIT 1');
+            $commitment->execute([':commitment' => (string)$payload['commitment_id'], ':matter' => (string)$payload['matter_id']]);
+            $row = $commitment->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row)) throw new ApiError('recovery_event_invalid', 'The social commitment is missing for a replay event.', 409);
+            $current = (string)$row['state'];
+            if (in_array($current, ['completed', 'failed', 'cancelled'], true)) {
+                if ($current === $socialCommitmentState) return;
+                throw new ApiError('recovery_event_conflict', 'The social commitment already has a different terminal state.', 409);
+            }
+            $terminal = in_array($socialCommitmentState, ['completed', 'failed', 'cancelled'], true);
+            $update = $pdo->prepare('UPDATE town_social_commitments SET state=:state,failure_reason=:reason,updated_at=:updated,completed_at=:completed WHERE commitment_id=:commitment AND state IN (\'assigned\',\'executing\')');
+            $update->execute([':state' => $socialCommitmentState, ':reason' => substr((string)($payload['failure_reason'] ?? ''), 0, 255), ':updated' => $stamp, ':completed' => $terminal ? $stamp : null, ':commitment' => (string)$payload['commitment_id']]);
+            if ($update->rowCount() < 1) return;
+            $pending = $pdo->prepare("SELECT COUNT(*) FROM town_social_commitments WHERE matter_id=:matter AND state IN ('assigned','executing')");
+            $pending->execute([':matter' => (string)$payload['matter_id']]);
+            $matterState = null;
+            if ($terminal && (int)$pending->fetchColumn() === 0) {
+                $failed = $pdo->prepare("SELECT COUNT(*) FROM town_social_commitments WHERE matter_id=:matter AND state='failed'"); $failed->execute([':matter' => (string)$payload['matter_id']]);
+                $cancelled = $pdo->prepare("SELECT COUNT(*) FROM town_social_commitments WHERE matter_id=:matter AND state='cancelled'"); $cancelled->execute([':matter' => (string)$payload['matter_id']]);
+                $matterState = (int)$failed->fetchColumn() > 0 ? 'failed' : ((int)$cancelled->fetchColumn() > 0 ? 'cancelled' : 'closed');
+            }
+            $sql = 'UPDATE town_social_matters SET revision=:revision,updated_at=:updated'; $params = [':revision' => (int)$payload['revision'], ':updated' => $stamp, ':matter' => (string)$payload['matter_id']];
+            if ($matterState !== null) { $sql .= ',state=:state,closed_at=:closed,failure_reason=:matter_reason'; $params[':state'] = $matterState; $params[':closed'] = $stamp; $params[':matter_reason'] = substr((string)($payload['failure_reason'] ?? ''), 0, 255); }
+            $sql .= ' WHERE matter_id=:matter'; $pdo->prepare($sql)->execute($params);
+            return;
+        }
+        $matter = $pdo->prepare('SELECT state FROM town_social_matters WHERE matter_id=:matter LIMIT 1'); $matter->execute([':matter' => (string)$payload['matter_id']]);
+        $current = $matter->fetchColumn();
+        if ($current === false) throw new ApiError('recovery_event_invalid', 'The social matter is missing for a replay event.', 409);
+        if (in_array((string)$current, ['closed', 'failed', 'cancelled'], true)) {
+            if ((string)$current !== $socialMatterState) throw new ApiError('recovery_event_conflict', 'The social matter already has a different terminal state.', 409);
+            $pdo->prepare('UPDATE town_social_matters SET revision=CASE WHEN revision<:revision THEN :revision ELSE revision END,updated_at=:updated WHERE matter_id=:matter')->execute([':revision' => (int)$payload['revision'], ':updated' => $stamp, ':matter' => (string)$payload['matter_id']]);
+            return;
+        }
+        $pdo->prepare('UPDATE town_social_matters SET state=:state,failure_reason=:reason,revision=:revision,updated_at=:updated,closed_at=:closed WHERE matter_id=:matter')->execute([':state' => $socialMatterState, ':reason' => substr((string)($payload['reason'] ?? $payload['failure_reason'] ?? ''), 0, 255), ':revision' => (int)$payload['revision'], ':updated' => $stamp, ':closed' => $stamp, ':matter' => (string)$payload['matter_id']]);
         return;
     }
     $clock = $pdo->prepare('SELECT absolute_minute,calendar_day,revision,weather_code FROM town_world_state WHERE world_id=:world LIMIT 1');

@@ -80,6 +80,19 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
     }
 
     [Fact]
+    public void SharedTownEntry_UsesTheCurrentHouseSplitRendererVersion()
+    {
+        string window = Read("src/DeskBox/Views/TreeTownPrototypeWindow.cs");
+        string index = Read("src/DeskBox/Assets/Tree/TownPrototype/index.html");
+        string renderer = Read("src/DeskBox/Assets/Tree/TownPrototype/town.js");
+
+        const string version = "20261117-house-split27";
+        Assert.Contains($"index.html?v={version}", window, StringComparison.Ordinal);
+        Assert.Contains($"town.js?v={version}", index, StringComparison.Ordinal);
+        Assert.Contains($"town-depth.js?v={version}", renderer, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VisitedFruitUsesOptimisticQueueAndRestoresOnlyTheFailedFruit()
     {
         string settings = Read("src/DeskBox/Views/SettingsSections/TreeSettingsSection.cs");

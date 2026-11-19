@@ -1394,6 +1394,8 @@
   "Settings.Update.Detail.ArchitectureUnavailable": "已有新版本，但目前處理器架構暫無適用的安裝程式。",
   "Settings.Update.InstallStartFailedBody": "請重新下載更新，或前往 GitHub Releases 手動安裝。",
   "Widget.AddFileFailed": "新增檔案失敗",
+  "Widget.AlwaysOnTop.PinMenuLabel": "介面置頂",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "取消介面置頂",
   "Settings.QuickCapture.Description": "記錄文字、連結和常用內容",
   "QuickCapture.EditInNotepad": "在記事本中編輯",
   "Settings.QuickCapture.RecentLimitTitle": "最近內容上限",

@@ -16,6 +16,7 @@ $pdo->exec("CREATE TABLE town_worlds (world_id TEXT PRIMARY KEY,navigation_versi
 CREATE TABLE town_work_points (point_id TEXT PRIMARY KEY,world_id TEXT,point_key TEXT,name TEXT,kind TEXT,tile_x INTEGER,tile_y INTEGER,interaction_json TEXT,result_json TEXT,enabled INTEGER,created_at TEXT,updated_at TEXT);
 CREATE TABLE town_work_runs (run_id TEXT PRIMARY KEY,point_id TEXT,npc_id TEXT,task_id TEXT,job TEXT,status TEXT,result_json TEXT,started_at TEXT,completed_at TEXT);
 CREATE TABLE town_npc_activity_logs (log_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,run_id TEXT,log_type TEXT,summary TEXT,detail_json TEXT,created_at TEXT);
+CREATE TABLE town_npc_events (event_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,event_type TEXT,payload_json TEXT,created_at TEXT);
 CREATE TABLE town_market_stocks (stock_id TEXT PRIMARY KEY,world_id TEXT,point_id TEXT,stock_key TEXT,item_id TEXT,quantity INTEGER,updated_at TEXT);
 CREATE TABLE town_workshop_outputs (output_id TEXT PRIMARY KEY,world_id TEXT,point_id TEXT,npc_id TEXT,task_id TEXT,item_id TEXT,quantity INTEGER,produced_at TEXT);");
 $pdo->prepare('INSERT INTO town_worlds VALUES (?,?)')->execute(['main',1]);
@@ -33,5 +34,6 @@ economy_expect((int)$pdo->query('SELECT COUNT(*) FROM town_workshop_outputs')->f
 $snapshot = town_economy_snapshot($pdo);
 economy_expect(count($snapshot['market_stocks']) === 1 && $snapshot['market_stocks'][0]['quantity'] === 1, 'Economy snapshot must expose market stock.');
 economy_expect(count($snapshot['workshop_outputs']) === 1 && $snapshot['workshop_outputs'][0]['item_id'] === 'crafted_item', 'Economy snapshot must expose workshop output.');
+economy_expect((int)$pdo->query("SELECT COUNT(*) FROM town_npc_events WHERE event_type='task_replay_delta'")->fetchColumn() === 2, 'Market and workshop work must each emit one replay delta event.');
 
 echo "town_npc_economy_result_test: {$checks} checks ok\n";

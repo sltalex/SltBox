@@ -201,7 +201,7 @@
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="viewModels:QuickCaptureItemViewModel">
+                        <DataTemplate>
                             <Border
                                 x:Name="QuickCaptureSurfaceItemRoot"
                                 AllowDrop="True"
@@ -272,10 +272,9 @@
                                             FontSize="{Binding TextSize}"
                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                             IsHitTestVisible="False"
-                                            MaxLines="{x:Bind PreviewMaxLines, Mode=OneWay}"
+                                            MaxLines="{Binding PreviewMaxLines}"
                                             UseInternalScrollViewer="False"
-                                            Visibility="{Binding TextPreviewVisibility}"
-                                            />
+                                            Visibility="{Binding TextPreviewVisibility}" />
                                         <TextBlock
                                             FontSize="{Binding SecondaryTextSize}"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"

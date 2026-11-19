@@ -1692,6 +1692,8 @@
   "Widget.AddedFile": "Файл добавлен",
   "Widget.AddedFiles": "Добавлены файлы {0}",
   "Widget.AddFileFailed": "Добавить файлы не удалось",
+  "Widget.AlwaysOnTop.PinMenuLabel": "Поверх всех окон",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "Отключить поверх всех окон",
   "Widget.MappedPathUpdated": "Сопоставленный путь обновлен.",
   "Widget.ChangeMappedPathFailed": "Не удалось изменить сопоставленный путь.",
   "Widget.CreateFolderFailed": "Создать папку не удалось",

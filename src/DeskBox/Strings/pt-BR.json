@@ -1680,6 +1680,8 @@
   "Widget.AddedFile": "Arquivo adicionado",
   "Widget.AddedFiles": "{0} arquivos adicionados",
   "Widget.AddFileFailed": "Falha ao adicionar arquivos",
+  "Widget.AlwaysOnTop.PinMenuLabel": "Sempre no topo",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "Remover sempre no topo",
   "Widget.MappedPathUpdated": "Caminho mapeado atualizado",
   "Widget.ChangeMappedPathFailed": "Falha ao alterar o caminho mapeado",
   "Widget.CreateFolderFailed": "Falha ao criar pasta",

@@ -99,6 +99,9 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
         ApplyLocalizedTitleActionTooltips();
 
         ConfigureWindowCore();
+        WidgetLayerService.RegisterPersistentTopMostWindow(
+            HWnd,
+            _config.IsAlwaysOnTop);
         ApplyTitleBarLayout();
         SetupEventHandlers();
         StartTodoDateRefreshTimer();

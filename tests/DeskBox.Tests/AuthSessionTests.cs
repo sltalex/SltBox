@@ -283,7 +283,7 @@ public sealed class AuthSessionTests
     private static string SessionJson(string id, string username, string access, string refresh) =>
         "{\"user\":{\"id\":\"" + id + "\",\"username\":\"" + username +
         "\"},\"session\":{\"access_token\":\"" + access + "\",\"refresh_token\":\"" + refresh +
-        "\",\"access_expires_at\":\"2026-10-15T00:00:00Z\",\"refresh_expires_at\":\"2026-11-14T00:00:00Z\"}}";
+        "\",\"access_expires_at\":\"2027-10-15T00:00:00Z\",\"refresh_expires_at\":\"2027-11-14T00:00:00Z\"}}";
 
     private static HttpResponseMessage Json(HttpStatusCode status, string body) => new(status)
     {

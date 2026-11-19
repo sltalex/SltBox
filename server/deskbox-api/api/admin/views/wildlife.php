@@ -1,0 +1,11 @@
+<div class="panel" id="wildlife-panel" style="grid-column:1/-1">
+<h2>动物图鉴 · <?= count($wildlifeCatalog) ?> 种</h2>
+<nav class="actions"><a href="?panel=wildlife">全部</a><?php foreach (['昆虫','飞鸟','小动物'] as $category): ?><a href="?panel=wildlife&amp;category=<?= rawurlencode($category) ?>"><?= admin_page_escape($category) ?></a><?php endforeach; ?></nav>
+<p class="muted">名称、启用状态和出现权重由服务端控制。已获得的动物即使停用，仍保留在用户图鉴中。</p>
+<div class="table-scroll"><table><thead><tr><th>名称 / ID</th><th>分类</th><th>季节</th><th>时段</th><th>天气</th><th>出现权重</th><th>状态</th><th></th></tr></thead><tbody>
+<?php foreach ($wildlifeCatalog as $species): if ($wildlifeCategory !== '' && $species['category'] !== $wildlifeCategory) continue; $formId = 'wildlife-' . $species['id']; ?><tr>
+<td><form id="<?= admin_page_escape($formId) ?>" method="post"><input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>"><input type="hidden" name="operation" value="wildlife_catalog_item"><input type="hidden" name="panel" value="wildlife"><input type="hidden" name="species_id" value="<?= admin_page_escape($species['id']) ?>"></form><input form="<?= admin_page_escape($formId) ?>" name="species_name" value="<?= admin_page_escape($species['name']) ?>" maxlength="40" required style="width:130px"><br><small><?= admin_page_escape($species['id']) ?></small></td>
+<td><?= admin_page_escape($species['category']) ?></td><td><?= admin_page_escape(implode('、', array_map(static fn(string $value): string => $wildlifeSeasons[$value] ?? $value, $species['seasons']))) ?></td><td><?= admin_page_escape(implode('、', array_map(static fn(string $value): string => $wildlifePeriods[$value] ?? $value, $species['periods']))) ?></td><td><?= admin_page_escape(implode('、', array_map(static fn(string $value): string => $wildlifeWeathers[$value] ?? $value, $species['weathers']))) ?></td>
+<td><input form="<?= admin_page_escape($formId) ?>" name="encounter_weight" type="number" min="1" max="100" value="<?= (int)$species['encounter_weight'] ?>" required style="width:76px"></td>
+<td><label><input form="<?= admin_page_escape($formId) ?>" name="enabled" type="checkbox" value="1" <?= $species['enabled'] ? 'checked' : '' ?>>启用</label></td><td><button form="<?= admin_page_escape($formId) ?>" type="submit">保存</button></td></tr><?php endforeach; ?>
+</tbody></table>

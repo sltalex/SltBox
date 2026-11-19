@@ -61,6 +61,36 @@ function town_agent_assert_lease(PDO $pdo, string $workerId, string $token): voi
     if (!is_array($row) || (string)$row['holder_id'] !== $workerId || !hash_equals((string)$row['lease_token'], $token) || auth_parse_sql_time((string)$row['expires_at']) <= api_clock()) throw new ApiError('lease_required', 'The NPC worker lease is missing or expired.', 409);
 }
 
+/** Reserve one server-authoritative Agent decision before a model call. */
+function town_agent_reserve_decision_slot(PDO $pdo, string $npcId, string $workerId, DateTimeImmutable $now): array
+{
+    if (!preg_match('/\A[a-f0-9]{32}\z/D', $npcId)) throw new ApiError('invalid_npc', 'NPC identifier is invalid.', 400);
+    if (!town_npc_life_table_exists($pdo, 'town_agent_decision_slots')) return ['reserved' => false, 'enforced' => false];
+    $global = town_npc_life_global_policy($pdo);
+    if (!($global['enabled'] ?? false)) return ['reserved' => false, 'enforced' => false];
+    $driver = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME); $lock = $driver === 'mysql' ? ' FOR UPDATE' : '';
+    $since = auth_sql_time($now->modify('-1 hour'));
+    $pdo->beginTransaction();
+    try {
+        $limit = max(1, min(10001, (int)$global['max_decisions_per_hour'] + 1));
+        $count = $pdo->prepare('SELECT slot_id FROM town_agent_decision_slots WHERE created_at>=:since ORDER BY created_at LIMIT ' . $limit . $lock);
+        $count->execute([':since' => $since]);
+        $used = count($count->fetchAll(PDO::FETCH_COLUMN));
+        if ($used >= (int)$global['max_decisions_per_hour']) throw new ApiError('global_decision_limit', 'The global NPC decision limit for this hour has been reached.', 429);
+        // Keep this small audit table bounded without removing recent evidence.
+        $cleanup = $pdo->prepare('DELETE FROM town_agent_decision_slots WHERE created_at<:expired');
+        $cleanup->execute([':expired' => auth_sql_time($now->modify('-2 days'))]);
+        $slotId = town_npc_id();
+        $insert = $pdo->prepare('INSERT INTO town_agent_decision_slots (slot_id,npc_id,worker_id,created_at) VALUES (:slot,:npc,:worker,:created)');
+        $insert->execute([':slot' => $slotId, ':npc' => $npcId, ':worker' => substr($workerId, 0, 128), ':created' => auth_sql_time($now)]);
+        $pdo->commit();
+        return ['reserved' => true, 'enforced' => true, 'slot_id' => $slotId, 'remaining' => max(0, (int)$global['max_decisions_per_hour'] - $used - 1)];
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+}
+
 function town_agent_record_run(PDO $pdo, array $body, DateTimeImmutable $now): array
 {
     $npcId = is_string($body['npc_id'] ?? null) ? trim((string)$body['npc_id']) : '';
@@ -100,7 +130,7 @@ function town_agent_record_run(PDO $pdo, array $body, DateTimeImmutable $now): a
         try {
             $record = $pdo->prepare("UPDATE town_agent_token_reservations SET status='recorded',actual_tokens=:actual,settled_at=COALESCE(settled_at,:settled) WHERE reservation_id=:reservation AND worker_id=:worker AND status IN ('settled','released')");
             $record->execute([':actual' => $total, ':settled' => auth_sql_time($now), ':reservation' => $reservationId, ':worker' => substr(trim((string)$body['_worker_id']), 0, 128)]);
-        } catch (PDOException) { /* Old installations without migration 035 remain compatible. */ }
+        } catch (PDOException $error) { /* Old installations without migration 035 remain compatible. */ }
     }
     return ['ok' => true, 'run_id' => $runId];
 }
@@ -136,7 +166,7 @@ function town_agent_admin_report(PDO $pdo, int $days = 7, ?string $npcId = null,
             $costQuery = $pdo->prepare('SELECT COALESCE(SUM(c.amount),0) AS amount,MAX(c.currency) AS currency FROM town_agent_run_costs c INNER JOIN town_agent_runs r ON r.run_id=c.run_id' . $costFilter);
             $costQuery->execute($costParams); $cost = $costQuery->fetch(PDO::FETCH_ASSOC) ?: [];
             $summary['cost_amount'] = (float)($cost['amount'] ?? 0); $summary['cost_currency'] = strtoupper((string)($cost['currency'] ?? 'USD')) ?: 'USD';
-        } catch (PDOException) { /* Migration 036 is optional during rolling deployment. */ }
+        } catch (PDOException $error) { /* Migration 036 is optional during rolling deployment. */ }
         $query = $pdo->prepare('SELECT n.npc_id,n.name,COUNT(r.run_id) AS runs,COALESCE(SUM(r.total_tokens),0) AS total_tokens,COALESCE(SUM(r.prompt_tokens),0) AS prompt_tokens,COALESCE(SUM(r.completion_tokens),0) AS completion_tokens,MAX(r.created_at) AS last_run FROM town_npcs n LEFT JOIN town_agent_runs r ON r.npc_id=n.npc_id AND r.created_at>=:since' . ($npcId !== null && preg_match('/\A[a-f0-9]{32}\z/D', $npcId) ? ' AND r.npc_id=:npc' : '') . ' GROUP BY n.npc_id,n.name ORDER BY total_tokens DESC,n.name'); $query->execute($params); $byNpc = array_map(static function (array $row): array { foreach (['runs', 'total_tokens', 'prompt_tokens', 'completion_tokens'] as $key) $row[$key] = (int)$row[$key]; return $row; }, $query->fetchAll(PDO::FETCH_ASSOC));
         $logFilter = ' WHERE l.created_at>=:since'; $logParams = [':since' => $since]; if ($npcId !== null && preg_match('/\A[a-f0-9]{32}\z/D', $npcId)) { $logFilter .= ' AND l.npc_id=:npc'; $logParams[':npc'] = $npcId; }
         $query = $pdo->prepare('SELECT l.log_id,l.npc_id,n.name,l.run_id,l.log_type,l.summary,l.detail_json,l.created_at FROM town_npc_activity_logs l LEFT JOIN town_npcs n ON n.npc_id=l.npc_id' . $logFilter . ' ORDER BY l.log_id DESC LIMIT ' . $limit); $query->execute($logParams); $logs = []; foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $row['log_id'] = (int)$row['log_id']; $row['detail'] = town_npc_decode($row['detail_json'], []); unset($row['detail_json']); $logs[] = $row; }
@@ -160,8 +190,8 @@ function town_agent_admin_report(PDO $pdo, int $days = 7, ?string $npcId = null,
                 foreach (['input_per_million', 'output_per_million', 'amount'] as $key) $row[$key] = (float)$row[$key];
                 $costRows[] = $row;
             }
-        } catch (PDOException) { /* Migration 036 is optional during rolling deployment. */ }
+        } catch (PDOException $error) { /* Migration 036 is optional during rolling deployment. */ }
         $quota = function_exists('town_model_provider_budget') ? town_model_provider_budget($pdo) : $empty['quota'];
         return ['days' => $days, 'summary' => $summary, 'quota' => $quota, 'by_npc' => $byNpc, 'logs' => $logs, 'provider_revisions' => $providerRevisions, 'cost_rows' => $costRows];
-    } catch (PDOException) { return $empty; }
+    } catch (PDOException $error) { return $empty; }
 }

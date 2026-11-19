@@ -128,7 +128,7 @@ function town_world_event_project_npc(PDO $pdo, int $npcEventId, string $npcId, 
     $publicTypes = ['conversation', 'task_completed', 'task_failed', 'task_replay_delta', 'trade', 'home_blocked', 'relationship_changed'];
     if (!in_array($type, $publicTypes, true) || $npcEventId < 1) return;
     $publicPayload = ['npc_event_id' => $npcEventId];
-    foreach (['action', 'task_id', 'task_status', 'state', 'summary', 'reason', 'failure_reason', 'other_npc_id', 'item_id', 'quantity', 'amount', 'tile_x', 'tile_y'] as $key) {
+    foreach (['action', 'job', 'work_run_id', 'task_id', 'task_status', 'state', 'summary', 'reason', 'failure_reason', 'other_npc_id', 'item_id', 'quantity', 'amount', 'tile_x', 'tile_y'] as $key) {
         if (array_key_exists($key, $payload) && is_scalar($payload[$key])) $publicPayload[$key] = $payload[$key];
     }
     foreach (['replay', 'trade', 'work_result', 'work_point'] as $key) {

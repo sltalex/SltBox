@@ -53,12 +53,6 @@ export function validatePlacement(catalog, layout, assetId, x, y, ignoreId = nul
     if(terrain==='water')return '河流或河岸不能放置装饰';
     if(terrain==='forest')return '森林区域保留为公共地形';
   }
-  const values = objectsOf(layout);
-  for (const placement of values) {
-    if ((placement.object_id || placement.instance_id) === ignoreId) continue;
-    const other = itemFor(catalog, placement.asset_id || placement.decoration_id);
-    if (intersects(rect, footprint({footprint:placement.footprint || other?.footprint}, Number(placement.tile_x), Number(placement.tile_y)))) return '物件占地发生重叠';
-  }
   if (player && !options.ignorePlayer) {
     const size = catalog.tile_size || 16;
     const body = { x: (player.x - 3) / size, y: (player.y - 4) / size, width: 6 / size, height: 4 / size };

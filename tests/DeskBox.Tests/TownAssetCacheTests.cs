@@ -6,6 +6,7 @@ namespace DeskBox.Tests;
 public sealed class TownAssetCacheTests
 {
     private static readonly byte[] Png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAFklEQVR4nGP4TyFgGDVg1IBRA4aLAQBdePwur/3haQAAAABJRU5ErkJggg==");
+    private const string CatalogHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     [Fact]
     public async Task VerifiedPngIsWrittenAtomicallyAndCorruptionIsRejected()
@@ -24,6 +25,40 @@ public sealed class TownAssetCacheTests
             using var cancel = new CancellationTokenSource(); cancel.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => TownAssetCache.StoreAsync(root, Png, hash, 16, 16, cancel.Token));
             Assert.Single(Directory.GetFiles(root));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task CatalogMetadataIsReadOnlyWhenReleaseAndHashMatch()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "deskbox-town-cache-" + Guid.NewGuid().ToString("N"));
+        string json = $"{{\"release_version\":7,\"config_sha256\":\"{CatalogHash}\",\"sheets\":[],\"items\":[]}}";
+        try
+        {
+            await TownAssetCache.StoreCatalogAsync(root, json, 7, CatalogHash, CancellationToken.None);
+            Assert.Equal(json, await TownAssetCache.ReadCatalogAsync(root, 7, CatalogHash, CancellationToken.None));
+            Assert.Null(await TownAssetCache.ReadCatalogAsync(root, 8, CatalogHash, CancellationToken.None));
+            Assert.Null(await TownAssetCache.ReadCatalogAsync(root, 7, new string('a', 64), CancellationToken.None));
+
+            string path = Directory.GetFiles(root, "catalog-*.json").Single();
+            await File.WriteAllTextAsync(path, "{\"release_version\":7,\"config_sha256\":\"bad\"}");
+            Assert.Null(await TownAssetCache.ReadCatalogAsync(root, 7, CatalogHash, CancellationToken.None));
+            Assert.DoesNotContain(Directory.GetFiles(root), file => file.EndsWith(".tmp", StringComparison.Ordinal));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task InvalidCatalogMetadataCannotBeStored()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "deskbox-town-cache-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await Assert.ThrowsAsync<InvalidDataException>(() => TownAssetCache.StoreCatalogAsync(
+                root, "{\"release_version\":6,\"config_sha256\":\"bad\",\"sheets\":[],\"items\":[]}",
+                7, CatalogHash, CancellationToken.None));
+            Assert.False(Directory.Exists(root));
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

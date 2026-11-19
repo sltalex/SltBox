@@ -75,6 +75,44 @@ public sealed class TownRealtimeHub(IHttpClientFactory clientFactory, IConfigura
         return Task.CompletedTask;
     }
 
+    public Task BroadcastNpcLifecycleAsync(JsonElement lifecycle, CancellationToken cancellationToken = default)
+    {
+        if (lifecycle.ValueKind != JsonValueKind.Object ||
+            !lifecycle.TryGetProperty("npc_id", out JsonElement id) || id.ValueKind != JsonValueKind.String)
+            return Task.CompletedTask;
+        JsonObject message = JsonNode.Parse(lifecycle.GetRawText())!.AsObject();
+        message["type"] = "npc_state";
+        JsonObject state = new();
+        foreach (string property in new[] { "state", "reason_code", "source_event_id", "started_at", "expected_return_at", "replacement_npc_id", "revision", "updated_at" })
+        {
+            if (message[property] is JsonNode value) state[property] = value.DeepClone();
+        }
+        message["lifecycle"] = state;
+        string runtimeState = message["runtime_state"]?.GetValue<string>() ?? "rest";
+        message["state"] = runtimeState;
+        message["runtime_state"] = runtimeState;
+        Broadcast(message);
+        return Task.CompletedTask;
+    }
+
+    public Task BroadcastWorldClockAsync(WorldClock clock, CancellationToken cancellationToken = default)
+    {
+        Broadcast(new JsonObject
+        {
+            ["type"] = "world_clock",
+            ["clock"] = new JsonObject
+            {
+                ["revision"] = clock.Revision,
+                ["absolute_minute"] = clock.AbsoluteMinute,
+                ["calendar_day"] = clock.CalendarDay,
+                ["minute_of_day"] = clock.MinuteOfDay,
+                ["time_label"] = clock.TimeLabel,
+                ["weather_code"] = clock.WeatherCode,
+            },
+        });
+        return Task.CompletedTask;
+    }
+
     private void Broadcast(JsonObject message)
     {
         lock (_broadcastGate)

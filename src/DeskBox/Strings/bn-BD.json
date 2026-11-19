@@ -1692,6 +1692,8 @@
   "Widget.AddedFile": "ফাইল যোগ করা হয়েছে",
   "Widget.AddedFiles": "{0} ফাইল যোগ করা হয়েছে",
   "Widget.AddFileFailed": "ফাইল যোগ করা ব্যর্থ হয়েছে৷",
+  "Widget.AlwaysOnTop.PinMenuLabel": "সর্বদা উপরে",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "সর্বদা উপরে থাকা সরান",
   "Widget.MappedPathUpdated": "ম্যাপ করা পথ আপডেট করা হয়েছে",
   "Widget.ChangeMappedPathFailed": "ম্যাপ করা পথ পরিবর্তন করা যায়নি",
   "Widget.CreateFolderFailed": "ফোল্ডার তৈরি করা ব্যর্থ হয়েছে৷",

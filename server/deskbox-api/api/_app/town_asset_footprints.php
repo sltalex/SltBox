@@ -128,6 +128,7 @@ function town_asset_apply_reflow(PDO $pdo,string $actor,string $expected,DateTim
             $version=(int)$pdo->query('SELECT COALESCE(MAX(release_version),0) FROM town_asset_releases')->fetchColumn()+1;$id=auth_random_id();
             $pdo->prepare('INSERT INTO town_asset_releases (release_id,release_version,config_json,config_sha256,published_by,published_at) VALUES (?,?,?,?,?,?)')->execute([$id,$version,$json,$hash,$actor,$stamp]);
             $pdo->prepare('UPDATE town_asset_active_release SET release_id=? WHERE singleton_id=1')->execute([$id]);
+            town_asset_prune_releases($pdo);
         }
         $pdo->prepare("UPDATE town_worlds SET terrain_version=CASE WHEN terrain_version<4 THEN 4 ELSE terrain_version END,world_version=world_version+1,updated_at=? WHERE world_id='main'")->execute([$stamp]);
         $pdo->commit();return $plan;

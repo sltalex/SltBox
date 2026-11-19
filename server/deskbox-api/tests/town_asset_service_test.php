@@ -11,7 +11,9 @@ $pdo->exec('PRAGMA foreign_keys=ON'); $pdo->exec(file_get_contents(__DIR__ . '/s
 $pdo->exec("CREATE TABLE town_asset_sheets (sheet_id TEXT PRIMARY KEY, original_name TEXT NOT NULL, storage_path TEXT NOT NULL, mime_type TEXT NOT NULL, file_size INTEGER NOT NULL, image_width INTEGER NOT NULL, image_height INTEGER NOT NULL, sha256 TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'draft', uploaded_by TEXT NOT NULL REFERENCES auth_users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE town_asset_items (asset_id TEXT PRIMARY KEY, sheet_id TEXT NOT NULL REFERENCES town_asset_sheets(sheet_id) ON DELETE CASCADE, name TEXT NOT NULL, category TEXT NOT NULL, subcategory TEXT NOT NULL DEFAULT '', tags_json TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, region_width INTEGER NOT NULL, region_height INTEGER NOT NULL, display_width INTEGER NOT NULL, display_height INTEGER NOT NULL, anchor_json TEXT NOT NULL, footprint_json TEXT NOT NULL, collision_json TEXT NOT NULL, frames_json TEXT NOT NULL, manual_locked INTEGER NOT NULL DEFAULT 1, updated_by TEXT NOT NULL REFERENCES auth_users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE town_asset_releases (release_id TEXT PRIMARY KEY, release_version INTEGER NOT NULL UNIQUE, config_json TEXT NOT NULL, config_sha256 TEXT NOT NULL, published_by CHAR(32) NOT NULL REFERENCES auth_users(id), published_at TEXT NOT NULL);
-CREATE TABLE town_asset_active_release (singleton_id INTEGER PRIMARY KEY, release_id TEXT NOT NULL REFERENCES town_asset_releases(release_id));");
+CREATE TABLE town_asset_active_release (singleton_id INTEGER PRIMARY KEY, release_id TEXT NOT NULL REFERENCES town_asset_releases(release_id));
+CREATE TABLE town_objects (object_id TEXT PRIMARY KEY, world_id TEXT NOT NULL, asset_id TEXT NOT NULL, chunk_x INTEGER NOT NULL, chunk_y INTEGER NOT NULL, footprint_json TEXT NOT NULL, deleted_at TEXT);
+CREATE TABLE town_asset_release_audits (audit_id TEXT PRIMARY KEY, release_id TEXT UNIQUE NOT NULL, release_version INTEGER NOT NULL, published_by TEXT NOT NULL, navigation_version INTEGER NOT NULL, navigation_preview_sha256 TEXT, created_at TEXT NOT NULL);");
 $now = new DateTimeImmutable('2026-11-09T00:00:00Z'); $user = auth_register($pdo, 'asset_admin', 'secret1', 'asset-test', '127.0.0.1', static fn() => $now)['user']['id'];
 $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAFklEQVR4nGP4TyFgGDVg1IBRA4aLAQBdePwur/3haQAAAABJRU5ErkJggg==', true); $path = tempnam(sys_get_temp_dir(), 'town-asset-'); file_put_contents($path, $png);
 $sheet = town_asset_upload_sheet($pdo, $user, ['error'=>UPLOAD_ERR_OK,'tmp_name'=>$path,'size'=>strlen($png),'name'=>'sheet.png'], $now);
@@ -29,6 +31,16 @@ if (($adminItems[0]['id'] ?? '') !== 'town-source-test-tree' || !array_key_exist
     throw new RuntimeException('Admin draft items were not normalized to the public shape.');
 }
 if (town_asset_active_config($pdo)['items'] !== []) throw new RuntimeException('Draft item became visible before publish.');
+$pdo->prepare('INSERT INTO town_objects (object_id,world_id,asset_id,chunk_x,chunk_y,footprint_json,deleted_at) VALUES (?,?,?,?,?,?,NULL)')->execute(['object-preview-1', 'main', 'town-source-test-tree', 2, 3, '{"width":1,"height":1}']);
+$_SESSION = ['csrf' => str_repeat('a', 64)];
+$navigationPreview = town_asset_navigation_preview($pdo);
+if ($navigationPreview['object_count'] !== 1 || $navigationPreview['chunk_count'] !== 1 || ($navigationPreview['chunks'][0]['types']['blocked'] ?? 0) !== 1) throw new RuntimeException('Navigation impact preview did not summarize placed objects.');
+try {
+    admin_page_mutate($pdo, ['user_id' => $user], ['csrf' => $_SESSION['csrf'], 'operation' => 'town_asset_publish', 'navigation_preview_sha256' => str_repeat('0', 64)]);
+    throw new RuntimeException('A stale navigation preview was accepted for publish.');
+} catch (ApiError $error) {
+    if ($error->apiCode !== 'navigation_preview_stale') throw $error;
+}
 $shortId = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-a_1','sheet_id'=>$sheet['sheet_id'],'name'=>'短 ID','category'=>'object','x'=>'0','y'=>'0','width'=>'16','height'=>'16'], $now);
 if ($shortId['id'] !== 'town-source-a_1') throw new RuntimeException('Asset-hub style town asset ID was rejected.');
 town_asset_delete_item($pdo, 'town-source-a_1');
@@ -62,9 +74,21 @@ if (admin_page_mutate($pdo, ['user_id'=>$user], ['csrf'=>$_SESSION['csrf'],'oper
 }
 if (town_asset_read_draft_items($pdo) !== []) throw new RuntimeException('Admin delete did not remove the draft item.');
 $item = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],'name'=>'测试树','category'=>'tree','subcategory'=>'forest','x'=>'0','y'=>'0','width'=>'16','height'=>'16','display_width'=>'16','display_height'=>'16','footprint'=>'{"width":1,"height":1}'], $now);
+if (town_asset_validate_navigation(['type' => 'water'])['required_capabilities'] !== ['bridge_kit']) throw new RuntimeException('Water navigation must default to bridge_kit.');
+if (town_asset_navigation_draft(['name' => '河道桥', 'category' => 'water'])['type'] !== 'water') throw new RuntimeException('Water auto-navigation draft was not detected.');
+if (town_asset_navigation_draft(['name' => '木桥', 'category' => 'object'])['type'] !== 'bridge') throw new RuntimeException('Bridge auto-navigation draft was not detected.');
+if (town_asset_navigation_draft(['name' => '林间小路', 'category' => 'path'])['type'] !== 'plain') throw new RuntimeException('Path auto-navigation draft was not detected.');
+if (town_asset_validate_navigation(['type' => 'stairs', 'connections' => ['north', 'south'], 'height' => 1])['connections'] !== ['north', 'south']) throw new RuntimeException('Stair connections were not normalized.');
+try { town_asset_validate_navigation(['type' => 'plain', 'required_capabilities' => ['ladder']]); throw new RuntimeException('Plain navigation accepted an unnecessary capability.'); }
+catch (ApiError $error) { if ($error->apiCode !== 'invalid_navigation') throw $error; }
+try { town_asset_validate_navigation(['type' => 'blocked', 'required_capabilities' => ['teleport']]); throw new RuntimeException('Unknown navigation capability was accepted.'); }
+catch (ApiError $error) { if ($error->apiCode !== 'invalid_navigation') throw $error; }
 admin_page_mutate($pdo, ['user_id'=>$user], ['csrf'=>$_SESSION['csrf'],'operation'=>'town_asset_item','asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],'name'=>'测试树已编辑','category'=>'tree','subcategory'=>'forest','x'=>'0','y'=>'0','width'=>'16','height'=>'16','display_width'=>'16','display_height'=>'16']);
 if (town_asset_read_draft_items($pdo)[0]['name'] !== '测试树已编辑') throw new RuntimeException('Admin edit dispatch did not update the draft item.');
 $release = town_asset_publish($pdo, $user, $now); if ($release['items'] !== 1) throw new RuntimeException('Release did not contain draft item.');
+if ((int)$pdo->query('SELECT COUNT(*) FROM town_asset_release_audits')->fetchColumn() !== 1) throw new RuntimeException('Asset release audit was not recorded.');
+$adminState = town_asset_admin_state($pdo);
+if (count($adminState['audits'] ?? []) !== 1 || (int)$adminState['audits'][0]['release_version'] !== (int)$release['release_version']) throw new RuntimeException('Asset release audit was not exposed in admin state.');
 if (town_asset_published_item($pdo, 'town-source-test-tree')['name'] !== '测试树已编辑') throw new RuntimeException('Published item was not readable.');
 $secondRelease = town_asset_publish($pdo, $user, $now);
 if ($secondRelease['release_version'] <= $release['release_version']) throw new RuntimeException('Release versions did not increase.');

@@ -1,0 +1,73 @@
+<?php
+declare(strict_types=1);
+define('DESKBOX_API_ENTRY', true);
+require dirname(__DIR__) . '/api/_app/bootstrap.php';
+require dirname(__DIR__) . '/api/_app/town_residents.php';
+
+$checks = 0;
+function resident_expect(bool $condition, string $message): void { global $checks; $checks++; if (!$condition) throw new RuntimeException($message); }
+function resident_reject(string $code, callable $fn): void {
+    try { $fn(); } catch (ApiError $e) { resident_expect($e->apiCode === $code, 'Expected ' . $code . ', got ' . $e->apiCode); return; }
+    throw new RuntimeException('Expected ' . $code);
+}
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$pdo->exec("CREATE TABLE town_graylist (user_id TEXT PRIMARY KEY);
+CREATE TABLE town_worlds (world_id TEXT PRIMARY KEY,navigation_version INTEGER);
+CREATE TABLE town_npcs (npc_id TEXT PRIMARY KEY,world_id TEXT,name TEXT,avatar_asset_id TEXT,appearance_json TEXT,occupation TEXT,enabled INTEGER,agent_paused INTEGER,created_at TEXT);
+CREATE TABLE town_npc_profiles (npc_id TEXT PRIMARY KEY,personality_json TEXT,family_background TEXT,short_term_goal TEXT,long_term_goal TEXT,speech_style TEXT,values_json TEXT,fears_json TEXT);
+CREATE TABLE town_npc_runtime_states (npc_id TEXT PRIMARY KEY,tile_x INTEGER,tile_y INTEGER,height INTEGER,state TEXT,current_task_id TEXT,dialogue TEXT,mood_json TEXT,capabilities_json TEXT,state_version INTEGER,updated_at TEXT,facing TEXT);
+CREATE TABLE town_npc_schedules (schedule_id TEXT PRIMARY KEY,npc_id TEXT,weekday INTEGER,start_minute INTEGER,end_minute INTEGER,action TEXT,target_id TEXT,job TEXT,priority INTEGER,payload_json TEXT);
+CREATE TABLE town_npc_tasks (task_id TEXT PRIMARY KEY,npc_id TEXT,action TEXT,target_id TEXT,status TEXT,scheduled_at TEXT,started_at TEXT,failure_reason TEXT,payload_json TEXT);
+CREATE TABLE town_npc_events (event_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,event_type TEXT,payload_json TEXT,created_at TEXT);
+CREATE TABLE town_npc_homes (npc_id TEXT PRIMARY KEY,home_asset_id TEXT,home_asset_name TEXT,tile_x INTEGER,tile_y INTEGER,interaction_json TEXT,updated_at TEXT);
+CREATE TABLE town_npc_wallets (npc_id TEXT PRIMARY KEY,balance INTEGER,initialized_by TEXT,updated_at TEXT);
+CREATE TABLE town_npc_inventory (npc_id TEXT,item_id TEXT,quantity INTEGER);
+INSERT INTO town_graylist VALUES ('player'); INSERT INTO town_worlds VALUES ('main',7);");
+$a = str_repeat('a',32); $b = str_repeat('b',32); $c = str_repeat('c',32); $stamp = '2026-11-13 12:00:00';
+$insert = $pdo->prepare('INSERT INTO town_npcs VALUES (?,?,?,?,?,?,?,?,?)');
+foreach ([[$a,'main',1],[$b,'main',1],[$c,'elsewhere',1]] as [$id,$world,$enabled]) $insert->execute([$id,$world,$id === $a ? '林野' : '周岩','sprite','{}','farmer',$enabled,0,$stamp]);
+$pdo->prepare('INSERT INTO town_npc_profiles VALUES (?,?,?,?,?,?,?,?)')->execute([$a,'{"friendly":true}','村里长大','浇水','经营农场','温和','["勤劳"]','[]']);
+$pdo->prepare('INSERT INTO town_npc_runtime_states VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute([$a,115,96,1,'work','task-1','','{"happy":80}','[]',9,$stamp,'right']);
+$pdo->prepare('INSERT INTO town_npc_schedules VALUES (?,?,?,?,?,?,?,?,?,?)')->execute(['s1',$a,1,480,600,'work','farm','water_crop',3,'{"private_context":"SECRET"}']);
+$pdo->prepare('INSERT INTO town_npc_tasks VALUES (?,?,?,?,?,?,?,?,?)')->execute(['task-1',$a,'work','farm','running',$stamp,$stamp,'','{"route":[{"x":115,"y":96}],"route_cursor":0,"navigation_version":7,"model_key":"SECRET","private_context":"SECRET"}']);
+$pdo->prepare('INSERT INTO town_npc_homes VALUES (?,?,?,?,?,?,?)')->execute([$a,'house-1','蓝房子',110,95,'{"radius":1}',$stamp]);
+$pdo->prepare('INSERT INTO town_npc_wallets VALUES (?,?,?,?)')->execute([$a,100,'SECRET',$stamp]);
+$pdo->prepare('INSERT INTO town_npc_inventory VALUES (?,?,?)')->execute([$a,'seed',3]);
+$before = $pdo->query('SELECT total_changes()')->fetchColumn();
+$detail = town_resident_detail($pdo,'player',$a);
+resident_expect($detail['resident']['name'] === '林野' && $detail['navigation_version'] === 7, 'Detail must identify the selected NPC and navigation version.');
+resident_expect($detail['resident']['runtime']['mood']['happy'] === 80 && $detail['resident']['runtime']['facing'] === 'right', 'Mood and facing must survive SQLite and MySQL projection.');
+resident_expect($detail['resident']['home']['tile_x'] === 110 && $detail['resident']['balance'] === 100 && $detail['resident']['inventory'][0]['quantity'] === 3, 'Public home, wallet and inventory must match stored state.');
+resident_expect($detail['resident']['schedule'][0]['start_minute'] === 480 && $detail['resident']['task']['route_length'] === 1, 'Schedule and task progress must be typed.');
+resident_expect($detail['resident']['task']['player_invitation'] === false && $detail['resident']['task']['player_invitation_owned'] === false, 'Non-player tasks must never be exposed as owned invitations.');
+resident_expect(!str_contains(json_encode($detail),'SECRET') && !isset($detail['resident']['decision_policy']), 'Private plans, schedule payloads, wallet actor and Agent configuration must stay private.');
+resident_expect($before === $pdo->query('SELECT total_changes()')->fetchColumn(), 'Detail must not write database state.');
+$pdo->exec("UPDATE town_npc_tasks SET payload_json='42'");
+resident_expect(town_resident_detail($pdo,'player',$a)['resident']['task']['route_length'] === 0, 'Non-object task JSON must be handled safely.');
+resident_reject('town_not_open',fn() => town_resident_detail($pdo,'outsider',$a));
+resident_reject('invalid_npc',fn() => town_resident_detail($pdo,'player','bad'));
+resident_reject('npc_not_found',fn() => town_resident_detail($pdo,'player',$c));
+$pdo->prepare('UPDATE town_npcs SET enabled=0 WHERE npc_id=?')->execute([$b]);
+resident_reject('npc_not_found',fn() => town_resident_conversations($pdo,'player',$b));
+$pdo->prepare('UPDATE town_npcs SET enabled=1 WHERE npc_id=?')->execute([$b]);
+resident_reject('invalid_cursor',fn() => town_resident_conversations($pdo,'player',$a,-1));
+resident_reject('invalid_limit',fn() => town_resident_conversations($pdo,'player',$a,0,101));
+$event = $pdo->prepare('INSERT INTO town_npc_events (npc_id,event_type,payload_json,created_at) VALUES (?,?,?,?)');
+for ($i=1;$i<=7;$i++) $event->execute([$i%2 ? $a : $b,'conversation',json_encode(['other_npc_id'=>$i%2 ? $b : $a,'dialogue'=>'一起浇水'.$i,'approach_tile'=>['tile_x'=>115,'tile_y'=>96],'target_tile'=>['tile_x'=>116,'tile_y'=>96],'navigation_version'=>7,'secret'=>'SECRET']),$stamp]);
+$event->execute([$a,'conversation','{bad json',$stamp]);
+$event->execute([$a,'conversation',json_encode(['other_npc_id'=>$b,'dialogue'=>['invalid']]),$stamp]);
+$event->execute([$a,'state_changed',json_encode(['other_npc_id'=>$b,'dialogue'=>'not conversation']),$stamp]);
+$event->execute([$b,'conversation',json_encode(['other_npc_id'=>$c,'dialogue'=>'unrelated']),$stamp]);
+$before = $pdo->query('SELECT total_changes()')->fetchColumn();
+$page = town_resident_conversations($pdo,'player',$a,0,3);
+resident_expect($page['cursor'] === 7 && $page['has_more'] && array_column($page['conversations'],'event_id') === [7], 'Bad rows must advance the scanned cursor without leaking unrelated events.');
+$event->execute([$a,'conversation',json_encode(['other_npc_id'=>$b,'dialogue'=>'new after page']),$stamp]);
+$second = town_resident_conversations($pdo,'player',$a,$page['cursor'],3);
+$third = town_resident_conversations($pdo,'player',$a,$second['cursor'],3);
+resident_expect(array_column($second['conversations'],'event_id') === [4,5,6] && array_column($third['conversations'],'event_id') === [1,2,3] && !$third['has_more'], 'Keyset pagination must retain both participant directions without duplicates under concurrent inserts.');
+resident_expect(!str_contains(json_encode($second),'SECRET') && $second['conversations'][0]['speaker']['npc_id'] === $b && $second['conversations'][0]['listener']['npc_id'] === $a, 'History must project only public dialogue with correct direction.');
+$end = town_resident_conversations($pdo,'player',$a,1,3);
+resident_expect($end['conversations'] === [] && $end['cursor'] === 1 && !$end['has_more'], 'Empty history must preserve its cursor.');
+resident_expect((int)$pdo->query('SELECT total_changes()')->fetchColumn() === (int)$before+1, 'History reads must not mutate state.');
+resident_reject('town_not_open',fn() => town_resident_conversations($pdo,'outsider',$a));
+echo "town_residents_test: {$checks} checks ok\n";

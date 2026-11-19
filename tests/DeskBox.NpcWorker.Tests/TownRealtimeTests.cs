@@ -91,6 +91,21 @@ public sealed class TownRealtimeTests
     }
 
     [Fact]
+    public async Task LifecycleDeltaKeepsRuntimeStateAndProjectsLifecycleSeparately()
+    {
+        await using var host = await TestHost.StartAsync();
+        using var peer = await host.ConnectAsync("a");
+        using JsonDocument lifecycle = JsonDocument.Parse("{\"npc_id\":\"npc-1\",\"state\":\"returning\",\"reason_code\":\"return_window_reached\",\"revision\":4,\"tile_x\":12,\"tile_y\":18,\"runtime_state\":\"walk\"}");
+        await host.Hub.BroadcastNpcLifecycleAsync(lifecycle.RootElement);
+        using JsonDocument message = await ReceiveAsync(peer);
+        Assert.Equal("npc_state", message.RootElement.GetProperty("type").GetString());
+        Assert.Equal("walk", message.RootElement.GetProperty("state").GetString());
+        Assert.Equal("returning", message.RootElement.GetProperty("lifecycle").GetProperty("state").GetString());
+        Assert.Equal(12, message.RootElement.GetProperty("tile_x").GetInt32());
+        Assert.Equal(18, message.RootElement.GetProperty("tile_y").GetInt32());
+    }
+
+    [Fact]
     public async Task ReconnectObtainsFreshTokenAndSnapshotAndDurableSaveWaitsForServer()
     {
         await using var host = await TestHost.StartAsync();

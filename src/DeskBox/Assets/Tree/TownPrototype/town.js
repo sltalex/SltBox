@@ -1,7 +1,7 @@
 import { clone, validateLayout, validatePlacement, playerCanStand, findStandingPosition } from './town-rules.js';
 import { mergePresenceDelta, expirePresence, presencePosition, mergeNpcDelta } from './town-realtime.js';
 import { createResidents } from './town-residents.js';
-import { objectDepth, splitDisplayMetrics, splitForegroundDepth, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER, TOWN_TERRAIN_DEPTH } from './town-depth.js';
+import { assetSortMode, objectDepth, splitDisplaySegments, splitSegmentDepth, splitSegmentLayout, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER, TOWN_TERRAIN_DEPTH } from './town-depth.js?v=20261117-house-split27';
 
 // Shared town scene; the authenticated server owns world and player state.
 const $ = id => document.getElementById(id);
@@ -13,8 +13,9 @@ const state = {
   version: 0, epoch: 0, history: [], revision: 0, saveRevision: -1,
   visible: !document.hidden, hostActive: true, noticeTimer: null, pendingState: null,
   playerReady: false, awaitingSpawn: false, lastSentPosition: null, wasMoving: false,
-  lastPresencePollAt: 0, presencePollPendingUntil: 0, lastNpcPollAt: 0, npcPollPendingUntil: 0,
-  status: '正在载入…', fatal: false, realtime: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: [], recentAssets: [], assetImages: new Map(), assetCatalogReleaseVersion: -1, assetCatalogHash: null, sheetStates: new Map(), dialogueBubbles: new Map(), showNpcNames: false, showNpcStates: false, brushMode: false, brushLastTile: null
+  lastPresencePollAt: 0, presencePollPendingUntil: 0, lastNpcPollAt: 0, npcPollPendingUntil: 0, lastEventPollAt: 0, eventPollPendingUntil: 0, lastPerceptionAt: 0, perceptionPendingUntil: 0,
+  status: '正在载入…', fatal: false, realtime: false, zoom: 2, modal: false, search: '', subcategory: 'all', page: 1, legacyItems: [], recentAssets: [], assetImages: new Map(), assetCatalogReleaseVersion: -1, assetCatalogHash: null, sheetStates: new Map(), dialogueBubbles: new Map(), showNpcNames: false, showNpcStates: false, brushMode: false, brushLastTile: null,
+  events: new Map(), eventCursor: 0, eventUnread: 0, eventFilter: 'all', eventDrawerOpen: false, eventLoading: false, perception: [], perceptionRequestId: 0, clock: null
 };
 
 const residents = createResidents({
@@ -171,7 +172,117 @@ function confirmAction(title, message) {
 function currentOwner() { return state.world?.account_id || state.world?.account || ''; }
 function canEditObject(value) { const owner = value?.owner_id || value?.owner_user_id || value?.owner || ''; return !!owner && owner === currentOwner(); }
 
+const eventFilterTypes = {
+  npc: ['npc_conversation', 'npc_task_completed', 'npc_task_failed', 'npc_trade', 'npc_home_blocked', 'npc_relationship_changed', 'social_matter_opened', 'social_matter_response', 'social_matter_commitment_assigned', 'social_matter_commitment_completed', 'social_matter_commitment_failed', 'social_matter_commitment_cancelled', 'social_matter_closed', 'social_matter_cancelled', 'social_matter_failed'],
+  weather: ['weather_changed'],
+  work: ['npc_task_completed', 'npc_task_failed', 'social_matter_commitment_assigned', 'social_matter_commitment_completed', 'social_matter_commitment_failed', 'social_matter_commitment_cancelled'],
+  trade: ['npc_trade'],
+  conversation: ['npc_conversation']
+};
+const eventTypeLabels = { npc_conversation: '对话', npc_task_completed: '工作完成', npc_task_failed: '工作失败', npc_trade: '交易', npc_home_blocked: '地点', npc_relationship_changed: '关系变化', social_matter_opened: '社会事务', social_matter_response: '事务响应', social_matter_commitment_assigned: '承诺分配', social_matter_commitment_completed: '承诺完成', social_matter_commitment_failed: '承诺失败', social_matter_commitment_cancelled: '承诺取消', social_matter_closed: '事务完成', social_matter_cancelled: '事务取消', social_matter_failed: '事务失败', weather_changed: '天气', time_advanced: '时间', place_opened: '地点', place_closed: '地点' };
+function eventTypeMatches(event, filter) {
+  if (filter === 'all') return true;
+  const types = eventFilterTypes[filter];
+  return filter === 'place' ? ['npc_home_blocked', 'place_opened', 'place_closed'].includes(event.event_type) : !!types?.includes(event.event_type);
+}
+function eventTitle(event) {
+  const payload = event.payload || {};
+  return String(payload.public_summary || payload.summary || payload.title || payload.message || payload.public_name || eventTypeLabels[event.event_type] || event.event_type || '小镇发生了一件事');
+}
+function eventActorName(event) {
+  const actor = event.actor_npc_id ? state.npcs.get(event.actor_npc_id) : null;
+  return actor?.name || actor?.display_name || (event.actor_npc_id ? `居民 ${String(event.actor_npc_id).slice(0, 6)}` : '小镇');
+}
+function renderEvents() {
+  const list = $('town-events-list');
+  if (!list) return;
+  const values = [...state.events.values()].filter(event => eventTypeMatches(event, state.eventFilter)).sort((a, b) => Number(b.event_id) - Number(a.event_id));
+  if (state.eventLoading && !values.length) { list.replaceChildren(Object.assign(document.createElement('div'), { className: 'town-events-loading', textContent: '正在同步事件…' })); return; }
+  if (!values.length) { list.replaceChildren(Object.assign(document.createElement('div'), { className: 'town-events-empty', textContent: '暂时没有符合条件的公共事件' })); return; }
+  list.replaceChildren(...values.map(event => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = `town-event-card ${event.receipt_state === 'unread' ? 'unread' : 'read'}`;
+    const head = document.createElement('div'); head.className = 'town-event-card-head';
+    head.append(Object.assign(document.createElement('strong'), { textContent: eventTypeLabels[event.event_type] || '事件' }), Object.assign(document.createElement('span'), { textContent: eventActorName(event) }));
+    const title = Object.assign(document.createElement('div'), { className: 'town-event-card-title', textContent: eventTitle(event) });
+    const meta = Object.assign(document.createElement('div'), { className: 'town-event-card-meta', textContent: String(event.occurred_at || event.created_at || '').replace('T', ' ').replace(/\.\d+Z$/, '') });
+    button.append(head, title, meta);
+    button.addEventListener('click', () => {
+      if (event.receipt_state === 'unread') {
+        event.receipt_state = 'read'; state.eventUnread = Math.max(0, state.eventUnread - 1); updateEventBadge();
+        host({ type: 'townEventReceiptRequested', payload: { event_ids: [Number(event.event_id)], state: 'read' } });
+      }
+      const npcId = event.actor_npc_id || event.target_npc_id;
+      if (npcId && state.npcs.has(npcId)) residents.choose(npcId);
+    });
+    return button;
+  }));
+}
+function updateEventBadge() {
+  const badge = $('town-events-unread'); if (badge) { badge.hidden = state.eventUnread <= 0; badge.textContent = state.eventUnread > 99 ? '99+' : String(state.eventUnread); }
+  const summary = $('town-events-summary'); if (summary) summary.textContent = state.eventUnread > 0 ? `${state.eventUnread} 条未读 · 游标 ${state.eventCursor}` : `已同步 · 游标 ${state.eventCursor}`;
+}
+function setEvents(payload) {
+  if (!payload || payload.session_epoch !== state.epoch) return;
+  state.eventCursor = Math.max(state.eventCursor, Number(payload.cursor || 0));
+  for (const event of payload.events || []) {
+    if (!event?.event_id) continue;
+    state.events.set(Number(event.event_id), { ...event, event_id: Number(event.event_id) });
+    const facts = event.payload || {};
+    if (event.event_type === 'time_advanced' && state.clock) {
+      if (Number.isFinite(Number(facts.calendar_day))) state.clock.calendar_day = Number(facts.calendar_day);
+      if (Number.isFinite(Number(facts.minute_of_day))) state.clock.minute_of_day = Number(facts.minute_of_day);
+      if (Number.isFinite(Number(facts.minutes))) state.clock.absolute_minute = Number(state.clock.absolute_minute || 0) + Number(facts.minutes);
+    }
+    if (event.event_type === 'weather_changed' && state.clock && typeof facts.weather_code === 'string') state.clock.weather_code = facts.weather_code;
+  }
+  state.eventUnread = Number.isFinite(Number(payload.unread_count)) ? Number(payload.unread_count) : [...state.events.values()].filter(event => event.receipt_state === 'unread').length;
+  state.eventLoading = false; updateEventBadge(); renderEvents();
+}
+const townWeatherLabels = { clear: '晴朗', cloudy: '多云', rain: '小雨', storm: '雷雨', snow: '降雪', fog: '雾' };
+function renderWorldClock() {
+  const clock = state.clock;
+  if (!clock) return;
+  const minute = Number.isFinite(Number(clock.minute_of_day)) ? Number(clock.minute_of_day) : 0;
+  const hour = Math.floor(minute / 60);
+  const phase = hour >= 22 || hour < 6 ? '夜晚' : hour < 12 ? '上午' : hour < 18 ? '下午' : '傍晚';
+  const day = Math.max(1, Number(clock.calendar_day || 1));
+  const zoneLabel = clock.time_zone === 'Asia/Shanghai' ? '北京时间' : (clock.time_zone || '小镇时间');
+  if ($('world-clock')) $('world-clock').textContent = `第 ${day} 天 · ${clock.time_label || `${String(hour).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`} · ${phase} · ${zoneLabel}`;
+  if ($('weather-label')) $('weather-label').textContent = townWeatherLabels[clock.weather_code] || clock.weather_code || '未知天气';
+}
+function setEventReceiptResult(payload) { if (payload?.session_epoch !== state.epoch) return; if (payload.code) notice('事件回执暂未同步'); }
+function setPerception(payload) {
+  if (!payload || payload.session_epoch !== state.epoch) return;
+  state.perception = Array.isArray(payload.observations) ? payload.observations : [];
+  state.perceptionPendingUntil = 0;
+  const summary = $('town-perception-summary'); if (summary) summary.textContent = `附近感知 ${state.perception.length}`;
+}
+function setClock(payload) {
+  if (!payload || payload.session_epoch !== state.epoch) return;
+  const incoming = payload.clock && typeof payload.clock === 'object' ? payload.clock : payload;
+  if (!incoming || typeof incoming !== 'object') return;
+  const revision = Number(incoming.revision);
+  if (Number.isFinite(revision) && Number(state.clock?.revision || 0) > revision) return;
+  state.clock = { ...(state.clock || {}), ...incoming };
+  renderWorldClock();
+}
+function requestEvents(reset = false) { if (!state.graylisted || state.eventLoading) return; state.eventLoading = true; renderEvents(); host({ type: 'townEventsRequested', reset }); }
+function requestPerception() {
+  const player = state.scene?.player; if (!state.graylisted || !player || state.perceptionPendingUntil > Date.now()) return;
+  state.perceptionPendingUntil = Date.now() + 5000; state.lastPerceptionAt = Date.now();
+  host({ type: 'townPerceptionRequested', request_id: String(++state.perceptionRequestId), payload: { tile_x: Math.floor(player.x / 16), tile_y: Math.floor(player.y / 16), radius: 8, channels: ['visible', 'audible', 'nearby'] } });
+}
+function toggleEvents(open) {
+  state.eventDrawerOpen = open === undefined ? !state.eventDrawerOpen : !!open;
+  const drawer = $('town-events-drawer'), button = $('town-events-toggle'); if (!drawer || !button) return;
+  drawer.hidden = !state.eventDrawerOpen; button.setAttribute('aria-expanded', String(state.eventDrawerOpen));
+  if (state.eventDrawerOpen) { requestEvents(false); requestPerception(); renderEvents(); }
+}
+
 function updateUI() {
+  renderWorldClock();
+  updateEventBadge();
+  if ($('town-events-summary')) $('town-events-summary').textContent = state.eventUnread > 0 ? `${state.eventUnread} 条未读 · 游标 ${state.eventCursor}` : `已同步 · 游标 ${state.eventCursor}`;
   const workspace = document.querySelector('.workspace');
   workspace?.classList.toggle('mode-roam', state.mode === 'roam');
   workspace?.classList.toggle('mode-edit', state.mode === 'edit');
@@ -213,6 +324,7 @@ function updateUI() {
     button.setAttribute('aria-pressed', String(button.dataset.id === state.selectedAsset));
   }
   for (const button of document.querySelectorAll('#categories [data-category]')) button.classList.toggle('active', button.dataset.category === state.category);
+  renderEvents();
 }
 
 function selectMaterial(item) {
@@ -382,6 +494,17 @@ function setSaveStatus(payload) {
 
 function diagnostics() {
   const scene = state.scene;
+  const renderSegments = scene ? [...scene.objectSegmentImages.entries()].slice(0, 32).map(([instanceId, images]) => ({
+    instance_id: instanceId,
+    asset_id: state.layout?.placements?.find(value => value.instance_id === instanceId)?.asset_id || null,
+    segments: images.map(image => ({
+      x: Math.round(image.x * 100) / 100, y: Math.round(image.y * 100) / 100,
+      depth: Math.round(image.depth * 100) / 100, display_width: Math.round(image.displayWidth * 100) / 100,
+      display_height: Math.round(image.displayHeight * 100) / 100, visible: image.visible === true,
+      texture: image.texture?.key || null, cropped: image.isCropped === true,
+      reset_crop_supported: typeof image.resetCropObject === 'function'
+    }))
+  })) : [];
   return {
     ready: !!scene && !state.fatal, mode: state.mode, zoom: state.zoom,
     session_epoch: state.epoch, scene_version: state.version, dirty: state.dirty,
@@ -393,6 +516,7 @@ function diagnostics() {
     materials: state.catalog?.items.length || 0, graylisted: state.graylisted, chunks: state.chunks.size, presence: state.presence.size, realtime: state.realtime,
     player_ready:state.playerReady&&!state.awaitingSpawn,map:{width:state.catalog?.map_width,height:state.catalog?.map_height},
     canvas: scene ? { width: scene.scale.width, height: scene.scale.height } : null,
+    render_segments: renderSegments,
     assets: [...state.sheetStates].map(([id, value]) => ({sheet_id:id, status:value.status, width:value.width, height:value.height})),
     textures: [...state.townAssets.values()].map(item => ({id:item.id, ready:!!scene?.textures.exists(`item-${item.id}`), crop:item.asset_frame})),
     camera: scene ? { scroll_x: scene.cameras.main.scrollX, scroll_y: scene.cameras.main.scrollY, zoom: scene.cameras.main.zoom, view: {x:scene.cameras.main.worldView.x,y:scene.cameras.main.worldView.y,width:scene.cameras.main.worldView.width,height:scene.cameras.main.worldView.height} } : null
@@ -402,7 +526,8 @@ function diagnostics() {
 window.DeskBoxTownPrototype = {
   setResidentDetail: residents.detail, setResidentConversations: residents.history,
   setResidentInviteResult: residents.inviteResult,
-  loadState, loadWorld, loadChunks, applyChanges, setPresence, setNpcs, applyNpcChanges, applyRealtimeNpc, applyRealtimePresence, applyRealtimeSnapshot, setRealtimeState, setInventory, setAssetCatalog, setAssetSheet, applyActionResult, setWorld, setChunks,
+  setResidentPhotoResult: residents.photoResult,
+  loadState, loadWorld, loadChunks, applyChanges, setPresence, setNpcs, applyNpcChanges, applyRealtimeNpc, applyRealtimePresence, applyRealtimeSnapshot, setRealtimeState, setClock, setInventory, setAssetCatalog, setAssetSheet, applyActionResult, setWorld, setChunks, setEvents, setEventReceiptResult, setPerception,
   setSaveStatus,
   setVisibility(visible) { state.hostActive = !!visible; applyVisibility(); },
   setHostActive(active) { state.hostActive = !!active; applyVisibility(); },
@@ -417,7 +542,7 @@ window.DeskBoxTownPrototype = {
 Object.defineProperty(window, '__townPrototypeDiagnostics', { get: diagnostics });
 
 class TownScene extends (window.Phaser?.Scene || class {}) {
-  constructor() { super('town-prototype'); this.objectImages = new Map(); this.objectForegroundImages = new Map(); this.presenceImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
+  constructor() { super('town-prototype'); this.objectImages = new Map(); this.objectForegroundImages = new Map(); this.objectSegmentImages = new Map(); this.objectSegmentSignatures = new Map(); this.presenceImages = new Map(); this.drag = null; this.pan = null; this.pointerInside = false; this.lastPointer = null; }
 
   preload() {
     this.failedAssets = [];
@@ -525,10 +650,6 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     return false;
   }
 
-  splitCrop(item) {
-    return splitDisplayMetrics(item);
-  }
-
   placeSelectedAsset(world) {
     if (!state.selectedAsset) return false;
     const position = this.placementPosition(world, state.selectedAsset);
@@ -551,49 +672,188 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   }
 
   destroyObjectVisual(instanceId) {
-    this.objectImages.get(instanceId)?.destroy();
+    const segments = this.objectSegmentImages.get(instanceId) || [];
+    const legacyImage = this.objectImages.get(instanceId);
+    const legacyForeground = this.objectForegroundImages.get(instanceId);
+    for (const image of segments) image.destroy();
+    // A live WebView can receive a catalog update after an object was created
+    // by the previous two-slice renderer. That renderer stored a standalone
+    // full-texture Image, so it is not present in objectSegmentImages and
+    // would otherwise remain visible over the new three-slice images.
+    if (legacyImage && !segments.includes(legacyImage)) legacyImage.destroy();
+    if (legacyForeground && legacyForeground !== legacyImage && !segments.includes(legacyForeground)) legacyForeground.destroy();
+    this.objectSegmentImages.delete(instanceId);
+    this.objectSegmentSignatures.delete(instanceId);
     this.objectImages.delete(instanceId);
-    this.objectForegroundImages.get(instanceId)?.destroy();
     this.objectForegroundImages.delete(instanceId);
   }
 
+  splitTextureKey(item, index, segment = null) {
+    // Include the source slice in the key.  A material can be edited from two
+    // slices to three while the WebView is still alive; reusing the old
+    // `split-1` canvas in that case leaves Phaser with the old frame geometry.
+    const sourceY = Number(segment?.sourceY || 0);
+    const sourceHeight = Number(segment?.sourceHeight || 0);
+    return `item-${item.id}-split-${index}-${sourceY}-${sourceHeight}`;
+  }
+
+  clearSplitImageCrop(image) {
+    // Phaser 3.90 clears isCropped in setCrop(), but a WebView can retain an
+    // Image instance created by an older two-slice renderer. Reset both the
+    // public flag and the backing crop object so stale UVs can never hide the
+    // middle slice or reverse the apparent foreground/background order.
+    image.setCrop();
+    image.isCropped = false;
+    if (typeof image.resetCropObject === 'function') image._crop = image.resetCropObject();
+    return image;
+  }
+
+  /**
+   * Phaser's crop component clips UVs but keeps the original frame geometry.
+   * A cropped image that is resized to the slice height therefore moves the
+   * crop origin and can hide an interior slice. Build a real canvas texture
+   * for every slice so its origin and display size describe only that slice.
+   */
+  refreshSplitTextures(item) {
+    const baseTexture = this.textures.get(`item-${item.id}`);
+    const frame = Number.isInteger(item.animationFrame) ? item.animationFrame : 0;
+    const source = item.decodedFrames?.[frame] || baseTexture?.getSourceImage?.();
+    if (!source) return [];
+    const sourceWidth = Number(item.width) > 0 ? Number(item.width) : Number(source.width);
+    const sourceHeight = Number(source.height);
+    if (!Number.isFinite(sourceWidth) || sourceWidth <= 0 || !Number.isFinite(sourceHeight) || sourceHeight <= 0) return [];
+    // The API dimensions describe the catalog row, while the decoded frame is
+    // the actual texture being sampled. During a release refresh an old row
+    // can briefly survive with the previous frame height. If split boundaries
+    // are evaluated against that stale height, the middle slice samples the
+    // wrong source rows and can become transparent. Synchronize the catalog
+    // dimensions before both layout and canvas extraction use them.
+    if (Number(item.width) !== sourceWidth || Number(item.height) !== sourceHeight) {
+      item.width = sourceWidth;
+      item.height = sourceHeight;
+    }
+    const segments = splitDisplaySegments(item);
+    if (!segments.length) return [];
+    return segments.map((segment, index) => {
+      const key = this.splitTextureKey(item, index, segment);
+      // TextureManager.get() returns Phaser's __MISSING placeholder for an
+      // unknown key. Treating that placeholder as a real texture prevents
+      // addCanvas() from registering the slice and makes every segment render
+      // as the black missing-texture tile.
+      let texture = this.textures.exists(key) ? this.textures.get(key) : null;
+      let canvas = texture?.getSourceImage?.();
+      if (!canvas || canvas.tagName !== 'CANVAS') {
+        canvas = document.createElement('canvas');
+        texture = null;
+      }
+      if (texture && (canvas.width !== sourceWidth || canvas.height !== segment.sourceHeight)) {
+        this.textures.remove(key);
+        texture = null;
+        canvas = document.createElement('canvas');
+      }
+      if (canvas.width !== sourceWidth || canvas.height !== segment.sourceHeight) {
+        canvas.width = sourceWidth;
+        canvas.height = segment.sourceHeight;
+      }
+      if (!texture) texture = this.textures.addCanvas(key, canvas);
+      const context = canvas.getContext('2d');
+      context.imageSmoothingEnabled = false;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(source, 0, segment.sourceY, sourceWidth, segment.sourceHeight,
+        0, 0, canvas.width, canvas.height);
+      // TextureManager.addCanvas returns a Phaser Texture.  The canvas-backed
+      // source owns the renderer upload hook; Texture itself has no refresh method
+      // method in Phaser 3.90. Calling the source update keeps WebGL in sync
+      // without throwing halfway through a multi-slice house (which used to
+      // leave the middle slice missing and the remaining depth state stale).
+      texture.source?.[0]?.update?.();
+      return key;
+    });
+  }
+
+  removeSplitTextures(item) {
+    const prefix = `item-${item.id}-split-`;
+    for (const key of Object.keys(this.textures.list || {})) {
+      if (key.startsWith(prefix)) this.textures.remove(key);
+    }
+  }
+
   setObjectVisual(placement, item, x, y, alpha = 1, tint = 0xffffff) {
-    const image = this.objectImages.get(placement.instance_id);
-    if (!image) return;
-    const split = this.splitCrop(item);
-    image.setPosition(x, split ? y - split.frontHeight : y)
-      .setDepth(objectDepth(item, placement, y))
-      .setAlpha(alpha).setTint(tint);
-    if (split) {
-      const foreground = this.objectForegroundImages.get(placement.instance_id);
-      foreground?.setPosition(x, y).setDepth(splitForegroundDepth(y)).setAlpha(alpha).setTint(tint);
+    const segments = this.objectSegmentImages.get(placement.instance_id);
+    if (!segments?.length) return;
+    const splitSegments = splitDisplaySegments(item);
+    if (!splitSegments.length) {
+      segments[0].setPosition(x, y).setDepth(objectDepth(item, placement, y)).setAlpha(alpha).setTint(tint);
+      return;
+    }
+    const layout = splitSegmentLayout(item, y);
+    for (let index = 0; index < layout.length; index++) {
+      const segment = layout[index];
+      const depth = splitSegmentDepth(segment, placement, segment.bottomY);
+      segments[index]?.setPosition(x, segment.bottomY).setDepth(depth).setAlpha(alpha).setTint(tint);
     }
   }
 
   createObjectImages(placement, item) {
-    let image = this.objectImages.get(placement.instance_id);
-    if (!image) {
-      image = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1);
-      this.objectImages.set(placement.instance_id, image);
+    // Keep split layout and the canvas crop on the same decoded frame. This
+    // also handles a catalog update that changes a frame from two slices to
+    // three while the WebView stays alive.
+    const frame = Number.isInteger(item.animationFrame) ? item.animationFrame : 0;
+    const decoded = item.decodedFrames?.[frame];
+    if (decoded && Number(decoded.width) > 0 && Number(decoded.height) > 0) {
+      item.width = Number(decoded.width);
+      item.height = Number(decoded.height);
     }
-    const split = this.splitCrop(item);
-    let foreground = this.objectForegroundImages.get(placement.instance_id);
-    if (split && !foreground) {
-      foreground = this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1);
-      this.objectForegroundImages.set(placement.instance_id, foreground);
+    const splitSegments = splitDisplaySegments(item);
+    const splitTextureKeys = splitSegments.length ? this.refreshSplitTextures(item) : [];
+    const definitions = splitSegments.length ? splitSegments : [{ sourceY: 0, sourceHeight: item.height, displayHeight: item.display_height, depthBand: assetSortMode(item) }];
+    const signature = definitions.map((segment, index) => {
+      const textureKey = splitSegments.length ? (splitTextureKeys[index] || '') : `item-${item.id}`;
+      return [textureKey, segment.sourceY, segment.sourceHeight, segment.displayHeight, item.display_width].join(':');
+    }).join('|');
+    let segments = this.objectSegmentImages.get(placement.instance_id) || [];
+    // A placement can remain in the scene while an admin changes its catalog
+    // from a two-part house to a three-part house. Reusing the old Image
+    // objects carries Phaser's frame/crop state across that shape change. A
+    // signature change is the safe point to rebuild the segment objects.
+    if (this.objectSegmentSignatures.get(placement.instance_id) !== signature) {
+      for (const image of segments) image.destroy();
+      const legacyImage = this.objectImages.get(placement.instance_id);
+      const legacyForeground = this.objectForegroundImages.get(placement.instance_id);
+      if (legacyImage && !segments.includes(legacyImage)) legacyImage.destroy();
+      if (legacyForeground && legacyForeground !== legacyImage && !segments.includes(legacyForeground)) legacyForeground.destroy();
+      segments = [];
+      this.objectSegmentSignatures.set(placement.instance_id, signature);
     }
-    if (!split && foreground) {
-      foreground.destroy();
-      this.objectForegroundImages.delete(placement.instance_id);
-      foreground = null;
-    }
-    image.setTexture(`item-${item.id}`).setCrop(0, 0, item.width, split ? split.splitY : item.height);
-    if (foreground) {
-      foreground.setTexture(`item-${item.id}`).setCrop(0, split.splitY, item.width, item.height - split.splitY);
-      foreground.setDisplaySize(item.display_width, split.frontHeight);
-    }
-    image.setDisplaySize(item.display_width, split ? split.backHeight : item.display_height);
-    return { image, foreground, split };
+    while (segments.length < definitions.length) segments.push(this.add.image(0, 0, `item-${item.id}`).setOrigin(.5, 1));
+    while (segments.length > definitions.length) segments.pop()?.destroy();
+    this.objectSegmentImages.set(placement.instance_id, segments);
+    segments.forEach((image, index) => {
+      const segment = definitions[index];
+      const textureKey = splitSegments.length ? splitTextureKeys[index] : `item-${item.id}`;
+      if (splitSegments.length && !textureKey) {
+        // Do not draw the complete house as a fake slice while the source
+        // canvas is being rebuilt.  The load callback will render it again.
+        image.setVisible(false);
+        return;
+      }
+      // Each split slice is already a complete canvas texture. Clear any crop
+      // state that an Image may have retained from an older two-part/whole
+      // texture before drawing the independent slice. Phaser's no-argument
+      // setCrop() is the supported way to set isCropped=false; resetting the
+      // crop object alone only returns a new object and does not change that
+      // flag.
+      image.setTexture(textureKey)
+        .setOrigin(.5, 1)
+        .setDisplaySize(item.display_width, segment.displayHeight)
+        .setVisible(true);
+      this.clearSplitImageCrop(image);
+    });
+    this.objectImages.set(placement.instance_id, segments[0]);
+    // The upper slice is the foreground slice. Keep this map aligned with its
+    // name for editor hit-testing and future occlusion operations.
+    this.objectForegroundImages.set(placement.instance_id, splitSegments.length > 1 ? segments[0] : null);
+    return { image: segments[0], foreground: splitSegments.length > 1 ? segments[0] : null, split: splitSegments.length ? splitSegments : null, segments };
   }
 
   renderObjects() {
@@ -601,6 +861,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     const ids = new Set(state.layout.placements.map(item => item.instance_id));
     for (const id of this.objectImages.keys()) if (!ids.has(id)) this.destroyObjectVisual(id);
     for (const id of this.objectForegroundImages.keys()) if (!ids.has(id)) this.destroyObjectVisual(id);
+    for (const id of this.objectSegmentImages.keys()) if (!ids.has(id)) this.destroyObjectVisual(id);
     this.objectShadows.clear();
     for (const placement of state.layout.placements) {
       const item = catalogItem(placement.asset_id);
@@ -614,7 +875,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       const { image } = this.createObjectImages(placement, item);
       const {x,y}=visualPosition(item,placement.tile_x,placement.tile_y,bounds);
       this.setObjectVisual(placement, item, x, y, 1, 0xffffff);
-      image.clearTint(); this.objectForegroundImages.get(placement.instance_id)?.clearTint();
+      for (const segment of this.objectSegmentImages.get(placement.instance_id) || []) segment.clearTint();
       if (item.category === 'building') {
         this.objectShadows.fillStyle(0x2f4928, .12);
         this.objectShadows.fillEllipse(x, y - 3, item.footprint.width * 16 + 7, Math.max(8, item.footprint.height * 8));
@@ -658,6 +919,11 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     const playerTile = this.player ? { x: this.player.x / 16, y: this.player.y / 16 } : null;
     for (const npc of state.npcs.values()) {
       if (npc.enabled === false) continue;
+      const lifecycleState = String(npc.lifecycle?.state || 'active').toLowerCase();
+      // An absent resident is not an entity in the current world. Transitional
+      // states remain visible so players can see that the resident is leaving
+      // or recovering, while the server still blocks new actions.
+      if (lifecycleState === 'absent') continue;
       const id = npc.npc_id || npc.id;
       if (!id) continue;
       visible.add(id);
@@ -687,7 +953,8 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       if (textureKey === 'player') avatar.setTint(0xffd58a); else avatar.clearTint();
       label.setText(npc.name || '村民');
       const stateNames = { walk: '行走', work: '工作', rest: '休息', talk: '交谈', player_talk: '面对面交谈', follow: '跟随', wait: '等待' };
-      const stateName = stateNames[runtime.state] || runtime.state || '休息';
+      const lifecycleNames = { returning: '返回中', injured: '休养', recovering: '恢复中' };
+      const stateName = lifecycleNames[lifecycleState] || stateNames[runtime.state] || runtime.state || '休息';
       stateLabel.setText(stateName);
       label.setVisible(state.showNpcNames);
       stateLabel.setVisible(state.showNpcStates);
@@ -754,20 +1021,22 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
   }
 
   itemAt(x, y) {
-    const depth = placement => Math.max(this.objectImages.get(placement.instance_id)?.depth ?? Number.NEGATIVE_INFINITY, this.objectForegroundImages.get(placement.instance_id)?.depth ?? Number.NEGATIVE_INFINITY);
+    const depth = placement => Math.max(...(this.objectSegmentImages.get(placement.instance_id) || []).map(image => image.depth), Number.NEGATIVE_INFINITY);
     const values = [...state.layout.placements].filter(value => this.objectImages.has(value.instance_id) || this.objectForegroundImages.has(value.instance_id)).sort((a, b) => depth(b) - depth(a));
     for (const placement of values) {
-      const image = this.objectImages.get(placement.instance_id);
-      const foreground = this.objectForegroundImages.get(placement.instance_id);
-      const candidates = [];
-      if (foreground?.getBounds().contains(x, y)) candidates.push({ visual: foreground, cropY: this.splitCrop(catalogItem(placement.asset_id))?.splitY || 0 });
-      if (image?.getBounds().contains(x, y)) candidates.push({ visual: image, cropY: 0 });
+      // Split buildings use real per-slice canvas textures. Their texture
+      // origin is already the beginning of the slice, so adding the original
+      // sourceY again would sample the wrong row (and can make the middle
+      // slice impossible to select in edit mode).
+      const candidates = (this.objectSegmentImages.get(placement.instance_id) || []).map(visual => ({ visual }));
       for (const candidate of candidates) {
         const visual = candidate.visual;
+        const bounds = visual.getBounds();
+        if (!bounds.contains(x, y)) continue;
         const textureX = Math.floor((x - visual.getTopLeft().x) / visual.scaleX);
-        const textureY = candidate.cropY + Math.floor((y - visual.getTopLeft().y) / visual.scaleY);
+        const textureY = Math.floor((y - visual.getTopLeft().y) / visual.scaleY);
         const alpha = this.textures.getPixelAlpha(textureX, textureY, visual.texture.key);
-        if (alpha === null || alpha > 24) return placement;
+        if (alpha !== null && alpha > 24) return placement;
       }
     }
     return [...state.layout.placements].reverse().find(value => {
@@ -868,7 +1137,7 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       const item = { ...catalogItem(placement.asset_id), footprint: placement.footprint || catalogItem(placement.asset_id)?.footprint || {width:1,height:1} };
       const settledPosition = visualPosition(item, placement.tile_x, placement.tile_y, placement.footprint || item.footprint);
       this.setObjectVisual(placement, item, settledPosition.x, settledPosition.y, 1, 0xffffff);
-      this.objectImages.get(placement.instance_id)?.clearTint(); this.objectForegroundImages.get(placement.instance_id)?.clearTint();
+      for (const segment of this.objectSegmentImages.get(placement.instance_id) || []) segment.clearTint();
     }
     this.refreshGhost(); this.drawSelection();
   }
@@ -916,7 +1185,8 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
       const frame=Math.floor(time/140)%item.decodedFrames.length;
       if(item.animationFrame===frame)continue;item.animationFrame=frame;
       const texture=this.textures.get(`item-${item.id}`);
-      if(texture?.context){texture.context.clearRect(0,0,texture.canvas.width,texture.canvas.height);texture.context.drawImage(item.decodedFrames[frame],0,0,texture.canvas.width,texture.canvas.height);texture.refresh();}
+      if(texture?.context){texture.context.clearRect(0,0,texture.canvas.width,texture.canvas.height);texture.context.drawImage(item.decodedFrames[frame],0,0,texture.canvas.width,texture.canvas.height);texture.source?.[0]?.update?.();}
+      if (splitDisplaySegments(item).length) this.refreshSplitTextures(item);
     }
     if (dx || dy) {
       const distance = 68 * Math.min(delta, 50) / 1000 / Math.hypot(dx, dy);
@@ -941,6 +1211,10 @@ class TownScene extends (window.Phaser?.Scene || class {}) {
     if (state.graylisted && !state.realtime && now >= state.npcPollPendingUntil && now - state.lastNpcPollAt >= 1000) {
       state.lastNpcPollAt = now; state.npcPollPendingUntil = now + 5000; host({ type: 'npcChangesRequested' });
     }
+    if (state.graylisted && state.eventDrawerOpen && now >= state.eventPollPendingUntil && now - state.lastEventPollAt >= 1000) {
+      state.lastEventPollAt = now; state.eventPollPendingUntil = now + 5000; requestEvents(false);
+    }
+    if (state.graylisted && state.eventDrawerOpen && now - state.lastPerceptionAt >= 4500) requestPerception();
     const moving=!!(dx||dy);
     if (moving) residents.cancelCamera();
     sendPlayerPresence(state.wasMoving && !moving); state.wasMoving=moving;
@@ -973,10 +1247,12 @@ function loadWorld(payload) {
     state.playerReady=false;state.awaitingSpawn=false;state.lastSentPosition=null;state.lastHeartbeatAt=0;state.wasMoving=false;
     state.scene?.player?.setVisible(false);state.scene?.playerShadow?.setVisible(false);
   }
-  if (incomingEpoch !== state.epoch) { state.chunks.clear(); state.objects.clear(); state.presence.clear(); state.npcs.clear(); state.npcCursor=0; state.inventory.clear(); state.pendingActions.clear(); state.assetSheets.clear(); state.assetImages.clear(); clearSheetStates(); state.assetCatalogReleaseVersion=-1;state.assetCatalogHash=null; state.townAssets.clear(); state.viewportKey=null;state.changesPendingUntil=0;state.presencePendingUntil=0;state.presencePollPendingUntil=0;state.npcPollPendingUntil=0;state.lastPresencePollAt=0;state.lastNpcPollAt=0; state.layout = { template_version: 2, catalog_version: 4, world_id: 'main', demo_stage: 5, placements: [] }; state.selectedAsset = null; state.selectedInstance = null; clearKeys(); state.scene?.renderObjects(); state.scene?.renderPresence(); state.scene?.renderNpcs(); }
+  if (incomingEpoch !== state.epoch) { state.chunks.clear(); state.objects.clear(); state.presence.clear(); state.npcs.clear(); state.npcCursor=0; state.inventory.clear(); state.pendingActions.clear(); state.assetSheets.clear(); state.assetImages.clear(); state.events.clear(); state.eventCursor=0; state.eventUnread=0; state.perception=[]; state.clock=null; clearSheetStates(); state.assetCatalogReleaseVersion=-1;state.assetCatalogHash=null; state.townAssets.clear(); state.viewportKey=null;state.changesPendingUntil=0;state.presencePendingUntil=0;state.presencePollPendingUntil=0;state.npcPollPendingUntil=0;state.eventPollPendingUntil=0;state.lastPresencePollAt=0;state.lastNpcPollAt=0; state.layout = { template_version: 2, catalog_version: 4, world_id: 'main', demo_stage: 5, placements: [] }; state.selectedAsset = null; state.selectedInstance = null; clearKeys(); state.scene?.renderObjects(); state.scene?.renderPresence(); state.scene?.renderNpcs(); }
   state.epoch = incomingEpoch;
   state.world = payload;
   const meta = payload.world && typeof payload.world === 'object' ? payload.world : payload;
+  if (payload.clock && typeof payload.clock === 'object') state.clock = { ...payload.clock };
+  else if (meta.clock && typeof meta.clock === 'object') state.clock = { ...meta.clock };
   state.graylisted = !!(payload.enabled ?? meta.enabled ?? payload.graylisted ?? meta.graylisted ?? false);
   state.authenticated = typeof payload.authenticated==='boolean' ? payload.authenticated : !!payload.account_id;
   state.canSave = state.graylisted && state.authenticated;
@@ -1001,6 +1277,7 @@ function loadWorld(payload) {
   if (Number.isSafeInteger(payload.scene_version || payload.world_version)) state.version = payload.scene_version || payload.world_version;
   if (payload.inventory) setInventory(payload);
   if (payload.presence) setPresence(payload);
+  if (payload.events) setEvents(payload.events);
   if (payload.layout) loadState(payload);
   if(state.objects.size) {syncObjectLayout();state.scene?.renderObjects();}
   if(state.graylisted && !state.playerReady && payload.player && state.scene) {
@@ -1095,6 +1372,7 @@ function applyNpcChanges(payload) {
   for(const event of payload?.events || []) {
     const npc = state.npcs.get(event.npc_id), data = event.payload || {};
     if(npc && event.type === 'state_changed') npc.runtime = { ...(npc.runtime || {}), ...data };
+    if(npc && event.type === 'lifecycle_changed') npc.lifecycle = { ...(npc.lifecycle || {}), ...data };
   }
   state.npcCursor = Number(payload?.cursor || state.npcCursor || 0);
   state.scene?.renderNpcs?.();
@@ -1196,7 +1474,10 @@ function setAssetCatalog(payload) {
   if (releaseVersion===state.assetCatalogReleaseVersion && hash===state.assetCatalogHash) return;
   state.assetCatalogReleaseVersion=releaseVersion;state.assetCatalogHash=hash;
   clearSheetStates(); state.assetSheets.clear();state.assetImages.clear();
-  for(const item of state.townAssets.values()) if(state.scene?.textures.exists(`item-${item.id}`))state.scene.textures.remove(`item-${item.id}`);
+  for(const item of state.townAssets.values()) {
+    state.scene?.removeSplitTextures?.(item);
+    if(state.scene?.textures.exists(`item-${item.id}`))state.scene.textures.remove(`item-${item.id}`);
+  }
   state.townAssets.clear();
   for(const raw of payload.items||[]) if(raw.id?.startsWith('town-source-'))state.townAssets.set(raw.id,{...raw,asset_source:'town',asset:null});
   if(state.catalog)state.catalog.items=[...state.legacyItems,...state.townAssets.values()];
@@ -1230,7 +1511,14 @@ function setAssetSheet(payload) {
           const context=canvas.getContext('2d',{willReadFrequently:true});context.imageSmoothingEnabled=false;context.drawImage(image,x,y,w,h,0,0,w,h);
           if(!context.getImageData(0,0,w,h).data.some((v,i)=>i%4===3&&v>0))throw Error('empty_crop');
           item.decodedFrames.push(canvas);
-          if(item.decodedFrames.length===1){item.asset=canvas.toDataURL('image/png');item.asset_frame={x,y,width:w,height:h};}
+          if(item.decodedFrames.length===1){
+            // The cropped Canvas is the renderer's source of truth.  Keeping
+            // the catalog dimensions in sync prevents split boundaries from
+            // being sampled past the real frame (the browser then returns
+            // transparent pixels, which looks like a missing middle slice).
+            item.width = w; item.height = h;
+            item.asset=canvas.toDataURL('image/png');item.asset_frame={x,y,width:w,height:h};
+          }
         }
         const key=`item-${item.id}`;
         if(state.scene.textures.exists(key))state.scene.textures.remove(key);
@@ -1239,7 +1527,10 @@ function setAssetSheet(payload) {
       }
       loading.status='ready';state.assetSheets.set(payload.sheet_id,payload.url);
       renderMaterials();state.scene?.renderObjects();state.scene?.refreshGhost();
-      host({type:'assetReady',sheet_id:payload.sheet_id,width:image.naturalWidth,height:image.naturalHeight,items:[...state.townAssets.values()].filter(i=>i.sheet_id===payload.sheet_id).map(i=>({id:i.id,crop:i.asset_frame,texture:state.scene.textures.exists(`item-${i.id}`)}))});
+      host({type:'assetReady',sheet_id:payload.sheet_id,width:image.naturalWidth,height:image.naturalHeight,items:[...state.townAssets.values()].filter(i=>i.sheet_id===payload.sheet_id).map(i=>({
+        id:i.id,crop:i.asset_frame,texture:state.scene.textures.exists(`item-${i.id}`),sort_mode:i.sort_mode,
+        split_lines:i.split_lines,split_segments:splitDisplaySegments(i).map(segment=>({sourceY:segment.sourceY,sourceHeight:segment.sourceHeight,displayHeight:segment.displayHeight,depthBand:segment.depthBand}))
+      }))});
     }catch(error){fail();}
   };
   image.src=payload.url;
@@ -1256,6 +1547,10 @@ function drawMinimap(){
   $('minimap-coordinates').textContent=`X: ${Math.floor(player.x/16)} · Y: ${Math.floor(player.y/16)}`;
 }
 function setupControls() {
+  $('town-events-toggle')?.addEventListener('click', () => toggleEvents());
+  $('town-events-close')?.addEventListener('click', () => toggleEvents(false));
+  $('town-events-refresh')?.addEventListener('click', () => requestEvents(true));
+  $('town-events-filter')?.addEventListener('change', event => { state.eventFilter = event.target.value || 'all'; renderEvents(); });
   $('show-npc-names')?.addEventListener('change', event => { state.showNpcNames = event.target.checked === true; state.scene?.renderNpcs?.(); });
   $('show-npc-states')?.addEventListener('change', event => { state.showNpcStates = event.target.checked === true; state.scene?.renderNpcs?.(); });
   $('materials-toggle')?.addEventListener('click', () => {

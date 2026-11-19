@@ -385,8 +385,10 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
             if (!is_int($body['tile_x'] ?? null) || !is_int($body['tile_y'] ?? null)) { throw new ApiError('invalid_position', 'A tile position is required.', 400); }
             $item = is_array($townItem) ? $townItem : $legacyItem; $source = is_array($townItem) ? 'town' : 'legacy';
             $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
-            $occupied = $pdo->query('SELECT asset_id,tile_x,tile_y,footprint_json FROM town_objects WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' AND deleted_at IS NULL')->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($occupied as $other) { if (shared_town_intersects($rect, shared_town_rectangle($other))) { throw new ApiError('position_conflict', 'The selected tiles are already occupied.', 409); } }
+            // Placement overlap is intentional: the client uses the six
+            // render layers to compose buildings, props, foliage and effects.
+            // Keep boundary/terrain/player rules authoritative, but do not
+            // treat another object footprint as an exclusive reservation.
             if ($source === 'legacy') {
                 $inventory = $pdo->prepare('SELECT quantity FROM tree_decoration_inventory WHERE user_id=:user AND item_id=:item' . ($driver === 'mysql' ? ' FOR UPDATE' : ''));
                 $inventory->execute([':user' => $userId, ':item' => $assetId]); $quantity = (int)($inventory->fetchColumn() ?: 0);
@@ -426,8 +428,8 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
                 if (!is_array($item)) $item = [];
                 $item['footprint'] = json_decode((string)$row['footprint_json'], true, 16, JSON_THROW_ON_ERROR);
                 $rect = shared_town_validate_rectangle((int)$body['tile_x'], (int)$body['tile_y'], $item['footprint']);
-                $occupied = $pdo->query('SELECT * FROM town_objects WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' AND deleted_at IS NULL AND object_id<>' . $pdo->quote($objectId))->fetchAll(PDO::FETCH_ASSOC);
-                foreach ($occupied as $other) { if (shared_town_intersects($rect, shared_town_rectangle($other))) { throw new ApiError('position_conflict', 'The selected tiles are already occupied.', 409); } }
+                // Moving an object may share tiles with any other object; its
+                // explicit layer determines the rendering order.
                 $layer = array_key_exists('layer', $body) ? (is_int($body['layer']) ? (int)$body['layer'] : -1) : max(1, min(6, (int)($row['layer'] ?? 1)));
                 if ($layer < 1 || $layer > 6) { throw new ApiError('invalid_object', 'Object layer must be from 1 to 6.', 400); }
                 [$chunkX, $chunkY] = shared_town_chunk_coords((int)$body['tile_x'], (int)$body['tile_y']); $version = (int)$row['object_version'] + 1;
@@ -442,6 +444,15 @@ function shared_town_action(PDO $pdo, string $userId, array $body, ?DateTimeImmu
                 }
                 $cursor = shared_town_change($pdo, $row, 'move', $now); $response = ['action' => 'move', 'object' => shared_town_object_public($row), 'change_cursor' => $cursor];
             }
+        }
+        // The world row is locked above. Commit geometry and its navigation
+        // generation together so warmed caches and running NPC routes cannot
+        // keep using the previous layout after a successful edit.
+        if (array_key_exists('navigation_version', $worldRow)) {
+            $navigationVersion = max(1, (int)$worldRow['navigation_version']) + 1;
+            $pdo->prepare('UPDATE town_worlds SET navigation_version=:navigation,world_version=world_version+1 WHERE world_id=:world')
+                ->execute([':navigation' => $navigationVersion, ':world' => SHARED_TOWN_WORLD_ID]);
+            $response['navigation_version'] = $navigationVersion;
         }
         $response['operation_id'] = $operationId;
         $response['inventory'] = shared_town_inventory_payload($pdo, $userId);

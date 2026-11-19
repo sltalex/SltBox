@@ -20,18 +20,18 @@ header('X-Content-Type-Options: nosniff');
 header("Content-Security-Policy: default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; style-src 'unsafe-inline'; script-src 'self'");
 header('Referrer-Policy: no-referrer');
 
-function admin_page_escape(mixed $value): string
+function admin_page_escape($value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-function admin_page_json(mixed $value, mixed $fallback = []): string
+function admin_page_json($value, $fallback = []): string
 {
     if (!is_array($value)) $value = $fallback;
     return (string)json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
-function admin_page_time_value(mixed $value, int $fallback = 0): string
+function admin_page_time_value($value, int $fallback = 0): string
 {
     $minute = is_string($value) && preg_match('/\A(\d{1,2}):(\d{2})\z/D', trim($value), $match)
         ? ((int)$match[1] * 60 + (int)$match[2]) : (int)$value;
@@ -83,6 +83,8 @@ $error = '';
 $message = '';
 $actor = null;
 $pdo = null;
+// 局部提交（fetch 带 X-Partial: 1）：写入后不跳转，直接返回渲染好的页面
+$partialRequest = ($_SERVER['HTTP_X_PARTIAL'] ?? '') === '1';
 try {
     $pdo = api_database();
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -94,11 +96,22 @@ try {
         $actor = admin_page_session_actor($pdo);
         $complete = admin_page_mutate($pdo, $actor, $_POST, $_FILES);
         if ($complete === 'logged_out') { admin_page_redirect(); }
-        $returnId = isset($_POST['return_id']) && is_string($_POST['return_id']) ? $_POST['return_id'] : '';
-        $returnPanel = isset($_POST['panel']) && is_string($_POST['panel']) && $_POST['panel'] !== ''
-            ? '&panel=' . rawurlencode($_POST['panel']) : '';
-        admin_page_redirect($returnId !== '' ? './?id=' . rawurlencode($returnId) . '&done=' . rawurlencode($complete) . $returnPanel
-            : './?done=' . rawurlencode($complete) . $returnPanel);
+        if ($partialRequest) {
+            // 局部刷新：不跳转，就地渲染当前面板，前端只替换表格区域，因此页码不会丢
+            if (!isset($_GET['panel']) && isset($_POST['panel']) && is_string($_POST['panel'])) {
+                $_GET['panel'] = $_POST['panel'];
+            }
+            if (!isset($_GET['view']) && isset($_POST['view']) && is_string($_POST['view'])) {
+                $_GET['view'] = $_POST['view'];
+            }
+            $_GET['done'] = $complete;
+        } else {
+            $returnId = isset($_POST['return_id']) && is_string($_POST['return_id']) ? $_POST['return_id'] : '';
+            $returnPanel = isset($_POST['panel']) && is_string($_POST['panel']) && $_POST['panel'] !== ''
+                ? '&panel=' . rawurlencode($_POST['panel']) : '';
+            admin_page_redirect($returnId !== '' ? './?id=' . rawurlencode($returnId) . '&done=' . rawurlencode($complete) . $returnPanel
+                : './?done=' . rawurlencode($complete) . $returnPanel);
+        }
     }
     $actor = admin_page_session_actor($pdo);
     if (isset($_GET['sheet']) && is_string($_GET['sheet']) && $_GET['sheet'] !== '') {
@@ -282,16 +295,19 @@ if ($panel === 'town_npcs') {
         foreach (($activeTownAssets['items'] ?? []) as $asset) {
             if (is_array($asset) && (($asset['category'] ?? '') === 'character' || ($asset['subcategory'] ?? '') === 'npc')) $townCharacterAssets[] = $asset;
         }
-    } catch (Throwable) { $townCharacterAssets = []; }
+    } catch (Throwable $error) { $townCharacterAssets = []; }
 }
 $townModelProvider = $panel === 'town_agent' ? town_model_provider_public($pdo) : null;
 $townAgentNpcId = isset($_GET['npc_id']) && is_string($_GET['npc_id']) && preg_match('/\A[a-f0-9]{32}\z/D', $_GET['npc_id']) ? $_GET['npc_id'] : null;
 $townAgentDays = isset($_GET['days']) && is_string($_GET['days']) ? max(1, min(90, (int)$_GET['days'])) : 7;
 $townAgentReport = $panel === 'town_agent' ? town_agent_admin_report($pdo, $townAgentDays, $townAgentNpcId) : null;
-$townReflow = null; $townReflowError = null;
+$townReflow = null; $townReflowError = null; $townNavigationPreview = null; $townNavigationPreviewError = null;
 if ($panel === 'town_assets' && isset($_GET['preview_reflow'])) {
     require_once dirname(__DIR__) . '/_app/shared_town.php';
     try { $townReflow = town_asset_reflow_plan($pdo); } catch (Throwable $error) { $townReflowError=$error->getMessage(); }
+}
+if ($panel === 'town_assets' && isset($_GET['preview_navigation'])) {
+    try { $townNavigationPreview = town_asset_navigation_preview($pdo); } catch (Throwable $error) { $townNavigationPreviewError = $error->getMessage(); }
 }
 $report = $panel === 'report' ? catalog_report($pdo) : [];
 $reportType = isset($_GET['type']) && is_string($_GET['type']) && in_array($_GET['type'], ['fruit', 'aquarium', 'wildlife'], true)
@@ -720,5 +736,6 @@ $crumbTitle = $panel === 'town_npcs' ? ($townTitles[$townView] ?? '村民管理'
 </section>
 </main>
 </div></div>
-<script src="town-admin.js?v=20261114"></script>
+<script src="town-admin.js?v=20261115-5"></script>
+<script src="town-partial.js?v=20261115-1"></script>
 </body></html>

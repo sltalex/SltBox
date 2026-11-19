@@ -713,6 +713,7 @@ public sealed class NpcWorkerService(
         Lease? lease = null;
         DateTimeOffset nextRenew = DateTimeOffset.MinValue;
         DateTimeOffset nextClockAdvance = DateTimeOffset.MinValue;
+        WorldClock? scheduleClock = null;
         DateTimeOffset nextLifecycleRecovery = DateTimeOffset.MinValue;
         DateTimeOffset nextSocialMatterPoll = DateTimeOffset.MinValue;
         DateTimeOffset nextWorldSnapshot = DateTimeOffset.MinValue;
@@ -775,8 +776,13 @@ public sealed class NpcWorkerService(
                             WorldClock? clock = await api.ReadClockAsync(stoppingToken);
                             if (clock is not null)
                             {
+                                scheduleClock = clock;
                                 WorldClock? advanced = await api.AdvanceClockAsync(clock, _clockAdvanceMinutes, stoppingToken);
-                                if (advanced is not null) await hub.BroadcastWorldClockAsync(advanced, stoppingToken);
+                                if (advanced is not null)
+                                {
+                                    scheduleClock = advanced;
+                                    await hub.BroadcastWorldClockAsync(advanced, stoppingToken);
+                                }
                             }
                         }
                         catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
@@ -827,10 +833,19 @@ public sealed class NpcWorkerService(
                     // NPC. Completed plans are executed below without waiting for slow
                     // decisions belonging to other NPCs.
                     now = DateTimeOffset.UtcNow;
+                    // NPC schedules belong to the shared town simulation. Do
+                    // not compare them with the host's wall clock: a town can
+                    // be on day 12 at 09:00 while the server is at a different
+                    // real-world hour. The server remains authoritative for
+                    // task timestamps and duration checks; this instant is
+                    // only the deterministic schedule projection.
+                    DateTimeOffset scheduleNow = scheduleClock is null
+                        ? now
+                        : DeterministicSchedule.FromWorldClock(scheduleClock, _scheduleTimeZone);
                     foreach (Npc npc in active.Where(item => string.IsNullOrWhiteSpace(item.Runtime.CurrentTaskId)))
                     {
                         if (_pendingPlans.ContainsKey(npc.Id) || IsCoolingDown(npc.Id, now) || !CanScheduleDecision(npc, snapshot.GlobalPolicy, now)) continue;
-                        string? deterministicSlot = DeterministicSchedule.ActiveSlotKey(npc, now, _scheduleTimeZone);
+                        string? deterministicSlot = DeterministicSchedule.ActiveSlotKey(npc, scheduleNow, _scheduleTimeZone);
                         if (deterministicSlot is not null && _completedDeterministicSlots.Contains(deterministicSlot)) continue;
                         if (!await api.TryReserveDecisionSlotAsync(npc.Id, stoppingToken)) continue;
                         _pendingPlans[npc.Id] = new PendingPlan(npc, planner.TryPlanAsync(npc, modelProvider, stoppingToken), leaseGeneration);
@@ -848,7 +863,10 @@ public sealed class NpcWorkerService(
                             RegisterFailure(pending.Npc.Id, "planning_failed", error);
                             continue;
                         }
-                        await ExecutePlanAsync(pending.Npc, plan, active, stoppingToken);
+                        DateTimeOffset pendingScheduleNow = scheduleClock is null
+                            ? DateTimeOffset.UtcNow
+                            : DeterministicSchedule.FromWorldClock(scheduleClock, _scheduleTimeZone);
+                        await ExecutePlanAsync(pending.Npc, plan, active, pendingScheduleNow, stoppingToken);
                     }
                 }
             }
@@ -864,12 +882,12 @@ public sealed class NpcWorkerService(
         }
     }
 
-    private async Task ExecutePlanAsync(Npc npc, AgentPlanResult plan, IReadOnlyList<Npc> peers, CancellationToken cancellationToken)
+    private async Task ExecutePlanAsync(Npc npc, AgentPlanResult plan, IReadOnlyList<Npc> peers, DateTimeOffset scheduleNow, CancellationToken cancellationToken)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        PlannedAction action = plan.Action ?? DeterministicSchedule.Next(npc, now, _scheduleTimeZone);
-        action = DeterministicSchedule.PreferEarningWhenBroke(npc, action, now, _scheduleTimeZone);
-        action = DeterministicSchedule.FillMissingTarget(npc, action, now, _scheduleTimeZone);
+        PlannedAction action = plan.Action ?? DeterministicSchedule.Next(npc, scheduleNow, _scheduleTimeZone);
+        action = DeterministicSchedule.PreferEarningWhenBroke(npc, action, scheduleNow, _scheduleTimeZone);
+        action = DeterministicSchedule.FillMissingTarget(npc, action, scheduleNow, _scheduleTimeZone);
         action = DeterministicSchedule.ResolveTalkTarget(npc, action, peers);
         action = DeterministicSchedule.FillMissingDialogue(npc, action);
         string finalStatus = plan.Action is null ? "fallback" : plan.Status;
@@ -880,7 +898,7 @@ public sealed class NpcWorkerService(
             await hub.BroadcastNpcActionAsync(result, cancellationToken);
             if (runId is not null) await api.UpdateRunAsync(npc, runId, finalStatus, plan.ErrorCode, plan.ErrorMessage, cancellationToken);
             string taskStatus = result.TryGetProperty("task_status", out JsonElement status) ? status.GetString() ?? "" : "";
-            string? deterministicSlot = action.Reason == "deterministic_schedule" ? DeterministicSchedule.ActiveSlotKey(npc, now, _scheduleTimeZone) : null;
+            string? deterministicSlot = action.Reason == "deterministic_schedule" ? DeterministicSchedule.ActiveSlotKey(npc, scheduleNow, _scheduleTimeZone) : null;
             if (deterministicSlot is not null && result.TryGetProperty("task_id", out JsonElement taskElement) && taskElement.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(taskElement.GetString()))
                 _deterministicTaskSlots[taskElement.GetString()!] = deterministicSlot;
             if (deterministicSlot is not null && taskStatus is "completed" or "failed")
@@ -971,6 +989,11 @@ public sealed class NpcWorkerService(
 public static class DeterministicSchedule
 {
     private const string DefaultTownTimeZoneId = "Asia/Shanghai";
+    // Calendar day 1 is Sunday, matching DateTime.DayOfWeek and the schedule
+    // values stored by the town editor (0=Sunday ... 6=Saturday). The date is
+    // synthetic: only the local weekday, date and minute are used by the
+    // deterministic schedule and no wall-clock timestamp is persisted.
+    private static readonly DateTime ScheduleEpochSunday = new(2026, 1, 4);
 
     public static TimeZoneInfo ResolveTimeZone(string? timeZoneId)
     {
@@ -978,6 +1001,14 @@ public static class DeterministicSchedule
         try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
         catch (TimeZoneNotFoundException) { return TimeZoneInfo.Utc; }
         catch (InvalidTimeZoneException) { return TimeZoneInfo.Utc; }
+    }
+
+    public static DateTimeOffset FromWorldClock(WorldClock clock, TimeZoneInfo timeZone)
+    {
+        int day = Math.Max(1, clock.CalendarDay);
+        int minute = Math.Clamp(clock.MinuteOfDay, 0, 1439);
+        DateTime local = ScheduleEpochSunday.AddDays(day - 1).AddMinutes(minute);
+        return new DateTimeOffset(local, timeZone.GetUtcOffset(local));
     }
 
     public static PlannedAction FillMissingTarget(Npc npc, PlannedAction action, DateTimeOffset now, TimeZoneInfo? timeZone = null)

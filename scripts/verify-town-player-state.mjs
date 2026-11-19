@@ -7,18 +7,22 @@ import vm from 'node:vm';
 const base=new URL('../src/DeskBox/Assets/Tree/TownPrototype/',import.meta.url);
 const rulesCode=await readFile(new URL('town-rules.js',base),'utf8');
 const rules=await import(`data:text/javascript;base64,${Buffer.from(rulesCode).toString('base64')}`);
+const realtimeCode=await readFile(new URL('town-realtime.js',base),'utf8');
+const realtime=await import(`data:text/javascript;base64,${Buffer.from(realtimeCode).toString('base64')}`);
 const catalog=JSON.parse(await readFile(new URL('catalog.json',base),'utf8'));
 const messages=[],elements=new Map();
 const element=id=>{
   if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,disabled:false,classList:{add(){},remove(){},toggle(){}}});
   return elements.get(id);
 };
-const context=vm.createContext({...rules,console,Map,Set,JSON,Math,Date,
+const context=vm.createContext({...rules,...realtime,console,Map,Set,JSON,Math,Date,
+  // Resident rendering is verified separately; this fixture owns player state.
+  createResidents:()=>({reset(){},update(){},cancelCamera(){},detail(){},history(){}}),
   document:{hidden:false,activeElement:null,getElementById:element},
   window:{matchMedia:()=>({matches:false}),Phaser:{Scene:class{}},
     chrome:{webview:{postMessage:message=>messages.push(message)}}}});
 const code=(await readFile(new URL('town.js',base),'utf8'))
-  .replace(/^import .*?;\r?\n/,'')
+  .replace(/^import .*?;\r?\n/gm,'')
   .replace('boot().catch(reportError);','');
 vm.runInContext(code,context);
 const state=vm.runInContext('state',context);
@@ -26,7 +30,7 @@ state.catalog=catalog;state.layout={placements:[]};
 vm.runInContext('renderMaterials=()=>{};updateUI=()=>{};',context);
 const spawns=[];
 state.scene={player:{x:0,y:0,setVisible(){},anims:{stop(){}}},playerShadow:{setVisible(){}},
-  cancelDrag(){},renderObjects(){},renderPresence(){},
+  cancelDrag(){},renderObjects(){},renderPresence(){},renderNpcs(){},
   cameras:{main:{setBounds(x,y,width,height){state.bounds={width,height};}}},
   spawnPlayer(preferred){
     spawns.push(preferred);

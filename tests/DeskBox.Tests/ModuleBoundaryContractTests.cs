@@ -460,7 +460,7 @@ public sealed class ModuleBoundaryContractTests
         ["src/DeskBox/Services/AttachmentStorageService.cs"] = 1,
         // Town asset downloads are validated and written through a hash-named
         // temporary file before the published cache entry is replaced.
-        ["src/DeskBox/Services/TownAssetCache.cs"] = 2,
+        ["src/DeskBox/Services/TownAssetCache.cs"] = 4,
         // Cloud backup orchestrator cleans up its own %TEMP% upload staging
         // directory — it never touches the data root (that stays inside
         // DeskBoxDataBackupService's owned surface).

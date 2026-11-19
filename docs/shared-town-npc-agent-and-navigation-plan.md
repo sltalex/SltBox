@@ -746,7 +746,7 @@ town_npc_decision_policies
 | SltBox 账号与玩家角色 | 已完成 | 角色、位置、外观和装饰按 `user_id` 隔离；服务端所有权校验；两个真实账号已确认互相可见但不能修改对方装饰。 | 新增玩家相关功能必须继续走账号所有权校验。 |
 | 玩家实时同步 | 已完成 | WebSocket 玩家/NPC 增量、断线重连、旧会话丢弃和位置持久化已实现；两个客户端已确认移动同步、重连后玩家和 5 个 NPC 恢复。 | 继续保持服务端权威，客户端只做插值和显示。 |
 | NPC 资料、人格、日程 | 已完成 | 5 个样例村民、职业、人格、家庭背景、目标、日程、运行状态和居民详情接口已部署；详情和聊天历史有权限投影。 | 模型自主选题和长期人格差异的线上证据仍不作为第一版硬门槛。 |
-| NPC Worker | 已完成 | 独立 .NET Worker、全局租约、确定性回退、任务执行、日志、Docker 运行和健康检查已完成；线上 `deskbox-npc-worker:v37-p1p2-plan-validation` 正常运行，健康接口返回 `ok=true`，WebSocket 接受 24 次连接、广播 361295 次且丢弃连接为 0。 | 长时间多 Worker 压力测试不作为当前 UI/素材任务的阻塞项。 |
+| NPC Worker | 已完成 | 独立 .NET Worker、全局租约、确定性回退、任务执行、日志、Docker 运行和健康检查已完成；线上当前运行 `deskbox-npc-worker:v39-world-clock`，环境保留北京时间调度配置，容器状态为 running。v39 已修复按小镇模拟日/时判断日程，并已产生农田浇水和市场整理任务。 | 长时间多 Worker 压力测试不作为当前 UI/素材任务的阻塞项。 |
 | 导航与动态通行 | 已完成 | `plain/blocked/stairs/water/bridge`、高度、梯子/桥梁能力、A*、导航版本失效、地图对象变更后重规划已实现；用户已实际确认临时阻挡后 NPC 绕行，临时对象已清理，导航版本保持递增。 | 未配置导航语义的素材默认不可通行。 |
 | NPC 家、环境观察和空间记忆 | 已完成基础闭环 | 家的素材 ID/名称/坐标/休息点、工作后回家、阻挡等待、素材名称和坐标观察、导航版本导致记忆过期已实现并有服务端测试。 | 后续若改变记忆模型，必须保留旧坐标失效和来源事件。 |
 | NPC 经济 | 已完成基础闭环 | Web 初始化余额/库存、NPC 交易、收入/支出账本、余额不足后的合法赚钱任务已实现；玩家经济仍未实现。 | 继续避免把玩家钱包加入第一版。 |
@@ -794,7 +794,7 @@ town_npc_decision_policies
 
 线上发布基线：
 
-- Worker：`deskbox-npc-worker:v38-p2-snapshots`，健康接口正常，5 个样例 NPC 可运行；`v37-p1p2-plan-validation` 已保留为回滚容器，旧镜像仍保留。
+- Worker：线上当前为 `deskbox-npc-worker:v39-world-clock`，容器状态 running；已验证快照、时钟和行动请求持续返回 HTTP 200，5 个样例 NPC 可运行。`v38-p2-snapshots` 及更早镜像仍保留用于回滚。
 - 双账号已确认：玩家位置/装饰隔离、玩家和 NPC 移动同步、五人同屏、断线重连、对话气泡和连续面对面交谈。
 - 真实地图改道已验收：临时阻挡对象放置/删除均已清理，导航版本保持递增。
 - 素材自动排序 Web 发布备份：`/root/deskbox-backups/town-asset-sort-20261114-160759/`。
@@ -881,12 +881,12 @@ Godot 的 GDScript 只作为行为和数据契约参考，不直接移植 `Node`
 | P1-1 公共事件时间线 | 已完成本地和线上垂直切片 | `town_world_events`、`events.php`、事件抽屉、迁移 047 | 任务/交易/天气来源已具备投影入口；仍需用两个认证客户端验收断线后的游标和回执 |
 | P1-2 感知和兴趣点 | 已完成服务端和 Worker 线上切片 | `town_interest_points`、放置素材自动兴趣点投影、`perception.php`、Worker `agent_context.observations` | 线上 Worker 快照已恢复 200；仍需用认证账号验证真实墙体/高度差画面；复杂视觉模型仍不做 |
 | P1-3 时间和天气 | 已完成本地、线上迁移和 Worker 推进 | `town_world_state`、`clock.php`、`clock-advance.php`、NPC 天气路线戳、迁移 048 | Worker 已按租约读取并推进时钟，天气到期和路线重规划仍需双客户端画面验收 |
-| P1-4 图片参与对话 | 设计完成 | 对话 Worker 临时事实转换 | 先锁定图片上限、供应商超时和隐私日志策略 |
+| P1-4 图片参与对话 | 客户端接入与服务端垂直切片已完成，真实认证验收待做 | 居民对话框提供图片选择；客户端通过 WebView Bridge 发送 PNG/JPEG/WebP，C# 以 multipart 转发到服务端；服务端执行 4 MB、400 万像素和格式校验，请求期间转发到 Worker `photo-facts`，原图不持久化；识别摘要、NPC 回复和连续对话记录已接入；WebView 消息上限已覆盖 4 MB 原图的 Base64 传输 | 需要在 Debug 登录会话中实际选择图片，验证识别文本、NPC 回复、连续文字交谈和忙碌回复；随后再做线上桌面端发布 |
 | P2-1 居民生命周期 | 已完成本地和线上垂直切片 | `049_town_npc_lifecycle_v1.sql`、管理后台状态保存、Worker 到期恢复、行动/任务生命周期守卫、NPC 目标过滤、WebSocket 生命周期增量、客户端隐藏离镇实体并显示恢复状态 | 线上迁移和 Worker 已完成；仍需用认证账号验收离开、受伤、恢复、断线重连；死亡和替补仍不在本阶段 |
 | P2-2 社会冲突与调解 | 结构和权威任务闭环已部署，功能开关关闭 | `050/051` 已在线执行；承诺绑定 `town_npc_tasks`，任务完成或失败会回写承诺；Worker 调度代码、嵌套 JSON 兼容、idle rest 接管和 35 项 Worker 测试通过；PHP 文件已备份、上传并完成远程 SHA-256 回读；MySQL 结构与 `FOR UPDATE` 锁测试通过；线上 Worker 健康正常。 | 仍需开启前完成并发/权限和候选动作的线上认证验收；功能开关必须保持关闭直到验收完成。 |
-| P2-3 世界快照与恢复 | 快照、增量 journal、dry-run、事件适配器和受控恢复已部署并验证 | `052_town_world_snapshots_v1.sql`、`053_town_world_event_journal_v1.sql`、快照哈希校验、幂等 journal 追加、Worker 专用查询、时间/天气、“休息完成”NPC 任务和 NPC 交易适配器，以及显式校验/版本确认的恢复接口已完成；线上恢复成功生成新世界版本和快照，Worker 仍为 `running`、重启次数 0 | 其他 NPC 行动、工作/农田/市场/工坊副作用和社会事务事件适配器仍未完成；尚未用真实用户会话读取最新快照和完成完整灾备演练 |
-| P2-4 地图语义生成 | 设计完成 | 复用素材扫描/发布流程 | 草稿预览和校验器通过后才能发布 |
-| P2-5 运行时遥测 | 设计完成 | 复用 Worker/Phaser 生命周期 | 先定义采样字段和管理员权限 |
+| P2-3 世界快照与恢复 | 已完成一次线上受控恢复；适配器和真实工作结果已验证，完整灾备演练未收口 | `052_town_world_snapshots_v1.sql`、`053_town_world_event_journal_v1.sql`、快照哈希校验、幂等 journal 追加、Worker 专用查询、时间/天气、NPC 休息/行走/失败/工作完成、NPC 交易、`npc_task_replay_delta`（农田、市场、工坊、收入）以及社会事务 opened/response/承诺/结案适配器已完成；恢复接口显式校验版本和 SHA-256；线上受控恢复前已完成数据库备份，源快照 `48ee3eb921bd23af0f610aaa9b04b4d8` 重放 9 条事件，世界版本 `301→302`，新快照 `791db1a73cc03740a22543358dbe2818`，`writes_applied=true`；恢复后农田为 `watered`、浇水次数 8、市场库存 96，并确认农田和市场 `work_run_id`；本地 PHP 测试 59 个文件（需 MySQL 的 3 个按规则跳过）和 Worker 测试 39/39 通过；最新线上 dry-run 已覆盖恢复后增量并返回 `replayable=true`、`errors=[]`、`replay_blockers=[]`、`writes_applied=false` | 已完成一次受控恢复和恢复后只读核对；仍需认证用户读取快照和完整灾备演练；线上 Journal 尚未产生新的社会事务增量，因此社会事务恢复尚未进行生产写入；恢复后 Worker 产生的 `npc_task_completed(action=work)` 已补适配并上线，不能再次盲目恢复 |
+| P2-4 地图语义生成 | 已完成并上线 | 素材保存入口规范化并校验 `plain/blocked/stairs/water/bridge`、`ladder/bridge_kit`、楼梯连接方向和高度；自动识别批量草稿根据名称、分类、子分类和标签推断水域、桥梁、楼梯、道路或阻挡物，无法判断时安全回退 `blocked`，结果仍是可编辑草稿；后台提供只读“预览导航影响区块”，按已放置对象汇总区块、对象数、导航类型并生成预览 SHA-256；发布表单携带预览指纹，服务端重新计算并拒绝过期预览；新增 `054_town_asset_release_audit.sql` 和 `town_asset_release_audits`，发布时记录 release、版本、发布人、导航版本和预览指纹；后台新增审计查询表；远程完成 v22→v21→v22 可逆回滚演练并核对配置指纹；相关 PHP/JS 已备份并上传线上，PHP 7.4/8.2 lint、JavaScript 校验、本地 PHP 测试和远程 SHA-256 回读通过 | 首版闭环完成；后续可按需要增加审计筛选和回滚操作的二次确认 |
+| P2-5 运行时遥测 | 已完成本地和线上垂直切片 | `029_town_agent_observability.sql`、`town_agent_runs`、`town_npc_activity_logs`、Worker 专用运行记录接口、管理员 Agent 报表；支持模型调用、回退/失败、动作、路线、说话、心情摘要、延迟和 Token 汇总；不保存完整提示词、API Key 或图片内容 | 仍可在真实高并发后增加采样聚合和帧预算图表；费用金额继续按包月约定保持参考性质，不作为线上计费依据 |
 | P2-6 触控适配 | 条件项 | 尚未启用 | 明确触屏发行目标后再开工 |
 
 P1-1 至 P1-3 共享同一个 `source_key` 幂等约束和事件游标。P1-3 的客户端只显示服务端返回的 `revision`、`minute_of_day` 和 `weather_code`；浏览器本地时间不推进世界状态。后续 Worker Scheduler 必须携带租约，并使用 `expected_revision`，冲突时重新读取而不是覆盖其他 Worker 的推进。
@@ -1084,6 +1084,15 @@ POST /api/v2/town/npcs/conversations/photo
 - 图片转换失败不会影响连续对话状态。
 - 对话历史可显示“图片事实摘要”，但不会暴露内部提示词。
 - 两个客户端只同步文本摘要和消息状态。
+
+#### 当前实现状态（2026-11-19）
+
+- 桌面居民对话框已提供“图片”按钮和隐藏文件选择器，客户端限制 PNG/JPEG/WebP，单图不超过 4 MiB。
+- 图片通过 WebView Bridge 发送到 C#，C# 解码后使用 multipart 调用认证图片对话接口；原图只存在于本次请求内。
+- WebView 入站消息上限为 8 MiB，覆盖 4 MiB 原图 Base64 后的体积；服务端仍执行 4 MiB 原图、400 万像素和 MIME 校验。
+- 识别出的事实摘要和 NPC 回复会进入当前连续对话气泡、聊天窗口和对话记录；图片字节不进入日志、事件或记忆。
+- 本地 Debug 构建和 `SharedTownSessionTests` 20/20 已通过，新增完整 4 MiB multipart 上传、非法图片输入回归；前端 `verify-town-residents.mjs` 已覆盖图片格式、空文件和 4 MiB 边界；服务端 PHP lint、匿名会话拒绝和 Worker 39/39 测试已通过。
+- 尚缺真实认证桌面会话验收：选择图片、确认识别文本和 NPC 回复、连续发送文字，以及 NPC 忙碌时返回“我现在正在忙，请先等一等”。完成后才发布桌面端版本。
 
 ### 18.6 P2-1：居民生命周期和替补
 
@@ -1361,3 +1370,58 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - 2026-11-19 NPC 交易重放适配器：公共任务完成事件中的 `trade` 结果现在经过受限投影；恢复前校验卖方、买方、物品、数量和金额，按交易 ID 幂等调用既有原子交易服务，重复事件不会重复扣款。线上 PHP 8.2 lint 通过，最新快照 dry-run 返回 13 条增量、`replayable=true`、错误 0、阻塞 0；交易/经济之外的工作副作用仍需加入完整差异事件后再恢复。
 - 2026-11-19 线上兼容收口：公共事件投影新增的 JSON 异常处理改为显式变量捕获，保持 PHP 7.4 CLI 可解析；远程 `/api/_app/town_world_events.php` 备份并上传，PHP lint 通过，远程 SHA-256 与本地一致。最新线上 dry-run 返回 `replayable=true`、错误 0，Worker `v38-p2-snapshots` 仍运行中且重启次数 0。
 - 2026-11-19 工作副作用重放准备：恢复器已支持受限的 `npc_task_replay_delta`，可按 `work_result` 应用农田浇水、市场补货、工坊产物和工作收入，并用 `work_run_id` 幂等；公共投影允许受限携带 `work_result/work_point`。当前生产任务完成流程尚未生成该 delta 事件，因此线上 dry-run 仍只报告现有事件，不能把工作恢复标记为已完成；后续需在任务事务内追加事件并补真实工作样例验收。
+- 2026-11-19 工作副作用重放本地收口：任务完成事务现在为每个工作任务追加一条 `task_replay_delta`，公共投影保留 `job`、`work_run_id`、`work_point` 和受限 `work_result`，恢复器按相同 payload 读取并以 `work_run_id` 幂等；修复了 PHP 异常变量丢失和重复追加事件问题。农田、市场、工坊、事件投影和重放回归通过，当前尚未部署本次改动，仍需线上备份、上传、PHP lint、远程哈希回读、真实工作事件和恢复验收。
+- 2026-11-19 社会事务重放本地适配：新增社会事务承诺状态和事务结案事件的确定性恢复适配器，支持 `assigned/executing/completed/failed/cancelled`、版本推进、终态冲突拒绝和重复事件幂等；dry-run 和 SQLite 恢复回归通过。尚未部署线上，社会事务仍需线上功能开关关闭状态下完成真实认证验收和灾备演练。
+- 2026-11-19 P2-3 恢复适配线上发布：远程服务器 CLI 为 PHP 7.4.33；兼容收口后上传 `town_npcs.php`、`town_world_events.php`、`town_world_replay.php`，三个文件远程 PHP 7.4 lint 均通过，远程 SHA-256 分别为 `7357f6404047f11a3be9e2e31ed5f55f597d2bc8890aa235313be55102ce1ef6`、`640a7bae703a21f96e50d58bd5e5dd02998dc883fa8ad5acd213a3c378bceecb`、`d4ebdfda7a3fc2aa8598edd02c7512c9b37040fca9794518a76629a0dbf8dbe4`，与本地一致。线上 Worker `deskbox-npc-worker:v38-p2-snapshots` 仍运行；真实工作/社会事务事件的 dry-run 与恢复写入尚未执行。
+- 2026-11-19 P2-3 NPC 行走/失败适配与线上回读：恢复器新增确定性 `npc_task_completed(action=walk)` 和 `npc_task_failed` 适配，支持位置、任务状态、失败原因恢复及幂等；本地共享小镇测试增至 38 项并全部通过。线上重新上传 `town_world_replay.php`，PHP 7.4/8.2 lint 和远程 SHA-256 `ab4cea478a903dfb7ef7195656ced011200d9f05cf180e3954a8eda3470bc443` 回读通过，备份目录为 `/root/deskbox-backups/town-replay-npc-actions-20261119-013052/`。线上 dry-run 当前返回 `replayable=true`、`errors=[]`、`blockers=[]`、Journal 增量 7 条；历史 94 条工作完成事件产生于本次发布前，缺少 `task_replay_delta`，不能 retroactively 恢复，需等待发布后的真实工作事件。
+- 2026-11-19 当前进度复核：线上 `deskbox-npc-worker:v38-p2-snapshots` 仍在运行，容器重启次数为 0；本地重新执行 38 个 `town_*_test.php` 全部通过，Worker 测试 36 项全部通过。方案状态表已修正为“P2-3 事件适配器已线上发布，真实工作事件/社会事务恢复和灾备演练未完成”。
+- 2026-11-19 世界时钟调度修复发布：核对发现线上 Worker 仍使用旧的真实时间日程判断，导致小镇模拟时间处于工作时段时仍反复创建 `outside_schedule` 休息任务。`DeterministicSchedule.FromWorldClock(...)` 已加入按小镇第几天和模拟分钟投影日程的逻辑；新增第 1 天星期日、第 12 天上午工作时段和跨周映射测试，`DeskBox.NpcWorker.Tests` 现为 39 项全部通过。线上先备份旧 Worker 源文件，再构建并切换 `deskbox-npc-worker:v39-world-clock`，健康接口返回 `ok=true`，快照、时钟和行动请求持续 HTTP 200；切换后线上已出现农田 `water_crop` 和市场 `organize_goods` 运行任务。当前等待这些真实工作任务完成后核对 `task_replay_delta`，未人工推进或伪造生产事件。
+- 2026-11-19 真实工作事件验证：`v39-world-clock` 运行任务完成后，线上产生 2 条 `task_replay_delta`，分别覆盖农田 `water_crop` 和市场 `organize_goods`，均带有 `work_run_id`、工作点、收入和受限 `world_effect`。最新快照包含 1 条快照后的 Journal 增量；使用 PHP 8.2 直接执行线上 dry-run 返回 `replayable=true`、`errors=[]`、`replay_blockers=[]`、`writes_applied=false`。尚未执行生产恢复写入，等待受控恢复授权和完成后校验；没有人工伪造事件。
+- 2026-11-19 受控恢复前复核：线上只读 dry-run 继续返回 `replayable=true`、`replay_blockers=[]`、`errors=[]`、`warnings=[]`，当前快照后的增量事件数为 5；`writes_applied=false`。生产恢复接口仍未调用，等待明确授权。
+- 2026-11-19 受控恢复与工作事件适配收口：按授权先完成远程数据库备份，再执行一次受控恢复。源快照 `48ee3eb921bd23af0f610aaa9b04b4d8` 重放 9 条 Journal 事件，世界版本 `301→302`，生成新快照 `791db1a73cc03740a22543358dbe2818`，`writes_applied=true`；恢复后核对农田 `farm-plot-3-1=watered`、`watering_count=8`、市场库存 `market-stock-1=96`，并确认农田工作运行记录。恢复后 Worker 新增的两个 `npc_task_completed(action=work)` 事件最初暴露为阻塞；只读检查确认其副作用由后续 `task_replay_delta` 承载，恢复器已补充仅恢复 NPC 最终位置/休息状态的 work-completion 适配器，避免重复应用工作效果。该改动已备份并上传线上，使用 PHP 8.2 dry-run 返回 `replayable=true`、`errors=[]`、`replay_blockers=[]`；未再次写入生产。完整灾备演练和认证用户快照读取仍待完成。
+- 2026-11-19 社会事务重放适配补齐：恢复器新增 `social_matter_opened` 和 `social_matter_response` 的确定性校验/回放，保留终态单调性、响应幂等和冲突拒绝；`town_world_social_replay_test.php` 与全部 59 个 PHP 测试文件通过。远程备份后上传 `town_world_replay.php`，PHP 7.4/8.2 lint 均通过；最新线上 dry-run 返回 `replayable=true`、`replay_blockers=[]`、`errors=[]`、`writes_applied=false`，增量 10 条。线上当前 Journal 尚未包含新的社会事务增量，因此尚未执行生产写入；社会事务真实恢复仍需等待功能开关保持受控后产生可回放样例。
+- 2026-11-19 P2-4 导航语义保存校验：素材草稿保存新增导航语义规范化和一致性校验，支持普通地面、阻挡物、楼梯、水域、桥梁及梯子/桥梁道具能力；水域缺少能力时自动补 `bridge_kit`，普通地面配置能力会拒绝，未知能力和楼梯连接方向会拒绝。新增素材服务回归断言，测试通过；`town_assets.php` 已备份至 `/root/deskbox-backups/town-assets-20261119-navigation-validator.php` 并上传，远程 PHP 8.2 lint 通过、SHA-256 与本地一致。自动导航草稿生成、受影响区块预览和确认发布仍未完成。
+- 2026-11-19 P2-4 自动导航草稿：自动识别批量保存不再强制写入固定 `blocked` 导航值；服务端根据素材名称、分类、子分类和标签生成可编辑草稿，识别水域、桥梁、楼梯和道路，否则安全回退为阻挡物。新增素材服务回归断言，`town_assets.php` 和 `town-assets.js` 已备份至 `/root/deskbox-backups/town-assets-20261119-navigation-draft.*` 并上传，PHP 7.4/8.2 lint、JavaScript 语法和远程 SHA-256 回读通过。受影响区块预览和管理员确认发布仍未完成。
+- 2026-11-19 P2-4 导航影响预览：新增 `town_asset_navigation_preview()`，只读汇总当前草稿/发布素材在已放置对象上的导航类型和受影响区块，返回对象数、区块数及预览 SHA-256；后台新增“预览导航影响区块”入口和表格，不修改对象、不发布素材。素材服务、后台入口和素材视图已备份至 `/root/deskbox-backups/town-assets-20261119-navigation-preview.*` 并上传，PHP 7.4/8.2 lint、素材回归测试和远程哈希回读通过。下一步是把该预览指纹接入发布确认和导航版本审计。
+- 2026-11-19 P2-4 发布确认闸门：素材发布表单在存在导航预览时携带 `navigation_preview_sha256`；服务端重新计算当前影响预览，指纹不一致返回 `navigation_preview_stale`，要求管理员重新预览后才能发布。新增回归断言覆盖过期指纹拒绝；`admin_web.php`、素材视图已备份并上传，PHP 7.4/8.2 lint 和远程 SHA-256 回读通过。导航版本/发布人/预览指纹的独立审计表仍未建立。
+- 2026-11-19 P2-4 发布审计收口：新增迁移 `054_town_asset_release_audit.sql` 和 `town_asset_release_audits`，远程执行成功并核对 7 个字段、发布版本唯一约束和创建时间索引。`town_asset_publish()` 在发布成功后记录 `release_id`、`release_version`、`published_by`、`navigation_version`、`navigation_preview_sha256` 和时间；旧数据库缺表时兼容跳过审计写入，不阻塞既有发布。上传 `town_assets.php`、`admin_web.php`、`admin/index.php`、`views/town_assets.php`、`town-assets.js` 后，远程 PHP 7.4/8.2 lint 通过，远程 SHA-256 与本地一致；后台入口的 PHP 7.4 兼容性也已收口。完整本地 PHP 测试 59/59 通过，P2-4 首版闭环完成。后续仅剩审计查询页和回滚演练。
+- 2026-11-19 P2-4 审计查询与回滚演练：后台素材状态新增最近发布审计记录查询，显示版本、发布人、导航版本、预览指纹和时间；表缺失时保持滚动部署兼容。新增回归断言验证审计记录能从后台状态读取；本地素材服务测试通过。线上备份并上传 `town_assets.php`、`views/town_assets.php`，PHP 7.4/8.2 lint 和远程 SHA-256 回读通过。线上当前版本 v22、前一版本 v21 完成可逆演练：v22 → v21 → v22，两个阶段均核对 release_id、release_version、config_sha256，最终恢复 v22，素材对象数 133 未改变。审计表当前记录数为 0，因为最近历史发布早于 054 迁移；下一次新发布会开始产生记录。
+- 2026-11-19 P2-5 遥测线上核对：确认远程已存在 `town_agent_runs`、`town_npc_activity_logs`、`town_agent_token_reservations`、`town_model_provider_revisions` 和 `town_agent_leases`；Worker 运行记录接口和后台报表文件远程 SHA-256 与本地内容一致（仅换行格式差异）。本地 `town_agent_observability_test.php` 通过，报表覆盖调用次数、成功/回退/失败、输入/输出/总 Token、平均延迟、按 NPC 汇总、结构化活动日志和配置修订；对话原文、密钥和图片内容不进入遥测记录。费用展示保留为价格快照参考，不作为包月服务的实际计费依据。
+- 2026-11-19 P2-5 PHP 7.4 兼容修复：远程 lint 发现 `town_agent.php` 的可选迁移异常处理使用了 PHP 8 的未命名 `catch` 语法；已将 4 处改为显式异常变量，保留旧迁移兼容逻辑。`town_agent_observability_test.php` 通过，远程 PHP 7.4/8.2 lint 通过，远程 SHA-256 `9188c5303b6282d30d2c1fb8fff58a31e3f58da07d065781c7b25d646a964e9f` 与本地一致，备份位于 `/root/deskbox-backups/town-agent-observability-20261119-compat/`。
+- 2026-11-19 P2-2 线上状态复核：Worker 容器 `deskbox-npc-worker:v39-world-clock` 未设置 `TOWN_SOCIAL_MATTERS_ENABLED`，社会事务功能仍关闭；远程数据库当前只有 1 条历史 `acceptance_probe` 事务（`cancelled`）和 1 条响应，没有承诺任务。未伪造新的生产事务或事件；P2-2 仍需在功能开关关闭状态下由认证管理员创建真实受控样例，再验证候选资格、并发响应、路线/库存条件和失败回滚，之后才能开启开关。
+- 2026-11-19 P2-2 PHP 7.4 兼容收口：社会事务服务中的未命名 `catch` 已改为显式异常变量，`array_is_list` 替换为兼容列表校验；Agent 社会事务入口的 PHP 8 `match` 改为 `switch`。本地社会事务回归和全部 59 个 PHP 测试通过；远程备份并上传 `town_social_matters.php`、`api/v2/town/agent/social.php`，PHP 7.4/8.2 lint 通过，SHA-256 分别为 `aa7d49910a4f57a8f2e130eb8f2a123c3d4bd1bf4436b34190acff93fe2f19f9`、`e1a53382d47ac62a0b9f8ad061497899f7ebd780ad779a83eb3de8c5662537f7`。功能开关仍保持关闭。
+- 2026-11-19 P2-3 线上只读灾备复核：使用 Worker 服务身份执行最新快照 dry-run，快照 `035ccbf92bbf4de77df3b8ffac9b1ccb`、世界版本 `302`、导航版本 `297`，快照后 Journal 增量 2 条（序号 `867–868`），返回 `replayable=true`、`replay_blockers=[]`、`errors=[]`、`writes_applied=false`。农田浇水次数 8、市场库存 96 等恢复后状态仍在快照中；本轮未写入生产，完整灾备演练仍需新的受控恢复授权和认证用户快照读取证据。
+- 2026-11-19 P2-2 远程 MySQL 并发验收：在生产数据库上运行只读结构检查和临时表锁探针，确认 `town_social_matters`、`town_social_responses`、`town_social_commitments` 存在，`task_id CHAR(32) NULL` 和任务索引正确；第二连接在第一连接持有 `FOR UPDATE` 时按预期收到锁等待错误，临时表已清理。社会事务功能开关未开启，未改变真实事务数据。
+- 2026-11-19 P1-4 图片对话服务端发布：确认线上 Worker 内部 `/internal/photo-facts` 已启用鉴权，未带服务令牌返回 403；上传 `town_npc_photo.php` 和 `api/v2/town/npcs/conversations/photo.php`，远程 PHP 7.4/8.2 lint 通过，匿名公网请求返回应用层 401 `invalid_session`，没有 Nginx 404；远程 SHA-256 与本地一致。Worker 测试 39/39 通过，覆盖 metadata fallback 不携带图片字节。桌面端已接入居民对话图片按钮、隐藏文件选择器、Base64 Bridge、multipart 上传和识别结果/回复渲染；同时将 WebView 消息上限调整为 8 MiB，以覆盖浏览器端 4 MiB 图片的 Base64 膨胀。仍待真实登录会话选择图片验收，完成后再发布桌面端。
+- 2026-11-19 P1-4 客户端上传回归：`SharedTownSessionTests` 增至 20/20，覆盖认证 multipart 字段、PNG MIME、文件内容、非法类型和超过 4 MiB 拒绝；canonical Debug 构建 0 错误并重启，运行路径为 `src/DeskBox/bin/Debug/net10.0-windows10.0.22621.0/DeskBox.exe`。真实登录会话图片选择和线上桌面端发布仍待完成。
+- 2026-11-19 P1-4 前端图片校验回归：新增 `residentPhotoValidation()` 并接入居民对话图片选择，`scripts/verify-town-residents.mjs` 验证 PNG/JPEG/WebP、4 MiB 边界、空文件和不支持格式；canonical Debug 构建 0 错误并重启，运行 PID 27472。真实登录会话图片选择和线上桌面端发布仍待完成。
+- 2026-11-19 P1-4 4 MiB 边界上传回归：`SharedTownSessionTests` 的合法图片用例改为完整 4 MiB PNG，验证 multipart 序列化确实携带完整负载；20/20 通过。真实登录会话图片选择和线上桌面端发布仍待完成。
+- 2026-11-19 共享小镇自动回归复核：本地逐个执行 38 个 `server/deskbox-api/tests/town_*test.php`，全部通过；图片接口 PHP lint 和前端居民脚本验证也通过。剩余图片验收仍是需要真实登录会话的运行时步骤。
+- 2026-11-19 真实 Debug 会话复核：已检测到“小镇预览 · 实验”窗口并确认资产目录和 NPC 图集加载成功；随后 `world/chunks`、NPC snapshot 和居民读取请求连续出现 `TaskCanceledException/HttpRequestException`，桌面 WebView 无障碍树和窗口捕获也超时，因此本次不能把图片对话运行时验收标记为通过。需要先恢复该会话的 API 请求连通性，再继续选图验收。
+- 2026-11-19 真实会话网络复核：通过 SSH 检查线上 `deskbox-npc-worker` 容器健康，Worker 对认证 NPC snapshot 请求约 140–155 ms 且持续 200；匿名/无效令牌 API 请求可在约 0.5–1.3 秒返回 401。当前只剩桌面客户端会话在成功加载资产后对世界分块、NPC snapshot 和居民读取发生超时，尚未完成图片按钮运行时验收。
+
+## 2026-11-19 线上部署记录
+
+本次已将共享小镇线上运行时部署到 `sltbox.2leaves.cn`：
+
+| 项目 | 结果 | 证据 |
+|---|---|---|
+| 远端备份 | 已完成 | `/root/deskbox-backups/town-deploy-20261119-132402/`，包含 `api-before.tar.gz` 和 `database-before.tar.gz` |
+| Web 运行文件 | 已上传 | `server/deskbox-api/api` 运行目录已同步，未包含本地配置和 `_private_uploads` 素材 |
+| 数据库迁移 | 已执行 | 039–054 共 16 个迁移全部返回 `OK`；迁移为幂等增量脚本 |
+| PHP 语法 | 已通过 | 线上 PHP 8.2 对 API 下 146 个 PHP 文件检查，失败数为 0 |
+| 文件回读 | 已通过 | `town_npc_photo.php`、图片对话接口、`town_world_replay.php` 远端 SHA-256 与本地一致 |
+| 匿名接口 | 已通过 | 图片接口返回 405（仅允许 POST），NPC 快照/世界接口返回预期 401 `invalid_session` |
+| NPC Worker | 已运行 | `deskbox-npc-worker` 容器状态为 running |
+
+本次部署只覆盖 Web/PHP/数据库运行时；桌面端 Debug/安装包没有在本次线上部署中更新。已登录账号下的完整图片对话、跨账号和客户端画面验收仍需在可用客户端会话中单独确认。
+- 2026-11-19 客户端网络稳态补强：`SharedTownSession.SendAsync` 对幂等 GET 增加一次 250ms 延迟重试，超时和瞬时 `HttpRequestException` 可恢复；POST/动作/邀请/上传仍只发送一次，避免重复写入。新增 `IdempotentWorldReadRetriesOneTransientFailure` 回归测试；`SharedTownSessionTests` 21/21 通过。按仓库流程重建并启动 canonical Debug，当前进程为 `src/DeskBox/bin/Debug/net10.0-windows10.0.22621.0/DeskBox.exe`（PID 25468）。该改动尚未发布桌面安装包，需真实登录会话复测后再进入发布。
+- 2026-11-19 客户端候选发布包：修复小镇图片错误响应和 NPC 邀请中的 Native AOT 动态匿名类型序列化，`publish-aot-retail.ps1 -Platform x64` 在独立目录 `.artifacts/town-retry-release/win-x64` 成功完成，`unexpectedWarningCodes=[]`，产物 8764 个文件、约 431.5 MiB；`release-manifest.json` 和 `SHA256SUMS` 已生成，候选版本标记为 `2026111901`。这是未上传的候选包，正式 `stable.json`、GitHub Release 和镜像保持不变，等待真实登录会话验收后再发布。
+- 2026-11-19 候选安装器：系统已有 Inno Setup 6；基于候选 Native AOT 目录生成 `SltBox_Setup_2026111901_x64_2026111901_x64.exe`，文件大小 158,727,072 bytes，ProductVersion `2026.11.19.1`，SHA-256 `477DA0F15E37DDD7894CAE836B906038D0A23B0158377854BF1CE122CBD92199`。安装器和校验文件位于 `.artifacts/town-retry-release/win-x64/installer-2026111901/`，仅为未上传候选包；正式发布仍等待真实会话验收。
+- 2026-11-19 `2026111901` 已完成线上发布：标准命名 x64 Native AOT 安装器 `SltBox_Setup_2026111901_x64.exe`（158,727,072 bytes，SHA-256 `477da0f15e37ddd7894cae836b906038d0a23b0158377854bf1ce122cbd92199`）已创建 GitHub Release `v2026111901`，并上传到 `http://sltbox.2leaves.cn/releases/`；`update/stable.json` 已同步版本、下载地址、大小和哈希。GitHub 资产、镜像 HTTP 响应和完整公开下载回读均通过，公开下载哈希与本地一致。真实登录图片对话运行时验收仍需单独完成。
+- 2026-11-19 发布后复核：本地 38 个 `town_*test.php` 全部通过（其中 3 个需要 DSN 的 MySQL 测试按规则跳过），Worker 测试 39/39 通过，客户端共享小镇相关测试 36/36 通过；当前工作区变更涉及的 45 个 Web/PHP 文件逐项与线上 `/www/wwwroot/sltbox.2leaves.cn` SHA-256 对比无差异。GitHub `main` 的 `update/stable.json` 已确认指向 `2026111901`，GitHub Release 和 HTTP 镜像大小、哈希一致。剩余未完成项仍是 P1-4 图片对话真实认证运行时验收、P2-2 社会事务开关关闭状态下的认证并发/权限/失败回滚验收、P2-3 完整灾备演练，以及原生 WebView 的最终窄屏视觉回归。
+- 2026-11-19 线上 PHP 运行时复核：排除 `/api/_deploy-backups/` 后，线上 PHP 8.2 CLI 对 142 个活动 PHP 文件执行 `php -l`，失败数为 0；服务器默认 PHP 7.4 CLI 仅用于兼容性抽查，不能替代 PHP 8.2 运行时检查。
+- 2026-11-19 本机安装器状态：运行 `SltBox_Setup_2026111901_x64.exe` 时检测到 `D:\kaifa_tool\deskbox-smoke-install` 和仓库 Debug 输出目录两个已有 DeskBox 安装，安装器按保护逻辑暂停，未覆盖或卸载任何版本。需要用户决定保留哪个本机版本后，才能继续进行安装后的真实登录会话验收。
+- 2026-11-19 会话过期地图请求修复：`SharedTownSession` 收到区块接口 401 时现在立即清空区块、关闭小镇会话并显示“登录已过期，请重新登录后查看共享小镇”，后续 viewport 事件不会继续每 20 秒重复请求。新增 `ExpiredSessionStopsRepeatedChunkRequests`，共享小镇客户端测试 22/22 通过；Debug 构建 0 错误并按流程重启 canonical 实例 PID 25808。该客户端修复尚未进入线上安装包，需下一次真实登录会话复测后再发布。
+- 2026-11-19 本轮线上部署：已先创建远程备份 `/root/deskbox-backups/deploy-20261119-190859/`（API 与 database），将当前 `server/deskbox-api/api` 运行目录同步到 `/www/wwwroot/sltbox.2leaves.cn/api`（保留远端 `_private_uploads` 和配置），并上传全部数据库迁移文件。远程 MySQL 逐项重放 039–054，全部完成；PHP 8.2 对 142 个活动 PHP 文件 lint 失败数为 0。Worker 使用当前源码构建并滚动升级为 `deskbox-npc-worker:v40-world-clock`，健康检查返回 `ok=true`、`realtime.activeConnections=1`，旧 `v39-world-clock` 容器保留为停止状态回滚副本，备份位于 `/root/deskbox-backups/worker-v40-20261119-111716/`。匿名世界接口继续返回预期 `401 invalid_session`。本轮未重新发布桌面端安装包，客户端会话过期修复仍需真实登录验收后再进入正式桌面发布。
+- 2026-11-19 桌面端发布闸门复核：按 `-p:Platform=x64` 执行 `DeskBox.Tests`，5368 项中 5353 通过、15 项失败；失败集中在既有 AOT Stage 5 基线脚本冻结计数 `ExpectedWmc1510Count` 和生产文件清单契约，不是共享小镇运行时测试。由于全量桌面发布门未通过，本轮不生成新的正式安装包或更新 `stable.json`。canonical Debug 已按仓库流程重建并启动，运行路径为 `src/DeskBox/bin/Debug/net10.0-windows10.0.22621.0/DeskBox.exe`，PID 21228，构建 0 错误、9 个既有警告。

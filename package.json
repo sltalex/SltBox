@@ -1,0 +1,24 @@
+{
+  "name": "deskbox",
+  "version": "1.0.0",
+  "description": "**本地优先的 Windows 10/11 桌面整理工具：用格子管理文件、文件夹、时光、待办、随记、搜索、天气和音乐。**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sltalex/SltBox.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sltalex/SltBox/issues"
+  },
+  "homepage": "https://github.com/sltalex/SltBox#readme"
+}

@@ -13,15 +13,57 @@ public static class WidgetSurfaceForegroundScope
 {
     private static readonly Color DarkText = Color.FromArgb(255, 48, 48, 46);
 
-    public static void ApplyForBackground(FrameworkElement surface, Brush? background)
+    /// <summary>
+    /// The hosting widget publishes its resolved foreground here so nested
+    /// note/todo cards can preserve an explicit per-widget color. A fully
+    /// transparent value means that no host palette has been published yet.
+    /// </summary>
+    public static readonly DependencyProperty PreferredForegroundColorProperty =
+        DependencyProperty.RegisterAttached(
+            "PreferredForegroundColor",
+            typeof(Color),
+            typeof(WidgetSurfaceForegroundScope),
+            new PropertyMetadata(default(Color)));
+
+    public static void SetPreferredForegroundColor(DependencyObject element, Color value) =>
+        element.SetValue(PreferredForegroundColorProperty, value);
+
+    public static void ClearPreferredForegroundColor(DependencyObject element) =>
+        element.ClearValue(PreferredForegroundColorProperty);
+
+    public static void ApplyForBackground(
+        FrameworkElement surface,
+        Brush? background,
+        bool respectPreferredForeground = false)
     {
         ArgumentNullException.ThrowIfNull(surface);
         if (background is SolidColorBrush solid && IsLight(solid.Color))
         {
-            ForegroundResourceScope.Apply(surface, DarkText);
+            ForegroundResourceScope.Apply(
+                surface,
+                respectPreferredForeground
+                    ? FindPreferredForegroundColor(surface) ?? DarkText
+                    : DarkText);
             return;
         }
         ForegroundResourceScope.Clear(surface);
+    }
+
+    private static Color? FindPreferredForegroundColor(FrameworkElement surface)
+    {
+        DependencyObject? current = surface;
+        while (current is not null)
+        {
+            Color value = (Color)current.GetValue(PreferredForegroundColorProperty);
+            if (value.A != 0)
+            {
+                return value;
+            }
+
+            current = (current as FrameworkElement)?.Parent;
+        }
+
+        return null;
     }
 
     private static bool IsLight(Color color)

@@ -18,6 +18,8 @@ internal sealed class SharedTownSession : IDisposable
 {
     private const int MaxMessageBytes = 256 * 1024;
     private const int MaxChunkRequests = 16;
+    private const int MaxIdempotentReadAttempts = 2;
+    private static readonly TimeSpan IdempotentReadRetryDelay = TimeSpan.FromMilliseconds(250);
     private readonly IAuthSession _auth;
     private readonly IAuthenticatedAccountApi _api;
     private readonly TimeSpan _timeout;
@@ -28,6 +30,7 @@ internal sealed class SharedTownSession : IDisposable
     private Task<bool>? _catalogRequest;
     private long _catalogRequestEpoch;
     private long _catalogRequestRelease;
+    private string? _catalogRequestHash;
     private long _viewportGeneration;
     private readonly ConcurrentDictionary<string, string> _chunks = new(StringComparer.Ordinal);
     private CancellationTokenSource _identityLifetime = new();
@@ -35,13 +38,17 @@ internal sealed class SharedTownSession : IDisposable
     private long _epoch = 1;
     private long _worldVersion;
     private long _assetReleaseVersion;
+    private string? _assetReleaseHash;
     private long _assetCatalogVersion = -1;
+    private string? _assetCatalogHash;
     private long _cursor;
     private string _world = "{\"enabled\":false}";
     private string _inventory = "{}";
     private string _presence = "{\"players\":[]}";
     private string _npcs = "{\"npcs\":[],\"cursor\":0}";
     private long _npcCursor;
+    private string _events = "{\"events\":[],\"cursor\":0,\"has_more\":false,\"unread_count\":0}";
+    private long _eventCursor;
     private string _assetCatalog = "{\"release_version\":0,\"items\":[],\"sheets\":[]}";
     private string _lastChanges = "{\"cursor\":0,\"changes\":[]}";
     private bool _enabled;
@@ -69,7 +76,17 @@ internal sealed class SharedTownSession : IDisposable
     internal bool IsAuthenticated => Identity() is not null;
     internal bool IsEnabled { get { lock (_gate) return _enabled; } }
     internal bool RealtimeConnected { get { lock (_gate) return _realtime?.Connected == true; } }
-    internal bool AssetCatalogNeedsReload { get { lock (_gate) return _assetCatalogVersion != _assetReleaseVersion; } }
+    internal bool AssetCatalogNeedsReload
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _assetCatalogVersion != _assetReleaseVersion ||
+                    !string.Equals(_assetCatalogHash, _assetReleaseHash, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+    }
     internal long Cursor { get { lock (_gate) return _cursor; } }
 
     internal string BridgeJson()
@@ -93,6 +110,8 @@ internal sealed class SharedTownSession : IDisposable
                 writer.WriteRawValue(_inventory);
                 writer.WritePropertyName("presence");
                 writer.WriteRawValue(_presence);
+                writer.WritePropertyName("events");
+                writer.WriteRawValue(_events);
                 writer.WritePropertyName("asset_catalog");
                 writer.WriteRawValue(_assetCatalog);
                 writer.WriteEndObject();
@@ -138,6 +157,162 @@ internal sealed class SharedTownSession : IDisposable
     }
 
     internal string NpcsJson() { lock (_gate) return AddSessionMetadata(_npcs); }
+    internal string EventsJson() { lock (_gate) return AddSessionMetadata(_events); }
+
+    internal async Task<bool> LoadEventsAsync(long epoch, bool reset = false)
+    {
+        if (!IsCurrent(epoch) || !IsEnabled) return false;
+        long cursor;
+        CancellationToken token;
+        lock (_gate)
+        {
+            if (reset) _eventCursor = 0;
+            cursor = _eventCursor;
+            token = _identityLifetime.Token;
+        }
+        using HttpResponseMessage response = await SendAsync(
+            HttpMethod.Get, $"../../v2/town/events.php?cursor={cursor}&limit=50", null, token);
+        string text = await response.Content.ReadAsStringAsync(token);
+        response.EnsureSuccessStatusCode();
+        using JsonDocument document = ParseObject(text, "town events");
+        long next = ReadLong(document.RootElement, "cursor");
+        lock (_gate)
+        {
+            if (!IsCurrentLocked(epoch)) return false;
+            _eventCursor = Math.Max(_eventCursor, next);
+            _events = NormalizeEvents(text, _eventCursor);
+        }
+        return true;
+    }
+
+    internal async Task<string> AcknowledgeEventsAsync(string payload, long epoch)
+    {
+        EnsureMessageSize(payload);
+        if (!IsCurrent(epoch) || !IsEnabled) return ErrorJson("town_not_open");
+        byte[] body = Encoding.UTF8.GetBytes(payload);
+        CancellationToken token;
+        lock (_gate) token = _identityLifetime.Token;
+        using HttpResponseMessage response = await SendAsync(
+            HttpMethod.Post, "../../v2/town/events/receipt.php", body, token);
+        string text = await response.Content.ReadAsStringAsync(token);
+        response.EnsureSuccessStatusCode();
+        return AddSessionMetadata(text);
+    }
+
+    internal async Task<string> LoadPerceptionAsync(string payload, long epoch)
+    {
+        EnsureMessageSize(payload);
+        if (!IsCurrent(epoch) || !IsEnabled) return ErrorJson("town_not_open");
+        using JsonDocument request = ParseObject(payload, "town perception request");
+        int x = request.RootElement.TryGetProperty("tile_x", out JsonElement xElement) && xElement.TryGetInt32(out int parsedX) ? parsedX : -1;
+        int y = request.RootElement.TryGetProperty("tile_y", out JsonElement yElement) && yElement.TryGetInt32(out int parsedY) ? parsedY : -1;
+        int radius = request.RootElement.TryGetProperty("radius", out JsonElement radiusElement) && radiusElement.TryGetInt32(out int parsedRadius) ? Math.Clamp(parsedRadius, 1, 64) : 8;
+        int height = request.RootElement.TryGetProperty("height", out JsonElement heightElement) && heightElement.TryGetInt32(out int parsedHeight) ? Math.Clamp(parsedHeight, 0, 32) : 0;
+        if (x < 0 || y < 0) throw new InvalidDataException("Town perception coordinates are invalid.");
+        string channels = request.RootElement.TryGetProperty("channels", out JsonElement channelsElement) && channelsElement.ValueKind == JsonValueKind.Array
+            ? string.Join(',', channelsElement.EnumerateArray().Where(value => value.ValueKind == JsonValueKind.String).Select(value => Uri.EscapeDataString(value.GetString() ?? string.Empty))) : string.Empty;
+        CancellationToken token;
+        lock (_gate) token = _identityLifetime.Token;
+        string query = $"tile_x={x}&tile_y={y}&radius={radius}&height={height}" + (channels.Length == 0 ? string.Empty : $"&channels={channels}");
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"../../v2/town/perception.php?{query}", null, token);
+        string text = await response.Content.ReadAsStringAsync(token);
+        response.EnsureSuccessStatusCode();
+        return AddSessionMetadata(text);
+    }
+
+    internal Task<string?> LoadResidentDetailAsync(string npcId, long epoch) =>
+        LoadResidentReadAsync(npcId, epoch, false, 0);
+
+    internal Task<string?> LoadResidentConversationsAsync(string npcId, long cursor, long epoch) =>
+        LoadResidentReadAsync(npcId, epoch, true, cursor);
+
+    internal async Task<string> InviteResidentAsync(string npcId, string intent, long epoch, string? dialogue = null)
+    {
+        if (npcId.Length != 32 || npcId.Any(c => !(c is >= '0' and <= '9' or >= 'a' and <= 'f')) ||
+            intent is not ("talk" or "follow" or "cancel"))
+            throw new InvalidDataException("Invalid resident invitation.");
+        CancellationToken token;
+        lock (_gate)
+        {
+            if (!IsCurrentLocked(epoch) || !_enabled) return AddSessionMetadata(ErrorJson("town_not_open"));
+            token = _identityLifetime.Token;
+        }
+        dialogue = intent == "talk" ? (dialogue ?? string.Empty).Trim() : string.Empty;
+        if (dialogue.Length > 240) throw new InvalidDataException("Resident dialogue is too long.");
+        byte[] body = Encoding.UTF8.GetBytes(new JsonObject
+        {
+            ["npc_id"] = npcId,
+            ["intent"] = intent,
+            ["dialogue"] = dialogue
+        }.ToJsonString());
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "../../v2/town/npcs/invite.php", body, token);
+        string text = await response.Content.ReadAsStringAsync(token);
+        using JsonDocument document = ParseObject(text, "resident invitation");
+        if (!response.IsSuccessStatusCode)
+        {
+            string code = document.RootElement.TryGetProperty("code", out JsonElement codeElement) &&
+                codeElement.ValueKind == JsonValueKind.String ? codeElement.GetString() ?? "resident_invitation_failed" : "resident_invitation_failed";
+            return AddSessionMetadata(ErrorJson(code, text));
+        }
+        return AddSessionMetadata(text);
+    }
+
+    internal async Task<string> UploadResidentPhotoAsync(string npcId, string? conversationId, string fileName, string mediaType, byte[] bytes, long epoch)
+    {
+        if (npcId.Length != 32 || npcId.Any(c => !(c is >= '0' and <= '9' or >= 'a' and <= 'f')))
+            throw new InvalidDataException("Invalid resident request.");
+        if (bytes.Length < 1 || bytes.Length > 4 * 1024 * 1024)
+            throw new InvalidDataException("Resident photo is too large.");
+        if (mediaType is not ("image/png" or "image/jpeg" or "image/webp"))
+            throw new InvalidDataException("Unsupported resident photo type.");
+        CancellationToken token;
+        lock (_gate)
+        {
+            if (!IsCurrentLocked(epoch) || !_enabled) return AddSessionMetadata(ErrorJson("town_not_open"));
+            token = _identityLifetime.Token;
+        }
+        var fields = new Dictionary<string, string> { ["npc_id"] = npcId };
+        if (!string.IsNullOrWhiteSpace(conversationId)) fields["conversation_id"] = conversationId.Trim();
+        using HttpResponseMessage response = await _api.SendMultipartAsync(
+            HttpMethod.Post, "../../v2/town/npcs/conversations/photo.php", fields,
+            "image", string.IsNullOrWhiteSpace(fileName) ? "town-photo" : fileName, mediaType, bytes, token);
+        string text = await response.Content.ReadAsStringAsync(token);
+        using JsonDocument document = ParseObject(text, "resident photo conversation");
+        if (!response.IsSuccessStatusCode)
+        {
+            string code = document.RootElement.TryGetProperty("code", out JsonElement codeElement) && codeElement.ValueKind == JsonValueKind.String
+                ? codeElement.GetString() ?? "photo_conversation_failed" : "photo_conversation_failed";
+            return AddSessionMetadata(ErrorJson(code, text));
+        }
+        return AddSessionMetadata(text);
+    }
+
+    private async Task<string?> LoadResidentReadAsync(string npcId, long epoch, bool history, long cursor)
+    {
+        if (npcId.Length != 32 || npcId.Any(c => !(c is >= '0' and <= '9' or >= 'a' and <= 'f')) || cursor < 0)
+            throw new InvalidDataException("Invalid resident request.");
+        CancellationToken token;
+        lock (_gate)
+        {
+            if (!IsCurrentLocked(epoch) || !_enabled) return null;
+            token = _identityLifetime.Token;
+        }
+        string path = history ? $"conversations.php?npc_id={npcId}&cursor={cursor}&limit=30" : $"detail.php?npc_id={npcId}";
+        string text;
+        try
+        {
+            using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "../../v2/town/npcs/" + path, null, token);
+            text = await response.Content.ReadAsStringAsync(token);
+            using JsonDocument document = ParseObject(text, "town resident");
+            if (!response.IsSuccessStatusCode) text = ErrorJson("resident_unavailable");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or InvalidDataException or AuthApiException)
+        {
+            App.Log($"[SharedTown] Resident read failed: {ex.GetType().Name}");
+            text = ErrorJson("resident_unavailable");
+        }
+        lock (_gate) return IsCurrentLocked(epoch) ? AddSessionMetadata(text) : null;
+    }
 
     internal async Task<bool> LoadNpcSnapshotAsync(long epoch)
     {
@@ -176,37 +351,85 @@ internal sealed class SharedTownSession : IDisposable
         lock (_gate) return AddSessionMetadata(_assetCatalog);
     }
 
-    internal Task<bool> LoadAssetCatalogAsync(long epoch)
+    internal Task<bool> LoadAssetCatalogAsync(long epoch, string? cacheRoot = null)
     {
         lock (_gate)
         {
             if (!IsCurrentLocked(epoch) || !_enabled) return Task.FromResult(false);
-            if (_assetCatalogVersion == _assetReleaseVersion) return Task.FromResult(true);
-            if (_catalogRequest is { IsCompleted: false } && _catalogRequestEpoch == epoch && _catalogRequestRelease == _assetReleaseVersion)
+            if (!AssetCatalogNeedsReloadLocked()) return Task.FromResult(true);
+            if (_catalogRequest is { IsCompleted: false } && _catalogRequestEpoch == epoch &&
+                _catalogRequestRelease == _assetReleaseVersion &&
+                string.Equals(_catalogRequestHash, _assetReleaseHash, StringComparison.OrdinalIgnoreCase))
                 return _catalogRequest;
             _catalogRequestEpoch = epoch;
             _catalogRequestRelease = _assetReleaseVersion;
-            return _catalogRequest = LoadAssetCatalogCoreAsync(epoch);
+            _catalogRequestHash = _assetReleaseHash;
+            return _catalogRequest = LoadAssetCatalogCoreAsync(epoch, cacheRoot);
         }
     }
 
-    private async Task<bool> LoadAssetCatalogCoreAsync(long epoch)
+    private async Task<bool> LoadAssetCatalogCoreAsync(long epoch, string? cacheRoot)
     {
         if (!IsCurrent(epoch) || !IsEnabled) return false;
-        CancellationToken token; long expectedRelease; lock (_gate) { token = _identityLifetime.Token; expectedRelease = _assetReleaseVersion; }
+        CancellationToken token; long expectedRelease; string? expectedHash;
+        lock (_gate)
+        {
+            token = _identityLifetime.Token;
+            expectedRelease = _assetReleaseVersion;
+            expectedHash = _assetReleaseHash;
+        }
         try
         {
+            if (!string.IsNullOrWhiteSpace(cacheRoot) && TownAssetCache.IsCacheMetadataUsable(expectedRelease, expectedHash))
+            {
+                string? cached = await TownAssetCache.ReadCatalogAsync(cacheRoot, expectedRelease, expectedHash, token);
+                if (cached is not null)
+                {
+                    using JsonDocument cachedDocument = ParseObject(cached, "cached town asset catalog");
+                    long cachedVersion = ReadLong(cachedDocument.RootElement, "release_version");
+                    string? cachedHash = ReadString(cachedDocument.RootElement, "config_sha256");
+                    lock (_gate)
+                    {
+                        if (IsCurrentLocked(epoch) && expectedRelease == _assetReleaseVersion &&
+                            string.Equals(expectedHash, _assetReleaseHash, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _assetCatalog = cached;
+                            _assetCatalogVersion = cachedVersion;
+                            _assetCatalogHash = cachedHash;
+                        }
+                    }
+                    App.Log($"[SharedTown] Asset catalog cache hit: release={expectedRelease}");
+                    return true;
+                }
+                App.Log($"[SharedTown] Asset catalog cache miss: release={expectedRelease}");
+            }
             using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "../../v2/town/assets/catalog.php", null, token);
             string text = await response.Content.ReadAsStringAsync(token); response.EnsureSuccessStatusCode();
             using JsonDocument document = ParseObject(text, "town asset catalog");
             long releaseVersion = document.RootElement.TryGetProperty("release_version", out JsonElement versionElement) &&
                 versionElement.TryGetInt64(out long parsedVersion) ? parsedVersion : 0;
+            string? configHash = ReadString(document.RootElement, "config_sha256");
+            if (!string.IsNullOrWhiteSpace(cacheRoot) && configHash is not null)
+            {
+                try
+                {
+                    await TownAssetCache.StoreCatalogAsync(cacheRoot, text, releaseVersion, configHash, token);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                {
+                    // The remote catalog is authoritative. A read-only or full cache
+                    // directory must not turn a successful network response into a
+                    // failed town load; the next launch can simply fetch it again.
+                    App.Log($"[SharedTown] Asset catalog cache write skipped: {ex.GetType().Name}");
+                }
+            }
             lock (_gate)
             {
                 if (IsCurrentLocked(epoch) && expectedRelease == _assetReleaseVersion)
                 {
                     _assetCatalog = text;
                     _assetCatalogVersion = releaseVersion;
+                    _assetCatalogHash = configHash;
                 }
             }
             return true;
@@ -233,6 +456,10 @@ internal sealed class SharedTownSession : IDisposable
                 epoch, _assetCatalogVersion, cacheRoot, _identityLifetime.Token);
         }
     }
+
+    private bool AssetCatalogNeedsReloadLocked() =>
+        _assetCatalogVersion != _assetReleaseVersion ||
+        !string.Equals(_assetCatalogHash, _assetReleaseHash, StringComparison.OrdinalIgnoreCase);
 
     private async Task<string?> DownloadSheetAsync(string sheetId, string hash, int width, int height,
         long epoch, long release, string cacheRoot, CancellationToken identityToken)
@@ -308,6 +535,7 @@ internal sealed class SharedTownSession : IDisposable
                 if (inventoryIncluded) _inventory = body.RootElement.GetProperty("inventory").GetRawText();
                 _worldVersion = ReadLongFromWorld(body.RootElement, "world_version");
                 _assetReleaseVersion = ReadAssetReleaseVersion(body.RootElement);
+                _assetReleaseHash = ReadAssetReleaseHash(body.RootElement);
                 _status = !_enabled ? "共享小镇尚未对当前账号开放" : "共享小镇已载入";
                 if (!_enabled && response.StatusCode == HttpStatusCode.Unauthorized)
                     _status = "请登录后查看共享小镇";
@@ -360,12 +588,12 @@ internal sealed class SharedTownSession : IDisposable
                         if (!requestedKeys.Contains(key)) _chunks.TryRemove(key, out _);
                 }
             }
-            return IsCurrent(epoch);
+            return IsCurrent(epoch) && IsEnabled;
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or
             JsonException or InvalidDataException or AuthApiException)
         {
-            App.Log($"[SharedTown] Chunk load failed: {ex.GetType().Name}");
+            App.Log($"[SharedTown] Chunk load failed: {ex.GetType().Name}: {ex.Message}");
             lock (_gate) { if (IsCurrentLocked(epoch)) _status = "部分地图载入失败，可继续漫游重试"; }
             return false;
         }
@@ -574,6 +802,20 @@ internal sealed class SharedTownSession : IDisposable
         using HttpResponseMessage response = await SendAsync(
             HttpMethod.Get, $"../../v2/town/chunks.php?chunks={query}", null, token);
         string text = await response.Content.ReadAsStringAsync(token);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            lock (_gate)
+            {
+                if (IsCurrentLocked(epoch))
+                {
+                    _enabled = false;
+                    _status = "登录已过期，请重新登录后查看共享小镇";
+                    _world = "{\"enabled\":false,\"code\":\"invalid_session\"}";
+                    _chunks.Clear();
+                }
+            }
+            return;
+        }
         response.EnsureSuccessStatusCode();
         using JsonDocument document = ParseObject(text, "town chunk");
         long version = ReadLongFromWorld(document.RootElement, "world_version");
@@ -621,9 +863,12 @@ internal sealed class SharedTownSession : IDisposable
             _inventory = "{}";
             _presence = "{\"players\":[]}";
             _npcs = "{\"npcs\":[],\"cursor\":0}"; _npcCursor = 0;
+            _events = "{\"events\":[],\"cursor\":0,\"has_more\":false,\"unread_count\":0}"; _eventCursor = 0;
             _assetCatalog = "{\"release_version\":0,\"items\":[],\"sheets\":[]}";
             _assetReleaseVersion = 0;
+            _assetReleaseHash = null;
             _assetCatalogVersion = -1;
+            _assetCatalogHash = null;
             _lastChanges = "{\"cursor\":0,\"changes\":[]}";
             _chunks.Clear();
             _sheetRequests.Clear();
@@ -644,19 +889,39 @@ internal sealed class SharedTownSession : IDisposable
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, byte[]? body,
         CancellationToken identityToken)
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(identityToken);
-        timeout.CancelAfter(_timeout);
-        Task<HttpResponseMessage> request = _api.SendAsync(method, path, body, null, timeout.Token);
-        try { return await request.WaitAsync(timeout.Token); }
-        catch
+        int attempts = method == HttpMethod.Get ? MaxIdempotentReadAttempts : 1;
+        for (int attempt = 1; attempt <= attempts; attempt++)
         {
-            _ = request.ContinueWith(completed =>
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(identityToken);
+            timeout.CancelAfter(_timeout);
+            Task<HttpResponseMessage>? request = null;
+            try
             {
-                if (completed.Status == TaskStatus.RanToCompletion) completed.Result.Dispose();
-                else _ = completed.Exception;
-            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-            throw;
+                request = _api.SendAsync(method, path, body, null, timeout.Token);
+                return await request.WaitAsync(timeout.Token);
+            }
+            catch (Exception ex) when (attempt < attempts && !identityToken.IsCancellationRequested &&
+                ex is HttpRequestException or TaskCanceledException)
+            {
+                if (request is not null) _ = request.ContinueWith(completed =>
+                {
+                    if (completed.Status == TaskStatus.RanToCompletion) completed.Result.Dispose();
+                    else _ = completed.Exception;
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                await Task.Delay(IdempotentReadRetryDelay, identityToken);
+            }
+            catch
+            {
+                if (request is not null) _ = request.ContinueWith(completed =>
+                {
+                    if (completed.Status == TaskStatus.RanToCompletion) completed.Result.Dispose();
+                    else _ = completed.Exception;
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                throw;
+            }
         }
+
+        throw new InvalidOperationException("The authenticated request did not complete.");
     }
 
     private static List<(int X, int Y)> ParseChunkCoordinates(string json)
@@ -737,6 +1002,24 @@ internal sealed class SharedTownSession : IDisposable
         return ReadLong(value, "release_version");
     }
 
+    private static string? ReadAssetReleaseHash(JsonElement root)
+    {
+        JsonElement value = root;
+        if (root.TryGetProperty("asset_release", out JsonElement direct) && direct.ValueKind == JsonValueKind.Object)
+            value = direct;
+        else if (root.TryGetProperty("world", out JsonElement world) &&
+            world.ValueKind == JsonValueKind.Object &&
+            world.TryGetProperty("asset_release", out JsonElement nested) &&
+            nested.ValueKind == JsonValueKind.Object)
+            value = nested;
+        string? hash = ReadString(value, "config_sha256");
+        return hash?.Length == 64 && hash.All(Uri.IsHexDigit) ? hash : null;
+    }
+
+    private static string? ReadString(JsonElement root, string property) =>
+        root.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() : null;
+
     private static string NormalizeWorld(JsonElement root, bool enabled)
     {
         using var stream = new MemoryStream();
@@ -797,6 +1080,28 @@ internal sealed class SharedTownSession : IDisposable
             if (!document.RootElement.TryGetProperty("changes", out _))
             {
                 writer.WritePropertyName("changes");
+                writer.WriteStartArray();
+                writer.WriteEndArray();
+            }
+            writer.WriteEndObject();
+        });
+    }
+
+    private static string NormalizeEvents(string json, long cursor)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return WriteJson(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("cursor", cursor);
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                if (property.NameEquals("cursor") || property.NameEquals("session_epoch")) continue;
+                property.WriteTo(writer);
+            }
+            if (!document.RootElement.TryGetProperty("events", out _))
+            {
+                writer.WritePropertyName("events");
                 writer.WriteStartArray();
                 writer.WriteEndArray();
             }

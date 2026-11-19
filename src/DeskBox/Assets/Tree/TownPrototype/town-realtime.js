@@ -29,15 +29,20 @@ export function presencePosition(player) {
 // merges an accepted event into the render snapshot.
 export function mergeNpcDelta(npcs, payload) {
   const id = payload?.npc_id || payload?.id;
-  if (!id || !Number.isFinite(Number(payload.tile_x)) || !Number.isFinite(Number(payload.tile_y))) return false;
+  if (!id) return false;
   const previous = npcs.get(id), sequence = Number(payload.sequence || 0);
+  const hasCoordinates = Number.isFinite(Number(payload.tile_x)) && Number.isFinite(Number(payload.tile_y));
+  if (!hasCoordinates && !previous?.runtime) return false;
   if (sequence && sequence <= Number(previous?._realtimeSequence || 0)) return false;
   const npc = previous || { npc_id: id, name: '村民', enabled: true, runtime: {} };
   npc._realtimeSequence = sequence;
   npc.runtime = { ...(npc.runtime || {}), ...payload };
+  if (payload?.lifecycle && typeof payload.lifecycle === 'object') npc.lifecycle = { ...(npc.lifecycle || {}), ...payload.lifecycle };
   delete npc.runtime.type;
   delete npc.runtime.npc_id;
   delete npc.runtime.session_epoch;
+  delete npc.runtime.lifecycle;
+  delete npc.runtime.runtime_state;
   npcs.set(id, npc);
   return true;
 }

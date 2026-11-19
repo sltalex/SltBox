@@ -468,9 +468,20 @@ internal sealed class DeskBoxAuthSession : IAuthSession, IAuthenticatedAccountAp
         if (jsonBody is not null)
         {
             request.Content = new ByteArrayContent(jsonBody);
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            if (!string.IsNullOrWhiteSpace(contentEncoding))
+            if (!string.IsNullOrWhiteSpace(contentEncoding) && contentEncoding.StartsWith("multipart/form-data;", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = contentEncoding.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var media = new MediaTypeHeaderValue("multipart/form-data");
+                string? boundary = parts.FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase));
+                if (boundary is not null) media.Parameters.Add(new NameValueHeaderValue("boundary", boundary["boundary=".Length..]));
+                request.Content.Headers.ContentType = media;
+            }
+            else
+            {
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                if (!string.IsNullOrWhiteSpace(contentEncoding))
                 request.Content.Headers.ContentEncoding.Add(contentEncoding);
+            }
         }
         return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }

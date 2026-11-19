@@ -1698,6 +1698,8 @@
   "Widget.AddedFile": "Fichier ajouté",
   "Widget.AddedFiles": "{0} fichiers ajoutés",
   "Widget.AddFileFailed": "Échec de l'ajout de fichiers",
+  "Widget.AlwaysOnTop.PinMenuLabel": "Toujours au-dessus",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "Désactiver le premier plan",
   "Widget.MappedPathUpdated": "Chemin cartographié mis à jour",
   "Widget.ChangeMappedPathFailed": "Échec de la modification du chemin mappé",
   "Widget.CreateFolderFailed": "Échec de la création du dossier",

@@ -196,6 +196,51 @@ function town_navigation_cell(PDO $pdo, int $x, int $y, ?array &$cache = null, ?
     return $cell;
 }
 
+/**
+ * Check whether an observer can see a target tile through the authoritative
+ * navigation grid.  This is deliberately a bounded grid walk rather than a
+ * client-side ray cast: walls and height changes must use the same semantics
+ * as NPC routing, and a missing/unknown material remains opaque.
+ *
+ * The target cell itself is allowed to be blocked because an interest point
+ * commonly represents the building or decoration occupying that cell. Only
+ * intermediate blocked cells occlude the target. A height transition is
+ * visible when it is within one level or passes through a configured stair.
+ *
+ * @return array{visible:bool,reason:string,navigation_version:int,target_height:int}
+ */
+function town_navigation_visibility_between(PDO $pdo, int $fromX, int $fromY, int $toX, int $toY, int $observerHeight = 0): array
+{
+    $version = town_navigation_version($pdo);
+    $observerHeight = max(0, min(32, $observerHeight));
+    $cache = [];
+    $target = town_navigation_cell($pdo, $toX, $toY, $cache, $version);
+    $targetHeight = (int)($target['height'] ?? 0);
+    if (abs($targetHeight - $observerHeight) > 1 && (string)($target['type'] ?? '') !== 'stairs') {
+        return ['visible' => false, 'reason' => 'height_occluded', 'navigation_version' => $version, 'target_height' => $targetHeight];
+    }
+    $dx = abs($toX - $fromX); $sx = $fromX < $toX ? 1 : -1;
+    $dy = -abs($toY - $fromY); $sy = $fromY < $toY ? 1 : -1;
+    $error = $dx + $dy; $x = $fromX; $y = $fromY;
+    while ($x !== $toX || $y !== $toY) {
+        $double = 2 * $error;
+        if ($double >= $dy) { $error += $dy; $x += $sx; }
+        if ($double <= $dx) { $error += $dx; $y += $sy; }
+        if ($x === $toX && $y === $toY) break;
+        $cell = town_navigation_cell($pdo, $x, $y, $cache, $version);
+        $height = (int)($cell['height'] ?? 0);
+        if (abs($height - $observerHeight) > 1 && (string)($cell['type'] ?? '') !== 'stairs') {
+            return ['visible' => false, 'reason' => 'height_occluded', 'navigation_version' => $version, 'target_height' => $targetHeight];
+        }
+        $type = (string)($cell['type'] ?? 'blocked');
+        $required = is_array($cell['required_capabilities'] ?? null) ? $cell['required_capabilities'] : [];
+        if ($type === 'blocked' || ((bool)($cell['blocked_npc'] ?? true) && $required === [])) {
+            return ['visible' => false, 'reason' => 'blocked_occlusion', 'navigation_version' => $version, 'target_height' => $targetHeight];
+        }
+    }
+    return ['visible' => true, 'reason' => 'visible', 'navigation_version' => $version, 'target_height' => $targetHeight];
+}
+
 function town_navigation_route_path(PDO $pdo, array $path, ?array &$cache = null, ?int $navigationVersion = null): array
 {
     $result = [];

@@ -16,7 +16,8 @@ $pdo->exec("CREATE TABLE town_worlds (world_id TEXT PRIMARY KEY,navigation_versi
 CREATE TABLE town_work_points (point_id TEXT PRIMARY KEY,world_id TEXT,point_key TEXT,name TEXT,kind TEXT,tile_x INTEGER,tile_y INTEGER,interaction_json TEXT,result_json TEXT,enabled INTEGER,created_at TEXT,updated_at TEXT);
 CREATE TABLE town_farm_plots (plot_id TEXT PRIMARY KEY,world_id TEXT,point_id TEXT,plot_key TEXT,name TEXT,crop_id TEXT,growth_stage INTEGER,state TEXT,watered_at TEXT,watering_count INTEGER,enabled INTEGER,created_at TEXT,updated_at TEXT);
 CREATE TABLE town_work_runs (run_id TEXT PRIMARY KEY,point_id TEXT,npc_id TEXT,task_id TEXT,job TEXT,status TEXT,result_json TEXT,started_at TEXT,completed_at TEXT);
-CREATE TABLE town_npc_activity_logs (log_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,run_id TEXT,log_type TEXT,summary TEXT,detail_json TEXT,created_at TEXT);");
+CREATE TABLE town_npc_activity_logs (log_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,run_id TEXT,log_type TEXT,summary TEXT,detail_json TEXT,created_at TEXT);
+CREATE TABLE town_npc_events (event_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,event_type TEXT,payload_json TEXT,created_at TEXT);");
 $pdo->prepare('INSERT INTO town_worlds VALUES (?,?)')->execute(['main', 1]);
 $point = ['10000000000000000000000000000001','main','farm-zone-3','三号农田','farm',128,120,'{"radius":1}','{"effect":"water_crop"}',1,$stamp,$stamp];
 $pdo->prepare('INSERT INTO town_work_points VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute($point);
@@ -32,5 +33,6 @@ farm_expect((int)$pdo->query('SELECT watering_count FROM town_farm_plots')->fetc
 $snapshot = town_farm_snapshot($pdo);
 farm_expect(count($snapshot) === 1 && $snapshot[0]['plot_key'] === 'farm-plot-3-1' && $snapshot[0]['state'] === 'watered', 'Farm snapshot must expose durable plot state.');
 farm_expect((int)$pdo->query('SELECT COUNT(*) FROM town_work_runs')->fetchColumn() === 2, 'Every completed work task remains auditable even when its effect is idempotent.');
+farm_expect((int)$pdo->query("SELECT COUNT(*) FROM town_npc_events WHERE event_type='task_replay_delta'")->fetchColumn() === 2, 'Each completed work task must emit exactly one replay delta event.');
 
 echo "town_farm_result_test: {$checks} checks ok\n";

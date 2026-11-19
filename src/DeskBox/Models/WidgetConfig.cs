@@ -88,6 +88,12 @@ public class WidgetConfig
     /// <summary>Whether moving this widget is locked.</summary>
     public bool IsPositionLocked { get; set; }
 
+    /// <summary>
+    /// Whether this widget stays above the normal window layer. This per-widget
+    /// setting takes precedence over the global widget layer mode.
+    /// </summary>
+    public bool IsAlwaysOnTop { get; set; }
+
     /// <summary>Whether resizing this widget is locked.</summary>
     public bool IsSizeLocked { get; set; }
 

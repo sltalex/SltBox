@@ -6,8 +6,8 @@
 ; ISCC /DDeskBoxNativeAot=1 /DDeskBoxBundledRuntime=1 /DMyAppReleaseDir=<publish 目录> DeskBox.iss
 
 #define MyAppName "SltBox"
-#define MyAppVersion "2026111801"
-#define MyAppVersionInfo "2026.11.18.1"
+#define MyAppVersion "2026111902"
+#define MyAppVersionInfo "2026.11.19.2"
 #define MyAppPublisher "sltalex"
 #define MyAppExeName "DeskBox.exe"
 #define MyAppOutputBaseName "SltBox_Setup"

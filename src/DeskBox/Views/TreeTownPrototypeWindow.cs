@@ -117,7 +117,11 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             core.ProcessFailed += OnProcessFailed;
             Directory.CreateDirectory(_assetCacheRoot);
             core.SetVirtualHostNameToFolderMapping(AssetHost, _assetCacheRoot, CoreWebView2HostResourceAccessKind.Allow);
-            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html");
+            // Keep the page URL versioned together with the split-house module.
+            // WebView2 retains the virtual-host document in its profile cache;
+            // changing only a module query string can therefore leave an old
+            // two-slice index importing the previous renderer.
+            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html?v=20261117-house-split27");
             _ = CheckReadyAsync();
         }
         catch (Exception ex) { ShowFailure(ex); }
@@ -149,7 +153,13 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         if (_closed || !args.Source.StartsWith($"https://{VirtualHost}/", StringComparison.Ordinal)) return;
         try
         {
-            if (args.WebMessageAsJson.Length > 150000) throw new InvalidDataException("Town message is too large.");
+            // Resident photo messages carry a user-selected image as Base64.
+            // The browser limits the source image to 4 MiB, which expands to
+            // roughly 5.6 MiB in Base64 plus JSON framing. Keep a bounded
+            // message limit large enough for that supported case while still
+            // rejecting unexpectedly large WebView payloads before parsing.
+            if (args.WebMessageAsJson.Length > 8 * 1024 * 1024)
+                throw new InvalidDataException("Town message is too large.");
             using JsonDocument document = JsonDocument.Parse(args.WebMessageAsJson);
             JsonElement message = document.RootElement;
             string? type = message.GetProperty("type").GetString();
@@ -248,6 +258,106 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     await _session.LoadPresenceAsync(query, epoch);
                     await PostAsync("setPresence", _session.PresenceJson());
                     break;
+                case "residentDetailRequested":
+                case "residentConversationsRequested":
+                {
+                    string residentId = message.GetProperty("npc_id").GetString() ?? string.Empty;
+                    string requestId = message.GetProperty("request_id").GetString() ?? string.Empty;
+                    if (requestId.Length > 80) break;
+                    bool conversations = type == "residentConversationsRequested";
+                    long historyCursor = conversations ? message.GetProperty("cursor").GetInt64() : 0;
+                    string? residentResult = conversations
+                        ? await _session.LoadResidentConversationsAsync(residentId, historyCursor, epoch)
+                        : await _session.LoadResidentDetailAsync(residentId, epoch);
+                    if (residentResult is null || epoch != _session.Epoch || _closed) break;
+                    JsonObject result = JsonNode.Parse(residentResult)!.AsObject();
+                    result["npc_id"] = residentId;
+                    result["request_id"] = requestId;
+                    await PostAsync(conversations ? "setResidentConversations" : "setResidentDetail", result.ToJsonString());
+                    break;
+                }
+                case "residentInviteRequested":
+                {
+                    string residentId = message.GetProperty("npc_id").GetString() ?? string.Empty;
+                    string intent = message.GetProperty("intent").GetString() ?? string.Empty;
+                    string dialogue = message.TryGetProperty("dialogue", out JsonElement dialogueElement) && dialogueElement.ValueKind == JsonValueKind.String ? dialogueElement.GetString() ?? string.Empty : string.Empty;
+                    string requestId = message.TryGetProperty("request_id", out JsonElement requestElement) && requestElement.ValueKind == JsonValueKind.String ? requestElement.GetString() ?? string.Empty : string.Empty;
+                    if (requestId.Length > 80) break;
+                    string resultText = await _session.InviteResidentAsync(residentId, intent, epoch, dialogue);
+                    if (epoch != _session.Epoch || _closed) break;
+                    JsonObject result = JsonNode.Parse(resultText)!.AsObject();
+                    result["npc_id"] = residentId;
+                    result["intent"] = intent;
+                    result["request_id"] = requestId;
+                    await PostAsync("setResidentInviteResult", result.ToJsonString());
+                    if (result["code"] is null) {
+                        await _session.LoadNpcSnapshotAsync(epoch);
+                        await PostAsync("setNpcs", _session.NpcsJson());
+                    }
+                    break;
+                }
+                case "residentPhotoRequested":
+                {
+                    string residentId = message.GetProperty("npc_id").GetString() ?? string.Empty;
+                    string requestId = message.TryGetProperty("request_id", out JsonElement requestElement) && requestElement.ValueKind == JsonValueKind.String ? requestElement.GetString() ?? string.Empty : string.Empty;
+                    string mime = message.TryGetProperty("mime", out JsonElement mimeElement) && mimeElement.ValueKind == JsonValueKind.String ? mimeElement.GetString() ?? string.Empty : string.Empty;
+                    string fileName = message.TryGetProperty("file_name", out JsonElement nameElement) && nameElement.ValueKind == JsonValueKind.String ? nameElement.GetString() ?? "town-photo" : "town-photo";
+                    string encoded = message.TryGetProperty("image_base64", out JsonElement dataElement) && dataElement.ValueKind == JsonValueKind.String ? dataElement.GetString() ?? string.Empty : string.Empty;
+                    if (requestId.Length > 80 || encoded.Length > 6_000_000) break;
+                    string resultText;
+                    try
+                    {
+                        byte[] bytes = Convert.FromBase64String(encoded);
+                        resultText = await _session.UploadResidentPhotoAsync(residentId, null, fileName, mime, bytes, epoch);
+                    }
+                    catch (Exception ex) when (ex is FormatException or InvalidDataException or HttpRequestException or OperationCanceledException or AuthApiException)
+                    {
+                        resultText = new JsonObject
+                        {
+                            ["ok"] = false,
+                            ["code"] = "photo_upload_failed",
+                            ["message"] = "图片发送失败，请稍后重试。"
+                        }.ToJsonString();
+                        App.Log($"[SharedTown] Resident photo upload failed: {ex.GetType().Name}");
+                    }
+                    if (epoch != _session.Epoch || _closed) break;
+                    JsonObject result = JsonNode.Parse(resultText)!.AsObject();
+                    result["npc_id"] = residentId;
+                    result["request_id"] = requestId;
+                    await PostAsync("setResidentPhotoResult", result.ToJsonString());
+                    if (result["code"] is null)
+                    {
+                        await _session.LoadNpcSnapshotAsync(epoch);
+                        await PostAsync("setNpcs", _session.NpcsJson());
+                    }
+                    break;
+                }
+                case "townEventsRequested":
+                {
+                    bool reset = message.TryGetProperty("reset", out JsonElement resetElement) && resetElement.ValueKind == JsonValueKind.True;
+                    await _session.LoadEventsAsync(epoch, reset);
+                    await PostAsync("setEvents", _session.EventsJson());
+                    break;
+                }
+                case "townEventReceiptRequested":
+                {
+                    string receiptResult = await _session.AcknowledgeEventsAsync(
+                        message.TryGetProperty("payload", out JsonElement receiptPayload) ? receiptPayload.GetRawText() : "{}", epoch);
+                    await PostAsync("setEventReceiptResult", receiptResult);
+                    await _session.LoadEventsAsync(epoch);
+                    await PostAsync("setEvents", _session.EventsJson());
+                    break;
+                }
+                case "townPerceptionRequested":
+                {
+                    string perceptionResult = await _session.LoadPerceptionAsync(
+                        message.TryGetProperty("payload", out JsonElement perceptionPayload) ? perceptionPayload.GetRawText() : "{}", epoch);
+                    JsonObject result = JsonNode.Parse(perceptionResult)?.AsObject() ?? new JsonObject { ["code"] = "perception_unavailable" };
+                    if (message.TryGetProperty("request_id", out JsonElement perceptionRequest) && perceptionRequest.ValueKind == JsonValueKind.String)
+                        result["request_id"] = perceptionRequest.GetString();
+                    await PostAsync("setPerception", result.ToJsonString());
+                    break;
+                }
                 case "npcChangesRequested":
                     if (_session.RealtimeConnected) break;
                     await _session.LoadNpcChangesAsync(epoch);
@@ -272,7 +382,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         { App.Log($"[TownPrototype] Ignored a failed map message: {ex.GetType().Name}"); }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or AuthApiException)
         {
-            App.Log($"[SharedTown] Map request failed: {ex.GetType().Name}");
+            App.Log($"[SharedTown] Map request failed: {ex.GetType().Name}: {ex.Message}");
             try
             {
                 using JsonDocument failed = JsonDocument.Parse(args.WebMessageAsJson);
@@ -347,7 +457,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 JsonElement root = document.RootElement;
                 string type = root.TryGetProperty("type", out JsonElement typeElement)
                     ? typeElement.GetString() ?? string.Empty : string.Empty;
-                if (type is not ("presence" or "presence_delta" or "snapshot" or "npc_state" or "position_rejected")) return;
+                if (type is not ("presence" or "presence_delta" or "snapshot" or "npc_state" or "world_clock" or "position_rejected")) return;
                 if (type == "position_rejected")
                 {
                     // Resume authoritative HTTP recovery instead of silently dropping movement.
@@ -363,7 +473,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                 string method = type switch
                 {
                     "presence" => "setPresence", "presence_delta" => "applyRealtimePresence",
-                    "snapshot" => "applyRealtimeSnapshot", _ => "applyRealtimeNpc"
+                    "snapshot" => "applyRealtimeSnapshot", "world_clock" => "setClock", _ => "applyRealtimeNpc"
                 };
                 await PostAsync(method, node.ToJsonString());
             }
@@ -377,11 +487,16 @@ internal sealed partial class TreeTownPrototypeWindow : Window
         if (_closed || !_ready) return;
         bool catalogFailed = false;
         if (_session.IsEnabled && _session.AssetCatalogNeedsReload)
-            catalogFailed = !await _session.LoadAssetCatalogAsync(_session.Epoch);
+            catalogFailed = !await _session.LoadAssetCatalogAsync(_session.Epoch, _assetCacheRoot);
         await PostAsync("setWorld", _session.WorldJson());
         await PostAsync("setChunks", _session.ChunksJson());
         await PostAsync("setInventory", _session.InventoryJson());
         await PostAsync("setPresence", _session.PresenceJson());
+        if (_session.IsEnabled)
+        {
+            await _session.LoadEventsAsync(_session.Epoch, true);
+            await PostAsync("setEvents", _session.EventsJson());
+        }
         await _session.LoadNpcSnapshotAsync(_session.Epoch);
         await PostAsync("setNpcs", _session.NpcsJson());
         string assetCatalog = catalogFailed

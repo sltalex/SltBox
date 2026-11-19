@@ -1692,6 +1692,8 @@
   "Widget.AddedFile": "Archivo agregado",
   "Widget.AddedFiles": "{0} archivos agregados",
   "Widget.AddFileFailed": "Error al agregar archivos",
+  "Widget.AlwaysOnTop.PinMenuLabel": "Siempre visible",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "Quitar siempre visible",
   "Widget.MappedPathUpdated": "Ruta mapeada actualizada",
   "Widget.ChangeMappedPathFailed": "Error al cambiar la ruta asignada",
   "Widget.CreateFolderFailed": "Error al crear carpeta",

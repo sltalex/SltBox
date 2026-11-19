@@ -235,7 +235,10 @@ public sealed partial class TodoWidgetContent : UserControl
             if (TodoListView.ContainerFromItem(item) is ListViewItem
                 { ContentTemplateRoot: Border border })
             {
-                WidgetSurfaceForegroundScope.ApplyForBackground(border, border.Background);
+                WidgetSurfaceForegroundScope.ApplyForBackground(
+                    border,
+                    border.Background,
+                    respectPreferredForeground: true);
             }
         }
     }

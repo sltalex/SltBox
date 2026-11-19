@@ -1680,6 +1680,8 @@
   "Widget.AddedFile": "ファイルを追加しました",
   "Widget.AddedFiles": "{0} 件のファイルを追加しました",
   "Widget.AddFileFailed": "ファイルの追加に失敗しました",
+  "Widget.AlwaysOnTop.PinMenuLabel": "常に手前に表示",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "常に手前に表示を解除",
   "Widget.MappedPathUpdated": "マップパスを更新しました",
   "Widget.ChangeMappedPathFailed": "マップパスの変更に失敗しました",
   "Widget.CreateFolderFailed": "フォルダーの作成に失敗しました",

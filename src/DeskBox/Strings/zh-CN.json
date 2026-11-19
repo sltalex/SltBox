@@ -2651,6 +2651,8 @@
   "Widget.CustomBackground.DimLabel": "背景明暗",
   "Widget.CustomBackground.Clear": "清除背景",
   "Widget.StyleMenu.Label": "格子样式",
+  "Widget.AlwaysOnTop.PinMenuLabel": "界面置顶",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "取消界面置顶",
   "Widget.Border.Menu": "边框",
   "Widget.Border.UseGlobal": "使用全局设置",
   "Widget.Border.Accent": "主题色",

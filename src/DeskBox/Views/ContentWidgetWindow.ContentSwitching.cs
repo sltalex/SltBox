@@ -79,6 +79,9 @@ public sealed partial class ContentWidgetWindow
         ContentWidgetShell.ClearFeedback();
         _config = config;
         _descriptor = descriptor;
+        WidgetLayerService.RegisterPersistentTopMostWindow(
+            HWnd,
+            _config.IsAlwaysOnTop);
         Diagnostics.SetWidgetContext(config);
         _titleViewModel.SetConfig(config);
         ApplyTitleIdentity(config, descriptor, content);

@@ -1,6 +1,17 @@
 (function () {
   'use strict';
 
+  // 供局部刷新后重新初始化（新增/保存/删除不会整页跳转）
+  let activeCtx = null;
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !activeCtx) return;
+    // 框选中时 Esc 优先取消框选，不关浮层
+    if (activeCtx.frameMode()) { event.preventDefault(); activeCtx.cancel(); return; }
+    if (activeCtx.floatOpen && activeCtx.floatOpen()) { event.preventDefault(); activeCtx.closeFloat(); }
+  });
+
+  function boot() {
+
   const GRID = 16;
   const picker = document.getElementById('town-sheet-picker');
   const canvas = document.getElementById('town-sheet-canvas');
@@ -12,6 +23,10 @@
   let imageWidth = 0;
   let imageHeight = 0;
   let scale = 1;
+  // 当前主画布（大图框选区）正在显示的图集 ID
+  let currentSheetId = '';
+  // 图集大图缓存：sheet_id -> { image, promise }，避免同一张图重复请求
+  const sheetImages = new Map();
   let selection = null;
   let dragStart = null;
   let dragging = false;
@@ -29,16 +44,75 @@
     autoScanStatus.dataset.state = isError ? 'error' : 'ready';
   }
 
+  /** 图集大图的请求地址（与画布、预览共用同一出口） */
+  function sheetImageUrl(sheetId) {
+    return '?panel=town_assets&sheet=' + encodeURIComponent(sheetId);
+  }
+
+  /**
+   * 按 sheet_id 加载图集大图，带缓存。
+   * 返回 Promise<Image>，失败时 reject（调用方需自行兜底，不能退回别的图集）。
+   */
+  function loadSheetImage(sheetId) {
+    if (!sheetId) return Promise.reject(new Error('未选择图集'));
+    let entry = sheetImages.get(sheetId);
+    if (!entry) {
+      const sheetImage = new Image();
+      entry = { image: sheetImage, promise: null };
+      entry.promise = new Promise(function (resolve, reject) {
+        sheetImage.onload = function () { resolve(sheetImage); };
+        sheetImage.onerror = function () { reject(new Error('图集加载失败：' + sheetId)); };
+      });
+      sheetImage.src = sheetImageUrl(sheetId);
+      sheetImages.set(sheetId, entry);
+    }
+    return entry.promise;
+  }
+
+  /** 从表单（含 form 属性关联的控件）里取该记录绑定的图集 ID */
+  function sheetIdForTarget(target) {
+    const select = target && target.elements ? target.elements.namedItem('sheet_id') : null;
+    if (select && select.value) return select.value;
+    return picker.value;
+  }
+
+  /**
+   * 取得某条记录（其表单）绑定的图集 ID。
+   * 记录行的图集下拉通过 form="..." 关联到表单，仍能被 form.elements 取到。
+   */
+  function sheetIdForInput(input) {
+    if (!input) return picker.value;
+    const owner = input.form || (input.getAttribute && document.getElementById(input.getAttribute('form') || ''));
+    return sheetIdForTarget(owner);
+  }
+
+  /** 让预览状态绑定到它自己那条记录的图集，图集变化时重新拉图 */
+  function refreshPreviewSource(state) {
+    if (!state || !state.input) return;
+    const sheetId = sheetIdForInput(state.input);
+    if (state.sheetId === sheetId) return;
+    state.sheetId = sheetId;
+    state.image = null;
+    if (!sheetId) return;
+    loadSheetImage(sheetId).then(function (loaded) {
+      // 期间又切换过图集，丢弃这次结果，避免显示错图
+      if (state.sheetId !== sheetId) return;
+      state.image = loaded;
+      drawPreview(state);
+    }).catch(function () { /* 加载失败保持空白，绝不回退到其他图集 */ });
+  }
+
   function previewState(input, list) {
     if (!input || !input.id) return null;
     let state = previewStates.get(input.id);
     if (!state) {
-      state = { input, list, canvas: null, label: null, play: null, stop: null, timer: null, index: 0, playing: false };
+      state = { input, list, canvas: null, label: null, play: null, stop: null, timer: null, index: 0, playing: false, sheetId: '', image: null };
       previewStates.set(input.id, state);
     } else {
       state.input = input;
       state.list = list;
     }
+    refreshPreviewSource(state);
     return state;
   }
 
@@ -82,8 +156,10 @@
     const previewContext = state.canvas.getContext('2d');
     previewContext.imageSmoothingEnabled = false;
     previewContext.clearRect(0, 0, width, height);
-    if (image.complete && imageWidth && imageHeight) {
-      previewContext.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, width, height);
+    // 只使用本记录所属图集的大图，不再复用顶部“框选图集”的画布图
+    const source = state.image;
+    if (source && source.complete && source.naturalWidth && source.naturalHeight) {
+      previewContext.drawImage(source, frame.x, frame.y, frame.w, frame.h, 0, 0, width, height);
     }
     if (state.label) state.label.textContent = '第 ' + (state.index + 1) + '/' + frames.length + ' 帧 · ' + (state.playing ? '播放中' : '已停');
     updatePreviewControls(state);
@@ -159,6 +235,147 @@
   function setField(name, value) {
     const element = field(name);
     if (element) element.value = String(value);
+  }
+
+  /* ===== 新增标记：资源 ID 自动生成 ===== */
+  const idInput = form ? form.querySelector('input[name="asset_id"]') : null;
+  const idButton = document.getElementById('town-new-asset-id-gen');
+
+  function normalizeAssetId(value) {
+    return String(value || '').trim().toLowerCase().replace(/^town-source-/, '');
+  }
+
+  /** 把任意文本压成 ID 片段：只留小写字母/数字/短横线，中文等会被过滤掉 */
+  function idSlug(text, limit) {
+    return String(text || '')
+      .replace(/\.(png|jpe?g|webp|gif|bmp)$/i, '')
+      .replace(/[^A-Za-z0-9]+/g, '-')
+      .slice(0, limit || 24)
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase();
+  }
+
+  /** 图集文件名 → ID 片段（中文文件名会得到空串，交给序号区分） */
+  function sheetIdSlug(sheetId) {
+    const option = Array.prototype.find.call(picker.options, item => item.value === sheetId);
+    if (!option) return '';
+    return idSlug(String(option.textContent || '').replace(/\s*\([^()]*\)\s*$/, ''), 24);
+  }
+
+  /** 页面上已经用掉的资源 ID（列表里的 + 表单里当前的值），用于避重 */
+  function usedAssetIds() {
+    const ids = new Set();
+    document.querySelectorAll('.town-assets-items code.tai-id').forEach(function (node) {
+      const value = normalizeAssetId(node.textContent);
+      if (value) ids.add(value);
+    });
+    if (idInput && idInput.value.trim()) ids.add(normalizeAssetId(idInput.value));
+    return ids;
+  }
+
+  /** town-source-<分类>-<图集>-<序号> */
+  function buildAssetId() {
+    if (!form) return '';
+    const category = String(formField(form, 'category')?.value || 'other');
+    const sheetId = String(formField(form, 'sheet_id')?.value || picker.value || '');
+    const parts = [idSlug(category, 24) || 'asset'];
+    const sheet = sheetIdSlug(sheetId);
+    if (sheet) parts.push(sheet);
+    // 序号比较在“去掉 town-source- 前缀”的形态上做，和 normalizeAssetId 保持一致
+    const base = parts.join('-').slice(0, 88).replace(/-+$/, '');
+    const used = usedAssetIds();
+    const escape = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp('^' + escape + '-(\\d{1,4})$');
+    let next = 1;
+    used.forEach(function (id) {
+      const match = id.match(pattern);
+      if (match) next = Math.max(next, Number(match[1]) + 1);
+    });
+    let candidate = 'town-source-' + base + '-' + String(next).padStart(2, '0');
+    while (used.has(normalizeAssetId(candidate)) && next < 9999) {
+      next += 1;
+      candidate = 'town-source-' + base + '-' + String(next).padStart(2, '0');
+    }
+    return candidate;
+  }
+
+  /** force=true 强制重算；否则只在空着、或上次由系统生成时才填（手改过就不动） */
+  function fillAssetId(force) {
+    if (!idInput) return '';
+    const auto = idInput.dataset.auto === '1';
+    if (!force && !auto && idInput.value.trim() !== '') return idInput.value;
+    const value = buildAssetId();
+    if (!value) return '';
+    idInput.value = value;
+    idInput.dataset.auto = '1';
+    idInput.setCustomValidity('');
+    return value;
+  }
+  window.fillTownAssetId = fillAssetId;
+
+  if (idInput) {
+    idInput.addEventListener('input', function () { idInput.dataset.auto = '0'; });
+  }
+  idButton?.addEventListener('click', function (event) {
+    event.preventDefault();
+    fillAssetId(true);
+    if (idInput) { idInput.focus(); idInput.select(); }
+  });
+  if (form) {
+    ['sheet_id', 'category'].forEach(function (name) {
+      formField(form, name)?.addEventListener('change', function () { fillAssetId(false); });
+    });
+  }
+
+  /* ===== 新增标记：记住上次填的名称/分类/排序/子分类，方便连着加同批元素 ===== */
+  const PREFILL_KEY = 'townNewAssetDefaults';
+  const PREFILL_FIELDS = ['name', 'category', 'sort_mode', 'subcategory'];
+
+  function readPrefill() {
+    try { return JSON.parse(localStorage.getItem(PREFILL_KEY) || '{}') || {}; } catch (error) { return {}; }
+  }
+
+  function savePrefill() {
+    if (!form) return;
+    const data = readPrefill();
+    PREFILL_FIELDS.forEach(function (name) {
+      const element = formField(form, name);
+      if (element && typeof element.value === 'string') data[name] = element.value;
+    });
+    try { localStorage.setItem(PREFILL_KEY, JSON.stringify(data)); } catch (error) { /* 隐私模式下忽略 */ }
+  }
+
+  function applyPrefill() {
+    if (!form) return;
+    const data = readPrefill();
+    PREFILL_FIELDS.forEach(function (name) {
+      const element = formField(form, name);
+      const value = data[name];
+      if (!element || typeof value !== 'string' || value === '') return;
+      // 下拉框里已经没有这个选项（分类/排序改过枚举）就跳过，别把值清空
+      if (element.tagName === 'SELECT' &&
+        !Array.prototype.some.call(element.options, option => option.value === value)) return;
+      element.value = value;
+      if (name === 'name') element.dataset.prefill = '1';
+    });
+  }
+
+  PREFILL_FIELDS.forEach(function (name) {
+    const element = formField(form, name);
+    if (!element) return;
+    element.addEventListener(element.tagName === 'SELECT' ? 'change' : 'input', savePrefill);
+  });
+  const nameInput = formField(form, 'name');
+  if (nameInput) {
+    // 带入上次名称后不选中文本：首次聚焦把光标放到末尾，直接往后打字或自己删除即可
+    nameInput.addEventListener('focus', function () {
+      if (nameInput.dataset.prefill !== '1') return;
+      nameInput.dataset.prefill = '0';
+      try {
+        const end = nameInput.value.length;
+        nameInput.setSelectionRange(end, end);
+      } catch (error) { /* 忽略 */ }
+    });
   }
 
   function parseFrames(input) {
@@ -251,12 +468,123 @@
     });
   }
 
+  /* ---------- 记录行的「框选预览」：没有动画帧也能看到框选出来的图 ---------- */
+  const regionPreviews = new Map();
+
+  /** 读取该记录的框选矩形；无效（未框选/超界）时返回 null */
+  function regionRectOf(target) {
+    const read = function (name) {
+      const field = formField(target, name);
+      return field ? Number(field.value) : NaN;
+    };
+    const x = read('x');
+    const y = read('y');
+    const w = read('width');
+    const h = read('height');
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) return null;
+    if (w < 1 || h < 1 || x < 0 || y < 0) return null;
+    return { x: x, y: y, w: w, h: h };
+  }
+
+  /** 在记录行的「操作」列创建预览位（插在帧列表之前，只创建一次） */
+  function mountRegionPreview(target) {
+    if (!target || !target.id) return null;
+    if (regionPreviews.has(target.id)) return regionPreviews.get(target.id);
+    const framesInput = formField(target, 'frames');
+    const list = framesInput ? listForInput(framesInput) : null;
+    if (!list || !list.parentNode) return null;
+    const host = document.createElement('span');
+    host.className = 'town-region-preview';
+    host.style.cssText = 'display:inline-block;margin:0 8px 6px 0;vertical-align:top;text-align:center';
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = 48;
+    previewCanvas.height = 48;
+    // 棋盘格底衬，方便看清透明区域
+    previewCanvas.style.cssText = 'display:block;image-rendering:pixelated;border:1px solid #ccd4e0;border-radius:6px;' +
+      'background:repeating-conic-gradient(#e9edf4 0% 25%,#ffffff 0% 50%) 0 0/12px 12px';
+    const label = document.createElement('small');
+    label.style.cssText = 'display:block;margin-top:2px;max-width:150px;font-size:11px;line-height:1.3;color:#6b7789';
+    label.textContent = '框选预览';
+    host.append(previewCanvas, label);
+    // 优先放进按钮行左侧，避免预览独占一行把行高撑大
+    const actionBar = list.parentNode.querySelector('.tai-actions');
+    if (actionBar) actionBar.insertBefore(host, actionBar.firstChild);
+    else list.parentNode.insertBefore(host, list);
+    const entry = { target: target, host: host, canvas: previewCanvas, label: label };
+    regionPreviews.set(target.id, entry);
+    return entry;
+  }
+
+  function drawRegionPreview(entry) {
+    if (!entry) return;
+    const target = entry.target;
+    const previewCanvas = entry.canvas;
+    const previewContext = previewCanvas.getContext('2d');
+    const rect = regionRectOf(target);
+    previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    if (!rect) {
+      entry.label.textContent = '未框选';
+      return;
+    }
+    // 等比缩放到 64×64 以内，最多放大 4 倍：列表里只做缩略图，别把行高撑起来
+    const ratio = Math.min(64 / rect.w, 64 / rect.h, 4);
+    const width = Math.max(8, Math.round(rect.w * ratio));
+    const height = Math.max(8, Math.round(rect.h * ratio));
+    if (previewCanvas.width !== width) previewCanvas.width = width;
+    if (previewCanvas.height !== height) previewCanvas.height = height;
+    const sheetId = sheetIdForTarget(target);
+    entry.label.textContent = rect.w + '×' + rect.h + ' @' + rect.x + ',' + rect.y;
+    if (!sheetId) {
+      entry.label.textContent = '未选择图集';
+      return;
+    }
+    loadSheetImage(sheetId).then(function (source) {
+      // 期间记录可能被修改：以最新坐标重画
+      if (regionPreviews.get(target.id) !== entry) return;
+      const now = regionRectOf(target);
+      if (!now) {
+        entry.label.textContent = '未框选';
+        previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        return;
+      }
+      const naturalWidth = source.naturalWidth || 0;
+      const naturalHeight = source.naturalHeight || 0;
+      if (!naturalWidth || !naturalHeight) return;
+      // 越界部分裁掉，避免画出空白导致误判
+      const sx = Math.max(0, Math.min(now.x, naturalWidth - 1));
+      const sy = Math.max(0, Math.min(now.y, naturalHeight - 1));
+      const sw = Math.max(1, Math.min(now.w, naturalWidth - sx));
+      const sh = Math.max(1, Math.min(now.h, naturalHeight - sy));
+      previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewContext.imageSmoothingEnabled = false;
+      previewContext.drawImage(source, sx, sy, sw, sh, 0, 0, previewCanvas.width, previewCanvas.height);
+    }).catch(function () {
+      if (regionPreviews.get(target.id) !== entry) return;
+      entry.label.textContent = '图集加载失败';
+    });
+  }
+
+  function refreshRegionPreview(target) {
+    if (!target || !target.id) return;
+    const entry = regionPreviews.get(target.id) || mountRegionPreview(target);
+    if (entry) drawRegionPreview(entry);
+  }
+
   function beginFramePick(input, list, replaceIndex) {
     activeFrameInput = input;
     activeFrameList = list;
     frameMode = { replaceIndex: Number.isInteger(replaceIndex) ? replaceIndex : null };
     selection = null;
     dragStart = null;
+    // 这条记录可能属于另一张图集：先把主画布切到它自己的大图，否则会在错误的图上框选
+    const targetSheet = sheetIdForInput(input);
+    if (targetSheet && targetSheet !== currentSheetId) {
+      const hasOption = Array.prototype.some.call(picker.options, function (item) { return item.value === targetSheet; });
+      if (hasOption) {
+        picker.value = targetSheet;
+        selectSheet(targetSheet);
+      }
+    }
     const hint = document.getElementById('town-frame-hint');
     if (hint) hint.textContent = frameMode.replaceIndex === null
       ? '请在图集上拖拽框选，松手后添加一帧；Esc 取消'
@@ -380,7 +708,7 @@
         anchor: JSON.stringify({ x: .5, y: 1 }),
         footprint: '',
         collision: JSON.stringify({ x: .1, y: .55, width: .8, height: .4 }),
-        frames: '[]', navigation: JSON.stringify({ type: 'blocked', blocked_npc: true, required_capabilities: [] }),
+        frames: '[]', auto_navigation_draft: '1',
         sort_mode: 'y_sort', split_y: ''
       };
     });
@@ -459,25 +787,33 @@
     context.restore();
   }
 
-  function loadSheet() {
-    if (!picker.value) return;
-    const option = picker.selectedOptions[0];
+  /** 把指定图集的大图铺到主画布上（不触碰任何表单字段） */
+  function selectSheet(sheetId) {
+    if (!sheetId) return;
+    const option = Array.prototype.find.call(picker.options, function (item) { return item.value === sheetId; });
     const width = Number(option && option.dataset.width) || 1;
     const height = Number(option && option.dataset.height) || 1;
     scale = Math.min(620 / width, 1250 / height);
     imageWidth = width;
     imageHeight = height;
+    currentSheetId = sheetId;
     canvas.width = Math.max(1, Math.round(width * scale));
     canvas.height = Math.max(1, Math.round(height * scale));
     selection = null;
-    setField('sheet_id', picker.value);
     image.onload = function () {
       draw();
       previewStates.forEach(drawPreview);
     };
     image.onerror = function () { context && context.clearRect(0, 0, canvas.width, canvas.height); };
-    image.src = '?panel=town_assets&sheet=' + encodeURIComponent(picker.value);
+    image.src = sheetImageUrl(sheetId);
     draw();
+  }
+
+  /** 顶部“框选图集”下拉切换：主画布与“新增标记”表单的图集一起跟随 */
+  function loadSheet() {
+    if (!picker.value) return;
+    selectSheet(picker.value);
+    setField('sheet_id', picker.value);
   }
 
   function finishSelection(event) {
@@ -554,13 +890,26 @@
       const label=document.createElement('small');label.id=target.id+'-foot-status';
       target.append(button,label);
       for(const name of ['footprint','collision']){const field=formField(target,name);field.type='text';field.style.maxWidth='160px';field.title=name==='footprint'?'占地，可手动修改':'碰撞范围，可手动修改';}
+      // 每条记录都挂一个「框选预览」，与有没有动画帧无关
+      refreshRegionPreview(target);
     }
     target.querySelector('[data-recalculate-footprint]')?.addEventListener('click',()=>recalculateFootprint(target));
-    for(const name of ['x','y','width','height','display_width','display_height','frames'])formField(target,name)?.addEventListener('change',()=>recalculateFootprint(target));
+    for(const name of ['x','y','width','height','display_width','display_height','frames'])formField(target,name)?.addEventListener('change',()=>{recalculateFootprint(target);refreshRegionPreview(target);});
+    // 记录行更换图集后：帧预览要换成新图集的大图，占地也要按新图重算
+    formField(target,'sheet_id')?.addEventListener('change',()=>{
+      if(target===form)return; // 新增表单的图集由顶部下拉的 loadSheet 统一处理
+      const framesInput=formField(target,'frames');
+      if(framesInput)renderFrameList(framesInput,listForInput(framesInput));
+      recalculateFootprint(target);
+      refreshRegionPreview(target);
+    });
     formField(target,'footprint')?.addEventListener('input',()=>formField(target,'footprint').setCustomValidity(''));
   });
 
-  picker.addEventListener('change', loadSheet);
+  picker.addEventListener('change', function () {
+    loadSheet();      // 主画布跟着切图
+    fillAssetId(false); // 图集变了，自动 ID 跟着换（手填过的不动）
+  });
   autoScanButton?.addEventListener('click', event => {
     event.preventDefault();
     renderAutoScanResults();
@@ -586,9 +935,47 @@
   });
   canvas.addEventListener('pointerup', finishSelection);
   canvas.addEventListener('pointercancel', finishSelection);
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && frameMode) { event.preventDefault(); cancelFramePick(); }
-  });
+  /* ===== 新增标记：右侧悬浮面板（可收起，记住上次状态） ===== */
+  const floatPanel = document.getElementById('town-new-asset-float');
+  const floatOpener = document.getElementById('town-new-asset-open');
+  const FLOAT_KEY = 'townNewAssetFloatOpen';
+  function floatStoredOpen() {
+    try { return localStorage.getItem(FLOAT_KEY) !== '0'; } catch (error) { return true; }
+  }
+  function applyFloat(open, focus) {
+    if (!floatPanel || !floatOpener) return;
+    floatPanel.hidden = !open;
+    floatOpener.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open && focus) {
+      const first = floatPanel.querySelector('input[name="asset_id"]');
+      if (first) first.focus();
+    }
+  }
+  function setFloatOpen(open, focus) {
+    applyFloat(open, focus);
+    try { localStorage.setItem(FLOAT_KEY, open ? '1' : '0'); } catch (error) { /* 隐私模式下忽略 */ }
+  }
+  if (floatPanel && floatOpener) {
+    if (floatOpener.dataset.tnToggle !== '1') {
+      floatOpener.dataset.tnToggle = '1';
+      floatOpener.addEventListener('click', () => setFloatOpen(floatPanel.hidden === true, true));
+      floatPanel.addEventListener('click', event => {
+        const closer = event.target.closest ? event.target.closest('[data-tn-close]') : null;
+        if (!closer) return;
+        setFloatOpen(false, false);
+        floatOpener.focus();
+      });
+    }
+    applyFloat(floatStoredOpen(), false);
+  }
+
+  // 登记给外层唯一的 keydown 监听，避免重复初始化时叠加监听
+  activeCtx = {
+    frameMode: () => !!frameMode,
+    cancel: cancelFramePick,
+    floatOpen: () => !!(floatPanel && floatOpener && !floatPanel.hidden),
+    closeFloat: () => setFloatOpen(false, false),
+  };
   document.querySelectorAll('[data-frame-add]').forEach(button => {
     const input = document.getElementById(button.dataset.frameInput || '');
     const list = input ? listForInput(input) : null;
@@ -596,5 +983,13 @@
     if (input) renderFrameList(input, list);
   });
 
+  // 先恢复上次填的分类/排序/子分类，自动 ID 才会用上同一个分类
+  applyPrefill();
   loadSheet();
+  fillAssetId(false);
+  }
+
+  window.TownAssets = { init: boot };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 }());

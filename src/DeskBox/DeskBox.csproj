@@ -9,9 +9,9 @@
     <Product>SltBox</Product>
     <Title>SltBox</Title>
     <Description>SltBox desktop organizer</Description>
-    <Version>2026111801</Version>
+    <Version>2026111902</Version>
     <AssemblyVersion>2026.11.18.1</AssemblyVersion>
-    <FileVersion>2026.11.18.1</FileVersion>
+    <FileVersion>2026.11.19.2</FileVersion>
     <InformationalVersion>2026111801</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Platforms>x64;ARM64</Platforms>

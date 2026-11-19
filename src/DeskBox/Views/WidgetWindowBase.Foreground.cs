@@ -30,6 +30,9 @@ public abstract partial class WidgetWindowBase
             highContrast);
 
         ApplyForegroundBrushes(palette);
+        WidgetSurfaceForegroundScope.SetPreferredForegroundColor(
+            RootElement,
+            palette.Primary);
         WidgetShellControl.SetGroupTitleForegroundColors(
             palette.Primary, palette.Secondary, palette.Disabled, highContrast);
     }
@@ -147,6 +150,7 @@ public abstract partial class WidgetWindowBase
 
     private void CleanupWidgetForegroundAppearance()
     {
+        WidgetSurfaceForegroundScope.ClearPreferredForegroundColor(RootElement);
         if (_foregroundAccessibilitySettings is not null)
         {
             _foregroundAccessibilitySettings.HighContrastChanged -=

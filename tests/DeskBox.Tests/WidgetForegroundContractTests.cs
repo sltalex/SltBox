@@ -21,17 +21,22 @@ public sealed class WidgetForegroundContractTests
     public void LightWidgetSurfaces_InstallTheirOwnDarkTextScope()
     {
         string scope = Read("src/DeskBox/Helpers/WidgetSurfaceForegroundScope.cs");
+        string foreground = Read("src/DeskBox/Views/WidgetWindowBase.Foreground.cs");
         string search = Read("src/DeskBox/Controls/WidgetContents/SearchWidgetContent.xaml.cs");
         string quickCapture = Read("src/DeskBox/Controls/WidgetContents/QuickCaptureSurfaceContent.xaml.cs");
         string monitor = Read("src/DeskBox/Controls/WidgetContents/SystemMonitorWidgetContent.cs");
         string todo = Read("src/DeskBox/Controls/WidgetContents/TodoWidgetContent.DragDrop.cs");
 
         Assert.Contains("IsLight", scope, StringComparison.Ordinal);
-        Assert.Contains("ForegroundResourceScope.Apply(surface, DarkText)", scope, StringComparison.Ordinal);
+        Assert.Contains("ForegroundResourceScope.Apply(", scope, StringComparison.Ordinal);
+        Assert.Contains("?? DarkText", scope, StringComparison.Ordinal);
         Assert.Contains("ApplySearchSurfaceForeground", search, StringComparison.Ordinal);
-        Assert.Contains("WidgetSurfaceForegroundScope.ApplyForBackground(border, border.Background)", quickCapture, StringComparison.Ordinal);
+        Assert.Contains("respectPreferredForeground: true", quickCapture, StringComparison.Ordinal);
         Assert.Contains("WidgetSurfaceForegroundScope.ApplyForBackground(card, background)", monitor, StringComparison.Ordinal);
-        Assert.Contains("WidgetSurfaceForegroundScope.ApplyForBackground(border, border.Background)", todo, StringComparison.Ordinal);
+        Assert.Contains("respectPreferredForeground: true", todo, StringComparison.Ordinal);
+        Assert.Contains("PreferredForegroundColorProperty", scope, StringComparison.Ordinal);
+        Assert.Contains("FindPreferredForegroundColor", scope, StringComparison.Ordinal);
+        Assert.Contains("SetPreferredForegroundColor", foreground, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -68,7 +68,9 @@ town_shared_expect(($duplicate['operation_id'] ?? '') === $request['operation_id
 $object = $placed['object'];
 town_shared_error('object_forbidden', 403, static fn() => shared_town_action($pdo, 'another-user', ['action' => 'delete', 'operation_id' => 'town-operation-000005', 'object_id' => $object['object_id'], 'object_version' => 1], $now));
 town_shared_error('object_conflict', 409, static fn() => shared_town_action($pdo, $user, ['action' => 'move', 'operation_id' => 'town-operation-000006', 'object_id' => $object['object_id'], 'object_version' => 8, 'tile_x' => 62, 'tile_y' => 60], $now));
-town_shared_error('position_conflict', 409, static fn() => shared_town_action($pdo, $user, ['action' => 'place', 'operation_id' => 'town-operation-000002', 'asset_id' => 'mushroom-cluster', 'tile_x' => 60, 'tile_y' => 60], $now));
+$stacked = shared_town_action($pdo, $user, ['action' => 'place', 'operation_id' => 'town-operation-000002', 'asset_id' => 'mushroom-cluster', 'tile_x' => 60, 'tile_y' => 60], $now);
+town_shared_expect(($stacked['object']['tile_x'] ?? -1) === 60 && ($stacked['object']['tile_y'] ?? -1) === 60
+    && ($stacked['object']['object_id'] ?? '') !== ($object['object_id'] ?? ''), 'Town materials may be stacked at the same tile.');
 $moved = shared_town_action($pdo, $user, ['action' => 'move', 'operation_id' => 'town-operation-000003', 'object_id' => $object['object_id'], 'object_version' => 1, 'tile_x' => 61, 'tile_y' => 60], $now);
 town_shared_expect(($moved['object']['object_version'] ?? 0) === 2, 'Move increments object version.');
 town_shared_expect(($moved['object']['layer'] ?? 0) === 1, 'Move without a layer keeps the current layer.');
@@ -79,7 +81,7 @@ $crossChunkMove = shared_town_action($pdo, $user, ['action' => 'move', 'operatio
 town_shared_expect(($crossChunkMove['object']['chunk_x'] ?? -1) === 3, 'Cross-chunk move updates the destination chunk.');
 $deleted = shared_town_action($pdo, $user, ['action' => 'delete', 'operation_id' => 'town-operation-000004', 'object_id' => $object['object_id'], 'object_version' => 4], $now);
 town_shared_expect(($deleted['action'] ?? '') === 'delete', 'Delete returns a delete result.');
-town_shared_expect(shared_town_reservation($pdo, $user, 'mushroom-cluster') === 0, 'Delete returns the decoration reservation.');
+town_shared_expect(shared_town_reservation($pdo, $user, 'mushroom-cluster') === 1, 'Delete keeps the reservation for the stacked decoration.');
 $townPlaced = shared_town_action($pdo, $user, ['action' => 'place', 'operation_id' => 'town-operation-town-01', 'asset_id' => $townAssetId, 'tile_x' => 110, 'tile_y' => 60], $now);
 town_shared_expect(($townPlaced['object']['asset_source'] ?? '') === 'town' && shared_town_reservation($pdo, $user, $townAssetId) === 0, 'Published town-source assets place without consuming tree decoration inventory.');
 town_shared_error('invalid_object', 400, static fn() => shared_town_action($pdo, $user, ['action' => 'place', 'operation_id' => 'town-operation-town-layer-01', 'asset_id' => $townAssetId, 'tile_x' => 112, 'tile_y' => 60, 'layer' => 0], $now));
@@ -88,6 +90,36 @@ $presence = shared_town_presence_upsert($pdo, $user, ['tile_x' => 80, 'tile_y' =
 town_shared_expect(($presence['chunk_x'] ?? -1) === 3, 'Presence is assigned to its chunk.');
 town_shared_expect(count(shared_town_presence($pdo, 3, 2, $now)['presence']) === 1, 'Presence is visible in the nearby chunk.');
 town_shared_expect(count(shared_town_presence($pdo, 3, 2, $now->modify('+31 seconds'))['presence']) === 0, 'Presence expires without new heartbeats.');
-town_shared_expect(count(shared_town_changes($pdo, 0)['changes']) === 7, 'Cross-chunk move emits old-chunk removal plus destination update.');
-town_shared_expect(count(shared_town_changes($pdo, 0, [[2, 2]])['changes']) === 4, 'Chunk-filtered changes only include the requested chunk.');
+town_shared_expect(count(shared_town_changes($pdo, 0)['changes']) === 8, 'Cross-chunk move emits old-chunk removal plus destination update while preserving stacked placement changes.');
+town_shared_expect(count(shared_town_changes($pdo, 0, [[2, 2]])['changes']) === 5, 'Chunk-filtered changes only include the requested chunk and stacked placement changes.');
+// Exercise the real map-edit entry point with a warmed navigation cache.
+require_once dirname(__DIR__) . '/api/_app/town_navigation.php';
+$pdo->exec('ALTER TABLE town_worlds ADD COLUMN navigation_version INTEGER NOT NULL DEFAULT 1');
+$pdo->exec("ALTER TABLE town_asset_items ADD COLUMN navigation_json TEXT NOT NULL DEFAULT '{\"type\":\"blocked\"}'");
+town_shared_expect(town_navigation_can_traverse($pdo, 130, 70)['allowed'], 'The future obstacle tile starts traversable and cached.');
+$navRequest = ['action' => 'place', 'operation_id' => 'navigation-place-0001', 'asset_id' => $townAssetId, 'tile_x' => 130, 'tile_y' => 70];
+$navPlace = shared_town_action($pdo, $user, $navRequest, $now);
+town_shared_expect(town_navigation_version($pdo) === 2 && ($navPlace['navigation_version'] ?? 0) === 2, 'Placing a map object must advance navigation in the same operation.');
+town_shared_expect(!town_navigation_can_traverse($pdo, 130, 70)['allowed'], 'An added obstacle must invalidate a previously cached plain tile without manual rebuild.');
+$navDuplicate = shared_town_action($pdo, $user, $navRequest, $now);
+town_shared_expect($navDuplicate['duplicate'] && town_navigation_version($pdo) === 2, 'Replaying an idempotent placement must not invalidate navigation again.');
+$navObject = $navPlace['object'];
+$navMove = shared_town_action($pdo, $user, ['action' => 'move', 'operation_id' => 'navigation-move-0001', 'object_id' => $navObject['object_id'], 'object_version' => 1, 'tile_x' => 131, 'tile_y' => 70], $now);
+town_shared_expect(town_navigation_version($pdo) === 3 && town_navigation_can_traverse($pdo, 130, 70)['allowed'] && !town_navigation_can_traverse($pdo, 131, 70)['allowed'], 'Moving an obstacle must release its old tile and block its new tile immediately.');
+town_shared_error('object_forbidden', 403, static fn() => shared_town_action($pdo, 'another-user', ['action' => 'delete', 'operation_id' => 'navigation-denied-01', 'object_id' => $navObject['object_id'], 'object_version' => 2], $now));
+town_shared_expect(town_navigation_version($pdo) === 3, 'Rejected map edits must not advance navigation.');
+shared_town_action($pdo, $user, ['action' => 'delete', 'operation_id' => 'navigation-delete-01', 'object_id' => $navObject['object_id'], 'object_version' => 2], $now);
+town_shared_expect(town_navigation_version($pdo) === 4 && town_navigation_can_traverse($pdo, 131, 70)['allowed'], 'Deleting an obstacle must immediately restore traversability.');
+$cursorBeforeFailure = (int)$pdo->query("SELECT change_cursor FROM town_worlds WHERE world_id='main'")->fetchColumn();
+$pdo->exec("CREATE TRIGGER fail_navigation_operation BEFORE INSERT ON town_operations WHEN NEW.operation_id='navigation-rollback-1' BEGIN SELECT RAISE(ABORT, 'forced operation persistence failure'); END");
+try {
+    shared_town_action($pdo, $user, ['action' => 'place', 'operation_id' => 'navigation-rollback-1', 'asset_id' => $townAssetId, 'tile_x' => 132, 'tile_y' => 70], $now);
+    throw new RuntimeException('Expected map operation persistence failure.');
+} catch (PDOException $error) {
+    town_shared_expect(str_contains($error->getMessage(), 'forced operation persistence failure'), 'Rollback fixture must fail at operation persistence.');
+}
+$pdo->exec('DROP TRIGGER fail_navigation_operation');
+$rolledBackObjects = (int)$pdo->query('SELECT COUNT(*) FROM town_objects WHERE tile_x=132 AND tile_y=70 AND deleted_at IS NULL')->fetchColumn();
+town_shared_expect(town_navigation_version($pdo) === 4 && $rolledBackObjects === 0 && (int)$pdo->query("SELECT change_cursor FROM town_worlds WHERE world_id='main'")->fetchColumn() === $cursorBeforeFailure, 'A late failure must roll back geometry, navigation generation and broadcast cursor together.');
+
 echo "shared_town_service_test: {$checks} checks ok\n";

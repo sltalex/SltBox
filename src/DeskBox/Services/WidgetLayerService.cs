@@ -18,6 +18,7 @@ public static class WidgetLayerService
     private static readonly object s_desktopLayerLock = new();
     private static readonly Dictionary<IntPtr, DesktopLayerAttachment> s_desktopLayerAttachments = [];
     private static readonly HashSet<IntPtr> s_forcedDesktopPinnedWindows = [];
+    private static readonly HashSet<IntPtr> s_persistentTopMostWindows = [];
     private static IntPtr s_cachedDesktopIconView;
     private static bool s_startupDesktopLayerAttachmentDeferred;
 
@@ -74,6 +75,13 @@ public static class WidgetLayerService
         IntPtr windowHandle,
         bool showWindow = true)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            DetachFromDesktopIconLayerIfNeeded(windowHandle);
+            ApplyPersistentTopMost(windowHandle, showWindow);
+            return;
+        }
+
         ApplyDesktopPinnedActivationStyle(windowHandle);
 
         // Desktop-pinned mode always rests inside Explorer. Dynamic mode uses
@@ -93,6 +101,14 @@ public static class WidgetLayerService
 
     public static IntPtr ClearTopMostPreservingForeground(IntPtr windowHandle)
     {
+        IntPtr foregroundBeforeRestore = Win32Helper.GetForegroundWindow();
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            DetachFromDesktopIconLayerIfNeeded(windowHandle);
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+            return foregroundBeforeRestore;
+        }
+
         ApplyDesktopPinnedActivationStyle(windowHandle);
 
         if (UsesDesktopPinnedMode(windowHandle))
@@ -243,6 +259,13 @@ public static class WidgetLayerService
 
     public static void ClearTopMost(IntPtr windowHandle)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            DetachFromDesktopIconLayerIfNeeded(windowHandle);
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+            return;
+        }
+
         ApplyDesktopPinnedActivationStyle(windowHandle);
 
         if (UsesDesktopPinnedMode(windowHandle))
@@ -262,6 +285,13 @@ public static class WidgetLayerService
         IntPtr windowHandle,
         bool showWindow = true)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            DetachFromDesktopIconLayerIfNeeded(windowHandle);
+            ApplyPersistentTopMost(windowHandle, showWindow);
+            return;
+        }
+
         ApplyDesktopPinnedActivationStyle(windowHandle);
 
         if (UsesDesktopPinnedMode(windowHandle))
@@ -314,6 +344,13 @@ public static class WidgetLayerService
 
     public static void BringToFront(IntPtr windowHandle)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            DetachFromDesktopIconLayerIfNeeded(windowHandle);
+            ApplyPersistentTopMost(windowHandle, showWindow: true);
+            return;
+        }
+
         ApplyDesktopPinnedActivationStyle(windowHandle);
 
         if (UsesDesktopPinnedMode(windowHandle))
@@ -352,6 +389,12 @@ public static class WidgetLayerService
         RaisedBandReleasePlacement placement,
         IntPtr foreignForegroundRoot)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+            return;
+        }
+
         if (UsesDesktopPinnedMode(windowHandle))
         {
             MoveToDesktopBottom(windowHandle);
@@ -385,6 +428,12 @@ public static class WidgetLayerService
     /// </summary>
     public static void BringAbovePeerWidgets(IntPtr windowHandle)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+            return;
+        }
+
         if (UsesDesktopPinnedMode(windowHandle))
         {
             MoveToDesktopBottom(windowHandle);
@@ -405,6 +454,12 @@ public static class WidgetLayerService
     /// </summary>
     public static bool TryBringAbovePeerWidgetsAtDesktopLayer(IntPtr windowHandle)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+            return true;
+        }
+
         // Desktop-pinned widgets are owner-attached to Explorer's desktop icon
         // layer, so HWND_TOP lifts them above sibling widgets only; the band
         // itself stays beneath every application window and Win+D.
@@ -444,6 +499,9 @@ public static class WidgetLayerService
         foreach (IntPtr forced in handles.Where(IsForcedDesktopPinnedWindow))
             MoveToDesktopBottom(forced);
         handles.RemoveAll(IsForcedDesktopPinnedWindow);
+        foreach (IntPtr pinned in handles.Where(IsPersistentTopMostWindow))
+            ApplyPersistentTopMost(pinned, showWindow: false);
+        handles.RemoveAll(IsPersistentTopMostWindow);
         if (handles.Count < 2)
         {
             return handles.Count == 1 || hadForcedWindow;
@@ -603,6 +661,12 @@ public static class WidgetLayerService
 
     private static bool PrepareRestingWindowForRelativePlacement(IntPtr windowHandle)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+            return false;
+        }
+
         bool attachedToDesktop =
             TryAttachRestingWindowWithoutChangingLevel(windowHandle);
         if (!attachedToDesktop)
@@ -652,7 +716,9 @@ public static class WidgetLayerService
             Win32Helper.SetWindowTopMost(handle);
         }
 
-        foreach (IntPtr handle in handles.Where(handle => handle != activeWindowHandle))
+        foreach (IntPtr handle in handles.Where(handle =>
+                     handle != activeWindowHandle &&
+                     !IsPersistentTopMostWindow(handle)))
         {
             Win32Helper.ClearWindowTopMost(handle);
         }
@@ -660,7 +726,10 @@ public static class WidgetLayerService
         IntPtr activeHandle = handles.Contains(activeWindowHandle)
             ? activeWindowHandle
             : handles[^1];
-        Win32Helper.ClearWindowTopMost(activeHandle);
+        if (!IsPersistentTopMostWindow(activeHandle))
+        {
+            Win32Helper.ClearWindowTopMost(activeHandle);
+        }
         Win32Helper.BringWindowToFront(activeHandle);
         Win32Helper.SetForegroundWindow(activeHandle);
     }
@@ -683,6 +752,9 @@ public static class WidgetLayerService
         foreach (IntPtr forced in handles.Where(IsForcedDesktopPinnedWindow))
             MoveToDesktopBottom(forced);
         handles.RemoveAll(IsForcedDesktopPinnedWindow);
+        foreach (IntPtr pinned in handles.Where(IsPersistentTopMostWindow))
+            ApplyPersistentTopMost(pinned, showWindow: false);
+        handles.RemoveAll(IsPersistentTopMostWindow);
         if (handles.Count < 2)
         {
             return true;
@@ -714,6 +786,14 @@ public static class WidgetLayerService
         IntPtr boundary,
         string reason)
     {
+        foreach (IntPtr pinned in handles.Where(IsPersistentTopMostWindow))
+        {
+            ApplyPersistentTopMost(pinned, showWindow: false);
+        }
+
+        handles = handles
+            .Where(handle => !IsPersistentTopMostWindow(handle))
+            .ToList();
         if (handles.Count == 0)
         {
             return true;
@@ -785,7 +865,11 @@ public static class WidgetLayerService
 
     public static void ReleaseWindow(IntPtr windowHandle)
     {
-        lock (s_desktopLayerLock) s_forcedDesktopPinnedWindows.Remove(windowHandle);
+        lock (s_desktopLayerLock)
+        {
+            s_forcedDesktopPinnedWindows.Remove(windowHandle);
+            s_persistentTopMostWindows.Remove(windowHandle);
+        }
         DetachFromDesktopIconLayerIfNeeded(windowHandle);
     }
 
@@ -793,6 +877,70 @@ public static class WidgetLayerService
     {
         if (windowHandle == IntPtr.Zero) return;
         lock (s_desktopLayerLock) s_forcedDesktopPinnedWindows.Add(windowHandle);
+    }
+
+    /// <summary>
+    /// Registers the persisted per-widget always-on-top state for a window.
+    /// Every layer restore path consults this registry so temporary interaction
+    /// and global layer changes cannot demote an individually pinned widget.
+    /// </summary>
+    public static void RegisterPersistentTopMostWindow(
+        IntPtr windowHandle,
+        bool enabled)
+    {
+        if (windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        lock (s_desktopLayerLock)
+        {
+            if (enabled)
+            {
+                s_persistentTopMostWindows.Add(windowHandle);
+            }
+            else
+            {
+                s_persistentTopMostWindows.Remove(windowHandle);
+            }
+        }
+
+        if (enabled)
+        {
+            ApplyPersistentTopMost(windowHandle, showWindow: false);
+        }
+        else
+        {
+            // A content window can switch between group members while keeping
+            // the same HWND. Demote the old member immediately so its stale
+            // native TOPMOST bit cannot leak into the incoming member.
+            ClearTopMost(windowHandle);
+        }
+    }
+
+    /// <summary>Changes one window's persisted always-on-top state immediately.</summary>
+    public static void SetPersistentTopMostWindow(
+        IntPtr windowHandle,
+        bool enabled,
+        bool showWindow = true)
+    {
+        RegisterPersistentTopMostWindow(windowHandle, enabled);
+        if (!enabled)
+        {
+            ClearTopMost(windowHandle);
+        }
+        else
+        {
+            ApplyPersistentTopMost(windowHandle, showWindow);
+        }
+    }
+
+    public static bool IsPersistentTopMostWindow(IntPtr windowHandle)
+    {
+        lock (s_desktopLayerLock)
+        {
+            return s_persistentTopMostWindows.Contains(windowHandle);
+        }
     }
 
     public static void InvalidateDesktopIconViewCache()
@@ -846,7 +994,8 @@ public static class WidgetLayerService
             App.Current?.WidgetManager?.IsWidgetWindow(foregroundRoot) == true;
 
         return WidgetLayerPointerActivationPolicy.ShouldSuppress(
-            UsesDesktopPinnedMode(windowHandle),
+            UsesDesktopPinnedMode(windowHandle) &&
+            !IsPersistentTopMostWindow(windowHandle),
             hasForeground,
             hasForeground && IsDesktopShellWindow(foregroundRoot),
             foregroundIsWidget);
@@ -909,7 +1058,21 @@ public static class WidgetLayerService
 
     private static void ApplyDesktopPinnedActivationStyle(IntPtr windowHandle)
     {
-        SetWindowNoActivate(windowHandle, UsesDesktopPinnedMode(windowHandle));
+        SetWindowNoActivate(
+            windowHandle,
+            UsesDesktopPinnedMode(windowHandle) &&
+            !IsPersistentTopMostWindow(windowHandle));
+    }
+
+    private static void ApplyPersistentTopMost(IntPtr windowHandle, bool showWindow)
+    {
+        if (windowHandle == IntPtr.Zero || !Win32Helper.IsWindow(windowHandle))
+        {
+            return;
+        }
+
+        SetWindowNoActivate(windowHandle, enabled: false);
+        Win32Helper.SetWindowTopMost(windowHandle, showWindow);
     }
 
     private static void SetWindowNoActivate(IntPtr windowHandle, bool enabled)
@@ -953,6 +1116,11 @@ public static class WidgetLayerService
 
     private static bool ShouldAttachRestingWindowToDesktop(IntPtr windowHandle)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            return false;
+        }
+
         bool keepVisible = App.Current?.SettingsService?.Settings
             .KeepWidgetsVisibleOnShowDesktop ?? true;
         return RelativeLayerRestorePolicy.ShouldAttachToDesktop(
@@ -974,7 +1142,9 @@ public static class WidgetLayerService
         bool placeAtBottom = true,
         bool showWindow = true)
     {
-        if (windowHandle == IntPtr.Zero || !Win32Helper.IsWindow(windowHandle))
+        if (IsPersistentTopMostWindow(windowHandle) ||
+            windowHandle == IntPtr.Zero ||
+            !Win32Helper.IsWindow(windowHandle))
         {
             return false;
         }
@@ -1065,6 +1235,13 @@ public static class WidgetLayerService
         IntPtr windowHandle,
         bool showWindow = true)
     {
+        if (IsPersistentTopMostWindow(windowHandle))
+        {
+            DetachFromDesktopIconLayerIfNeeded(windowHandle);
+            ApplyPersistentTopMost(windowHandle, showWindow);
+            return;
+        }
+
         // Try to attach to desktop icon layer to prevent Win+D from hiding the window
         // while maintaining dynamic layer behavior (can be raised on interaction)
         if (TryAttachToDesktopIconLayer(

@@ -5,6 +5,57 @@ namespace DeskBox.NpcWorker.Tests;
 public sealed class NpcWorkerSchedulingTests
 {
     [Fact]
+    public void WorldClockDayOneMapsToSundayAtTheConfiguredMinute()
+    {
+        TimeZoneInfo zone = DeterministicSchedule.ResolveTimeZone("Asia/Shanghai");
+        DateTimeOffset projected = DeterministicSchedule.FromWorldClock(
+            new WorldClock(1, 0, 1, 9 * 60, "09:00", "clear"), zone);
+
+        Assert.Equal(DayOfWeek.Sunday, projected.DayOfWeek);
+        Assert.Equal(9, projected.Hour);
+        Assert.Equal(0, projected.Minute);
+        Assert.Equal(zone.GetUtcOffset(projected.DateTime), projected.Offset);
+    }
+
+    [Fact]
+    public void WorldClockProjectsAWorkSlotAtNineOnDayTwelve()
+    {
+        JsonElement schedule = JsonDocument.Parse("[{\"weekday\":4,\"start_minute\":540,\"end_minute\":600,\"action\":\"work\",\"target_id\":\"farm-zone-3\"}]").RootElement.Clone();
+        var npc = new Npc("npc-1", "村民", "farmer", true, false,
+            new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), schedule, JsonDocument.Parse("{}").RootElement.Clone());
+        TimeZoneInfo zone = DeterministicSchedule.ResolveTimeZone("Asia/Shanghai");
+        DateTimeOffset projected = DeterministicSchedule.FromWorldClock(
+            new WorldClock(12, 11 * 1440 + 9 * 60, 12, 9 * 60, "09:00", "clear"), zone);
+
+        Assert.Equal(DayOfWeek.Thursday, projected.DayOfWeek);
+        Assert.Equal("work", DeterministicSchedule.Next(npc, projected, zone).Action);
+    }
+
+    [Fact]
+    public void WorldClockProjectionWrapsAcrossWeeksDeterministically()
+    {
+        TimeZoneInfo zone = DeterministicSchedule.ResolveTimeZone("Asia/Shanghai");
+        DateTimeOffset dayOne = DeterministicSchedule.FromWorldClock(
+            new WorldClock(1, 0, 1, 0, "00:00", "clear"), zone);
+        DateTimeOffset dayEight = DeterministicSchedule.FromWorldClock(
+            new WorldClock(8, 7 * 1440, 8, 0, "00:00", "clear"), zone);
+
+        Assert.Equal(dayOne.DayOfWeek, dayEight.DayOfWeek);
+        Assert.Equal(dayOne.Date.AddDays(7), dayEight.Date);
+    }
+
+    [Fact]
+    public void MissingTownTimezoneDefaultsToBeijing()
+    {
+        JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"work\"}]").RootElement.Clone();
+        var npc = new Npc("npc-1", "村民", "farmer", true, false, new NpcRuntime(10, 10, "rest", null, Array.Empty<string>()), schedule, JsonDocument.Parse("{}").RootElement.Clone());
+        DateTimeOffset utcMondayAtNineInShanghai = new(2026, 11, 2, 1, 0, 0, TimeSpan.Zero);
+
+        Assert.Equal("Asia/Shanghai", DeterministicSchedule.ResolveTimeZone(null).Id);
+        Assert.Equal("work", DeterministicSchedule.Next(npc, utcMondayAtNineInShanghai).Action);
+    }
+
+    [Fact]
     public void DeterministicScheduleUsesConfiguredTownTimezone()
     {
         JsonElement schedule = JsonDocument.Parse("[{\"weekday\":1,\"start_minute\":540,\"end_minute\":600,\"action\":\"work\",\"target_id\":\"farm-zone-3\"}]").RootElement.Clone();
@@ -138,6 +189,33 @@ public sealed class NpcWorkerSchedulingTests
 
         Assert.False(AgentPlanValidator.TryValidate("walk", "farm-zone-3", "", payload, out string error));
         Assert.Contains("16", error);
+    }
+
+    [Fact]
+    public void AgentPlanValidatorRejectsWalkWithoutBoundedTarget()
+    {
+        JsonElement payload = JsonDocument.Parse("{\"steps\":[{\"action\":\"walk\"},{\"action\":\"work\"}]} ").RootElement;
+
+        Assert.False(AgentPlanValidator.TryValidate("work", "farm-zone-3", "去工作", payload, out string error));
+        Assert.Contains("walk", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AgentPlanValidatorRejectsStepsAfterTerminalAction()
+    {
+        JsonElement payload = JsonDocument.Parse("{\"steps\":[{\"action\":\"work\",\"job\":\"water_crop\"},{\"action\":\"walk\",\"target\":\"market-zone-1\"}]} ").RootElement;
+
+        Assert.False(AgentPlanValidator.TryValidate("walk", "market-zone-1", "先工作再走", payload, out string error));
+        Assert.Contains("最终", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AgentPlanValidatorRequiresFinalStepToMatchRootAction()
+    {
+        JsonElement payload = JsonDocument.Parse("{\"steps\":[{\"action\":\"walk\",\"target\":\"farm-zone-3\"}]} ").RootElement;
+
+        Assert.False(AgentPlanValidator.TryValidate("work", "farm-zone-3", "去工作", payload, out string error));
+        Assert.Contains("匹配", error, StringComparison.Ordinal);
     }
 
     [Fact]

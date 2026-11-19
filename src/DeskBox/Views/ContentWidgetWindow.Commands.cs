@@ -453,6 +453,8 @@ public sealed partial class ContentWidgetWindow
             beforeClick: flyout.Hide,
             widgetId: _config.Id));
 
+        flyout.Items.Add(CreateAlwaysOnTopMenuItem());
+
         flyout.Items.Add(new MenuFlyoutSeparator());
         var disableWidget = new MenuFlyoutItem
         {
@@ -482,6 +484,33 @@ public sealed partial class ContentWidgetWindow
         {
             _ = fileSurface.ApplyFolderOpenBehaviorChangeAsync();
         }
+    }
+
+    private void SetAlwaysOnTop(bool enabled)
+    {
+        _config.IsAlwaysOnTop = enabled;
+        SettingsService.UpdateWidget(_config);
+        WidgetLayerService.SetPersistentTopMostWindow(HWnd, enabled);
+        if (!enabled)
+        {
+            App.Current.WidgetManager?.QueueIdleWidgetZOrderNormalization(
+                "content-always-on-top-disabled");
+        }
+    }
+
+    private ToggleMenuFlyoutItem CreateAlwaysOnTopMenuItem()
+    {
+        var item = new ToggleMenuFlyoutItem
+        {
+            Text = App.Current.LocalizationService.T(
+                _config.IsAlwaysOnTop
+                    ? "Widget.AlwaysOnTop.UnpinMenuLabel"
+                    : "Widget.AlwaysOnTop.PinMenuLabel"),
+            IsChecked = _config.IsAlwaysOnTop,
+            Icon = new FontIcon { Glyph = "\uE718" }
+        };
+        item.Click += (_, _) => SetAlwaysOnTop(item.IsChecked);
+        return item;
     }
 
     private void ProvideWidgetActionsForContentMenu(
@@ -517,6 +546,7 @@ public sealed partial class ContentWidgetWindow
             }
         };
         e.CloseWidgetItem = closeWidget;
+        e.Menu.Items.Add(CreateAlwaysOnTopMenuItem());
     }
 
     private string GetFeatureWidgetCloseMenuText()

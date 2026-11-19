@@ -1686,6 +1686,8 @@
   "Widget.AddedFile": "Datei hinzugefügt",
   "Widget.AddedFiles": "{0} Dateien hinzugefügt",
   "Widget.AddFileFailed": "Dateien hinzufügen fehlgeschlagen",
+  "Widget.AlwaysOnTop.PinMenuLabel": "Immer im Vordergrund",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "Immer im Vordergrund deaktivieren",
   "Widget.MappedPathUpdated": "Zugeordneter Pfad aktualisiert",
   "Widget.ChangeMappedPathFailed": "Zugeordneten Pfad ändern fehlgeschlagen",
   "Widget.CreateFolderFailed": "Ordner erstellen fehlgeschlagen",

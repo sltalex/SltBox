@@ -1692,6 +1692,8 @@
   "Widget.AddedFile": "تمت إضافة الملف",
   "Widget.AddedFiles": "تمت إضافة ملفات {0}",
   "Widget.AddFileFailed": "فشل إضافة الملفات",
+  "Widget.AlwaysOnTop.PinMenuLabel": "دائماً في المقدمة",
+  "Widget.AlwaysOnTop.UnpinMenuLabel": "إزالة التثبيت في المقدمة",
   "Widget.MappedPathUpdated": "تم تحديث المسار المعين",
   "Widget.ChangeMappedPathFailed": "فشل تغيير المسار المعين",
   "Widget.CreateFolderFailed": "فشل إنشاء المجلد",
