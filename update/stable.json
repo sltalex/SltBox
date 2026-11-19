@@ -1,17 +1,18 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026111801",
-  "releaseDate": "2026-11-18",
+  "version": "2026111901",
+  "releaseDate": "2026-11-19",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111801/SltBox_Setup_2026111801_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026111801_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111901/SltBox_Setup_2026111901_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026111901_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "67c2b2c231935b31da693f005987bebdefdf0dda5035b01bfa8c5d5654cc9d5e",
-  "size": 158364403,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026111801",
+  "sha256": "477da0f15e37ddd7894cae836b906038d0a23b0158377854bf1ce122cbd92199",
+  "size": 158727072,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026111901",
   "summary": {
-    "zh-CN": "SltBox 2026111801：随记和待办支持局部字体颜色，列表预览同步显示颜色并恢复鼠标悬停自动展开。",
-    "en-US": "SltBox 2026111801 adds inline text colors to notes and todos, colored list previews, and hover expansion."
+    "zh-CN": "SltBox 2026111901：修复共享小镇瞬时读取失败和 NPC Native AOT 邀请序列化问题。",
+    "en-US": "SltBox 2026111901 fixes transient shared-town reads and NPC invite serialization in Native AOT."
   }
 }
+
