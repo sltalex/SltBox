@@ -102,16 +102,26 @@ function town_npc_stats_save(PDO $pdo, string $npcId, array $values, string $sou
     $exists = $pdo->prepare('SELECT 1 FROM town_npcs WHERE npc_id=:npc LIMIT 1'); $exists->execute([':npc' => $npcId]);
     if (!$exists->fetchColumn()) throw new ApiError('npc_not_found', '村民不存在。', 404);
     $next = town_npc_stat_normalize($values);
-    $oldPublic = town_npc_stats_for($pdo, $npcId); $old = $oldPublic['values'];
-    $delta = []; foreach (TOWN_NPC_STAT_KEYS as $key) if ($next[$key] !== $old[$key]) $delta[$key] = $next[$key] - $old[$key];
     $stamp = auth_sql_time($now);
     $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     $json = json_encode($next, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     $ownsTransaction = !$pdo->inTransaction();
     if ($ownsTransaction) $pdo->beginTransaction();
     try {
-        $lock = $pdo->prepare('SELECT revision FROM town_npc_stats WHERE npc_id=:npc' . ($driver === 'mysql' ? ' FOR UPDATE' : '')); $lock->execute([':npc' => $npcId]);
-        $revision = (int)$lock->fetchColumn();
+        // Read the previous values only after acquiring the row lock. This
+        // keeps before/delta history truthful when an admin edit and a story
+        // effect arrive at the same time.
+        $lock = $pdo->prepare('SELECT mood,health,stamina,labor,academics,culture,social,wealth,stress,reputation,revision,updated_at FROM town_npc_stats WHERE npc_id=:npc' . ($driver === 'mysql' ? ' FOR UPDATE' : ''));
+        $lock->execute([':npc' => $npcId]);
+        $locked = $lock->fetch(PDO::FETCH_ASSOC);
+        $revision = is_array($locked) ? (int)$locked['revision'] : 0;
+        $old = is_array($locked)
+            ? town_npc_stat_normalize(array_intersect_key($locked, array_flip(TOWN_NPC_STAT_KEYS)))
+            : town_npc_stat_defaults();
+        $delta = [];
+        foreach (TOWN_NPC_STAT_KEYS as $key) {
+            if ($next[$key] !== $old[$key]) $delta[$key] = $next[$key] - $old[$key];
+        }
         if ($revision < 1) {
             $insert = $pdo->prepare('INSERT INTO town_npc_stats (npc_id,mood,health,stamina,labor,academics,culture,social,wealth,stress,reputation,revision,updated_at) VALUES (:npc,:mood,:health,:stamina,:labor,:academics,:culture,:social,:wealth,:stress,:reputation,1,:updated)');
             $insert->execute([':npc' => $npcId, ':mood' => $next['mood'], ':health' => $next['health'], ':stamina' => $next['stamina'], ':labor' => $next['labor'], ':academics' => $next['academics'], ':culture' => $next['culture'], ':social' => $next['social'], ':wealth' => $next['wealth'], ':stress' => $next['stress'], ':reputation' => $next['reputation'], ':updated' => $stamp]);

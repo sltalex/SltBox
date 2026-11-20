@@ -1458,11 +1458,11 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - 本轮 PHP/Web 文件已上传并通过远程 PHP 8.2 lint；代表性文件远程 SHA-256 与本地一致，包括 `town_npc_stats.php`、`town_story_events.php`、三个 Agent 故事接口和后台 `town_npcs.php`。
 - Worker 已用 Release 发布内容构建 `deskbox-npc-worker:v43-npc-stats-story`，旧 `v42-player-talk-timeout` 保留为停止状态回滚容器。线上健康接口返回 `ok=true`，容器 `restart_count=0`；最近日志未发现错误。由于当前数据库没有初始化统计行和故事策略行，服务端按代码安全默认值返回数值/策略，后台首次保存时再创建对应行。
 - 本轮未发布桌面安装包；桌面仍使用已有 canonical Debug 验证实例。真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示仍需认证验收。
-#### 2026-11-20 故事事件闭环修复（本地）
+#### 2026-11-20 故事事件闭环修复（已部署，历史记录）
 
 - 修复 Worker → PHP 的嵌套 JSON 草案边界：`api_body()` 返回的 `stdClass` 会在 `story-events.php` 入口递归规范化；模型任务保留经过白名单校验的 `target_npc_id`、记忆坐标、时长和对话文本。测试覆盖真实 Worker 线格式、目标坐标边界和公共投影脱敏。
 - 规则事件不再只写“参与者”而没有行动：首位参与者会按事件模板尝试创建面对面 `talk` 任务，仍然经过路线、忙闲、占用和道具校验；失败记录为 `blocked`，不会绕过服务器直接写坐标。其余参与者作为观察参与者，事件仍可在任务完成后结算。
 - 新增服务端 `GET /api/v2/town/agent/story-events-active.php`。它返回活动事件的到期/可结算状态和生成策略预检；Worker 每 30 秒从数据库恢复活动事件，按所有任务完成、无任务开放窗口 120 秒或过期进行结算，替换 Worker 后仍可继续处理，不再依赖进程内字典。未通过策略预检时不会先调用模型或预留 Token；条件策略会根据当前天气筛选规则模板。
 - 结算现在根据真实任务状态决定 `success/partial/expired`；失败或过期的未完成参与者不会获得数值、关系或记忆效果，重复请求仍返回幂等结果。公共故事接口的效果投影不再暴露私有记忆和任务载荷。
 - 修复后台数值变化历史显示顺序：管理卡片读取最新 12 条变化；桌面居民资料在打开状态下比较 `revision`，优先渲染实时变化，避免旧 detail 响应覆盖新数值。
-- 回归结果：`town_story_events_test.php` 10 项、`town_npc_stats_test.php` 5 项、`DeskBox.NpcWorker.Tests` 39/39、Worker 构建 0 错误；5 个 PHP fixture 的重复 `town_agent.php` 引入改为 `require_once`，相关观察、模型成本、导航和任务测试均通过。当前仍是本地改动，055 迁移、PHP/Web 文件和 Worker 镜像尚未重新部署线上；线上真实 AI 草案、重启恢复、双 Worker 竞争和双客户端数值推送仍需验收。
+- 回归结果：`town_story_events_test.php` 10 项、`town_npc_stats_test.php` 5 项、`DeskBox.NpcWorker.Tests` 39/39、Worker 构建 0 错误；5 个 PHP fixture 的重复 `town_agent.php` 引入改为 `require_once`，相关观察、模型成本、导航和任务测试均通过。本条记录描述的代码已经随后续线上发布记录部署；线上真实 AI 草案、重启恢复、双 Worker 竞争和双客户端数值推送仍需验收。
