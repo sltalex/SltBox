@@ -124,6 +124,7 @@ try {
     if ($done === 'town_model_provider_test') { $message = '模型连接成功，未发送对话请求。'; }
     elseif ($done === 'town_navigation_rebuild') { $message = '导航已重建，运行中的村民会在下一次行动校验时重新规划路线。'; }
     elseif ($done === 'town_story_event_policy_save') { $message = '故事事件策略已保存，Worker 会按新的每日数量和冷却策略执行。'; }
+    elseif ($done === 'town_story_event_generate_manual') { $message = '已手工生成故事事件，村民会按服务器校验后的任务参与。'; }
     elseif ($done === 'town_asset_bulk_item') { $message = '自动识别的素材候选已批量加入草稿，可在下方逐项调整后发布。'; }
     elseif ($done !== '') { $message = '操作已完成。'; }
 } catch (ApiError $exception) {
@@ -248,7 +249,7 @@ endif;
 
 $csrf = web_admin_csrf_token();
 $query = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
-$panel = isset($_GET['panel']) && is_string($_GET['panel']) && in_array($_GET['panel'], ['users', 'shop', 'tree', 'tree_settings', 'aquarium', 'wildlife', 'town_assets', 'town_npcs', 'town_agent', 'report'], true)
+$panel = isset($_GET['panel']) && is_string($_GET['panel']) && in_array($_GET['panel'], ['users', 'shop', 'tree', 'tree_settings', 'aquarium', 'wildlife', 'town_assets', 'town_npcs', 'town_events', 'town_agent', 'report'], true)
     ? $_GET['panel'] : 'users';
 $townView = isset($_GET['view']) && is_string($_GET['view']) && in_array($_GET['view'], ['list', 'workpoints', 'memory', 'economy'], true) ? $_GET['view'] : 'list';
 $panelView = $panel === 'town_npcs'
@@ -279,6 +280,8 @@ $townNpcRelationships = [];
 $townNpcMemories = [];
 $townNpcTransactions = [];
 $townStoryEvents = [];
+$townStoryAdminEvents = [];
+$townStoryNextPreview = null;
 $townNpcGlobalPolicy = town_npc_life_policy_defaults();
 $townStoryPolicy = town_story_event_policy($pdo);
 $townNpcRelationPage = isset($_GET['relationship_page']) && is_string($_GET['relationship_page']) ? max(0, min(2000, (int)$_GET['relationship_page'])) : 0;
@@ -293,6 +296,10 @@ if ($panel === 'town_npcs') {
     $townNpcMemories = town_npc_memory_rows($pdo, $townNpcSocialNpcId, $townNpcSocialPageSize, $townNpcMemoryPage * $townNpcSocialPageSize);
     $townNpcTransactions = town_npc_transaction_rows($pdo, $townNpcSocialNpcId, 100);
     try { $townStoryEvents = town_story_events_query($pdo, 30)['events'] ?? []; } catch (Throwable $error) { $townStoryEvents = []; }
+}
+if ($panel === 'town_events') {
+    try { $townStoryAdminEvents = town_story_events_admin_query($pdo, 100)['events'] ?? []; } catch (Throwable $error) { $townStoryAdminEvents = []; }
+    try { $townStoryNextPreview = town_story_event_next_preview($pdo, api_clock()); } catch (Throwable $error) { $townStoryNextPreview = null; }
 }
 if ($panel === 'town_npcs') {
     try {
@@ -714,6 +721,7 @@ background:#fff;color:var(--text-2);font-size:12px;font-weight:500;
 <a class="side-link sub<?= $panel === 'town_npcs' && $townView === 'memory' ? ' active' : '' ?>" href="?panel=town_npcs&amp;view=memory">村民记忆</a>
 <a class="side-link sub<?= $panel === 'town_npcs' && $townView === 'economy' ? ' active' : '' ?>" href="?panel=town_npcs&amp;view=economy">交易记录</a>
 </div>
+<a class="side-link<?= $panel === 'town_events' ? ' active' : '' ?>" href="?panel=town_events">事件中心</a>
 <a class="side-link<?= $panel === 'town_agent' ? ' active' : '' ?>" href="?panel=town_agent">Agent 模型</a>
 </div>
 </div>
@@ -721,7 +729,7 @@ background:#fff;color:var(--text-2);font-size:12px;font-weight:500;
 </aside>
 <div class="main">
 <header class="topbar">
-<?php $panelTitles = ['users'=>'用户管理','shop'=>'商城管理','aquarium'=>'水族馆图鉴','tree'=>'果实图鉴','tree_settings'=>'产果设置','wildlife'=>'动物图鉴','town_assets'=>'素材编辑','town_npcs'=>'村民管理','town_agent'=>'Agent 模型','report'=>'图鉴报表'];
+<?php $panelTitles = ['users'=>'用户管理','shop'=>'商城管理','aquarium'=>'水族馆图鉴','tree'=>'果实图鉴','tree_settings'=>'产果设置','wildlife'=>'动物图鉴','town_assets'=>'素材编辑','town_npcs'=>'村民管理','town_events'=>'事件中心','town_agent'=>'Agent 模型','report'=>'图鉴报表'];
 $townTitles = ['list'=>'村民列表','workpoints'=>'工作地点','memory'=>'村民记忆','economy'=>'交易记录'];
 $crumbTitle = $panel === 'town_npcs' ? ($townTitles[$townView] ?? '村民管理') : ($panelTitles[$panel] ?? '控制台'); ?>
 <div class="crumb">SltBox 管理后台<span class="sep">/</span><span class="current"><?= admin_page_escape($crumbTitle) ?></span></div>

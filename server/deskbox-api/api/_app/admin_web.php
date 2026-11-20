@@ -191,6 +191,13 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
         town_story_event_policy_save($pdo, ['daily_min_events' => $post['daily_min_events'] ?? 0, 'daily_max_events' => $post['daily_max_events'] ?? 2, 'condition_enabled' => ($post['condition_enabled'] ?? '') === '1', 'cooldown_minutes' => $post['cooldown_minutes'] ?? 240, 'max_participants' => $post['max_participants'] ?? 5, 'enabled' => ($post['story_enabled'] ?? '') === '1'], api_clock());
         return 'town_story_event_policy_save';
     }
+    if ($operation === 'town_story_event_generate_manual') {
+        require_once __DIR__ . '/town_story_events.php';
+        $templateKey = is_string($post['story_template_key'] ?? null) ? trim((string)$post['story_template_key']) : '';
+        $seed = filter_var($post['story_seed'] ?? null, FILTER_VALIDATE_INT);
+        town_story_event_generate($pdo, api_clock(), $seed === false ? null : (int)$seed, null, null, $templateKey !== '' ? $templateKey : null, true);
+        return 'town_story_event_generate_manual';
+    }
     if (str_starts_with($operation, 'town_npc_')) {
         require_once __DIR__ . '/town_npcs.php';
         if ($operation === 'town_npc_delete') {

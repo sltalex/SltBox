@@ -41,4 +41,6 @@ $pdo->exec("UPDATE town_npc_tasks SET status='completed' WHERE task_id='task-1'"
 $active = town_story_events_active($pdo, $now); if (($active[0]['due'] ?? false) !== true || ($active[0]['outcome'] ?? '') !== 'success') throw new RuntimeException('completed participant tasks should make a story due for settlement');
 $bad = town_story_event_sanitize_draft($pdo, ['title' => '坏草案', 'summary' => '缺少参与者', 'participants' => [['npc_id' => $a]]], $policy);
 if ($bad !== null) throw new RuntimeException('story draft with fewer than two valid participants must be rejected');
-echo "town_story_events_test: 10 checks ok\n";
+$preview = town_story_event_next_preview($pdo, $now);
+if (($preview['exact_title_known'] ?? true) !== false || count($preview['candidates'] ?? []) < 3) throw new RuntimeException('next story preview should explain candidates without inventing an exact title');
+echo "town_story_events_test: 11 checks ok\n";

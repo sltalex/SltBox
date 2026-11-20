@@ -1446,10 +1446,12 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 | AI 故事草案 | 已部署待验收 | Worker 在有模型配置时读取最多 10 名村民的职业、人格、数值、运行状态和记忆，使用 OpenAI 兼容接口请求 JSON 草案；令牌预留/结算仍复用现有月度 Token 机制；模型失败、超时、配额不足自动回到规则模板。服务端只接受白名单 NPC、限定文本长度、数值 ±15、行动类型和参与人数，并将来源标记为 `model`。 | 尚未用真实模型端到端生成并验收一条线上事件；没有模型时仍可运行规则事件。 |
 | 事件参与和行动 | 本地完成基础绑定 | AI 草案可为参与者提供 `walk/work/rest/talk/trade` 任务；服务端先经过现有路线、占用、道具和任务校验，成功后记录 `task_id`，失败则把参与者标记为 `blocked`，不会执行未校验的坐标或数据库写入。 | 复杂多阶段故事、事件分支和 Worker 根据事件中途重新规划仍未实现。 |
 | 事件结算 | 已部署待验收 | 结算在事务中锁定事件和效果，幂等处理；应用数值变化、记忆、关系变化、参与者完成状态和 NPC 事件日志；重复结算返回 `idempotent=true`。 | 关系表/记忆表缺失时按滚动迁移兼容路径跳过；尚未做线上并发双 Worker 验收。 |
-| 后台故事事件 | 本地完成基础管理 | 后台显示策略和最近 30 条事件，展示来源、参与者和效果应用数量；普通账号可读取公共事件列表。 | 还没有独立的事件详情、手动结算/重试、参与者筛选和效果编辑页。 |
-| 发布状态 | 已发布待验收 | 本地 PHP lint、故事事件 10 项、NPC 数值 5 项、Worker 39 项测试、Worker Release 构建均通过；055 已执行远程 MySQL，PHP 文件远程 SHA-256 与本地一致；线上 Worker 为 `v43-npc-stats-story`，健康检查通过；canonical DeskBox Debug 已按 AGENTS.md 启动单实例。 | 真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示和完整生产验收仍未完成。 |
+| 后台故事事件 | 已完成首版事件中心 | 新增独立“事件中心”页面，展示事件叙事、发生/到期/结束时间、来源、参与 NPC 的角色、任务动作/状态/失败原因、数值/关系/记忆影响和结算状态；显示下一次自动事件最早时间、当前策略和候选模板影响；管理员可选择模板或随机种子手工生成事件。普通账号仍只读取公共事件摘要。 | 仍可继续增加事件详情 URL、手动结算/重试、参与者筛选和效果编辑，但不阻塞本版。 |
+| 发布状态 | 已发布待验收 | 本地 PHP lint、故事事件 11 项、NPC 数值 5 项、Worker 39 项测试、Worker Release 构建均通过；055 已执行远程 MySQL，PHP 文件远程 SHA-256 与本地一致；线上 Worker 为 `v43-npc-stats-story`，健康检查通过；canonical DeskBox Debug 已按 AGENTS.md 启动单实例。 | 事件中心本轮页面需要线上后台登录验证；真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示和完整生产验收仍未完成。 |
 
-本轮新增/修改的关键文件：`server/deskbox-api/database/055_town_npc_stats_story_events_v1.sql`、`server/deskbox-api/api/_app/town_npc_stats.php`、`server/deskbox-api/api/_app/town_story_events.php`、`server/deskbox-api/api/v2/town/agent/story-events.php`、`server/deskbox-api/api/v2/town/agent/story-event-resolve.php`、`server/deskbox-api/api/admin/index.php`、`server/deskbox-api/api/admin/views/town_npcs.php`、`src/DeskBox.NpcWorker/Program.cs`、`server/deskbox-api/tests/town_npc_stats_test.php`、`server/deskbox-api/tests/town_story_events_test.php`。本地验证命令和结果：`php server/deskbox-api/tests/town_npc_stats_test.php`（5 项）、`php server/deskbox-api/tests/town_story_events_test.php`（5 项）、`dotnet test .\tests\DeskBox.NpcWorker.Tests\DeskBox.NpcWorker.Tests.csproj --no-restore --verbosity:minimal -p:Platform=x64`（39/39）、`dotnet build .\src\DeskBox.NpcWorker\DeskBox.NpcWorker.csproj --no-restore -p:Platform=x64`（0 错误）、新增/修改 PHP 文件 `php -l` 全部通过、`git diff --check` 通过。
+本轮新增/修改的关键文件：`server/deskbox-api/database/055_town_npc_stats_story_events_v1.sql`、`server/deskbox-api/api/_app/town_npc_stats.php`、`server/deskbox-api/api/_app/town_story_events.php`、`server/deskbox-api/api/v2/town/agent/story-events.php`、`server/deskbox-api/api/v2/town/agent/story-event-resolve.php`、`server/deskbox-api/api/admin/index.php`、`server/deskbox-api/api/admin/views/town_npcs.php`、`src/DeskBox.NpcWorker/Program.cs`、`server/deskbox-api/tests/town_npc_stats_test.php`、`server/deskbox-api/tests/town_story_events_test.php`。本地验证命令和结果：`php server/deskbox-api/tests/town_npc_stats_test.php`（5 项）、`php server/deskbox-api/tests/town_story_events_test.php`（11 项）、`dotnet test .\tests\DeskBox.NpcWorker.Tests\DeskBox.NpcWorker.Tests.csproj --no-restore --verbosity:minimal -p:Platform=x64`（39/39）、`dotnet build .\src\DeskBox.NpcWorker\DeskBox.NpcWorker.csproj --no-restore -p:Platform=x64`（0 错误）、新增/修改 PHP 文件 `php -l` 全部通过、`git diff --check` 通过。
+
+事件中心补充文件：`server/deskbox-api/api/admin/views/town_events.php`（独立事件详情和手工生成页面）；`admin_web.php` 新增 `town_story_event_generate_manual` 管理操作；`town_story_events.php` 新增管理员详细投影和下一事件预测接口。手工生成仍使用同一套服务器参与者、路线、任务和数值校验，不允许后台直接写 NPC 坐标。
 
 #### 2026-11-20 个体数值与故事事件线上发布
 
@@ -1459,6 +1461,7 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - 随后修正 `town_npc_stats_save()` 的并发历史记录：旧值和 delta 现在在事务内取得 `FOR UPDATE` 锁后计算，避免管理员调整与故事效果同时到达时写入过期 `before_json`；修正版已备份到 `/root/deskbox-backups/npc-stats-lock-fix-20261120-095012/`，线上 PHP 8.2 lint 和 SHA-256 回读通过。
 - Worker 已用 Release 发布内容构建 `deskbox-npc-worker:v43-npc-stats-story`，旧 `v42-player-talk-timeout` 保留为停止状态回滚容器。线上健康接口返回 `ok=true`，容器 `restart_count=0`；最近日志未发现错误。由于当前数据库没有初始化统计行和故事策略行，服务端按代码安全默认值返回数值/策略，后台首次保存时再创建对应行。
 - 本轮未发布桌面安装包；桌面仍使用已有 canonical Debug 验证实例。真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示仍需认证验收。
+- 事件中心已部署到线上：备份目录为 `/root/deskbox-backups/town-events-20261120-132819/`；`town_story_events.php`、`admin_web.php`、`admin/index.php` 和 `admin/views/town_events.php` 均通过远程 PHP 8.2 lint，四个文件远程 SHA-256 与本地一致。远程只读回读确认事件中心在空事件数据库上能返回 3 个候选模板、最早生成时间和当前策略，不会因没有历史事件报错。
 #### 2026-11-20 故事事件闭环修复（已部署，历史记录）
 
 - 修复 Worker → PHP 的嵌套 JSON 草案边界：`api_body()` 返回的 `stdClass` 会在 `story-events.php` 入口递归规范化；模型任务保留经过白名单校验的 `target_npc_id`、记忆坐标、时长和对话文本。测试覆盖真实 Worker 线格式、目标坐标边界和公共投影脱敏。

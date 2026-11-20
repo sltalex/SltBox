@@ -165,15 +165,15 @@ function town_story_event_sanitize_draft(PDO $pdo, array $draft, array $policy):
     return ['title' => $title, 'summary' => $summary, 'story' => $story, 'participants' => array_values($participants), 'effects' => array_values($effects), 'template_key' => mb_substr(trim((string)($draft['template_key'] ?? 'ai_story')), 0, 64, 'UTF-8') ?: 'ai_story'];
 }
 
-function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed = null, ?array $draft = null, ?string $modelRunId = null): array
+function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed = null, ?array $draft = null, ?string $modelRunId = null, ?string $templateKeyOverride = null, bool $manual = false): array
 {
     if (!town_npc_life_table_exists($pdo, 'town_story_events') || !town_npc_life_table_exists($pdo, 'town_story_event_participants')) throw new ApiError('story_migration_required', '故事事件迁移尚未执行。', 503);
-    $policy = town_story_event_policy($pdo); if (!$policy['enabled']) throw new ApiError('story_events_disabled', '故事事件当前已停用。', 409);
+    $policy = town_story_event_policy($pdo); if (!$policy['enabled'] && !$manual) throw new ApiError('story_events_disabled', '故事事件当前已停用。', 409);
     $dayStart = $now->setTime(0, 0, 0)->format('Y-m-d H:i:s');
     $daily = $pdo->prepare('SELECT COUNT(*) FROM town_story_events WHERE world_id=:world AND occurred_at>=:day_start'); $daily->execute([':world' => SHARED_TOWN_WORLD_ID, ':day_start' => $dayStart]);
-    if ((int)$daily->fetchColumn() >= $policy['daily_max_events']) throw new ApiError('story_daily_limit', '今日故事事件已达到上限。', 409);
+    if (!$manual && (int)$daily->fetchColumn() >= $policy['daily_max_events']) throw new ApiError('story_daily_limit', '今日故事事件已达到上限。', 409);
     $last = $pdo->prepare('SELECT occurred_at FROM town_story_events WHERE world_id=:world ORDER BY occurred_at DESC LIMIT 1'); $last->execute([':world' => SHARED_TOWN_WORLD_ID]); $lastAt = $last->fetchColumn();
-    if (is_string($lastAt) && $lastAt !== '' && strtotime($lastAt) !== false && (time() - strtotime($lastAt)) < ($policy['cooldown_minutes'] * 60)) throw new ApiError('story_cooldown', '故事事件仍在冷却时间内。', 409);
+    if (!$manual && is_string($lastAt) && $lastAt !== '' && strtotime($lastAt) !== false && (time() - strtotime($lastAt)) < ($policy['cooldown_minutes'] * 60)) throw new ApiError('story_cooldown', '故事事件仍在冷却时间内。', 409);
     $seed ??= random_int(1, PHP_INT_MAX); $templates = town_story_event_templates();
     if ($policy['condition_enabled']) {
         try {
@@ -182,12 +182,19 @@ function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed 
             $templates = array_values(array_filter($templates, static fn(array $item): bool => ($item['condition'] ?? 'always') !== 'rain' || $weather === 'rain')) ?: $templates;
         } catch (Throwable $error) { /* use all templates while clock tables roll out */ }
     }
-    $template = $templates[$seed % count($templates)];
+    $template = null;
+    if (is_string($templateKeyOverride) && $templateKeyOverride !== '') {
+        foreach (town_story_event_templates() as $candidate) {
+            if ((string)($candidate['key'] ?? '') === $templateKeyOverride) { $template = $candidate; break; }
+        }
+        if (!is_array($template)) throw new ApiError('invalid_story_template', '选择的故事事件模板不存在。', 400);
+    }
+    $template ??= $templates[$seed % count($templates)];
     $q = $pdo->query("SELECT n.npc_id,n.name,n.occupation FROM town_npcs n WHERE n.world_id=" . $pdo->quote(SHARED_TOWN_WORLD_ID) . " AND n.enabled=1 AND n.agent_paused=0 ORDER BY n.npc_id");
     $npcs = $q->fetchAll(PDO::FETCH_ASSOC); if (count($npcs) < 2) throw new ApiError('story_not_enough_npcs', '至少需要两个启用的村民才能生成故事事件。', 409);
     usort($npcs, static function (array $a, array $b) use ($seed): int { return strcmp(hash('sha256', $seed . ':' . $a['npc_id']), hash('sha256', $seed . ':' . $b['npc_id'])); });
     $selected = array_slice($npcs, 0, min($policy['max_participants'], count($npcs)));
-    $source = 'rule'; $modelStory = null;
+    $source = $manual ? 'manual' : 'rule'; $modelStory = null;
     if (is_array($draft)) {
         $modelStory = town_story_event_sanitize_draft($pdo, $draft, $policy);
         if (is_array($modelStory)) $source = 'model';
@@ -201,7 +208,7 @@ function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed 
     if (is_array($modelStory)) {
         $story = $modelStory['story'] + ['seed' => $seed, 'stage' => 'opening']; $title = $modelStory['title']; $summary = $modelStory['summary']; $templateKey = $modelStory['template_key'];
     } else {
-        $story = ['seed' => $seed, 'template_key' => $template['key'], 'stage' => 'opening', 'roles' => $template['roles']]; $title = $template['title']; $summary = $template['summary']; $templateKey = $template['key'];
+        $story = ['seed' => $seed, 'template_key' => $template['key'], 'stage' => 'opening', 'roles' => $template['roles'], 'generation_mode' => $manual ? 'manual' : 'scheduled']; $title = $template['title']; $summary = $template['summary']; $templateKey = $template['key'];
     }
     $insert = $pdo->prepare('INSERT INTO town_story_events (event_id,world_id,template_key,status,title,summary,story_json,random_seed,generation_source,model_run_id,starts_at,expires_at,occurred_at,created_at) VALUES (:id,:world,:template,\'active\',:title,:summary,:story,:seed,:source,:run,:starts,:expires,:occurred,:created)');
     $insert->execute([':id' => $eventId, ':world' => SHARED_TOWN_WORLD_ID, ':template' => $templateKey, ':title' => $title, ':summary' => $summary, ':story' => json_encode($story, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':seed' => $seed, ':source' => $source, ':run' => $modelRunId, ':starts' => $stamp, ':expires' => auth_sql_time($now->modify('+1 day')), ':occurred' => $stamp, ':created' => $stamp]);
@@ -353,4 +360,74 @@ function town_story_events_query(PDO $pdo, int $limit = 50): array
         $events[] = town_story_event_public($row, $p->fetchAll(PDO::FETCH_ASSOC), $effects);
     }
     return ['events' => $events];
+}
+
+/** Detailed projection for administrators; unlike the public projection it
+ * includes the event narrative, participant task outcome, memory text and
+ * unapplied effects so an operator can explain what happened. */
+function town_story_events_admin_query(PDO $pdo, int $limit = 50): array
+{
+    if (!town_npc_life_table_exists($pdo, 'town_story_events')) return ['events' => []];
+    $limit = max(1, min(100, $limit));
+    $query = $pdo->query('SELECT * FROM town_story_events WHERE world_id=' . $pdo->quote(SHARED_TOWN_WORLD_ID) . ' ORDER BY occurred_at DESC LIMIT ' . $limit);
+    $events = [];
+    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $participantsQuery = $pdo->prepare('SELECT p.npc_id,n.name,p.role,p.status,p.task_id,p.eligibility_json,p.outcome_json,p.joined_at,p.completed_at,t.action,t.target_id,t.status AS task_status,t.started_at,t.completed_at AS task_completed_at,t.failure_reason,t.payload_json FROM town_story_event_participants p JOIN town_npcs n ON n.npc_id=p.npc_id LEFT JOIN town_npc_tasks t ON t.task_id=p.task_id WHERE p.event_id=:event ORDER BY p.npc_id');
+        $participantsQuery->execute([':event' => $row['event_id']]);
+        $participants = [];
+        foreach ($participantsQuery->fetchAll(PDO::FETCH_ASSOC) as $participant) {
+            $participants[] = [
+                'npc_id' => (string)$participant['npc_id'],
+                'name' => (string)$participant['name'],
+                'role' => (string)$participant['role'],
+                'status' => (string)$participant['status'],
+                'task_id' => $participant['task_id'] !== null ? (string)$participant['task_id'] : null,
+                'task' => [
+                    'action' => (string)($participant['action'] ?? ''),
+                    'target_id' => (string)($participant['target_id'] ?? ''),
+                    'job' => (string)((json_decode((string)($participant['payload_json'] ?? '{}'), true)['job'] ?? '')),
+                    'status' => (string)($participant['task_status'] ?? ''),
+                    'started_at' => $participant['started_at'] !== null ? (string)$participant['started_at'] : null,
+                    'completed_at' => $participant['task_completed_at'] !== null ? (string)$participant['task_completed_at'] : null,
+                    'failure_reason' => (string)($participant['failure_reason'] ?? ''),
+                    'payload' => json_decode((string)($participant['payload_json'] ?? '{}'), true) ?: [],
+                ],
+                'eligibility' => json_decode((string)$participant['eligibility_json'], true) ?: [],
+                'outcome' => json_decode((string)$participant['outcome_json'], true) ?: [],
+                'joined_at' => $participant['joined_at'] !== null ? (string)$participant['joined_at'] : null,
+                'completed_at' => $participant['completed_at'] !== null ? (string)$participant['completed_at'] : null,
+            ];
+        }
+        $effectsQuery = $pdo->prepare('SELECT npc_id,stat_delta_json,relationship_delta_json,memory_json,task_payload_json,applied_at FROM town_story_event_effects WHERE event_id=:event ORDER BY effect_id');
+        $effectsQuery->execute([':event' => $row['event_id']]);
+        $effects = [];
+        foreach ($effectsQuery->fetchAll(PDO::FETCH_ASSOC) as $effect) {
+            $effects[] = [
+                'npc_id' => (string)$effect['npc_id'],
+                'stat_delta' => json_decode((string)$effect['stat_delta_json'], true) ?: [],
+                'relationship_delta' => json_decode((string)$effect['relationship_delta_json'], true) ?: [],
+                'memory' => json_decode((string)$effect['memory_json'], true) ?: [],
+                'task' => json_decode((string)$effect['task_payload_json'], true) ?: [],
+                'applied' => $effect['applied_at'] !== null,
+                'applied_at' => $effect['applied_at'] !== null ? (string)$effect['applied_at'] : null,
+            ];
+        }
+        $event = town_story_event_public($row, $participants, $effects);
+        $event['admin_story'] = json_decode((string)($row['story_json'] ?? '{}'), true) ?: [];
+        $events[] = $event;
+    }
+    return ['events' => $events];
+}
+
+/** The next automatic event is intentionally a forecast: the Worker may use
+ * a model, so the exact title is unknown until generation. */
+function town_story_event_next_preview(PDO $pdo, DateTimeImmutable $now): array
+{
+    $state = town_story_event_policy_state($pdo, $now);
+    $earliest = $state['cooldown_until'] !== null ? (string)$state['cooldown_until'] : $now->format('Y-m-d H:i:s');
+    $candidates = [];
+    foreach (town_story_event_templates() as $template) {
+        $candidates[] = ['template_key' => (string)$template['key'], 'title' => (string)$template['title'], 'summary' => (string)$template['summary'], 'condition' => (string)$template['condition'], 'effects' => $template['deltas']];
+    }
+    return ['earliest_at' => $earliest, 'exact_title_known' => false, 'note' => '自动事件的具体主题由 Worker 的规则随机选择或模型生成；以下是当前可选模板和预期影响。', 'candidates' => $candidates, 'generation' => $state];
 }
