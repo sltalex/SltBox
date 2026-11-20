@@ -413,6 +413,11 @@ function town_story_events_admin_query(PDO $pdo, int $limit = 50): array
             ];
         }
         $event = town_story_event_public($row, $participants, $effects);
+        // The public projection deliberately removes private memory/task
+        // payloads. Restore the full effect projection only for this
+        // administrator-only query so the event center can explain what each
+        // NPC remembered and was asked to do.
+        $event['effects'] = $effects;
         $event['admin_story'] = json_decode((string)($row['story_json'] ?? '{}'), true) ?: [];
         $events[] = $event;
     }
