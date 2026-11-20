@@ -88,9 +88,16 @@ function town_story_event_public(array $row, array $participants = [], array $ef
 function town_story_event_templates(): array
 {
     return [
-        ['key' => 'market_supply_shortage', 'title' => '集市突然缺少生活用品', 'summary' => '副食品店的货架空了一半，几位村民开始寻找解决办法。', 'roles' => ['merchant', 'helper'], 'deltas' => [['stress' => 3, 'social' => 2], ['labor' => 2, 'mood' => 3]], 'condition' => 'always'],
-        ['key' => 'rainy_day_shelter', 'title' => '雨天里的临时避雨处', 'summary' => '一场突然的雨让村民们聚到屋檐下，大家决定一起修整避雨处。', 'roles' => ['builder', 'helper'], 'deltas' => [['stress' => -3, 'social' => 3], ['labor' => 2, 'mood' => 2]], 'condition' => 'rain'],
-        ['key' => 'evening_story_circle', 'title' => '广场上的故事会', 'summary' => '夜色降临，广场上有人讲起旧日的故事，围观者开始分享自己的经历。', 'roles' => ['speaker', 'listener'], 'deltas' => [['culture' => 3, 'social' => 2, 'mood' => 3], ['culture' => 2, 'social' => 3, 'mood' => 2]], 'condition' => 'always'],
+        ['key' => 'market_supply_shortage', 'title' => '集市突然缺少生活用品', 'summary' => '副食品店的货架空了一半，几位村民开始寻找解决办法。', 'roles' => ['merchant', 'helper'], 'deltas' => [['stress' => 3, 'social' => 2], ['labor' => 2, 'mood' => 3]], 'task' => ['action' => 'work', 'target_id' => 'market', 'job' => 'sort_goods', 'duration_minutes' => 20], 'condition' => 'always'],
+        ['key' => 'rainy_day_shelter', 'title' => '雨天里的临时避雨处', 'summary' => '一场突然的雨让村民们聚到屋檐下，大家决定一起修整避雨处。', 'roles' => ['builder', 'helper'], 'deltas' => [['stress' => -3, 'social' => 3], ['labor' => 2, 'mood' => 2]], 'task' => ['action' => 'work', 'target_id' => 'shelter-zone', 'job' => 'repair_shelter', 'duration_minutes' => 25], 'condition' => 'rain'],
+        ['key' => 'evening_story_circle', 'title' => '广场上的故事会', 'summary' => '夜色降临，广场上有人讲起旧日的故事，围观者开始分享自己的经历。', 'roles' => ['speaker', 'listener'], 'deltas' => [['culture' => 3, 'social' => 2, 'mood' => 3], ['culture' => 2, 'social' => 3, 'mood' => 2]], 'task' => ['action' => 'talk', 'target_id' => 'town-square', 'duration_minutes' => 15], 'condition' => 'always'],
+        ['key' => 'farm_irrigation_breakdown', 'title' => '农田的灌溉沟渠堵住了', 'summary' => '农田边的沟渠被落叶和泥沙堵住，作物开始缺水，村民需要尽快清理。', 'roles' => ['farmer', 'helper'], 'deltas' => [['stamina' => -3, 'labor' => 4, 'stress' => 2], ['labor' => 2, 'mood' => 2]], 'task' => ['action' => 'work', 'target_id' => 'farm-zone-3', 'job' => 'clear_irrigation', 'duration_minutes' => 30], 'condition' => 'always'],
+        ['key' => 'bridge_repair_day', 'title' => '河边的小桥需要修补', 'summary' => '通往河对岸的小桥出现松动，村民们搬来木板和工具，准备在天黑前完成修补。', 'roles' => ['craftsman', 'farmer'], 'deltas' => [['labor' => 5, 'stamina' => -4], ['social' => 3, 'reputation' => 2]], 'task' => ['action' => 'work', 'target_id' => 'river-bridge', 'job' => 'repair_bridge', 'duration_minutes' => 35], 'condition' => 'always'],
+        ['key' => 'harvest_surplus_trade', 'title' => '丰收后的临时交换会', 'summary' => '农田收成比往年多了一些，村民把多余的作物带到集市，交换彼此缺少的东西。', 'roles' => ['farmer', 'merchant'], 'deltas' => [['wealth' => 5, 'mood' => 4], ['wealth' => 3, 'social' => 3]], 'task' => ['action' => 'trade', 'target_id' => 'market', 'job' => 'exchange_harvest', 'duration_minutes' => 20], 'condition' => 'always'],
+        ['key' => 'library_book_exchange', 'title' => '旧书交换日', 'summary' => '有人在仓库里发现一批旧书，村民们决定把它们带到公共阅览处交换和整理。', 'roles' => ['scholar', 'organizer'], 'deltas' => [['academics' => 4, 'culture' => 4], ['academics' => 3, 'social' => 2]], 'task' => ['action' => 'work', 'target_id' => 'town-library', 'job' => 'sort_books', 'duration_minutes' => 25], 'condition' => 'always'],
+        ['key' => 'stray_animal_care', 'title' => '迷路的小动物来到镇上', 'summary' => '一只受惊的小动物躲在围栏旁，村民们轮流安抚它，并寻找可能的主人。', 'roles' => ['caretaker', 'searcher'], 'deltas' => [['mood' => 5, 'social' => 3], ['culture' => 2, 'reputation' => 3]], 'task' => ['action' => 'walk', 'target_id' => 'town-fence', 'job' => 'look_for_owner', 'duration_minutes' => 15], 'condition' => 'always'],
+        ['key' => 'well_water_shortage', 'title' => '公共水井暂时干涸', 'summary' => '公共水井的水位突然下降，村民们一边寻找原因，一边安排节约和取水计划。', 'roles' => ['investigator', 'helper'], 'deltas' => [['stress' => 4, 'health' => -2, 'labor' => 3], ['social' => 4, 'labor' => 2]], 'task' => ['action' => 'work', 'target_id' => 'town-well', 'job' => 'check_water_supply', 'duration_minutes' => 25], 'condition' => 'always'],
+        ['key' => 'town_noticeboard_cleanup', 'title' => '公告栏上的旧消息太多了', 'summary' => '镇中心的公告栏被过期消息占满，村民们决定清理旧纸张并重新整理重要通知。', 'roles' => ['organizer', 'reader'], 'deltas' => [['culture' => 2, 'social' => 4], ['mood' => 3, 'reputation' => 2]], 'task' => ['action' => 'work', 'target_id' => 'town-square', 'job' => '整理公告栏', 'duration_minutes' => 15], 'condition' => 'always'],
     ];
 }
 
@@ -230,7 +237,9 @@ function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed 
         // The second participant is left as an observation participant; this
         // avoids two NPCs racing to reserve the same face-to-face interaction.
         if (!is_array($modelStory) && $index === 0 && count($selected) > 1) {
-            $task = ['action' => 'talk', 'target_npc_id' => (string)$selected[1]['npc_id'], 'known_target' => [], 'duration_minutes' => 5, 'dialogue' => $summary];
+            $task = is_array($template['task'] ?? null) ? $template['task'] : ['action' => 'talk', 'target_npc_id' => (string)$selected[1]['npc_id'], 'known_target' => [], 'duration_minutes' => 5, 'dialogue' => $summary];
+            if (($task['action'] ?? '') === 'talk') $task['target_npc_id'] = (string)$selected[1]['npc_id'];
+            $task['dialogue'] = $summary;
         }
         $task = town_story_event_normalize_value($task); if (!is_array($task)) $task = [];
         $effectInsert = $pdo->prepare('INSERT INTO town_story_event_effects (event_id,npc_id,stat_delta_json,relationship_delta_json,memory_json,task_payload_json) VALUES (:event,:npc,:delta,:relationship,:memory,:task)');
