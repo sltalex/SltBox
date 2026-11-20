@@ -8,6 +8,7 @@ require_once __DIR__ . '/town_npc_life.php';
 require_once __DIR__ . '/town_world_events.php';
 require_once __DIR__ . '/town_world_clock.php';
 require_once __DIR__ . '/town_agent.php';
+require_once __DIR__ . '/town_npc_stats.php';
 
 const TOWN_NPC_ACTIONS = ['walk', 'work', 'rest', 'talk', 'trade', 'follow', 'player_talk'];
 const TOWN_NPC_OCCUPATIONS = ['farmer', 'merchant', 'craftsman'];
@@ -157,6 +158,7 @@ function town_npc_public(array $row): array
         'appearance' => town_npc_decode($row['appearance_json'] ?? [], []),
         'occupation' => (string)$row['occupation'], 'enabled' => (bool)$row['enabled'],
         'agent_paused' => (bool)$row['agent_paused'], 'profile' => $profile,
+        'stats' => is_array($row['stats'] ?? null) ? $row['stats'] : town_npc_stat_public(town_npc_stat_defaults()),
         'schedule' => town_npc_decode($row['schedule_json'] ?? [], []),
         'home' => $home,
         'lifecycle' => $lifecycle,
@@ -269,7 +271,8 @@ function town_npc_rows(PDO $pdo, bool $includeDisabled = false): array
         . '"action",s.action,"target_id",s.target_id,"job",s.job,"priority",s.priority' . $schedulePayload . ')) FROM town_npc_schedules s WHERE s.npc_id=n.npc_id) AS schedule_json '
         . 'FROM town_npcs n LEFT JOIN town_npc_profiles p ON p.npc_id=n.npc_id '
         . 'LEFT JOIN town_npc_runtime_states r ON r.npc_id=n.npc_id' . $where . ' ORDER BY n.created_at,n.npc_id');
-    return town_npc_attach_inventory($pdo, array_map('town_npc_public', town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC))));
+    $rows = town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC)));
+    return town_npc_attach_inventory($pdo, array_map('town_npc_public', $rows));
 }
 
 /** Return administrator-visible relationship rows without exposing model credentials. */
@@ -337,7 +340,8 @@ function town_npc_save_relationship(PDO $pdo, string $npcId, string $otherNpcId,
     $exists = $pdo->prepare('SELECT COUNT(*) FROM town_npcs WHERE npc_id IN (:npc,:other) AND enabled=1');
     $exists->execute([':npc' => $npcId, ':other' => $otherNpcId]);
     if ((int)$exists->fetchColumn() !== 2) throw new ApiError('invalid_relationship', '关系对象不存在或未启用。', 404);
-    $pdo->beginTransaction();
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) $pdo->beginTransaction();
     try {
         foreach ([[$npcId, $otherNpcId], [$otherNpcId, $npcId]] as [$from, $to]) {
             $query = $pdo->prepare('SELECT relationship_json FROM town_npc_relationships WHERE npc_id=:npc AND other_npc_id=:other LIMIT 1');
@@ -356,10 +360,10 @@ function town_npc_save_relationship(PDO $pdo, string $npcId, string $otherNpcId,
         }
         town_npc_emit_event($pdo, $npcId, 'relationship_changed', ['other_npc_id' => $otherNpcId, 'affinity' => $affinity, 'source' => 'admin'], $now);
         town_npc_activity_log($pdo, $npcId, 'memory', '管理员更新了村民关系', ['other_npc_id' => $otherNpcId, 'affinity' => $affinity], $now);
-        $pdo->commit();
+        if ($ownsTransaction) $pdo->commit();
         return ['npc_id' => $npcId, 'other_npc_id' => $otherNpcId, 'affinity' => $affinity];
     } catch (Throwable $error) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
         throw $error;
     }
 }
@@ -373,7 +377,8 @@ function town_npc_rows_safe(PDO $pdo, bool $includeDisabled = false): array
         $query = $pdo->query('SELECT n.*,p.personality_json,p.family_background,p.short_term_goal,p.long_term_goal,p.speech_style,p.values_json,p.fears_json,'
             . 'r.tile_x,r.tile_y,' . town_npc_runtime_height_select($pdo) . ',r.state AS runtime_state,r.current_task_id,r.dialogue,r.capabilities_json,r.state_version,r.updated_at AS runtime_updated_at '
             . 'FROM town_npcs n LEFT JOIN town_npc_profiles p ON p.npc_id=n.npc_id LEFT JOIN town_npc_runtime_states r ON r.npc_id=n.npc_id' . $where . ' ORDER BY n.created_at,n.npc_id');
-        return town_npc_attach_inventory($pdo, array_map('town_npc_public', town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC))));
+        $rows = town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC)));
+        return town_npc_attach_inventory($pdo, array_map('town_npc_public', $rows));
     }
 }
 

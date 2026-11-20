@@ -36,12 +36,14 @@ export function mergeNpcDelta(npcs, payload) {
   if (sequence && sequence <= Number(previous?._realtimeSequence || 0)) return false;
   const npc = previous || { npc_id: id, name: '村民', enabled: true, runtime: {} };
   npc._realtimeSequence = sequence;
+  if (payload?.stats && typeof payload.stats === 'object') npc.stats = payload.stats;
   npc.runtime = { ...(npc.runtime || {}), ...payload };
   if (payload?.lifecycle && typeof payload.lifecycle === 'object') npc.lifecycle = { ...(npc.lifecycle || {}), ...payload.lifecycle };
   delete npc.runtime.type;
   delete npc.runtime.npc_id;
   delete npc.runtime.session_epoch;
   delete npc.runtime.lifecycle;
+  delete npc.runtime.stats;
   delete npc.runtime.runtime_state;
   npcs.set(id, npc);
   return true;

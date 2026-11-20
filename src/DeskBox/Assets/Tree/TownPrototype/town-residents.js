@@ -329,6 +329,18 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
       add('当前任务', d.task ? `${states[d.task.action] || d.task.action} · ${d.task.target_id || '当前位置'} · ${d.task.status}（路线 ${d.task.route_cursor}/${Math.max(0,d.task.route_length-1)}）` : '暂无任务');
       if (d.task?.failure_reason) add('失败原因', d.task.failure_reason);
       add('心情', text(current()?.runtime?.mood || d.runtime?.mood)); body.append(rows);
+      const statNames = { mood: '心情', health: '健康', stamina: '体能', labor: '劳动', academics: '学业', culture: '文化', social: '社交', wealth: '财富', stress: '压力', reputation: '声望' };
+      const statValues = d.stats?.values || current()?.stats?.values || {};
+      const statLevels = d.stats?.levels || current()?.stats?.levels || {};
+      const statGrid = element('div', '', 'resident-stat-grid');
+      Object.entries(statNames).forEach(([key, name]) => {
+        const value = Math.max(1, Math.min(100, Number(statValues[key] ?? 50)));
+        const card = element('div', '', 'resident-stat');
+        const head = element('div', '', 'resident-stat-head'); head.append(element('span', name), element('strong', `${value}`));
+        const track = element('div', '', 'resident-meter'); const fill = element('i'); fill.style.width = `${value}%`; track.append(fill);
+        card.append(head, track, element('small', statLevels[key] || '一般')); statGrid.append(card);
+      });
+      body.append(statGrid);
       const metrics = element('div', '', 'resident-metrics');
       const meter = (name, value, detail) => {
         if (!Number.isFinite(value)) return;

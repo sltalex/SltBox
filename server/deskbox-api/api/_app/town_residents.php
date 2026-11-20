@@ -25,9 +25,10 @@ function town_resident_detail(PDO $pdo, string $userId, string $npcId): array
     $q->execute([':npc' => $npcId, ':world' => SHARED_TOWN_WORLD_ID]);
     $row = $q->fetch(PDO::FETCH_ASSOC);
     if (!is_array($row)) throw new ApiError('npc_not_found', '村民已离开小镇，请刷新。', 404);
-    $npc = town_npc_attach_inventory($pdo, array_map('town_npc_public', town_npc_attach_life_data($pdo, [$row])))[0];
+    $npc = town_npc_attach_inventory($pdo, array_map('town_npc_public', town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, [$row]))))[0];
     $resident = array_intersect_key($npc, array_flip(['npc_id', 'world_id', 'name', 'avatar_asset_id', 'appearance', 'occupation', 'agent_paused', 'profile', 'lifecycle']));
     $resident['runtime'] = array_intersect_key($npc['runtime'], array_flip(['tile_x', 'tile_y', 'height', 'state', 'current_task_id', 'dialogue', 'mood', 'capabilities', 'state_version', 'updated_at', 'inventory']));
+    $resident['stats'] = $npc['stats'] ?? town_npc_stat_public(town_npc_stat_defaults());
     if (town_npc_life_column_exists($pdo, 'town_npc_runtime_states', 'facing')) {
         $q = $pdo->prepare('SELECT facing FROM town_npc_runtime_states WHERE npc_id=:npc'); $q->execute([':npc' => $npcId]);
         $resident['runtime']['facing'] = (string)($q->fetchColumn() ?: 'down');

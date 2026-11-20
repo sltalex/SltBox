@@ -11,6 +11,7 @@ require dirname(__DIR__) . '/_app/catalog_report.php';
 require dirname(__DIR__) . '/_app/town_assets.php';
 require dirname(__DIR__) . '/_app/town_navigation.php';
 require dirname(__DIR__) . '/_app/town_npcs.php';
+require dirname(__DIR__) . '/_app/town_story_events.php';
 require dirname(__DIR__) . '/_app/town_model_provider.php';
 
 header('Content-Type: text/html; charset=utf-8');
@@ -122,6 +123,7 @@ try {
     $done = isset($_GET['done']) && is_string($_GET['done']) ? $_GET['done'] : '';
     if ($done === 'town_model_provider_test') { $message = '模型连接成功，未发送对话请求。'; }
     elseif ($done === 'town_navigation_rebuild') { $message = '导航已重建，运行中的村民会在下一次行动校验时重新规划路线。'; }
+    elseif ($done === 'town_story_event_policy_save') { $message = '故事事件策略已保存，Worker 会按新的每日数量和冷却策略执行。'; }
     elseif ($done === 'town_asset_bulk_item') { $message = '自动识别的素材候选已批量加入草稿，可在下方逐项调整后发布。'; }
     elseif ($done !== '') { $message = '操作已完成。'; }
 } catch (ApiError $exception) {
@@ -276,7 +278,9 @@ $townWorkPoints = [];
 $townNpcRelationships = [];
 $townNpcMemories = [];
 $townNpcTransactions = [];
+$townStoryEvents = [];
 $townNpcGlobalPolicy = town_npc_life_policy_defaults();
+$townStoryPolicy = town_story_event_policy($pdo);
 $townNpcRelationPage = isset($_GET['relationship_page']) && is_string($_GET['relationship_page']) ? max(0, min(2000, (int)$_GET['relationship_page'])) : 0;
 $townNpcMemoryPage = isset($_GET['memory_page']) && is_string($_GET['memory_page']) ? max(0, min(2000, (int)$_GET['memory_page'])) : 0;
 $townNpcSocialNpcId = isset($_GET['social_npc_id']) && is_string($_GET['social_npc_id']) && preg_match('/\A[a-f0-9]{32}\z/D', $_GET['social_npc_id']) ? $_GET['social_npc_id'] : null;
@@ -288,6 +292,7 @@ if ($panel === 'town_npcs') {
     $townNpcRelationships = town_npc_relationship_rows($pdo, $townNpcSocialNpcId, $townNpcSocialPageSize, $townNpcRelationPage * $townNpcSocialPageSize);
     $townNpcMemories = town_npc_memory_rows($pdo, $townNpcSocialNpcId, $townNpcSocialPageSize, $townNpcMemoryPage * $townNpcSocialPageSize);
     $townNpcTransactions = town_npc_transaction_rows($pdo, $townNpcSocialNpcId, 100);
+    try { $townStoryEvents = town_story_events_query($pdo, 30)['events'] ?? []; } catch (Throwable $error) { $townStoryEvents = []; }
 }
 if ($panel === 'town_npcs') {
     try {

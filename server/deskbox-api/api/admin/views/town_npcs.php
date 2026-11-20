@@ -96,6 +96,29 @@ $stateLabels = ['rest'=>'休息','work'=>'工作','walk'=>'行走','talk'=>'交�
 <button type="submit">保存全局频次</button>
 </form>
 </section>
+<section class="card" style="margin:12px 0">
+<h3>故事事件策略</h3>
+<p class="npc-sub">Worker 每个小镇日按此策略生成规则事件；模型事件仍需经过服务器审核。费用金额报表不参与此策略。</p>
+<form method="post" class="form-row">
+<input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
+<input type="hidden" name="operation" value="town_story_event_policy_save">
+<input type="hidden" name="panel" value="town_npcs">
+<label><input name="story_enabled" type="checkbox" value="1" <?= !empty($townStoryPolicy['enabled']) ? 'checked' : '' ?>>启用故事事件</label>
+<label>每日最少事件<input name="daily_min_events" type="number" min="0" max="10" value="<?= (int)($townStoryPolicy['daily_min_events'] ?? 0) ?>"></label>
+<label>每日最多事件<input name="daily_max_events" type="number" min="0" max="10" value="<?= (int)($townStoryPolicy['daily_max_events'] ?? 2) ?>"></label>
+<label>事件冷却（分钟）<input name="cooldown_minutes" type="number" min="5" max="10080" value="<?= (int)($townStoryPolicy['cooldown_minutes'] ?? 240) ?>"></label>
+<label>最多参与村民<input name="max_participants" type="number" min="2" max="10" value="<?= (int)($townStoryPolicy['max_participants'] ?? 5) ?>"></label>
+<label><input name="condition_enabled" type="checkbox" value="1" <?= !empty($townStoryPolicy['condition_enabled']) ? 'checked' : '' ?>>允许条件触发</label>
+<button type="submit">保存故事策略</button>
+</form>
+</section>
+<section class="card" style="margin:12px 0">
+<h3>最近故事事件</h3>
+<?php if ($townStoryEvents === []): ?><p class="npc-sub">暂时没有故事事件记录。Worker 会按上面的策略生成；没有模型时仍使用规则模板。</p>
+<?php else: ?><div class="table-scroll"><table><thead><tr><th>时间</th><th>标题</th><th>来源</th><th>状态</th><th>参与者</th><th>效果</th></tr></thead><tbody>
+<?php foreach ($townStoryEvents as $storyEvent): ?><tr><td><?= admin_page_escape($storyEvent['occurred_at'] ?? '') ?></td><td><strong><?= admin_page_escape($storyEvent['title'] ?? '') ?></strong><br><small><?= admin_page_escape($storyEvent['summary'] ?? '') ?></small></td><td><?= ($storyEvent['generation_source'] ?? 'rule') === 'model' ? 'AI 草案' : '规则模板' ?></td><td><?= ($storyEvent['status'] ?? '') === 'resolved' ? '已结算' : '进行中' ?></td><td><?php $names = []; foreach (($storyEvent['participants'] ?? []) as $participant) $names[] = ($participant['name'] ?? $participant['npc_id'] ?? '') . '（' . ($participant['role'] ?? '参与者') . '）'; ?><?= admin_page_escape(implode('、', $names)) ?></td><td><?php $effectCount = count($storyEvent['effects'] ?? []); $appliedCount = 0; foreach (($storyEvent['effects'] ?? []) as $effect) if (!empty($effect['applied'])) $appliedCount++; ?><?= $appliedCount ?>/<?= $effectCount ?> 已应用</td></tr><?php endforeach; ?>
+</tbody></table></div><?php endif; ?>
+</section>
 <form id="town-npc-bulk-form" method="post" class="form-row" style="margin:12px 0">
 <input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
 <input type="hidden" name="operation" value="town_npc_bulk_toggle">
@@ -124,6 +147,8 @@ $personalityTraits = is_array($profile['personality']['traits'] ?? null) ? $prof
 $npcValues = is_array($profile['values'] ?? null) ? $profile['values'] : [];
 $npcFears = is_array($profile['fears'] ?? null) ? $profile['fears'] : [];
 $entries = is_array($npc['schedule'] ?? null) ? array_values($npc['schedule']) : [];
+$npcStats = is_array($npc['stats']['values'] ?? null) ? $npc['stats']['values'] : town_npc_stat_defaults();
+$npcStatHistory = town_npc_stat_history($pdo, (string)$npc['npc_id'], 12, 0)['changes'] ?? [];
 $rowCount = max(7, count($entries));
 ?>
 <div class="npc-card" data-npc-id="<?= admin_page_escape($npc['npc_id']) ?>">
@@ -184,6 +209,7 @@ $rowCount = max(7, count($entries));
 <button type="button" class="npc-tab" data-tab="schedule">工作日程</button>
 <button type="button" class="npc-tab" data-tab="home">住房</button>
 <button type="button" class="npc-tab" data-tab="policy">决策策略</button>
+<button type="button" class="npc-tab" data-tab="stats">个体数值</button>
 <button type="button" class="npc-tab" data-tab="economy">经济</button>
 <button type="button" class="npc-tab" data-tab="tools">道具</button>
 <button type="button" class="npc-tab" data-tab="memory">记忆与任务</button>
@@ -291,6 +317,27 @@ $rowCount = max(7, count($entries));
 <label>每小时最大决策<input name="max_decisions_per_hour" type="number" min="1" max="10000" value="<?= (int)($policy['max_decisions_per_hour'] ?? 60) ?>"></label>
 <button type="submit">保存调用频次</button>
 </form>
+</div>
+<div class="npc-tab-panel" data-panel="stats">
+<p class="npc-sub">所有个体数值为 1～100。普通事件通常变化 1～5，重大事件变化 5～15。手动调整必须填写原因，系统会保留变化历史。</p>
+<form method="post" class="form-row">
+<input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
+<input type="hidden" name="operation" value="town_npc_stats_save">
+<input type="hidden" name="panel" value="town_npcs">
+<input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>">
+<?php $statLabels = ['mood'=>'心情','health'=>'健康','stamina'=>'体能','labor'=>'劳动','academics'=>'学业','culture'=>'文化','social'=>'社交','wealth'=>'财富','stress'=>'压力','reputation'=>'声望']; foreach ($statLabels as $statKey => $statLabel): ?>
+<label><?= $statLabel ?><input name="<?= $statKey ?>" type="number" min="1" max="100" value="<?= (int)($npcStats[$statKey] ?? 50) ?>"></label>
+<?php endforeach; ?>
+<label style="min-width:240px">调整原因<input name="stat_reason" maxlength="255" placeholder="例如：管理员初始化村民状态" required></label>
+<button type="submit">保存个体数值</button>
+</form>
+<div class="table-scroll" style="margin-top:8px"><table><thead><tr><th>维度</th><th>分数</th><th>等级</th></tr></thead><tbody>
+<?php foreach ($statLabels as $statKey => $statLabel): $statValue = (int)($npcStats[$statKey] ?? 50); ?><tr><td><?= $statLabel ?></td><td><?= $statValue ?></td><td><?= admin_page_escape(town_npc_stat_level($statValue, $statKey)) ?></td></tr><?php endforeach; ?>
+</tbody></table></div>
+<details style="margin-top:8px"><summary>最近数值变化（<?= count($npcStatHistory) ?>）</summary>
+<?php if ($npcStatHistory === []): ?><p class="npc-sub">暂无变化记录。</p><?php else: ?><div class="table-scroll"><table><thead><tr><th>时间</th><th>来源</th><th>变化</th><th>原因</th></tr></thead><tbody>
+<?php foreach (array_reverse($npcStatHistory) as $change): $deltaParts = []; foreach (($change['delta'] ?? []) as $key => $delta) $deltaParts[] = ($statLabels[$key] ?? $key) . ' ' . ((int)$delta > 0 ? '+' : '') . (int)$delta; ?><tr><td><?= admin_page_escape((string)($change['created_at'] ?? '')) ?></td><td><?= admin_page_escape((string)($change['source_type'] ?? '')) ?></td><td><?= admin_page_escape(implode('、', $deltaParts)) ?></td><td><?= admin_page_escape((string)($change['reason'] ?? '')) ?></td></tr><?php endforeach; ?>
+</tbody></table></div><?php endif; ?></details>
 </div>
 <div class="npc-tab-panel" data-panel="economy">
 <form method="post" class="form-row">

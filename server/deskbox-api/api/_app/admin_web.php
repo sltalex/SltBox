@@ -186,6 +186,11 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
         town_model_provider_test_connection($pdo);
         return 'town_model_provider_test';
     }
+    if ($operation === 'town_story_event_policy_save') {
+        require_once __DIR__ . '/town_story_events.php';
+        town_story_event_policy_save($pdo, ['daily_min_events' => $post['daily_min_events'] ?? 0, 'daily_max_events' => $post['daily_max_events'] ?? 2, 'condition_enabled' => ($post['condition_enabled'] ?? '') === '1', 'cooldown_minutes' => $post['cooldown_minutes'] ?? 240, 'max_participants' => $post['max_participants'] ?? 5, 'enabled' => ($post['story_enabled'] ?? '') === '1'], api_clock());
+        return 'town_story_event_policy_save';
+    }
     if (str_starts_with($operation, 'town_npc_')) {
         require_once __DIR__ . '/town_npcs.php';
         if ($operation === 'town_npc_delete') {
@@ -258,6 +263,22 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             town_npc_set_wallet($pdo, $id, max(0, (int)($post['wallet_balance'] ?? 0)), $actor['user_id'], api_clock());
             town_npc_set_economy_inventory($pdo, $id, $items, api_clock());
             return 'town_npc_economy_save';
+        }
+        if ($operation === 'town_npc_stats_save' || $operation === 'town_npc_stats_adjust') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $current = town_npc_stats_for($pdo, $id);
+            $values = is_array($current['values'] ?? null) ? $current['values'] : town_npc_stat_defaults();
+            foreach (TOWN_NPC_STAT_KEYS as $key) {
+                if (array_key_exists($key, $post)) {
+                    $value = filter_var($post[$key], FILTER_VALIDATE_INT);
+                    if ($value === false) throw new ApiError('invalid_npc_stat', 'NPC 个体数值必须是 1～100 的整数。', 400);
+                    $values[$key] = $operation === 'town_npc_stats_adjust' ? ((int)$values[$key] + (int)$value) : (int)$value;
+                }
+            }
+            $reason = is_string($post['stat_reason'] ?? null) ? trim((string)$post['stat_reason']) : '';
+            if ($reason === '') throw new ApiError('invalid_npc_stat_reason', '调整 NPC 个体数值时必须填写原因。', 400);
+            town_npc_stats_save($pdo, $id, $values, 'admin', (string)$actor['user_id'], $reason, api_clock());
+            return $operation;
         }
         if ($operation === 'town_npc_schedule_save') {
             $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
