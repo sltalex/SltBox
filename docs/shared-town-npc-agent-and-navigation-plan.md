@@ -1462,6 +1462,7 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - Worker 已用 Release 发布内容构建 `deskbox-npc-worker:v43-npc-stats-story`，旧 `v42-player-talk-timeout` 保留为停止状态回滚容器。线上健康接口返回 `ok=true`，容器 `restart_count=0`；最近日志未发现错误。由于当前数据库没有初始化统计行和故事策略行，服务端按代码安全默认值返回数值/策略，后台首次保存时再创建对应行。
 - 本轮未发布桌面安装包；桌面仍使用已有 canonical Debug 验证实例。真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示仍需认证验收。
 - 事件中心已部署到线上：备份目录为 `/root/deskbox-backups/town-events-20261120-132819/`；`town_story_events.php`、`admin_web.php`、`admin/index.php` 和 `admin/views/town_events.php` 均通过远程 PHP 8.2 lint，四个文件远程 SHA-256 与本地一致。远程只读回读确认事件中心在空事件数据库上能返回 3 个候选模板、最早生成时间和当前策略，不会因没有历史事件报错。
+- 事件详情脱敏边界随后补强：公共事件接口继续隐藏记忆和任务载荷，管理员事件中心单独保留 NPC 记忆、任务参数和结算时间；修正版备份为 `/root/deskbox-backups/town-events-detail-20261120-133309/`，远程 PHP 8.2 lint 和 SHA-256 回读通过。
 #### 2026-11-20 故事事件闭环修复（已部署，历史记录）
 
 - 修复 Worker → PHP 的嵌套 JSON 草案边界：`api_body()` 返回的 `stdClass` 会在 `story-events.php` 入口递归规范化；模型任务保留经过白名单校验的 `target_npc_id`、记忆坐标、时长和对话文本。测试覆盖真实 Worker 线格式、目标坐标边界和公共投影脱敏。
