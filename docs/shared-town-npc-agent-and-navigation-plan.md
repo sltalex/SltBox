@@ -746,7 +746,7 @@ town_npc_decision_policies
 | SltBox 账号与玩家角色 | 已完成 | 角色、位置、外观和装饰按 `user_id` 隔离；服务端所有权校验；两个真实账号已确认互相可见但不能修改对方装饰。 | 新增玩家相关功能必须继续走账号所有权校验。 |
 | 玩家实时同步 | 已完成 | WebSocket 玩家/NPC 增量、断线重连、旧会话丢弃和位置持久化已实现；两个客户端已确认移动同步、重连后玩家和 5 个 NPC 恢复。 | 继续保持服务端权威，客户端只做插值和显示。 |
 | NPC 资料、人格、日程 | 已完成 | 5 个样例村民、职业、人格、家庭背景、目标、日程、运行状态和居民详情接口已部署；详情和聊天历史有权限投影。 | 模型自主选题和长期人格差异的线上证据仍不作为第一版硬门槛。 |
-| NPC Worker | 已完成 | 独立 .NET Worker、全局租约、确定性回退、任务执行、日志、Docker 运行和健康检查已完成；线上当前运行 `deskbox-npc-worker:v40-world-clock`，环境保留北京时间调度配置，容器状态为 running。v40 在 v39 的小镇模拟日/时日程修复基础上完成当前源码部署，并已产生农田浇水和市场整理任务。 | 长时间多 Worker 压力测试不作为当前 UI/素材任务的阻塞项。 |
+| NPC Worker | 已完成 | 独立 .NET Worker、全局租约、确定性回退、任务执行、日志、Docker 运行和健康检查已完成；线上当前运行 `deskbox-npc-worker:v43-npc-stats-story`，容器状态为 running、重启次数为 0，健康接口返回 `ok=true`。v43 包含 NPC 数值/故事事件上下文、规则事件生成、模型草案白名单校验、活动事件恢复和事务结算；v42 保留为停止状态回滚容器。 | 长时间多 Worker 压力测试不作为当前 UI/素材任务的阻塞项。 |
 | 导航与动态通行 | 已完成 | `plain/blocked/stairs/water/bridge`、高度、梯子/桥梁能力、A*、导航版本失效、地图对象变更后重规划已实现；用户已实际确认临时阻挡后 NPC 绕行，临时对象已清理，导航版本保持递增。 | 未配置导航语义的素材默认不可通行。 |
 | NPC 家、环境观察和空间记忆 | 已完成基础闭环 | 家的素材 ID/名称/坐标/休息点、工作后回家、阻挡等待、素材名称和坐标观察、导航版本导致记忆过期已实现并有服务端测试。 | 后续若改变记忆模型，必须保留旧坐标失效和来源事件。 |
 | NPC 经济 | 已完成基础闭环 | Web 初始化余额/库存、NPC 交易、收入/支出账本、余额不足后的合法赚钱任务已实现；玩家经济仍未实现。 | 继续避免把玩家钱包加入第一版。 |
@@ -1441,16 +1441,23 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 
 | 能力 | 当前状态 | 已完成内容 | 尚未完成 / 验收证据 |
 |---|---|---|---|
-| NPC 数值 1～100 | 本地完成 | `town_npc_stats` 保存、1～100 归一化、等级标签、变化历史；后台初始化/手动调整强制填写原因；后台显示最近变化；快照、居民资料和 Worker 上下文携带 `values/levels/revision`；迁移增加数据库范围约束。 | 055 迁移尚未执行远程 MySQL；线上数值变化和双客户端显示尚未验收。 |
-| 故事事件规则生成 | 本地完成 | 每日上限、冷却、参与人数、启停策略；集市缺货、雨天避雨、广场故事会模板；事件写入公共时间线；Worker 按 `TOWN_STORY_EVENT_INTERVAL_SECONDS` 触发并延迟结算。 | 真实 Worker/客户端画面和线上事件记录尚未验收。 |
-| AI 故事草案 | 本地完成 | Worker 在有模型配置时读取最多 10 名村民的职业、人格、数值、运行状态和记忆，使用 OpenAI 兼容接口请求 JSON 草案；令牌预留/结算仍复用现有月度 Token 机制；模型失败、超时、配额不足自动回到规则模板。服务端只接受白名单 NPC、限定文本长度、数值 ±15、行动类型和参与人数，并将来源标记为 `model`。 | 尚未用真实模型端到端生成并验收一条线上事件；没有模型时仍可运行规则事件。 |
+| NPC 数值 1～100 | 线上已部署 | `town_npc_stats` 保存、1～100 归一化、等级标签、变化历史；后台初始化/手动调整强制填写原因；后台显示最近变化；快照、居民资料和 Worker 上下文携带 `values/levels/revision`；055 迁移已在远程 MySQL 创建 6 张表并通过逐表校验。 | 线上数值变化和双客户端显示尚未验收。 |
+| 故事事件规则生成 | 线上已部署 | 每日上限、冷却、参与人数、启停策略；集市缺货、雨天避雨、广场故事会模板；事件写入公共时间线；Worker 按 `TOWN_STORY_EVENT_INTERVAL_SECONDS` 触发并延迟结算；无策略行时服务端使用安全默认值。 | 真实 Worker 生成一条故事事件、客户端画面和双 Worker 并发仍待验收。 |
+| AI 故事草案 | 已部署待验收 | Worker 在有模型配置时读取最多 10 名村民的职业、人格、数值、运行状态和记忆，使用 OpenAI 兼容接口请求 JSON 草案；令牌预留/结算仍复用现有月度 Token 机制；模型失败、超时、配额不足自动回到规则模板。服务端只接受白名单 NPC、限定文本长度、数值 ±15、行动类型和参与人数，并将来源标记为 `model`。 | 尚未用真实模型端到端生成并验收一条线上事件；没有模型时仍可运行规则事件。 |
 | 事件参与和行动 | 本地完成基础绑定 | AI 草案可为参与者提供 `walk/work/rest/talk/trade` 任务；服务端先经过现有路线、占用、道具和任务校验，成功后记录 `task_id`，失败则把参与者标记为 `blocked`，不会执行未校验的坐标或数据库写入。 | 复杂多阶段故事、事件分支和 Worker 根据事件中途重新规划仍未实现。 |
-| 事件结算 | 本地完成 | 结算在事务中锁定事件和效果，幂等处理；应用数值变化、记忆、关系变化、参与者完成状态和 NPC 事件日志；重复结算返回 `idempotent=true`。 | 关系表/记忆表缺失时按滚动迁移兼容路径跳过；尚未做线上并发双 Worker 验收。 |
+| 事件结算 | 已部署待验收 | 结算在事务中锁定事件和效果，幂等处理；应用数值变化、记忆、关系变化、参与者完成状态和 NPC 事件日志；重复结算返回 `idempotent=true`。 | 关系表/记忆表缺失时按滚动迁移兼容路径跳过；尚未做线上并发双 Worker 验收。 |
 | 后台故事事件 | 本地完成基础管理 | 后台显示策略和最近 30 条事件，展示来源、参与者和效果应用数量；普通账号可读取公共事件列表。 | 还没有独立的事件详情、手动结算/重试、参与者筛选和效果编辑页。 |
-| 发布状态 | 未完成 | 本地 PHP lint、故事草案 5 项测试、NPC 数值 5 项测试、Worker 39 项测试、Worker 构建均通过；canonical DeskBox Debug 已按 AGENTS.md 停止旧进程、重建并从 `src/DeskBox/bin/Debug/net10.0-windows10.0.22621.0/DeskBox.exe` 启动单实例。 | 055 数据库迁移、PHP/Web 文件、Worker 镜像和前端尚未因本轮改动重新发布；未提交/合并/发版。 |
+| 发布状态 | 已发布待验收 | 本地 PHP lint、故事事件 10 项、NPC 数值 5 项、Worker 39 项测试、Worker Release 构建均通过；055 已执行远程 MySQL，PHP 文件远程 SHA-256 与本地一致；线上 Worker 为 `v43-npc-stats-story`，健康检查通过；canonical DeskBox Debug 已按 AGENTS.md 启动单实例。 | 真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示和完整生产验收仍未完成。 |
 
 本轮新增/修改的关键文件：`server/deskbox-api/database/055_town_npc_stats_story_events_v1.sql`、`server/deskbox-api/api/_app/town_npc_stats.php`、`server/deskbox-api/api/_app/town_story_events.php`、`server/deskbox-api/api/v2/town/agent/story-events.php`、`server/deskbox-api/api/v2/town/agent/story-event-resolve.php`、`server/deskbox-api/api/admin/index.php`、`server/deskbox-api/api/admin/views/town_npcs.php`、`src/DeskBox.NpcWorker/Program.cs`、`server/deskbox-api/tests/town_npc_stats_test.php`、`server/deskbox-api/tests/town_story_events_test.php`。本地验证命令和结果：`php server/deskbox-api/tests/town_npc_stats_test.php`（5 项）、`php server/deskbox-api/tests/town_story_events_test.php`（5 项）、`dotnet test .\tests\DeskBox.NpcWorker.Tests\DeskBox.NpcWorker.Tests.csproj --no-restore --verbosity:minimal -p:Platform=x64`（39/39）、`dotnet build .\src\DeskBox.NpcWorker\DeskBox.NpcWorker.csproj --no-restore -p:Platform=x64`（0 错误）、新增/修改 PHP 文件 `php -l` 全部通过、`git diff --check` 通过。
 
+#### 2026-11-20 个体数值与故事事件线上发布
+
+- 先创建线上备份目录 `/root/deskbox-backups/npc-stats-story-20261120-091450/`，数据库备份文件已生成；`mysqldump` 输出了 tablespace `PROCESS` 权限提示，但数据库备份文件正常生成，后续应在具备权限的备份账号上补做无提示全量备份。
+- 055 迁移已在远程 MySQL 8.0.45 执行并逐项确认 `town_npc_stats`、`town_npc_stat_changes`、`town_story_events`、`town_story_event_participants`、`town_story_event_effects`、`town_story_event_policies` 共 6 张表存在。迁移脚本已修正入口常量和注释处理，重复执行安全。
+- 本轮 PHP/Web 文件已上传并通过远程 PHP 8.2 lint；代表性文件远程 SHA-256 与本地一致，包括 `town_npc_stats.php`、`town_story_events.php`、三个 Agent 故事接口和后台 `town_npcs.php`。
+- Worker 已用 Release 发布内容构建 `deskbox-npc-worker:v43-npc-stats-story`，旧 `v42-player-talk-timeout` 保留为停止状态回滚容器。线上健康接口返回 `ok=true`，容器 `restart_count=0`；最近日志未发现错误。由于当前数据库没有初始化统计行和故事策略行，服务端按代码安全默认值返回数值/策略，后台首次保存时再创建对应行。
+- 本轮未发布桌面安装包；桌面仍使用已有 canonical Debug 验证实例。真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示仍需认证验收。
 #### 2026-11-20 故事事件闭环修复（本地）
 
 - 修复 Worker → PHP 的嵌套 JSON 草案边界：`api_body()` 返回的 `stdClass` 会在 `story-events.php` 入口递归规范化；模型任务保留经过白名单校验的 `target_npc_id`、记忆坐标、时长和对话文本。测试覆盖真实 Worker 线格式、目标坐标边界和公共投影脱敏。
