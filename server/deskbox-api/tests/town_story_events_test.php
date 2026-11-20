@@ -42,5 +42,5 @@ $active = town_story_events_active($pdo, $now); if (($active[0]['due'] ?? false)
 $bad = town_story_event_sanitize_draft($pdo, ['title' => '坏草案', 'summary' => '缺少参与者', 'participants' => [['npc_id' => $a]]], $policy);
 if ($bad !== null) throw new RuntimeException('story draft with fewer than two valid participants must be rejected');
 $preview = town_story_event_next_preview($pdo, $now);
-if (($preview['exact_title_known'] ?? true) !== false || count($preview['candidates'] ?? []) < 10) throw new RuntimeException('next story preview should explain the expanded event catalog without inventing an exact title');
+if (($preview['exact_title_known'] ?? true) !== false || count($preview['candidates'] ?? []) < 16) throw new RuntimeException('next story preview should explain the expanded event catalog without inventing an exact title');
 echo "town_story_events_test: 11 checks ok\n";

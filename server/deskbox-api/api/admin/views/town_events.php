@@ -5,6 +5,7 @@ $storyStatLabels = ['mood'=>'心情','health'=>'健康','stamina'=>'体能','lab
 $storyActionLabels = ['walk'=>'行走','work'=>'工作','rest'=>'休息','talk'=>'交谈','trade'=>'交易'];
 $storyStatusLabels = ['active'=>'进行中','resolved'=>'已结束','success'=>'成功','partial'=>'部分完成','expired'=>'已过期','joined'=>'已加入','executing'=>'执行中','completed'=>'已完成','blocked'=>'受阻','failed'=>'失败'];
 $storySourceLabels = ['rule'=>'规则','model'=>'AI 模型','manual'=>'手工'];
+$storyToneLabels = ['positive'=>'正面','negative'=>'负面','mixed'=>'混合'];
 $storyJsonText = static function (mixed $value): string {
     return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
 };
@@ -61,7 +62,7 @@ $storyDeltaText = static function (array $delta) use ($storyStatLabels): string 
 <?php if ($townStoryNextPreview !== null): ?>
 <div class="notice"><strong>下一事件预测：</strong><?= admin_page_escape((string)($townStoryNextPreview['note'] ?? '自动事件主题将在生成时确定。')) ?><br><span class="story-muted">最早时间：<?= admin_page_escape((string)($townStoryNextPreview['earliest_at'] ?? '未知')) ?>；冷却 <?= (int)($storyPolicy['cooldown_minutes'] ?? 0) ?> 分钟；每日上限 <?= (int)($storyPolicy['daily_max_events'] ?? 0) ?> 个。</span></div>
 <div class="story-forecast"><h3>可能发生的事件与影响</h3><div class="story-forecast-grid">
-<?php foreach (($townStoryNextPreview['candidates'] ?? []) as $candidate): ?><article class="story-forecast-card"><h4><?= admin_page_escape((string)($candidate['title'] ?? '')) ?></h4><p><?= admin_page_escape((string)($candidate['summary'] ?? '')) ?></p><div class="story-muted">条件：<?= admin_page_escape((string)($candidate['condition'] ?? 'always')) ?>；预期影响：<?php $impact=[]; foreach (($candidate['effects'] ?? []) as $effect) $impact[]=$storyDeltaText(is_array($effect)?$effect:[]); ?><?= admin_page_escape(implode('；', $impact)) ?></div></article><?php endforeach; ?>
+<?php foreach (($townStoryNextPreview['candidates'] ?? []) as $candidate): ?><article class="story-forecast-card"><h4><?= admin_page_escape((string)($candidate['title'] ?? '')) ?></h4><p><?= admin_page_escape((string)($candidate['summary'] ?? '')) ?></p><div class="story-muted">类型：<?= admin_page_escape($storyToneLabels[(string)($candidate['tone'] ?? 'mixed')] ?? '混合') ?>；条件：<?= admin_page_escape((string)($candidate['condition'] ?? 'always')) ?>；预期影响：<?php $impact=[]; foreach (($candidate['effects'] ?? []) as $effect) $impact[]=$storyDeltaText(is_array($effect)?$effect:[]); ?><?= admin_page_escape(implode('；', $impact)) ?></div></article><?php endforeach; ?>
 </div></div>
 <?php endif; ?>
 <h3 style="margin-top:20px">事件记录与详细过程</h3>
