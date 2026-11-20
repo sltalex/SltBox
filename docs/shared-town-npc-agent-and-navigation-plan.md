@@ -1456,6 +1456,7 @@ Phaser 地图、居民面板和素材编辑器只消费统一输入事件，不�
 - 先创建线上备份目录 `/root/deskbox-backups/npc-stats-story-20261120-091450/`，数据库备份文件已生成；`mysqldump` 输出了 tablespace `PROCESS` 权限提示，但数据库备份文件正常生成，后续应在具备权限的备份账号上补做无提示全量备份。
 - 055 迁移已在远程 MySQL 8.0.45 执行并逐项确认 `town_npc_stats`、`town_npc_stat_changes`、`town_story_events`、`town_story_event_participants`、`town_story_event_effects`、`town_story_event_policies` 共 6 张表存在。迁移脚本已修正入口常量和注释处理，重复执行安全。
 - 本轮 PHP/Web 文件已上传并通过远程 PHP 8.2 lint；代表性文件远程 SHA-256 与本地一致，包括 `town_npc_stats.php`、`town_story_events.php`、三个 Agent 故事接口和后台 `town_npcs.php`。
+- 随后修正 `town_npc_stats_save()` 的并发历史记录：旧值和 delta 现在在事务内取得 `FOR UPDATE` 锁后计算，避免管理员调整与故事效果同时到达时写入过期 `before_json`；修正版已备份到 `/root/deskbox-backups/npc-stats-lock-fix-20261120-095012/`，线上 PHP 8.2 lint 和 SHA-256 回读通过。
 - Worker 已用 Release 发布内容构建 `deskbox-npc-worker:v43-npc-stats-story`，旧 `v42-player-talk-timeout` 保留为停止状态回滚容器。线上健康接口返回 `ok=true`，容器 `restart_count=0`；最近日志未发现错误。由于当前数据库没有初始化统计行和故事策略行，服务端按代码安全默认值返回数值/策略，后台首次保存时再创建对应行。
 - 本轮未发布桌面安装包；桌面仍使用已有 canonical Debug 验证实例。真实模型故事事件、重启恢复、双 Worker 竞争、双客户端数值/故事显示仍需认证验收。
 #### 2026-11-20 故事事件闭环修复（已部署，历史记录）
