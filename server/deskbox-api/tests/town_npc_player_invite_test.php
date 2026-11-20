@@ -22,7 +22,7 @@ CREATE TABLE town_npc_runtime_states (npc_id TEXT PRIMARY KEY,tile_x INTEGER,til
 CREATE TABLE town_npc_tasks (task_id TEXT PRIMARY KEY,npc_id TEXT,action TEXT,target_id TEXT,payload_json TEXT,status TEXT,attempts INTEGER,scheduled_at TEXT,started_at TEXT,completed_at TEXT,failure_reason TEXT);
 CREATE TABLE town_npc_events (event_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,event_type TEXT,payload_json TEXT,created_at TEXT);
 CREATE TABLE town_npc_activity_logs (log_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,run_id TEXT,log_type TEXT,summary TEXT,detail_json TEXT,created_at TEXT);
-CREATE TABLE town_npc_memories (memory_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,memory_type TEXT,content TEXT,importance INTEGER,created_at TEXT,expires_at TEXT);
+CREATE TABLE town_npc_memories (memory_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,memory_type TEXT,content TEXT,importance INTEGER,created_at TEXT,expires_at TEXT,tile_x INTEGER,tile_y INTEGER,navigation_version INTEGER);
 CREATE TABLE town_npc_schedules (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT,npc_id TEXT,weekday INTEGER,start_minute INTEGER,end_minute INTEGER,action TEXT,target_id TEXT,job TEXT,priority INTEGER);
 CREATE TABLE town_agent_leases (lease_name TEXT PRIMARY KEY,holder_id TEXT,lease_token TEXT,expires_at TEXT,updated_at TEXT);");
 $pdo->prepare('INSERT INTO town_worlds VALUES (?,?,?,?)')->execute(['main', 1, 1, $stamp]);
@@ -55,6 +55,10 @@ $arrived = town_npc_advance_task($pdo, $npc, $now->modify('+4 seconds'), true);
 invite_expect(($arrived['task_status'] ?? '') === 'running' && ($arrived['state'] ?? '') === 'player_talk', '到达玩家旁边后应进入玩家交谈状态。');
 $continued = town_npc_continue_player_talk($pdo, $npc, $user, '我想问问今天的天气。', $now->modify('+5 seconds'));
 invite_expect(($continued['continued'] ?? false) === true && ($continued['state'] ?? '') === 'player_talk' && str_contains((string)($continued['dialogue'] ?? ''), '天气'), '面对面交谈期间可以连续发送下一句并收到 NPC 回复。');
+$memory = $pdo->query("SELECT memory_type,content,tile_x,tile_y FROM town_npc_memories WHERE npc_id=" . $pdo->quote($npc) . " AND memory_type='player_conversation' ORDER BY memory_id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+invite_expect(is_array($memory) && str_contains((string)($memory['content'] ?? ''), '天气'), '玩家对话应写入 NPC 的长期记忆。');
+$conversationEvent = $pdo->query("SELECT payload_json FROM town_npc_events WHERE npc_id=" . $pdo->quote($npc) . " AND event_type='player_conversation' ORDER BY event_id DESC LIMIT 1")->fetchColumn();
+invite_expect(is_string($conversationEvent) && str_contains($conversationEvent, '天气'), '玩家对话应写入可供后续 Agent 使用的事件。');
 $dialogue = $pdo->query('SELECT dialogue FROM town_npc_runtime_states WHERE npc_id=' . $pdo->quote($npc))->fetchColumn();
 invite_expect(str_contains((string)$dialogue, '天气'), 'NPC 气泡应显示 NPC 回复而不是交谈状态文字。');
 $done = town_npc_advance_task($pdo, $npc, $now->modify('+65 seconds'), true);
@@ -64,5 +68,11 @@ $talk = town_npc_apply_action($pdo, ['npc_id' => $npc, 'action' => 'player_talk'
 $pdo->prepare('UPDATE town_presence SET tile_x=30,tile_y=30,expires_at=? WHERE user_id=?')->execute([auth_sql_time($now->modify('+100 seconds')), $user]);
 $missing = town_npc_advance_task($pdo, $npc, $now->modify('+71 seconds'), true);
 invite_expect(($missing['task_status'] ?? '') === 'failed' && ($missing['failure_reason'] ?? '') === 'player_target_missing', '玩家离开后交谈任务应失败。');
+$pdo->prepare('UPDATE town_presence SET tile_x=12,tile_y=10,expires_at=? WHERE user_id=?')->execute([auth_sql_time($now->modify('+300 seconds')), $user]);
+$talk = town_npc_apply_action($pdo, ['npc_id' => $npc, 'action' => 'player_talk', 'payload' => ['target_player_user_id' => $user, 'next_action' => ['action' => 'rest', 'reason' => '对话后回家休息']]], $now->modify('+80 seconds'), true);
+$talkDone = town_npc_advance_task($pdo, $npc, $now->modify('+201 seconds'), true);
+$talkDone = town_npc_advance_task($pdo, $npc, $now->modify('+262 seconds'), true);
+$followupTask = $pdo->query('SELECT t.action,t.status FROM town_npc_tasks t JOIN town_npc_runtime_states r ON r.current_task_id=t.task_id WHERE r.npc_id=' . $pdo->quote($npc))->fetch(PDO::FETCH_ASSOC);
+invite_expect(($talkDone['task_status'] ?? '') === 'completed' && ($followupTask['action'] ?? '') === 'rest' && ($followupTask['status'] ?? '') === 'running', '对话返回的后续行动应在对话结束后重新经过服务端校验并排队执行。');
 
 echo "town_npc_player_invite_test: {$checks} checks ok\n";

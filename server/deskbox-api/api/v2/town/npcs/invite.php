@@ -29,14 +29,15 @@ api_run('POST', static function (PDO $pdo): array {
         } catch (ApiError $error) {
             if ($error->apiCode !== 'npc_invitation_not_found') throw $error;
         }
-        // The first line is delivered only after the NPC reaches an adjacent
-        // tile. The runtime dialogue is the NPC reply, never the player's text.
-        $dialogue = '我听到了：“' . mb_substr((string)$input['text'], 0, 120, 'UTF-8') . '”。你还想聊些什么？';
+        // Generate the first reply before creating the route. The runtime
+        // dialogue is always the NPC reply, never the player's text.
+        $model = town_agent_player_talk($npcId, (string)$input['text'], []);
+        $dialogue = (string)$model['reply'];
     }
     $action = $intent === 'talk' ? 'player_talk' : 'follow';
     return ['ok' => true, 'invitation' => town_npc_apply_action($pdo, [
         'npc_id' => $npcId,
         'action' => $action,
-        'payload' => ['target_player_user_id' => $userId, 'dialogue' => $dialogue, 'player_dialogue' => $intent === 'talk' ? (string)($input['text'] ?? '') : ''],
+        'payload' => ['target_player_user_id' => $userId, 'dialogue' => $dialogue, 'player_dialogue' => $intent === 'talk' ? (string)($input['text'] ?? '') : '', 'reply_source' => $model['source'] ?? 'fallback', 'mood' => $model['mood'] ?? [], 'next_action' => $model['next_action'] ?? [], 'model_run_id' => $model['run_id'] ?? null],
     ], api_clock(), true, false, true)];
 });

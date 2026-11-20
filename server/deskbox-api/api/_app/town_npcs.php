@@ -7,6 +7,7 @@ require_once __DIR__ . '/town_navigation.php';
 require_once __DIR__ . '/town_npc_life.php';
 require_once __DIR__ . '/town_world_events.php';
 require_once __DIR__ . '/town_world_clock.php';
+require_once __DIR__ . '/town_agent.php';
 
 const TOWN_NPC_ACTIONS = ['walk', 'work', 'rest', 'talk', 'trade', 'follow', 'player_talk'];
 const TOWN_NPC_OCCUPATIONS = ['farmer', 'merchant', 'craftsman'];
@@ -1288,6 +1289,16 @@ function town_npc_continue_player_talk(PDO $pdo, string $npcId, string $userId, 
     $moderated = town_npc_moderate_dialogue($playerDialogue);
     if (!$moderated['allowed'] || $moderated['text'] === '') throw new ApiError('dialogue_rejected', '交谈内容无效。', 400);
     $playerDialogue = mb_substr((string)$moderated['text'], 0, 240, 'UTF-8');
+    // Model calls happen outside the write transaction. A slow provider must
+    // never hold the NPC row lock or block other players from observing it.
+    $history = [];
+    try {
+        $historyQuery = $pdo->prepare('SELECT payload_json FROM town_npc_tasks t JOIN town_npc_runtime_states r ON r.current_task_id=t.task_id WHERE t.npc_id=:npc AND t.action=\'player_talk\' AND t.status=\'running\' LIMIT 1');
+        $historyQuery->execute([':npc' => $npcId]);
+        $historyRow = $historyQuery->fetch(PDO::FETCH_ASSOC);
+        if (is_array($historyRow)) { $historyPayload = town_npc_array(town_npc_decode($historyRow['payload_json'] ?? [], [])); $history = is_array($historyPayload['player_turns'] ?? null) ? $historyPayload['player_turns'] : []; }
+    } catch (PDOException $error) { }
+    $modelReply = town_agent_player_talk($npcId, $playerDialogue, $history);
     $lock = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
     $pdo->beginTransaction();
     try {
@@ -1304,7 +1315,7 @@ function town_npc_continue_player_talk(PDO $pdo, string $npcId, string $userId, 
         $target = town_npc_player_target($pdo, $userId, $now);
         $x = (int)($row['tile_x'] ?? 0); $y = (int)($row['tile_y'] ?? 0);
         if (!is_array($target) || abs($target['tile_x'] - $x) + abs($target['tile_y'] - $y) > 1) throw new ApiError('player_target_missing', '你已经离开面对面交谈的位置。', 409);
-        $reply = '我听到了：“' . mb_substr($playerDialogue, 0, 120, 'UTF-8') . '”。你还想聊些什么？';
+        $reply = (string)$modelReply['reply'];
         $turns = is_array($payload['player_turns'] ?? null) ? $payload['player_turns'] : [];
         $photoSource = is_array($source) && (string)($source['type'] ?? '') === 'photo' ? [
             'type' => 'photo', 'mode' => substr((string)($source['mode'] ?? ''), 0, 32),
@@ -1315,6 +1326,10 @@ function town_npc_continue_player_talk(PDO $pdo, string $npcId, string $userId, 
         $turns[] = $turn;
         $turns[] = ['speaker' => 'npc', 'text' => $reply, 'created_at' => auth_sql_time($now)];
         $payload['player_turns'] = array_slice($turns, -12); $payload['dialogue'] = $reply;
+        $payload['reply_source'] = (string)($modelReply['source'] ?? 'fallback');
+        $payload['mood'] = is_array($modelReply['mood'] ?? null) ? $modelReply['mood'] : [];
+        $payload['next_action'] = is_array($modelReply['next_action'] ?? null) ? $modelReply['next_action'] : [];
+        if (is_string($modelReply['run_id'] ?? null) && $modelReply['run_id'] !== '') $payload['model_run_id'] = $modelReply['run_id'];
         // Each new line keeps the face-to-face session alive for another minute.
         $payload['arrived_at'] = auth_sql_time($now); $payload['duration_minutes'] = 1;
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -1324,7 +1339,10 @@ function town_npc_continue_player_talk(PDO $pdo, string $npcId, string $userId, 
         $playerDetail = ['dialogue' => $playerDialogue, 'task_id' => (string)$row['current_task_id'], 'target_player_user_id' => $userId, 'tile_x' => $x, 'tile_y' => $y];
         if ($photoSource !== null) $playerDetail['photo'] = $photoSource + ['extracted_text' => mb_substr((string)($source['extracted_text'] ?? ''), 0, 240, 'UTF-8')];
         town_npc_activity_log($pdo, $npcId, 'player_speech', $playerDialogue, $playerDetail, $now);
-        town_npc_activity_log($pdo, $npcId, 'speech', $reply, ['dialogue' => $reply, 'action' => 'player_talk', 'task_id' => (string)$row['current_task_id'], 'target_player_user_id' => $userId], $now);
+        town_npc_activity_log($pdo, $npcId, 'speech', $reply, ['dialogue' => $reply, 'action' => 'player_talk', 'task_id' => (string)$row['current_task_id'], 'target_player_user_id' => $userId, 'source' => $modelReply['source'] ?? 'fallback', 'mood' => $modelReply['mood'] ?? [], 'next_action' => $modelReply['next_action'] ?? []], $now, is_string($modelReply['run_id'] ?? null) ? $modelReply['run_id'] : null);
+        town_npc_insert_spatial_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . $userId . ' 面对面交谈：玩家说“' . $playerDialogue . '”，NPC 回复“' . $reply . '”', 3, $now, ['tile_x' => $x, 'tile_y' => $y, 'navigation_version' => town_navigation_version($pdo)], $now->modify('+30 days'));
+        town_npc_compact_memories($pdo, $npcId, $now);
+        town_npc_emit_event($pdo, $npcId, 'player_conversation', ['user_id' => $userId, 'task_id' => (string)$row['current_task_id'], 'player_dialogue' => $playerDialogue, 'dialogue' => $reply, 'tile_x' => $x, 'tile_y' => $y, 'source' => $modelReply['source'] ?? 'fallback', 'next_action' => $modelReply['next_action'] ?? []], $now);
         $messageId = null;
         if ($photoSource !== null) {
             $messageId = town_npc_emit_event($pdo, $npcId, 'player_conversation', [
@@ -1579,6 +1597,8 @@ function town_npc_apply_action(PDO $pdo, array $body, DateTimeImmutable $now, bo
         if ($action === 'player_talk' && trim((string)($payload['player_dialogue'] ?? '')) !== '') {
             $playerLine = trim((string)$payload['player_dialogue']);
             town_npc_activity_log($pdo, $npcId, 'player_speech', $playerLine, ['dialogue' => $playerLine, 'action' => $action, 'task_id' => $taskId, 'target_player_user_id' => $payload['target_player_user_id'] ?? null], $now, $runId);
+            town_npc_insert_spatial_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . (string)($payload['target_player_user_id'] ?? '') . ' 面对面交谈：玩家说“' . $playerLine . '”，NPC 回复“' . $dialogue . '”', 3, $now, ['tile_x' => $fromX, 'tile_y' => $fromY, 'navigation_version' => town_navigation_version($pdo)], $now->modify('+30 days'));
+            town_npc_emit_event($pdo, $npcId, 'player_conversation', ['user_id' => $payload['target_player_user_id'] ?? null, 'task_id' => $taskId, 'player_dialogue' => $playerLine, 'dialogue' => $dialogue, 'tile_x' => $fromX, 'tile_y' => $fromY, 'source' => $payload['reply_source'] ?? 'fallback', 'next_action' => $payload['next_action'] ?? []], $now);
         }
         if (count($route) > 1) town_npc_activity_log($pdo, $npcId, 'path', '已规划路线：(' . $fromX . ',' . $fromY . ') → (' . $tileX . ',' . $tileY . ')', ['from' => ['tile_x' => $fromX, 'tile_y' => $fromY], 'to' => ['tile_x' => $tileX, 'tile_y' => $tileY], 'route' => $route, 'route_length' => count($route), 'navigation_version' => $payload['navigation_version'] ?? null], $now, $runId);
         if ($mood !== []) town_npc_activity_log($pdo, $npcId, 'mood', '心情更新', ['mood' => $mood, 'action' => $action], $now, $runId);
@@ -1619,6 +1639,17 @@ function town_npc_queue_home_rest(PDO $pdo, string $npcId, DateTimeImmutable $no
         town_npc_activity_log($pdo, $npcId, 'path', '工作完成后回家受阻', ['from' => ['tile_x' => $fromX, 'tile_y' => $fromY], 'home' => ['tile_x' => $toX, 'tile_y' => $toY], 'reason' => $error->apiCode], $now);
         return null;
     }
+}
+
+/** Execute a model-proposed follow-up only after the face-to-face task is closed. */
+function town_npc_queue_player_talk_followup(PDO $pdo, string $npcId, array $nextAction, DateTimeImmutable $now): ?array
+{
+    $action = strtolower(trim((string)($nextAction['action'] ?? '')));
+    if (!in_array($action, ['walk', 'work', 'rest', 'talk', 'trade'], true)) return null;
+    $payload = is_array($nextAction['payload'] ?? null) ? $nextAction['payload'] : [];
+    foreach (['target_id', 'target_npc_id', 'job', 'dialogue', 'trade'] as $key) if (array_key_exists($key, $nextAction) && !array_key_exists($key, $payload)) $payload[$key] = $nextAction[$key];
+    try { return town_npc_apply_action($pdo, ['npc_id' => $npcId, 'action' => $action, 'payload' => $payload], $now, true, false, false); }
+    catch (Throwable $error) { town_npc_activity_log($pdo, $npcId, 'action', '对话后行动未执行', ['action' => $action, 'reason' => substr($error->getMessage(), 0, 240)], $now); return null; }
 }
 
 /** Execute one administrator-assigned task through the same route and collision checks as the worker. */
@@ -1947,7 +1978,7 @@ function town_npc_advance_task(PDO $pdo, string $npcId, DateTimeImmutable $now, 
              }
              $pdo->exec('RELEASE SAVEPOINT ' . $tradeSavepoint);
          }
-         $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,payload_json=:payload WHERE task_id=:task AND npc_id=:npc')->execute([':completed' => auth_sql_time($now), ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':task' => $taskId, ':npc' => $npcId]); town_npc_sync_social_task_if_available($pdo, $taskId, $npcId, 'completed', null, $now); $stateSql = 'UPDATE town_npc_runtime_states SET current_task_id=NULL,state=\'rest\',dialogue=\'\'' . (town_npc_runtime_height_column($pdo) ? ',height=:height' : '') . ',state_version=state_version+1,updated_at=:updated'; $stateParams = [':updated' => auth_sql_time($now), ':npc' => $npcId]; if (town_npc_runtime_height_column($pdo)) $stateParams[':height'] = $currentHeight; $stateSql .= ' WHERE npc_id=:npc'; $pdo->prepare($stateSql)->execute($stateParams); town_npc_emit_event($pdo, $npcId, 'task_completed', ['state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'task_id' => $taskId, 'task_status' => 'completed', 'action' => $action, 'navigation_version' => $currentVersion, 'trade' => $tradeResult], $now); town_npc_activity_log($pdo, $npcId, 'action', '任务完成：' . $action, ['task_id' => $taskId, 'action' => $action, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'trade' => $tradeResult], $now); if ($action === 'trade' && is_array($tradeResult)) { $counterparty = (string)($tradeResult['seller_npc_id'] ?? '') === $npcId ? (string)($tradeResult['buyer_npc_id'] ?? '') : (string)($tradeResult['seller_npc_id'] ?? ''); if (preg_match('/\A[a-f0-9]{32}\z/D', $counterparty)) { town_npc_emit_event($pdo, $counterparty, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); town_npc_activity_log($pdo, $counterparty, 'action', '收到 NPC 交易', $tradeResult + ['initiator_npc_id' => $npcId], $now); } town_npc_emit_event($pdo, $npcId, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); } $homeReturn = null; if ($action === 'work') { town_npc_record_work_result($pdo, $npcId, $taskId, $payload, $now); town_npc_release_work_point($pdo, $taskId, 'completed', $now); $homeReturn = town_npc_queue_home_rest($pdo, $npcId, $now); } elseif ($action === 'talk') { town_npc_record_talk_result($pdo, $npcId, $taskId, $payload, $now); } $pdo->commit(); if (is_array($homeReturn)) return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $homeReturn['task_id'], 'completed_task_id' => $taskId, 'action' => 'rest', 'task_status' => 'running', 'state' => $homeReturn['state'], 'tile_x' => $homeReturn['tile_x'], 'tile_y' => $homeReturn['tile_y'], 'height' => $currentHeight, 'route_cursor' => 0, 'route' => $homeReturn['route'], 'route_remaining' => $homeReturn['route'], 'navigation_version' => town_navigation_version($pdo), 'home_return' => true]; return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $taskId, 'action' => $action, 'task_status' => 'completed', 'state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'route_cursor' => $cursor, 'route_remaining' => [], 'navigation_version' => $currentVersion, 'trade' => $tradeResult];
+         $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,payload_json=:payload WHERE task_id=:task AND npc_id=:npc')->execute([':completed' => auth_sql_time($now), ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':task' => $taskId, ':npc' => $npcId]); town_npc_sync_social_task_if_available($pdo, $taskId, $npcId, 'completed', null, $now); $stateSql = 'UPDATE town_npc_runtime_states SET current_task_id=NULL,state=\'rest\',dialogue=\'\'' . (town_npc_runtime_height_column($pdo) ? ',height=:height' : '') . ',state_version=state_version+1,updated_at=:updated'; $stateParams = [':updated' => auth_sql_time($now), ':npc' => $npcId]; if (town_npc_runtime_height_column($pdo)) $stateParams[':height'] = $currentHeight; $stateSql .= ' WHERE npc_id=:npc'; $pdo->prepare($stateSql)->execute($stateParams); town_npc_emit_event($pdo, $npcId, 'task_completed', ['state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'task_id' => $taskId, 'task_status' => 'completed', 'action' => $action, 'navigation_version' => $currentVersion, 'trade' => $tradeResult], $now); town_npc_activity_log($pdo, $npcId, 'action', '任务完成：' . $action, ['task_id' => $taskId, 'action' => $action, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'trade' => $tradeResult], $now); if ($action === 'trade' && is_array($tradeResult)) { $counterparty = (string)($tradeResult['seller_npc_id'] ?? '') === $npcId ? (string)($tradeResult['buyer_npc_id'] ?? '') : (string)($tradeResult['seller_npc_id'] ?? ''); if (preg_match('/\A[a-f0-9]{32}\z/D', $counterparty)) { town_npc_emit_event($pdo, $counterparty, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); town_npc_activity_log($pdo, $counterparty, 'action', '收到 NPC 交易', $tradeResult + ['initiator_npc_id' => $npcId], $now); } town_npc_emit_event($pdo, $npcId, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); } $homeReturn = null; if ($action === 'work') { town_npc_record_work_result($pdo, $npcId, $taskId, $payload, $now); town_npc_release_work_point($pdo, $taskId, 'completed', $now); $homeReturn = town_npc_queue_home_rest($pdo, $npcId, $now); } elseif ($action === 'talk') { town_npc_record_talk_result($pdo, $npcId, $taskId, $payload, $now); } $pdo->commit(); $followup = $action === 'player_talk' ? town_npc_queue_player_talk_followup($pdo, $npcId, town_npc_array($payload['next_action'] ?? []), $now) : null; if (is_array($homeReturn)) return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $homeReturn['task_id'], 'completed_task_id' => $taskId, 'action' => 'rest', 'task_status' => 'running', 'state' => $homeReturn['state'], 'tile_x' => $homeReturn['tile_x'], 'tile_y' => $homeReturn['tile_y'], 'height' => $currentHeight, 'route_cursor' => 0, 'route' => $homeReturn['route'], 'route_remaining' => $homeReturn['route'], 'navigation_version' => town_navigation_version($pdo), 'home_return' => true]; return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $taskId, 'action' => $action, 'task_status' => 'completed', 'state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'route_cursor' => $cursor, 'route_remaining' => [], 'navigation_version' => $currentVersion, 'trade' => $tradeResult];
     } catch (Throwable $error) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $error; }
 }
 

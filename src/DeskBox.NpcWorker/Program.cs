@@ -70,6 +70,39 @@ app.MapPost("/internal/photo-facts", async (HttpContext context, PhotoFactExtrac
         return Results.Json(new { code = error.Code, message = error.Message }, statusCode: error.StatusCode);
     }
 });
+app.MapPost("/internal/player-talk", async (HttpContext context, OpenAiCompatiblePlanner planner, TownApiClient api, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+    string expected = (configuration["NPC_WORKER_TOKEN"] ?? "").Trim();
+    string provided = context.Request.Headers["X-DeskBox-Agent-Token"].ToString().Trim();
+    if (expected.Length == 0 || provided.Length == 0 || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(provided)))
+        return Results.Json(new { code = "agent_forbidden", message = "NPC worker authentication is required." }, statusCode: StatusCodes.Status403Forbidden);
+    try
+    {
+        using JsonDocument document = await JsonDocument.ParseAsync(context.Request.Body, cancellationToken: cancellationToken);
+        JsonElement root = document.RootElement;
+        string npcId = root.TryGetProperty("npc_id", out JsonElement id) ? id.GetString() ?? "" : "";
+        string text = root.TryGetProperty("text", out JsonElement line) ? line.GetString() ?? "" : "";
+        if (npcId.Length == 0 || text.Trim().Length == 0) return Results.BadRequest(new { code = "invalid_player_talk", message = "npc_id 和 text 不能为空。" });
+        NpcSnapshot snapshot = await api.SnapshotAsync(cancellationToken);
+        Npc? npc = snapshot.Npcs.FirstOrDefault(item => string.Equals(item.Id, npcId, StringComparison.OrdinalIgnoreCase));
+        if (npc is null) return Results.NotFound(new { code = "npc_not_found", message = "NPC 不存在。" });
+        List<JsonElement> history = new();
+        if (root.TryGetProperty("history", out JsonElement supplied) && supplied.ValueKind == JsonValueKind.Array)
+            history.AddRange(supplied.EnumerateArray().Take(12).Select(item => item.Clone()));
+        ModelProvider? provider = await api.ModelProviderAsync(cancellationToken);
+        PlayerTalkResult result = await planner.TryPlayerTalkAsync(npc, text, history, provider, cancellationToken);
+        string? runId = null;
+        if (result.Plan?.Action is not null)
+        {
+            runId = await api.RecordRunAsync(npc, result.Plan.Action!, result.Plan, result.Plan.Status, cancellationToken, result.Plan.ReservationId);
+        }
+        return Results.Json(new { ok = result.Ok, reply = result.Reply, mood = result.Mood, next_action = result.NextAction, source = result.Source, run_id = runId, error_code = result.ErrorCode });
+    }
+    catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Results.Json(new { ok = false, source = "fallback", error_code = "worker_error", message = "模型服务暂时不可用。" }, statusCode: StatusCodes.Status502BadGateway);
+    }
+});
 await app.RunAsync();
 
 public sealed record Lease(string Token, DateTimeOffset ExpiresAt);
@@ -81,6 +114,7 @@ public sealed record NpcSnapshot(long NavigationVersion, IReadOnlyList<Npc> Npcs
 public sealed record WorldClock(long Revision, int AbsoluteMinute, int CalendarDay, int MinuteOfDay, string TimeLabel, string WeatherCode);
 public sealed record PlannedAction(string Action, string? TargetId, JsonElement Payload, string Reason);
 public sealed record AgentPlanResult(PlannedAction? Action, string Status, int PromptTokens, int CompletionTokens, int TotalTokens, int LatencyMs, string ModelName, string ProviderId, string ErrorCode, string ErrorMessage, string ReservationId = "");
+public sealed record PlayerTalkResult(bool Ok, string Reply, JsonElement Mood, JsonElement NextAction, string Source, AgentPlanResult? Plan, string ErrorCode = "");
 public sealed record QuotaReservation(string ReservationId, int ReservedTokens, int RemainingTokens);
 public sealed record ModelProvider(
     string ProviderId,
@@ -543,6 +577,76 @@ public sealed class PhotoFactExtractor(
 
 public sealed class OpenAiCompatiblePlanner(IConfiguration configuration, IHttpClientFactory clientFactory, TownApiClient api, ILogger<OpenAiCompatiblePlanner> logger)
 {
+    public async Task<PlayerTalkResult> TryPlayerTalkAsync(Npc npc, string playerText, IReadOnlyList<JsonElement> history, ModelProvider? configuredProvider, CancellationToken cancellationToken)
+    {
+        string fallback = "我听到了：“" + (playerText.Length > 120 ? playerText[..120] : playerText) + "”。你还想聊些什么？";
+        JsonElement empty = JsonSerializer.SerializeToElement(new { });
+        string baseUrl = configuredProvider?.BaseUrl ?? configuration["OPENAI_BASE_URL"] ?? "";
+        string apiKey = configuredProvider?.ApiKey ?? configuration["OPENAI_API_KEY"] ?? "";
+        string model = configuredProvider?.ModelName ?? configuration["OPENAI_MODEL"] ?? "";
+        string providerId = configuredProvider?.ProviderId ?? "";
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))
+            return new(false, fallback, empty, empty, "fallback", null, "model_not_configured");
+        if (configuredProvider is { MonthlyQuota: > 0 } && configuredProvider.UsedTokens + configuredProvider.ReservedTokens >= configuredProvider.MonthlyQuota)
+            return new(false, fallback, empty, empty, "fallback", null, "monthly_quota_exceeded");
+        string reservationId = ""; int actualTokens = 0; Stopwatch stopwatch = Stopwatch.StartNew();
+        try
+        {
+            if (providerId != "") reservationId = await api.ReserveTokensAsync(providerId, 4096, cancellationToken) ?? "";
+            if (providerId != "" && reservationId == "") return new(false, fallback, empty, empty, "fallback", null, "monthly_quota_exceeded");
+            using HttpClient client = clientFactory.CreateClient();
+            client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+            // Player-facing dialogue is interactive, but the configured model
+            // has already been observed taking 15–20 seconds. Do not turn a
+            // normal slow response into the deterministic fallback merely
+            // because the provider setting was left at the old 20 second
+            // default. Administrators can still raise this value above 45s.
+            int configuredTimeout = configuredProvider?.TimeoutSeconds ?? 20;
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(Math.Max(configuredTimeout, 45), 5, 300));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            var body = new
+            {
+                model,
+                temperature = configuredProvider?.Temperature ?? 0.4,
+                max_tokens = 512,
+                response_format = new { type = "json_object" },
+                messages = new[]
+                {
+                    new { role = "system", content = "你是共享小镇中的村民。只返回 JSON：{reply,mood,next_action,reason}。reply 用自然、简短的中文直接回答玩家；mood 是 {label,score,reason}；next_action 是 {action,target_id,reason} 或 null。允许 action: walk,work,rest,talk,trade。不要声称已经完成服务器未确认的动作，不要输出坐标或内部记忆。" },
+                    new { role = "user", content = JsonSerializer.Serialize(new { npc = new { npc.Name, npc.Occupation, profile = npc.Profile, runtime = npc.Runtime, memories = npc.AgentContext }, history, player_message = playerText }) }
+                }
+            };
+            using HttpResponseMessage response = await client.PostAsJsonAsync("chat/completions", body, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+            JsonElement root = document.RootElement;
+            int promptTokens = root.TryGetProperty("usage", out JsonElement usage) && usage.TryGetProperty("prompt_tokens", out JsonElement prompt) ? prompt.GetInt32() : 0;
+            int completionTokens = usage.ValueKind == JsonValueKind.Object && usage.TryGetProperty("completion_tokens", out JsonElement completion) ? completion.GetInt32() : 0;
+            int totalTokens = usage.ValueKind == JsonValueKind.Object && usage.TryGetProperty("total_tokens", out JsonElement total) ? total.GetInt32() : promptTokens + completionTokens;
+            actualTokens = totalTokens;
+            string content = root.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+            using JsonDocument output = JsonDocument.Parse(content); JsonElement result = output.RootElement;
+            string reply = result.TryGetProperty("reply", out JsonElement replyValue) && replyValue.ValueKind == JsonValueKind.String ? (replyValue.GetString() ?? "").Trim() : "";
+            if (reply.Length == 0 || reply.Length > 500) throw new JsonException("模型没有返回有效 reply");
+            JsonElement mood = result.TryGetProperty("mood", out JsonElement moodValue) && moodValue.ValueKind == JsonValueKind.Object ? moodValue.Clone() : empty;
+            JsonElement next = result.TryGetProperty("next_action", out JsonElement nextValue) && nextValue.ValueKind == JsonValueKind.Object ? nextValue.Clone() : empty;
+            string action = next.TryGetProperty("action", out JsonElement actionValue) && actionValue.ValueKind == JsonValueKind.String ? actionValue.GetString() ?? "" : "";
+            if (action != "" && !new[] { "walk", "work", "rest", "talk", "trade" }.Contains(action)) throw new JsonException("模型返回了不支持的 next_action");
+            var payload = JsonSerializer.SerializeToElement(new { dialogue = reply, mood, next_action = next, player_dialogue = playerText });
+            var plan = new AgentPlanResult(new PlannedAction("talk", null, payload, result.TryGetProperty("reason", out JsonElement reason) ? reason.GetString() ?? "player_talk" : "player_talk"), "completed", promptTokens, completionTokens, totalTokens, (int)stopwatch.ElapsedMilliseconds, model, providerId, "", "", reservationId);
+            return new(true, reply, mood, next, "model", plan);
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            logger.LogWarning("Player talk model fallback: {ErrorType} {Error}", error.GetType().Name, error.Message);
+            return new(false, fallback, empty, empty, "fallback", new AgentPlanResult(null, "failed", 0, 0, actualTokens, (int)stopwatch.ElapsedMilliseconds, model, providerId, error is TaskCanceledException ? "timeout" : "model_error", error.Message, reservationId), error is TaskCanceledException ? "timeout" : "model_error");
+        }
+        finally
+        {
+            if (reservationId != "") try { await api.SettleTokensAsync(reservationId, actualTokens, CancellationToken.None); } catch (Exception error) when (error is not OperationCanceledException) { logger.LogWarning("Player talk token settlement failed: {Error}", error.Message); }
+        }
+    }
+
     public async Task<AgentPlanResult> TryPlanAsync(Npc npc, ModelProvider? configuredProvider, CancellationToken cancellationToken)
     {
         string baseUrl = configuredProvider?.BaseUrl ?? configuration["OPENAI_BASE_URL"] ?? ""; string apiKey = configuredProvider?.ApiKey ?? configuration["OPENAI_API_KEY"] ?? ""; string model = configuredProvider?.ModelName ?? configuration["OPENAI_MODEL"] ?? "";

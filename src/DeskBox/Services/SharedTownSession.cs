@@ -245,7 +245,10 @@ internal sealed class SharedTownSession : IDisposable
             ["intent"] = intent,
             ["dialogue"] = dialogue
         }.ToJsonString());
-        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "../../v2/town/npcs/invite.php", body, token);
+        // Player dialogue may wait for the configured LLM. Keep the normal
+        // town request timeout for reads, but give an interactive turn enough
+        // time to receive a model response before the client cancels it.
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "../../v2/town/npcs/invite.php", body, token, TimeSpan.FromSeconds(75));
         string text = await response.Content.ReadAsStringAsync(token);
         using JsonDocument document = ParseObject(text, "resident invitation");
         if (!response.IsSuccessStatusCode)
@@ -887,13 +890,14 @@ internal sealed class SharedTownSession : IDisposable
     private string? Identity() => _auth.IsAuthenticated ? _auth.CurrentUser?.Id : null;
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, byte[]? body,
-        CancellationToken identityToken)
+        CancellationToken identityToken, TimeSpan? requestTimeout = null)
     {
         int attempts = method == HttpMethod.Get ? MaxIdempotentReadAttempts : 1;
+        TimeSpan effectiveTimeout = requestTimeout ?? _timeout;
         for (int attempt = 1; attempt <= attempts; attempt++)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(identityToken);
-            timeout.CancelAfter(_timeout);
+            timeout.CancelAfter(effectiveTimeout);
             Task<HttpResponseMessage>? request = null;
             try
             {

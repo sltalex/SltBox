@@ -103,9 +103,40 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
   const dialogueHistory = document.getElementById('player-dialogue-history');
   const context = document.getElementById('map-context');
   const timers = new Map();
-  let npcs = new Map(), following = false, locating = false, listKey = '', dialogueOpen = false, activeDialogueInput = dialogueInput;
+  let npcs = new Map(), following = false, locating = false, listKey = '', dialogueOpen = false, activeDialogueInput = dialogueInput, lastRuntimeDialogueKey = '';
   let dialogueLines = [];
   const current = () => npcs.get(reads.selected);
+  function appendNpcDialogue(text, taskId = '') {
+    const dialogue = typeof text === 'string' ? text.trim() : '';
+    if (!dialogue) return false;
+    const key = `${reads.selected || ''}:${taskId || ''}:${dialogue}`;
+    if (key === lastRuntimeDialogueKey) return false;
+    // The same reply can arrive through the HTTP response and the realtime
+    // snapshot. Keep one visible line while allowing the same wording in a
+    // later turn with a different task id.
+    if (dialogueLines.some(line => line.speaker === 'npc' && line.text === dialogue && (!taskId || line.taskId === taskId))) return false;
+    lastRuntimeDialogueKey = key;
+    dialogueLines.push({ speaker: 'npc', text: dialogue, taskId: taskId || '' });
+    return true;
+  }
+  function replyText(payload = {}) {
+    const invitation = payload?.invitation && typeof payload.invitation === 'object' ? payload.invitation : {};
+    return [invitation.dialogue, payload.dialogue, invitation.reply, payload.reply, invitation.npc_reply, payload.npc_reply]
+      .find(value => typeof value === 'string' && value.trim())?.trim() || '';
+  }
+  function captureRuntimeDialogue(values) {
+    const npc = values instanceof Map ? values.get(reads.selected) : null;
+    if (!npc) return;
+    const runtime = npc?.runtime || npc || {};
+    const dialogueValue = runtime.dialogue ?? npc.dialogue;
+    const dialogue = typeof dialogueValue === 'string' ? dialogueValue.trim() : '';
+    if (!dialogue) return;
+    // A snapshot may arrive just before the state transition or after the
+    // dialogue panel was opened. The reply itself is authoritative, so do not
+    // discard it because a transient state label is stale.
+    if (runtime.state !== 'player_talk' && !dialogueOpen) return;
+    appendNpcDialogue(dialogue, runtime.current_task_id || runtime.task_id || '');
+  }
   function send(kind, older = false) {
     const message = reads.request(kind, older); if (!message) return;
     clearTimeout(timers.get(kind));
@@ -121,7 +152,7 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
   }
   function choose(id) {
     clearKeys(); following = false; locating = false; stopFollowing();
-    reads.select(id); dialogueLines = []; listKey = '';
+    reads.select(id); dialogueLines = []; lastRuntimeDialogueKey = ''; listKey = '';
     panel.hidden = true; document.querySelector('.workspace').classList.remove('resident-open');
     renderList(); send('detail'); send('history'); renderContext();
   }
@@ -141,7 +172,9 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
     send('detail'); send('history'); render();
   }
   function openDialogue() {
-    hideProfile(); dialogueOpen = true; activeDialogueInput = contextDialogue || dialogueInput; renderDialogue(); activeDialogueInput?.focus();
+    hideProfile(); dialogueOpen = true; activeDialogueInput = contextDialogue || dialogueInput;
+    captureRuntimeDialogue(npcs);
+    renderDialogue(); activeDialogueInput?.focus();
   }
   function renderDialogue() {
     if (!dialoguePanel) return;
@@ -150,10 +183,26 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
     if (!npc || dialoguePanel.hidden) return;
     document.getElementById('player-dialogue-name').textContent = `与${npc.name || '村民'}交谈`;
     document.getElementById('player-dialogue-state').textContent = npc.runtime?.state === 'player_talk' ? '面对面交谈' : label(npc);
-    const timeline = [
-      ...reads.history().map(record => ({ speaker: (record.speaker?.npc_id || record.speaker?.id) === npc.npc_id ? 'npc' : 'player', text: record.text, meta: record.created_at })),
-      ...dialogueLines,
-    ];
+    const historyTimeline = reads.history().flatMap(record => {
+      const speakerId = record.speaker?.npc_id || record.speaker?.id;
+      // Player conversations are stored as one event containing both sides.
+      // Render both turns separately so an eventual history refresh cannot
+      // hide the NPC reply or label it as the player's message.
+      if (speakerId === 'player' && typeof record.player_text === 'string' && record.player_text.trim()) {
+        return [
+          { speaker: 'player', text: record.player_text.trim(), meta: record.created_at },
+          { speaker: 'npc', text: record.text, meta: record.created_at },
+        ];
+      }
+      return [{ speaker: speakerId === npc.npc_id ? 'npc' : 'player', text: record.text, meta: record.created_at }];
+    });
+    // The immediate invitation response and the following history refresh
+    // intentionally overlap. Remove only adjacent identical lines; repeated
+    // wording in separate turns remains visible.
+    const timeline = [...historyTimeline, ...dialogueLines].filter((line, index, values) => {
+      const previous = values[index - 1];
+      return !previous || previous.speaker !== line.speaker || previous.text !== line.text;
+    });
     dialogueHistory.replaceChildren(...timeline.map(line => {
       const item = element('div', '', `player-dialogue-line ${line.speaker === 'npc' ? 'npc' : 'player'}`);
       item.append(element('small', `${line.speaker === 'npc' ? (npc.name || '村民') : '我'}${line.meta ? ` · ${line.meta}` : ''}`), element('span', line.text));
@@ -163,7 +212,7 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
   }
   function close() {
     for (const timer of timers.values()) clearTimeout(timer); timers.clear();
-    following = false; locating = false; stopFollowing(); reads.select(null); panel.hidden = true; dialogueLines = []; hideDialogue();
+    following = false; locating = false; stopFollowing(); reads.select(null); panel.hidden = true; dialogueLines = []; lastRuntimeDialogueKey = ''; hideDialogue();
     document.querySelector('.workspace').classList.remove('resident-open');
     listKey = ''; renderList();
   }
@@ -369,13 +418,25 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
     reader.onerror = () => { photoButton.disabled = false; document.getElementById('context-dialogue-status').textContent = '图片读取失败。'; };
     reader.readAsDataURL(file);
   });
-  contextDialogue?.addEventListener('keydown', event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); activeDialogueInput = contextDialogue; invite('talk'); } });
+  function bindDialogueShortcut(input) {
+    input?.addEventListener('keydown', event => {
+      // Shift+Enter is the primary send shortcut. Keep Ctrl/Cmd+Enter as a
+      // compatibility shortcut; plain Enter remains available for newlines.
+      if (event.key === 'Enter' && (event.shiftKey || event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        activeDialogueInput = input;
+        invite('talk');
+      }
+    });
+  }
+  bindDialogueShortcut(contextDialogue);
+  bindDialogueShortcut(dialogueInput);
   document.getElementById('player-dialogue-close')?.addEventListener('click', hideDialogue);
   search.addEventListener('input', renderList);
   panel.addEventListener('focusin', clearKeys);
   return {
     reset(epoch) { close(); reads.reset(epoch); npcs = new Map(); listKey = ''; renderList(); },
-    update(values) { npcs = values; if (reads.selected && !npcs.has(reads.selected)) close(); renderList(); renderRuntime(); renderContext(); renderDialogue(); },
+    update(values) { npcs = values; captureRuntimeDialogue(values); if (reads.selected && !npcs.has(reads.selected)) close(); renderList(); renderRuntime(); renderContext(); renderDialogue(); },
     detail: payload => receive('detail', payload), history: payload => receive('history', payload),
     photoResult(payload) {
       if (payload?.session_epoch !== reads.epoch || payload.npc_id !== reads.selected) return;
@@ -383,8 +444,8 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
       const status = document.getElementById('context-dialogue-status');
       if (payload.code) { status.textContent = payload.code === 'npc_busy' ? '我现在正在忙，请先等一等' : '图片发送失败，请稍后重试。'; return; }
       if (payload.extracted_text) dialogueLines.push({ speaker: 'player', text: `（图片内容）${payload.extracted_text}` });
-      const reply = payload.invitation?.dialogue;
-      if (typeof reply === 'string' && reply.trim()) dialogueLines.push({ speaker: 'npc', text: reply.trim() });
+      const reply = replyText(payload);
+      if (reply) appendNpcDialogue(reply, payload.invitation?.task_id || payload.task_id || '');
       status.textContent = '村民已回复'; renderDialogue(); send('detail');
     },
     inviteResult(payload) {
@@ -397,12 +458,19 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
         // The invitation response already contains the authoritative NPC
         // reply. Apply it immediately instead of waiting for the next snapshot
         // (which may arrive before the state_changed event reaches this client).
-        if (npc && payload.intent === 'talk' && typeof invitation.dialogue === 'string' && invitation.dialogue.trim()) {
-          dialogueLines.push({ speaker: 'npc', text: invitation.dialogue.trim() });
-          npc.runtime = { ...(npc.runtime || {}), state: invitation.state || npc.runtime?.state || 'player_talk', dialogue: invitation.dialogue, current_task_id: invitation.task_id || npc.runtime?.current_task_id };
+        const reply = replyText(payload);
+        const isDialogue = payload.intent === 'talk' || invitation.action === 'player_talk' || invitation.state === 'player_talk';
+        if (npc && isDialogue && typeof reply === 'string' && reply.trim()) {
+          appendNpcDialogue(reply, invitation.task_id || payload.task_id || '');
+          npc.runtime = { ...(npc.runtime || {}), state: invitation.state || npc.runtime?.state || 'player_talk', dialogue: reply, current_task_id: invitation.task_id || npc.runtime?.current_task_id };
           refreshNpc();
         }
         if (payload.intent === 'talk') { dialogueInput.value = ''; if (contextDialogue) contextDialogue.value = ''; renderDialogue(); }
+        // The response is rendered immediately above. Also refresh the
+        // confirmed conversation event so a delayed realtime snapshot or a
+        // WebView bridge race cannot leave the second NPC reply out of the
+        // dialogue panel after the next render.
+        if (payload.intent === 'talk') send('history');
         send('detail');
       }
       render();

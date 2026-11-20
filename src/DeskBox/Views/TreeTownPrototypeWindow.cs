@@ -107,6 +107,23 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             CoreWebView2 core = _web.CoreWebView2;
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreHostObjectsAllowed = false;
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(@"
+                (() => {
+                    const report = (kind, error) => {
+                        try {
+                            window.chrome?.webview?.postMessage({
+                                type: 'webviewError',
+                                kind,
+                                message: String(error?.message || error || '未知脚本错误'),
+                                source: String(error?.filename || ''),
+                                line: Number(error?.lineno || 0)
+                            });
+                        } catch (_) { }
+                    };
+                    window.addEventListener('error', event => report('error', event));
+                    window.addEventListener('unhandledrejection', event => report('unhandledrejection', event.reason));
+                })();
+            ");
             // Map the complete local tree asset root so the town page can use
             // the existing SVG decoration catalog via ../Decorations without
             // copying 1500 files into the prototype directory.
@@ -121,7 +138,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             // WebView2 retains the virtual-host document in its profile cache;
             // changing only a module query string can therefore leave an old
             // two-slice index importing the previous renderer.
-            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html?v=20261117-house-split27");
+            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html?v=20261120-dialogue-reply2");
             _ = CheckReadyAsync();
         }
         catch (Exception ex) { ShowFailure(ex); }
@@ -163,6 +180,11 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             using JsonDocument document = JsonDocument.Parse(args.WebMessageAsJson);
             JsonElement message = document.RootElement;
             string? type = message.GetProperty("type").GetString();
+            if (type == "webviewError")
+            {
+                App.Log($"[TownPrototype] WebView script error kind={message.GetProperty("kind").GetString()} source={message.GetProperty("source").GetString()}:{message.GetProperty("line").GetInt32()} message={message.GetProperty("message").GetString()}");
+                return;
+            }
             if (type == "ready")
             {
                 _ready = true;
@@ -286,9 +308,15 @@ internal sealed partial class TreeTownPrototypeWindow : Window
                     string resultText = await _session.InviteResidentAsync(residentId, intent, epoch, dialogue);
                     if (epoch != _session.Epoch || _closed) break;
                     JsonObject result = JsonNode.Parse(resultText)!.AsObject();
+                    // Keep the bridge response self-contained even when an
+                    // older API node did not add session metadata. The page
+                    // rejects responses from a different town session.
+                    result["session_epoch"] ??= epoch;
                     result["npc_id"] = residentId;
                     result["intent"] = intent;
                     result["request_id"] = requestId;
+                    if (result["dialogue"] is null && result["invitation"] is JsonObject invitation && invitation["dialogue"] is JsonValue invitationDialogue && invitationDialogue.TryGetValue<string>(out string? reply) && !string.IsNullOrWhiteSpace(reply))
+                        result["dialogue"] = reply;
                     await PostAsync("setResidentInviteResult", result.ToJsonString());
                     if (result["code"] is null) {
                         await _session.LoadNpcSnapshotAsync(epoch);

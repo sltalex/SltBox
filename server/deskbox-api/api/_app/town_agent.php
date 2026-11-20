@@ -16,6 +16,40 @@ function town_agent_service_token(): string
     return '';
 }
 
+function town_agent_internal_url(string $path): string
+{
+    $configured = getenv('DESKBOX_NPC_WORKER_INTERNAL_URL');
+    if (is_string($configured) && trim($configured) !== '') return rtrim(trim($configured), '/') . '/' . ltrim($path, '/');
+    $configPath = dirname(__DIR__) . '/_config.local.php';
+    if (is_file($configPath)) {
+        $config = require $configPath;
+        if (is_array($config)) foreach (['npc_worker_internal_url', 'npc_worker_photo_url'] as $key)
+            if (is_string($config[$key] ?? null) && trim((string)$config[$key]) !== '') return rtrim(trim((string)$config[$key]), '/') . '/' . ltrim($path, '/');
+    }
+    return 'http://127.0.0.1:28080/' . ltrim($path, '/');
+}
+
+/** Ask the isolated Worker for a player-facing NPC reply. Failure is deliberately a safe fallback. */
+function town_agent_player_talk(string $npcId, string $text, array $history = []): array
+{
+    $fallback = '我听到了：“' . mb_substr($text, 0, 120, 'UTF-8') . '”。你还想聊些什么？';
+    $token = town_agent_service_token();
+    if ($token === '' || !function_exists('curl_init')) return ['reply' => $fallback, 'source' => 'fallback', 'mood' => [], 'next_action' => [], 'run_id' => null, 'error_code' => 'worker_unavailable'];
+    $handle = curl_init(town_agent_internal_url('/internal/player-talk'));
+    if ($handle === false) return ['reply' => $fallback, 'source' => 'fallback', 'mood' => [], 'next_action' => [], 'run_id' => null, 'error_code' => 'worker_unavailable'];
+    $body = json_encode(['npc_id' => $npcId, 'text' => mb_substr($text, 0, 240, 'UTF-8'), 'history' => array_slice($history, -12)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    // Interactive text turns may take longer than ordinary worker ticks while
+    // the provider generates a reply. The client has a matching 75 second
+    // deadline; keep a little headroom here for PHP and network overhead.
+    curl_setopt_array($handle, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_TIMEOUT => 70, CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/json', 'X-DeskBox-Agent-Token: ' . $token, 'X-DeskBox-Worker-Id: player-talk-web'], CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0]);
+    $raw = curl_exec($handle); $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE); $error = curl_error($handle); curl_close($handle);
+    if ($raw === false || $status < 200 || $status >= 300) { if ($error !== '') error_log('[DeskBoxTownTalk] worker request failed: ' . substr($error, 0, 160)); return ['reply' => $fallback, 'source' => 'fallback', 'mood' => [], 'next_action' => [], 'run_id' => null, 'error_code' => 'worker_error']; }
+    try { $result = json_decode((string)$raw, true, 16, JSON_THROW_ON_ERROR); } catch (JsonException $error) { return ['reply' => $fallback, 'source' => 'fallback', 'mood' => [], 'next_action' => [], 'run_id' => null, 'error_code' => 'worker_invalid_json']; }
+    $reply = is_array($result) && is_string($result['reply'] ?? null) ? trim(mb_substr((string)$result['reply'], 0, 500, 'UTF-8')) : '';
+    if ($reply === '') return ['reply' => $fallback, 'source' => 'fallback', 'mood' => [], 'next_action' => [], 'run_id' => null, 'error_code' => 'worker_empty_reply'];
+    return ['reply' => $reply, 'source' => (($result['source'] ?? '') === 'model' ? 'model' : 'fallback'), 'mood' => is_array($result['mood'] ?? null) ? $result['mood'] : [], 'next_action' => is_array($result['next_action'] ?? null) ? $result['next_action'] : [], 'run_id' => is_string($result['run_id'] ?? null) ? $result['run_id'] : null, 'error_code' => is_string($result['error_code'] ?? null) ? $result['error_code'] : ''];
+}
+
 function town_agent_require_service(): string
 {
     $expected = town_agent_service_token();
