@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026111902",
+  "version": "2026111801",
   "releaseDate": "2026-11-19",
   "mandatory": false,
   "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111902/SltBox_Setup_2026111902_x64.exe",
