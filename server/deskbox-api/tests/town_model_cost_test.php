@@ -5,7 +5,7 @@ define('DESKBOX_API_ENTRY', true);
 require dirname(__DIR__) . '/api/_app/bootstrap.php';
 require dirname(__DIR__) . '/api/_app/shared_town.php';
 require dirname(__DIR__) . '/api/_app/town_npcs.php';
-require dirname(__DIR__) . '/api/_app/town_agent.php';
+require_once dirname(__DIR__) . '/api/_app/town_agent.php';
 require dirname(__DIR__) . '/api/_app/town_model_provider.php';
 
 $checks = 0;

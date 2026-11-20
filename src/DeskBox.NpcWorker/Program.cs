@@ -316,6 +316,14 @@ public sealed class TownApiClient(HttpClient http, IConfiguration configuration)
         return document.RootElement.Clone();
     }
 
+    public async Task<JsonElement?> ActiveStoryEventsAsync(CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage response = await SendLeaseRequestAsync(HttpMethod.Get, "api/v2/town/agent/story-events-active.php", null, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        using JsonDocument document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        return document.RootElement.Clone();
+    }
+
     public async Task<WorldClock?> ReadClockAsync(CancellationToken cancellationToken)
     {
         try
@@ -881,6 +889,8 @@ public sealed class NpcWorkerService(
         int.TryParse(configuration["TOWN_SOCIAL_MATTER_BATCH_SIZE"], out int socialBatch) ? socialBatch : 8, 1, 50);
     private readonly TimeSpan _storyEventInterval = TimeSpan.FromSeconds(
         Math.Clamp(int.TryParse(configuration["TOWN_STORY_EVENT_INTERVAL_SECONDS"], out int storyInterval) ? storyInterval : 21600, 300, 86400));
+    private readonly TimeSpan _storyEventRecoveryInterval = TimeSpan.FromSeconds(
+        Math.Clamp(int.TryParse(configuration["TOWN_STORY_EVENT_RECOVERY_INTERVAL_SECONDS"], out int storyRecoveryInterval) ? storyRecoveryInterval : 30, 10, 300));
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -892,6 +902,7 @@ public sealed class NpcWorkerService(
         DateTimeOffset nextSocialMatterPoll = DateTimeOffset.MinValue;
         DateTimeOffset nextWorldSnapshot = DateTimeOffset.MinValue;
         DateTimeOffset nextStoryEvent = DateTimeOffset.MinValue;
+        DateTimeOffset nextStoryRecovery = DateTimeOffset.MinValue;
         long leaseGeneration = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -936,11 +947,49 @@ public sealed class NpcWorkerService(
                         catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
                         { logger.LogWarning("Shared town recovery snapshot skipped: {Error}", error.Message); }
                     }
+                    if (now >= nextStoryRecovery)
+                    {
+                        nextStoryRecovery = now.Add(_storyEventRecoveryInterval);
+                        try
+                        {
+                            JsonElement? activeStories = await api.ActiveStoryEventsAsync(stoppingToken);
+                            if (activeStories is JsonElement status && status.ValueKind == JsonValueKind.Object && status.TryGetProperty("events", out JsonElement activeEvents) && activeEvents.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (JsonElement item in activeEvents.EnumerateArray())
+                                {
+                                    if (!item.TryGetProperty("event_id", out JsonElement idValue) || idValue.ValueKind != JsonValueKind.String) continue;
+                                    string eventId = idValue.GetString() ?? ""; if (eventId.Length == 0) continue;
+                                    bool due = item.TryGetProperty("due", out JsonElement dueValue) && dueValue.ValueKind == JsonValueKind.True;
+                                    DateTimeOffset dueAt = now.AddMinutes(5);
+                                    if (item.TryGetProperty("due_at", out JsonElement dueAtValue) && dueAtValue.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(dueAtValue.GetString(), out DateTimeOffset parsedDueAt)) dueAt = parsedDueAt;
+                                    _storyEventsToResolve[eventId] = due ? now : dueAt;
+                                }
+                            }
+                        }
+                        catch (Exception error) when (error is HttpRequestException or OperationCanceledException)
+                        { logger.LogWarning("Story event recovery poll skipped: {Error}", error.Message); }
+                    }
                     if (now >= nextStoryEvent)
                     {
                         nextStoryEvent = now.Add(_storyEventInterval);
                         try
                         {
+                            // Policy is checked before constructing a model
+                            // prompt or reserving tokens.  If the status request
+                            // fails, remain conservative and wait for the next
+                            // interval; the server remains the final guard.
+                            JsonElement? generationStatus = await api.ActiveStoryEventsAsync(stoppingToken);
+                            bool canGenerate = generationStatus is JsonElement status
+                                && status.ValueKind == JsonValueKind.Object
+                                && status.TryGetProperty("generation", out JsonElement generation)
+                                && generation.ValueKind == JsonValueKind.Object
+                                && generation.TryGetProperty("can_generate", out JsonElement allowed)
+                                && allowed.ValueKind == JsonValueKind.True;
+                            if (!canGenerate)
+                            {
+                                logger.LogInformation("Story event generation deferred by the server policy.");
+                                continue;
+                            }
                             JsonElement? storyDraft = null;
                             ModelProvider? storyProvider = await api.ModelProviderAsync(stoppingToken);
                             string? storyRunId = null;

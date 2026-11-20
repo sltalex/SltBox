@@ -149,3 +149,14 @@ function town_npc_stat_history(PDO $pdo, string $npcId, int $limit = 50, int $cu
     foreach ($rows as $row) $changes[] = ['change_id' => (int)$row['change_id'], 'source_type' => (string)$row['source_type'], 'source_id' => (string)$row['source_id'], 'before' => json_decode((string)$row['before_json'], true) ?: [], 'delta' => json_decode((string)$row['delta_json'], true) ?: [], 'after' => json_decode((string)$row['after_json'], true) ?: [], 'reason' => (string)$row['reason'], 'created_at' => (string)$row['created_at']];
     return ['changes' => $changes, 'cursor' => $changes === [] ? max(0, $cursor) : (int)$changes[array_key_last($changes)]['change_id'], 'has_more' => $hasMore];
 }
+
+/** Admin cards need the latest changes first; public pagination remains oldest-first. */
+function town_npc_stat_history_recent(PDO $pdo, string $npcId, int $limit = 12): array
+{
+    if (!town_npc_stats_table_available($pdo)) return [];
+    $limit = max(1, min(200, $limit));
+    $query = $pdo->prepare('SELECT change_id,source_type,source_id,before_json,delta_json,after_json,reason,created_at FROM town_npc_stat_changes WHERE npc_id=:npc ORDER BY change_id DESC LIMIT ' . $limit);
+    $query->execute([':npc' => $npcId]); $rows = array_reverse($query->fetchAll(PDO::FETCH_ASSOC)); $changes = [];
+    foreach ($rows as $row) $changes[] = ['change_id' => (int)$row['change_id'], 'source_type' => (string)$row['source_type'], 'source_id' => (string)$row['source_id'], 'before' => json_decode((string)$row['before_json'], true) ?: [], 'delta' => json_decode((string)$row['delta_json'], true) ?: [], 'after' => json_decode((string)$row['after_json'], true) ?: [], 'reason' => (string)$row['reason'], 'created_at' => (string)$row['created_at']];
+    return $changes;
+}

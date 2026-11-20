@@ -148,7 +148,7 @@ $npcValues = is_array($profile['values'] ?? null) ? $profile['values'] : [];
 $npcFears = is_array($profile['fears'] ?? null) ? $profile['fears'] : [];
 $entries = is_array($npc['schedule'] ?? null) ? array_values($npc['schedule']) : [];
 $npcStats = is_array($npc['stats']['values'] ?? null) ? $npc['stats']['values'] : town_npc_stat_defaults();
-$npcStatHistory = town_npc_stat_history($pdo, (string)$npc['npc_id'], 12, 0)['changes'] ?? [];
+$npcStatHistory = town_npc_stat_history_recent($pdo, (string)$npc['npc_id'], 12);
 $rowCount = max(7, count($entries));
 ?>
 <div class="npc-card" data-npc-id="<?= admin_page_escape($npc['npc_id']) ?>">

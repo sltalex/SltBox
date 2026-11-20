@@ -7,7 +7,7 @@ require dirname(__DIR__) . '/api/_app/account_data.php';
 require dirname(__DIR__) . '/api/_app/shared_town.php';
 require dirname(__DIR__) . '/api/_app/town_navigation.php';
 require dirname(__DIR__) . '/api/_app/town_npcs.php';
-require dirname(__DIR__) . '/api/_app/town_agent.php';
+require_once dirname(__DIR__) . '/api/_app/town_agent.php';
 
 $checks = 0;
 function task_expect(bool $condition, string $message): void { global $checks; $checks++; if (!$condition) throw new RuntimeException($message); }

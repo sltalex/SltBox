@@ -6,7 +6,7 @@ require dirname(__DIR__) . '/api/_app/bootstrap.php';
 require dirname(__DIR__) . '/api/_app/shared_town.php';
 require dirname(__DIR__) . '/api/_app/town_navigation.php';
 require dirname(__DIR__) . '/api/_app/town_npcs.php';
-require dirname(__DIR__) . '/api/_app/town_agent.php';
+require_once dirname(__DIR__) . '/api/_app/town_agent.php';
 
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $now = api_clock(); $stamp = auth_sql_time($now); $npc = str_repeat('b', 32);

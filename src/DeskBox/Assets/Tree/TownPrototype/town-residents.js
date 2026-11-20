@@ -330,8 +330,14 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
       if (d.task?.failure_reason) add('失败原因', d.task.failure_reason);
       add('心情', text(current()?.runtime?.mood || d.runtime?.mood)); body.append(rows);
       const statNames = { mood: '心情', health: '健康', stamina: '体能', labor: '劳动', academics: '学业', culture: '文化', social: '社交', wealth: '财富', stress: '压力', reputation: '声望' };
-      const statValues = d.stats?.values || current()?.stats?.values || {};
-      const statLevels = d.stats?.levels || current()?.stats?.levels || {};
+      // Realtime stats_changed events can arrive after the detail request.
+      // Prefer the projection with the higher revision so an open profile is
+      // updated in place instead of showing the cached detail indefinitely.
+      const detailStats = d.stats && typeof d.stats === 'object' ? d.stats : {};
+      const liveStats = current()?.stats && typeof current().stats === 'object' ? current().stats : {};
+      const statProjection = Number(liveStats.revision || 0) > Number(detailStats.revision || 0) ? liveStats : detailStats;
+      const statValues = statProjection.values || {};
+      const statLevels = statProjection.levels || {};
       const statGrid = element('div', '', 'resident-stat-grid');
       Object.entries(statNames).forEach(([key, name]) => {
         const value = Math.max(1, Math.min(100, Number(statValues[key] ?? 50)));

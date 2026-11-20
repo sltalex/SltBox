@@ -2,7 +2,7 @@
 declare(strict_types=1);
 define('DESKBOX_API_ENTRY', true);
 require dirname(__DIR__) . '/api/_app/bootstrap.php';
-require dirname(__DIR__) . '/api/_app/town_agent.php';
+require_once dirname(__DIR__) . '/api/_app/town_agent.php';
 
 $checks = 0;
 function slot_expect(bool $condition, string $message): void { global $checks; $checks++; if (!$condition) throw new RuntimeException($message); }
