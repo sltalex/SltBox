@@ -78,7 +78,8 @@ public sealed class WidgetRegistry
             new(WidgetKind.Tree, CanCreateWindow: true, IsImplemented: true),
             new(WidgetKind.DingTalkGroupDocs, CanCreateWindow: true, IsImplemented: true),
             new(WidgetKind.Calendar, CanCreateWindow: true, IsImplemented: true),
-            new(WidgetKind.Aquarium, CanCreateWindow: true, IsImplemented: true)
+            new(WidgetKind.Aquarium, CanCreateWindow: true, IsImplemented: true),
+            new(WidgetKind.SevenPaws, CanCreateWindow: true, IsImplemented: true)
         ]);
     }
 }

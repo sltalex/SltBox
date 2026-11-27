@@ -628,7 +628,12 @@ public sealed partial class WidgetManager
                 WidgetKind.Calendar,
                 async _ => await CreateSingletonContentFeatureWidgetAsync(WidgetKind.Calendar),
                 (enabled, reveal) => SetContentFeatureWidgetEnabledAsync(WidgetKind.Calendar, enabled, reveal),
-                () => HideAndCloseFeatureWidgetAsync(WidgetKind.Calendar))
+                () => HideAndCloseFeatureWidgetAsync(WidgetKind.Calendar)),
+            new(
+                WidgetKind.SevenPaws,
+                OpenSevenPawsDesktopAsync,
+                SetSevenPawsDesktopEnabledAsync,
+                () => _sevenPawsService?.Stop())
         ];
 
         return handlers.ToDictionary(handler => handler.WidgetKind);
@@ -733,7 +738,7 @@ public sealed partial class WidgetManager
                     request.KeepPreparedForAnimation,
                     request.RevealAfterCreate,
                     request.ShowRaisedWhileInitializing,
-                    request.CancellationToken))
+                    request.CancellationToken)),
         ];
 
         return providers.ToDictionary(provider => provider.WidgetKind);
@@ -919,6 +924,7 @@ public sealed partial class WidgetManager
         }
 
         var configs = enabledConfigs.Where(widget =>
+                widget.WidgetKind != WidgetKind.SevenPaws &&
                 _widgetRegistry.IsAvailableForSession(widget, _settingsService.Settings))
             .ToList();
 
@@ -954,6 +960,12 @@ public sealed partial class WidgetManager
         // complete restore pass has settled so a group cannot silently lose
         // its surface during startup.
         await RestoreVisibleWidgetGroupsAsync();
+
+        if (GetFeatureWidgetEnabledState(WidgetKind.SevenPaws))
+        {
+            try { await SetSevenPawsDesktopEnabledAsync(true); }
+            catch (Exception error) { App.Log($"[SevenPawsDesktop] Startup failed: {error}"); }
+        }
 
         // Window creation can temporarily apply compact/capsule geometry
         // before the surface host has finished loading. Reconcile every
@@ -1075,6 +1087,9 @@ public sealed partial class WidgetManager
                 break;
             case WidgetKind.Glance:
                 await CreateGlanceWidgetAsync();
+                break;
+            case WidgetKind.SevenPaws:
+                await SetSevenPawsDesktopEnabledAsync(true);
                 break;
             default:
                 if (IsContentFeatureWidgetKind(widgetKind))
@@ -1311,6 +1326,12 @@ public sealed partial class WidgetManager
         if (!_widgetRegistry.IsAvailableForSession(config, _settingsService.Settings))
         {
             return false;
+        }
+
+        if (config.WidgetKind == WidgetKind.SevenPaws)
+        {
+            await SetSevenPawsDesktopEnabledAsync(true);
+            return true;
         }
 
         config.IsVisible = true;
@@ -2266,6 +2287,7 @@ public sealed partial class WidgetManager
     /// </summary>
     public void CloseAll()
     {
+        _sevenPawsService?.Stop();
         CancelAllWidgetSurfaceSwitches();
         StopTrayLayerRestoreMonitor();
         DisposeWidgetDetachPlacementPreview();
@@ -2441,6 +2463,7 @@ public sealed partial class WidgetManager
             WidgetKind.SystemMonitor => (380, 320),
             WidgetKind.DingTalkGroupDocs => (420, 460),
             WidgetKind.Calendar => (380, 460),
+            WidgetKind.SevenPaws => (520, 400),
             _ => (
                 _settingsService.Settings.DefaultWidgetWidth,
                 _settingsService.Settings.DefaultWidgetHeight)

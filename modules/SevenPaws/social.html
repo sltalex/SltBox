@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>猫咪互动</title></head>
+<body><main>
+<header><span class="eyebrow">BOX · DESKTOP CATS</span><h1>让小猫一起陪伴</h1><p>串门、送鱼干，或一起专注 25 分钟。</p></header>
+<div id="status" role="status" aria-live="polite">正在连接 Box…</div>
+<section id="account" hidden><div class="identity"><div><h2 id="petName"></h2><span>猫咪码 <strong id="friendCode"></strong></span></div><div><b id="coins"></b><small>鱼干</small></div></div>
+<form id="nameForm"><input id="name" maxlength="40" aria-label="猫咪名字" placeholder="给猫咪起个名字"><button>保存名字</button></form>
+<div class="toolbar"><button id="daily" type="button">领取今日 5 鱼干</button><button id="refresh" type="button">刷新</button></div>
+<p class="hint">外观随账号同步；位置、大小和键盘弹字保留本机设置。</p></section>
+<section id="socialContent" hidden><h2>大家的小猫</h2><form id="browseForm"><input id="browseInput" maxlength="80" placeholder="搜索账号、猫咪名字或猫咪码" aria-label="搜索猫咪"><button>查找</button></form><p class="hint">直接选择小猫互动，无需添加好友或等待确认。</p><div id="directory"></div></section>
+<section id="careSection" hidden><h2>陪伴与成长</h2><div id="careStats" class="care-stats"></div><progress id="experience" max="50" value="0" aria-label="升级进度"></progress><p id="careHint" class="hint"></p><div id="careActions" class="actions"></div><p class="hint">每小时消耗 5 饱食度、2 心情；离线也会自然下降，不会掉级。喂食 +10 经验，陪玩 +5，完成专注 +15。</p></section>
+<section id="shopSection" hidden><h2>金币商店</h2><p id="accountCoins" class="care-stats"></p><p class="hint">购买使用 Box 账户金币，与水族箱、树装饰共用余额。鱼干用于送礼。小鱼饭为消耗品，其余物品购买一次可永久使用。</p><div id="shop"></div></section>
+<section id="rewardsSection" hidden><h2>成长礼物</h2><p class="hint">升级自动获得，无需花费金币。饱食低时找食物，心情低时趴下，心情好时偶尔蹦跳；打字时优先跟随键盘。</p><div id="rewards"></div></section>
+<section id="sessionSection" hidden><h2>正在陪伴</h2><div id="sessions"></div></section>
+<section id="eventsSection" hidden><h2>最近互动</h2><div id="events"></div></section>
+<footer>点击后直接串门 10 分钟，或开始双人专注 25 分钟，双方随时可结束。完成专注各得 10 鱼干。<br>键盘内容只在本机显示。</footer>
+</main><script type="module" src="/src/social.ts"></script></body></html>

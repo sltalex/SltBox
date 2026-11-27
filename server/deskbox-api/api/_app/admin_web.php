@@ -140,6 +140,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             'anchor' => $post['anchor'] ?? ['x' => .5, 'y' => 1], 'footprint' => $post['footprint'] ?? '',
             'collision' => $post['collision'] ?? ['x' => .1, 'y' => .55, 'width' => .8, 'height' => .4], 'frames' => $post['frames'] ?? [],
             'navigation' => $post['navigation'] ?? ['type' => 'blocked'], 'sort_mode' => $post['sort_mode'] ?? null,
+            'affordances' => $post['affordances'] ?? ($post['affordance'] ?? ['actions' => []]),
             'split_y' => $post['split_y'] ?? null,
             'split_lines' => $post['split_lines'] ?? null,
             'create_only' => isset($post['create_only']) && (string)$post['create_only'] === '1',
@@ -287,6 +288,20 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
             town_npc_stats_save($pdo, $id, $values, 'admin', (string)$actor['user_id'], $reason, api_clock());
             return $operation;
         }
+        if ($operation === 'town_npc_personality_save') {
+            $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
+            $values = town_npc_personality_defaults();
+            foreach (TOWN_NPC_PERSONALITY_KEYS as $key) {
+                if (!array_key_exists($key, $post)) continue;
+                $value = filter_var($post[$key], FILTER_VALIDATE_INT);
+                if ($value === false) throw new ApiError('invalid_npc_personality', 'NPC 稳定人格必须是 1～100 的整数。', 400);
+                $values[$key] = (int)$value;
+            }
+            $reason = is_string($post['personality_reason'] ?? null) ? trim((string)$post['personality_reason']) : '';
+            if ($reason === '') throw new ApiError('invalid_npc_personality_reason', '保存人格数值时必须填写原因。', 400);
+            town_npc_personality_save($pdo, $id, $values, $reason, api_clock());
+            return $operation;
+        }
         if ($operation === 'town_npc_schedule_save') {
             $id = is_string($post['npc_id'] ?? null) ? trim((string)$post['npc_id']) : '';
             $rows = $post['schedule_rows'] ?? [];
@@ -320,6 +335,7 @@ function admin_page_mutate(PDO $pdo, array $actor, array $post, array $files = [
                     'tile_y' => (int)($post['force_tile_y'] ?? 0),
                 ],
                 'job' => is_string($post['force_job'] ?? null) ? trim((string)$post['force_job']) : '',
+                'item_id' => is_string($post['force_item_id'] ?? null) ? trim((string)$post['force_item_id']) : '',
                 'dialogue' => is_string($post['force_dialogue'] ?? null) ? trim((string)$post['force_dialogue']) : '',
                 'duration_minutes' => max(0, min(1440, (int)($post['force_duration_minutes'] ?? 20))),
             ];

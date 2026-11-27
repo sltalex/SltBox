@@ -166,6 +166,19 @@ public sealed partial class AquariumStoreSection : UserControl
 
     private string FormatReason(AquariumWalletEntry entry, LocalizationService localization)
     {
+        if (entry.Reason == "pet_purchase")
+        {
+            string? itemKey = entry.ItemId switch
+            {
+                "pet:fish_meal" => "SevenPaws.Shop.FishMeal",
+                "pet:wool_ball" => "SevenPaws.Shop.WoolBall",
+                "pet:bell_badge" => "SevenPaws.Shop.BellBadge",
+                "pet:star_glow" => "SevenPaws.Shop.StarGlow",
+                _ => null
+            };
+            string purchase = $"{localization.T("SevenPaws.Title")} · {localization.T("Aquarium.Settings.Transaction.Purchase")}";
+            return itemKey is null ? purchase : $"{purchase} · {localization.T(itemKey)}";
+        }
         string key = entry.Reason switch
         {
             "initial_grant" => "Aquarium.Settings.Transaction.InitialGrant",

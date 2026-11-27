@@ -56,6 +56,21 @@ function town_asset_has_navigation_column(PDO $pdo): bool
     } catch (PDOException $error) { return $cache[$key] = false; }
 }
 
+function town_asset_has_affordance_column(PDO $pdo): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo);
+    if (isset($cache[$key])) return $cache[$key];
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $columns = $pdo->query('PRAGMA table_info(town_asset_items)')->fetchAll(PDO::FETCH_ASSOC);
+            return $cache[$key] = in_array('affordance_json', array_column($columns, 'name'), true);
+        }
+        $query = $pdo->query("SHOW COLUMNS FROM town_asset_items LIKE 'affordance_json'");
+        return $cache[$key] = (bool)$query->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $error) { return $cache[$key] = false; }
+}
+
 function town_asset_has_sort_mode_column(PDO $pdo): bool
 {
     static $cache = [];
@@ -136,6 +151,7 @@ function town_asset_item_public(array $row, array $sheet): array
         'split_y' => isset($row['split_y']) && $row['split_y'] !== null ? (int)$row['split_y'] : null,
         'split_lines' => $splitLines,
         'navigation' => $json($row['navigation_json'] ?? null, ['type' => 'blocked', 'blocked_npc' => true, 'required_capabilities' => []]),
+        'affordances' => $json($row['affordance_json'] ?? null, ['actions' => [], 'interaction_points' => [], 'label' => '']),
         'frames' => $json($row['frames_json'] ?? null, []), 'manual_locked' => (bool)$row['manual_locked'],
         'sheet' => ['sheet_id' => (string)$sheet['sheet_id'], 'width' => (int)($sheet['image_width'] ?? $sheet['width'] ?? 0),
             'height' => (int)($sheet['image_height'] ?? $sheet['height'] ?? 0), 'sha256' => (string)$sheet['sha256']],
@@ -213,6 +229,40 @@ function town_asset_validate_navigation(array $navigation): array
     ];
 }
 
+function town_asset_validate_affordances(array $affordances): array
+{
+    $allowed = [
+        'rest', 'sleep', 'shelter', 'shop', 'buy', 'sell', 'farm', 'plant', 'water_crops',
+        'harvest', 'workshop', 'craft', 'repair', 'read', 'learn', 'talk', 'gather_water',
+        'fish', 'observe', 'gather', 'meet',
+    ];
+    $rawActions = $affordances['actions'] ?? [];
+    if (is_string($rawActions)) $rawActions = preg_split('/[,，;；\s]+/u', trim($rawActions), -1, PREG_SPLIT_NO_EMPTY);
+    if (!is_array($rawActions)) $rawActions = [];
+    $actions = [];
+    foreach ($rawActions as $action) {
+        $action = strtolower(trim((string)$action));
+        if ($action === '') continue;
+        if (!in_array($action, $allowed, true)) throw new ApiError('invalid_affordance', '素材可供性动作无效。', 400);
+        $actions[$action] = true;
+    }
+    $points = $affordances['interaction_points'] ?? [];
+    if (!is_array($points)) throw new ApiError('invalid_affordance', '素材交互点格式无效。', 400);
+    $normalizedPoints = [];
+    foreach ($points as $point) {
+        if (!is_array($point)) throw new ApiError('invalid_affordance', '素材交互点格式无效。', 400);
+        $px = filter_var($point['x'] ?? null, FILTER_VALIDATE_INT);
+        $py = filter_var($point['y'] ?? null, FILTER_VALIDATE_INT);
+        if ($px === false || $py === false || $px < 0 || $py < 0 || $px > 64 || $py > 64) {
+            throw new ApiError('invalid_affordance', '素材交互点必须是 0 到 64 的整数坐标。', 400);
+        }
+        $normalizedPoints[] = ['x' => $px, 'y' => $py];
+    }
+    $label = trim((string)($affordances['label'] ?? ''));
+    if (mb_strlen($label, 'UTF-8') > 120) throw new ApiError('invalid_affordance', '素材可供性名称最多 120 个字符。', 400);
+    return ['actions' => array_keys($actions), 'interaction_points' => $normalizedPoints, 'label' => $label];
+}
+
 /** Generate an editable navigation suggestion for auto-scanned draft items. */
 function town_asset_navigation_draft(array $body): array
 {
@@ -266,6 +316,8 @@ function town_asset_validate_region(array $body, array $sheet): array
     $navigationInput = $body['navigation'] ?? null;
     if ($navigationInput === null && (($body['subcategory'] ?? '') === 'auto-scan' || !empty($body['auto_navigation_draft']))) $navigationInput = town_asset_navigation_draft($body);
     $navigation = town_asset_validate_navigation(town_asset_json_array($navigationInput ?? ['type' => 'blocked'], 'invalid_navigation'));
+    $affordanceInput = $body['affordances'] ?? ($body['affordance'] ?? null);
+    $affordances = town_asset_validate_affordances(town_asset_json_array($affordanceInput ?? ['actions' => []], 'invalid_affordance'));
     $sortMode = town_asset_sort_mode($body['sort_mode'] ?? null, $category);
     $splitY = null;
     $splitLines = [];
@@ -327,6 +379,7 @@ function town_asset_validate_region(array $body, array $sheet): array
         'collision_json' => json_encode($collision, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'frames_json' => json_encode($frames, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'navigation_json' => json_encode($navigation, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        'affordance_json' => json_encode($affordances, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'sort_mode' => $sortMode, 'split_y' => $splitY,
         'split_lines' => $splitLines,
         'split_lines_json' => json_encode($splitLines, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)];
@@ -367,6 +420,7 @@ function town_asset_save_item(PDO $pdo, string $userId, array $body, DateTimeImm
     $dup->execute([':name' => $values['name'], ':id' => $id]);
     if ($dup->fetchColumn() !== false) throw new ApiError('duplicate_name', '这个素材名称已经被占用了，换一个名称再保存（刚新增完时名称会自动带入上一次的值）。', 409);
     $hasNavigation = town_asset_has_navigation_column($pdo);
+    $hasAffordance = town_asset_has_affordance_column($pdo);
     $hasSortMode = town_asset_has_sort_mode_column($pdo);
     $hasSplitY = town_asset_has_split_y_column($pdo);
     $hasSplitLines = town_asset_has_split_lines_column($pdo);
@@ -376,17 +430,18 @@ function town_asset_save_item(PDO $pdo, string $userId, array $body, DateTimeImm
     if (!$hasSplitLines && count($values['split_lines'] ?? []) > 1) {
         throw new ApiError('town_asset_split_migration_required', '三段房屋需要先执行素材拆分迁移（046_town_asset_split_layers.sql）。', 503);
     }
-    $insertColumns = '(asset_id,sheet_id,name,category,subcategory,tags_json,x,y,region_width,region_height,display_width,display_height,anchor_json,footprint_json,collision_json,frames_json' . ($hasNavigation ? ',navigation_json' : '') . ($hasSortMode ? ',sort_mode' : '') . ($hasSplitY ? ',split_y' : '') . ($hasSplitLines ? ',split_lines_json' : '') . ',manual_locked,updated_by,created_at,updated_at)';
-    $insertValues = 'VALUES (:id,:sheet,:name,:category,:subcategory,:tags,:x,:y,:width,:height,:display_width,:display_height,:anchor,:footprint,:collision,:frames' . ($hasNavigation ? ',:navigation' : '') . ($hasSortMode ? ',:sort_mode' : '') . ($hasSplitY ? ',:split_y' : '') . ($hasSplitLines ? ',:split_lines' : '') . ',1,:user,:created,:updated)';
+    $insertColumns = '(asset_id,sheet_id,name,category,subcategory,tags_json,x,y,region_width,region_height,display_width,display_height,anchor_json,footprint_json,collision_json,frames_json' . ($hasNavigation ? ',navigation_json' : '') . ($hasAffordance ? ',affordance_json' : '') . ($hasSortMode ? ',sort_mode' : '') . ($hasSplitY ? ',split_y' : '') . ($hasSplitLines ? ',split_lines_json' : '') . ',manual_locked,updated_by,created_at,updated_at)';
+    $insertValues = 'VALUES (:id,:sheet,:name,:category,:subcategory,:tags,:x,:y,:width,:height,:display_width,:display_height,:anchor,:footprint,:collision,:frames' . ($hasNavigation ? ',:navigation' : '') . ($hasAffordance ? ',:affordance' : '') . ($hasSortMode ? ',:sort_mode' : '') . ($hasSplitY ? ',:split_y' : '') . ($hasSplitLines ? ',:split_lines' : '') . ',1,:user,:created,:updated)';
     $sql = 'INSERT INTO town_asset_items ' . $insertColumns . ' ' . $insertValues;
     if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-        $sql .= ' ON CONFLICT(asset_id) DO UPDATE SET sheet_id=excluded.sheet_id,name=excluded.name,category=excluded.category,subcategory=excluded.subcategory,tags_json=excluded.tags_json,x=excluded.x,y=excluded.y,region_width=excluded.region_width,region_height=excluded.region_height,display_width=excluded.display_width,display_height=excluded.display_height,anchor_json=excluded.anchor_json,footprint_json=excluded.footprint_json,collision_json=excluded.collision_json,frames_json=excluded.frames_json' . ($hasNavigation ? ',navigation_json=excluded.navigation_json' : '') . ($hasSortMode ? ',sort_mode=excluded.sort_mode' : '') . ($hasSplitY ? ',split_y=excluded.split_y' : '') . ($hasSplitLines ? ',split_lines_json=excluded.split_lines_json' : '') . ',manual_locked=1,updated_by=excluded.updated_by,updated_at=excluded.updated_at';
+        $sql .= ' ON CONFLICT(asset_id) DO UPDATE SET sheet_id=excluded.sheet_id,name=excluded.name,category=excluded.category,subcategory=excluded.subcategory,tags_json=excluded.tags_json,x=excluded.x,y=excluded.y,region_width=excluded.region_width,region_height=excluded.region_height,display_width=excluded.display_width,display_height=excluded.display_height,anchor_json=excluded.anchor_json,footprint_json=excluded.footprint_json,collision_json=excluded.collision_json,frames_json=excluded.frames_json' . ($hasNavigation ? ',navigation_json=excluded.navigation_json' : '') . ($hasAffordance ? ',affordance_json=excluded.affordance_json' : '') . ($hasSortMode ? ',sort_mode=excluded.sort_mode' : '') . ($hasSplitY ? ',split_y=excluded.split_y' : '') . ($hasSplitLines ? ',split_lines_json=excluded.split_lines_json' : '') . ',manual_locked=1,updated_by=excluded.updated_by,updated_at=excluded.updated_at';
     } else {
-        $sql .= ' ON DUPLICATE KEY UPDATE sheet_id=VALUES(sheet_id),name=VALUES(name),category=VALUES(category),subcategory=VALUES(subcategory),tags_json=VALUES(tags_json),x=VALUES(x),y=VALUES(y),region_width=VALUES(region_width),region_height=VALUES(region_height),display_width=VALUES(display_width),display_height=VALUES(display_height),anchor_json=VALUES(anchor_json),footprint_json=VALUES(footprint_json),collision_json=VALUES(collision_json),frames_json=VALUES(frames_json)' . ($hasNavigation ? ',navigation_json=VALUES(navigation_json)' : '') . ($hasSortMode ? ',sort_mode=VALUES(sort_mode)' : '') . ($hasSplitY ? ',split_y=VALUES(split_y)' : '') . ($hasSplitLines ? ',split_lines_json=VALUES(split_lines_json)' : '') . ',manual_locked=1,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)';
+        $sql .= ' ON DUPLICATE KEY UPDATE sheet_id=VALUES(sheet_id),name=VALUES(name),category=VALUES(category),subcategory=VALUES(subcategory),tags_json=VALUES(tags_json),x=VALUES(x),y=VALUES(y),region_width=VALUES(region_width),region_height=VALUES(region_height),display_width=VALUES(display_width),display_height=VALUES(display_height),anchor_json=VALUES(anchor_json),footprint_json=VALUES(footprint_json),collision_json=VALUES(collision_json),frames_json=VALUES(frames_json)' . ($hasNavigation ? ',navigation_json=VALUES(navigation_json)' : '') . ($hasAffordance ? ',affordance_json=VALUES(affordance_json)' : '') . ($hasSortMode ? ',sort_mode=VALUES(sort_mode)' : '') . ($hasSplitY ? ',split_y=VALUES(split_y)' : '') . ($hasSplitLines ? ',split_lines_json=VALUES(split_lines_json)' : '') . ',manual_locked=1,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)';
     }
     $timestamp = auth_sql_time($now);
     $parameters = [':id' => $id, ':sheet' => $sheetId, ':name' => $values['name'], ':category' => $values['category'], ':subcategory' => $values['subcategory'], ':tags' => $values['tags_json'], ':x' => $values['x'], ':y' => $values['y'], ':width' => $values['region_width'], ':height' => $values['region_height'], ':display_width' => $values['display_width'], ':display_height' => $values['display_height'], ':anchor' => $values['anchor_json'], ':footprint' => $values['footprint_json'], ':collision' => $values['collision_json'], ':frames' => $values['frames_json'], ':user' => $userId, ':created' => $timestamp, ':updated' => $timestamp];
     if ($hasNavigation) $parameters[':navigation'] = $values['navigation_json'];
+    if ($hasAffordance) $parameters[':affordance'] = $values['affordance_json'];
     if ($hasSortMode) $parameters[':sort_mode'] = $values['sort_mode'];
     if ($hasSplitY) $parameters[':split_y'] = $values['split_y'];
     if ($hasSplitLines) $parameters[':split_lines'] = $values['split_lines_json'];

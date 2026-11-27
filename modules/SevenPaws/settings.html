@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>7paws 设置</title>
+  </head>
+  <body class="settings-body">
+    <div id="menu" class="menu" role="menu">
+      <div class="menu-head">
+        <span class="menu-title">7paws</span>
+        <div class="menu-head-actions">
+          <button id="updateBtn" class="menu-close menu-refresh" type="button" aria-label="检查更新" title="检查更新">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+          <button id="githubBtn" class="menu-close menu-gh" type="button" aria-label="GitHub 仓库">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          </button>
+          <button id="closeBtn" class="menu-close" type="button" aria-label="关闭设置">×</button>
+        </div>
+      </div>
+
+      <div class="menu-scroll">
+        <div class="menu-section">
+          <div class="menu-label">毛色</div>
+          <div id="coats" class="coat-grid"></div>
+        </div>
+
+        <div id="customCoat" class="menu-section custom-coat" hidden>
+          <div class="menu-label">
+            <span>我的猫</span>
+            <span class="menu-hint">照片只在本机取色</span>
+          </div>
+          <input id="catName" class="cat-name" type="text" maxlength="16" placeholder="名字" />
+          <div class="color-row">
+            <button class="color-slot" type="button" data-slot="fur"><span class="color-dot"></span><span>主色</span></button>
+            <button class="color-slot" type="button" data-slot="patch"><span class="color-dot"></span><span>花色</span></button>
+            <button class="color-slot" type="button" data-slot="accent"><span class="color-dot"></span><span>第三色</span></button>
+            <button class="color-slot" type="button" data-slot="eye"><span class="color-dot"></span><span>眼睛</span></button>
+            <button class="color-slot" type="button" data-slot="eye2"><span class="color-dot"></span><span>异瞳</span></button>
+          </div>
+          <div class="custom-row">
+            <span class="menu-label">花纹</span>
+            <button id="patternSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="花纹">
+              <span class="dropdown-label">双色</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+          </div>
+          <div class="custom-row spots-row">
+            <span id="spotsStatus" class="menu-hint">暂无斑纹</span>
+            <button id="spotsClearBtn" class="btn ghost" type="button" hidden>清除斑纹</button>
+          </div>
+          <button id="photoBtn" class="btn photo-btn" type="button">从照片取色</button>
+          <input id="coatCodeInput" class="cat-name" type="text" placeholder="毛色码（粘贴后点导入）" spellcheck="false" />
+          <div class="custom-actions">
+            <button id="coatCodeGen" class="btn ghost" type="button">生成毛色码</button>
+            <button id="coatCodeImport" class="btn ghost" type="button">导入毛色码</button>
+          </div>
+          <button id="deleteCatBtn" class="btn danger photo-btn" type="button">删除这只猫</button>
+          <input id="photoInput" type="file" accept="image/*" hidden />
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">AI 接入（MCP）</div>
+          <div class="menu-toggles">
+            <label class="toggle-row" for="mcpEnabled" title="关闭后 AI 客户端无法通过 MCP 修改小猫">
+              <span>允许 AI 接入（MCP）</span>
+              <input id="mcpEnabled" type="checkbox" />
+            </label>
+          </div>
+          <div class="mcp-row">
+            <button id="mcpClientSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="MCP 客户端">
+              <span class="dropdown-label">Qoder</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+            <button id="mcpCopyBtn" class="btn ghost mcp-copy" type="button">复制</button>
+          </div>
+          <div id="mcpLocation" class="menu-hint mcp-hint">写进 ~/.qoder/mcp.json</div>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">
+            <span>大小</span>
+            <span id="scaleValue" class="menu-value">100%</span>
+          </div>
+          <input id="scaleSlider" class="slider" type="range" min="10" max="150" step="5" />
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">
+            <span>透明度</span>
+            <span id="opacityValue" class="menu-value">100%</span>
+          </div>
+          <input id="opacitySlider" class="slider" type="range" min="10" max="100" step="5" />
+        </div>
+
+        <div class="menu-section menu-row">
+          <span class="menu-label">键盘</span>
+          <button id="layoutSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="键盘布局">
+            <span class="dropdown-label">65% 紧凑</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+        </div>
+
+        <div class="menu-section menu-row">
+          <span class="menu-label">多久睡着</span>
+          <button id="sleepSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="睡眠时间">
+            <span class="dropdown-label">5 分钟</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+        </div>
+
+        <div class="menu-section menu-toggles">
+          <label class="toggle-row" for="leftMouse">
+            <span>鼠标在左手边</span>
+            <input id="leftMouse" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="alwaysOnTop" title="关闭后小猫会被其他窗口盖住">
+            <span>始终置顶</span>
+            <input id="alwaysOnTop" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="clickThroughLocked" title="锁定后整窗穿透，按住 Alt 临时恢复鼠标操作">
+            <span>锁定鼠标穿透（Alt 解锁）</span>
+            <input id="clickThroughLocked" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="showTrayIcon">
+            <span>显示托盘图标</span>
+            <input id="showTrayIcon" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="autostart">
+            <span>开机自启</span>
+            <input id="autostart" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="privacyMode">
+            <span>隐私模式</span>
+            <input id="privacyMode" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="purrPet">
+            <span>按住呼噜声</span>
+            <input id="purrPet" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="purrSleep">
+            <span>自动睡眠呼噜声</span>
+            <input id="purrSleep" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="idleActions" title="闲置时随机舔毛、揣手或蜷缩，有输入时立即结束">
+            <span>闲置自由动作</span>
+            <input id="idleActions" type="checkbox" />
+          </label>
+          <label class="toggle-row" for="showKeyLabels">
+            <span>显示按键字母</span>
+            <input id="showKeyLabels" type="checkbox" />
+          </label>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">
+            <span>定时提醒</span>
+          </div>
+          <label class="toggle-row" for="reminderEnabled">
+            <span>开启语音提醒</span>
+            <input id="reminderEnabled" type="checkbox" />
+          </label>
+          <div class="field">
+            <label class="field-label" for="reminderText">提醒内容</label>
+            <input
+              id="reminderText"
+              class="text-input"
+              type="text"
+              placeholder="例如：该喝水了"
+              maxlength="120"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label" for="reminderInterval">间隔（分钟）</label>
+            <input
+              id="reminderInterval"
+              class="number-input"
+              type="number"
+              min="1"
+              max="1440"
+              step="1"
+            />
+          </div>
+        </div>
+
+        <div id="shortcutSection" class="menu-section" hidden>
+          <div class="menu-label">便携版</div>
+          <button id="createShortcutBtn" class="btn ghost photo-btn" type="button">创建桌面快捷方式</button>
+          <div id="shortcutHint" class="menu-hint mcp-hint">指向当前 7paws.exe</div>
+        </div>
+
+        <div id="gameSection" class="menu-section" hidden>
+          <div class="menu-label">全屏游戏</div>
+          <div class="menu-toggles">
+            <label class="toggle-row" for="runAsAdmin">
+              <span>默认以管理员身份运行</span>
+              <input id="runAsAdmin" type="checkbox" />
+            </label>
+          </div>
+          <button id="restartAdminBtn" class="btn ghost photo-btn" type="button">以管理员身份重启</button>
+          <div id="gameHint" class="menu-hint mcp-hint">仅用于以管理员身份运行的游戏</div>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="socialBtn" class="btn ghost" type="button" hidden>猫咪互动</button>
+        <button id="resetPosBtn" class="btn ghost" type="button">回到右下角</button>
+        <button id="quitBtn" class="btn danger" type="button">退出</button>
+      </div>
+      <div class="menu-meta"><span id="appVersion">7paws</span></div>
+    </div>
+
+    <script type="module" src="/src/settings.ts"></script>
+  </body>
+</html>

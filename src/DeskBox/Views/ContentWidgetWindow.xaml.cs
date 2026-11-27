@@ -1533,6 +1533,7 @@ IsHideAnimationRunning = true;
                         WidgetKind.Search => "Search.Title",
                         WidgetKind.SystemMonitor => "SystemMonitor.Title",
                         WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
+                        WidgetKind.SevenPaws => "SevenPaws.Title",
                         _ => ""
                     };
                     if (!string.IsNullOrEmpty(key))

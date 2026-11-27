@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS pet_care (
+ user_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ experience INT NOT NULL DEFAULT 0, hunger INT NOT NULL DEFAULT 60,
+ mood INT NOT NULL DEFAULT 70, updated_at BIGINT NOT NULL,
+ last_play_at BIGINT NOT NULL DEFAULT 0,
+ badge VARCHAR(32) NOT NULL DEFAULT '', effect VARCHAR(32) NOT NULL DEFAULT '',
+ CONSTRAINT fk_pet_care_owner FOREIGN KEY(user_id) REFERENCES pet_profiles(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS pet_inventory (
+ user_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ item_id VARCHAR(32) NOT NULL, quantity INT NOT NULL DEFAULT 0,
+ PRIMARY KEY(user_id,item_id),
+ CONSTRAINT fk_pet_inventory_owner FOREIGN KEY(user_id) REFERENCES pet_profiles(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS pet_presence (
+ user_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ last_seen_at BIGINT NOT NULL,
+ CONSTRAINT fk_pet_presence_owner FOREIGN KEY(user_id) REFERENCES pet_profiles(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

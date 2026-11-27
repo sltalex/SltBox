@@ -129,6 +129,20 @@ public sealed partial class TodoWidgetContent
 
     private void ApplyMasterDetailVisibility()
     {
+        // Segmented controls can raise SelectionChanged while InitializeComponent
+        // is still constructing the lower layout.  Defer the first visibility
+        // pass until all named elements exist; the loaded/layout handlers run it
+        // again after XAML initialization completes.
+        if (ListHeaderArea is null ||
+            ListArea is null ||
+            ListFooterArea is null ||
+            MeetingsArea is null ||
+            DetailPage is null ||
+            WideDetailEmptyState is null ||
+            MasterDetailSplitter is null)
+        {
+            return;
+        }
         bool hasDetail = ViewModel?.SelectedDetailItem is not null;
         TodoPaneVisibility panes = TodoPaneVisibilityPolicy.Resolve(_meetingsSelected, _isDualPane, hasDetail);
         Grid.SetColumnSpan(ListHeaderArea, _meetingsSelected || !_isDualPane ? 3 : 1);

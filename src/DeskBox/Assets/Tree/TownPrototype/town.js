@@ -1,7 +1,7 @@
 import { clone, validateLayout, validatePlacement, playerCanStand, findStandingPosition } from './town-rules.js';
 import { mergePresenceDelta, expirePresence, presencePosition, mergeNpcDelta } from './town-realtime.js';
 import { createResidents } from './town-residents.js';
-import { assetSortMode, objectDepth, splitDisplaySegments, splitSegmentDepth, splitSegmentLayout, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER, TOWN_TERRAIN_DEPTH } from './town-depth.js?v=20261117-house-split27';
+import { assetSortMode, objectDepth, splitDisplaySegments, splitSegmentDepth, splitSegmentLayout, TOWN_LAYER_STEP, TOWN_PLAYER_LAYER, TOWN_TERRAIN_DEPTH } from './town-depth.js?v=20261120-npc-humanization1';
 
 // Shared town scene; the authenticated server owns world and player state.
 const $ = id => document.getElementById(id);

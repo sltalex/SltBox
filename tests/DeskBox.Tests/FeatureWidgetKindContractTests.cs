@@ -1,4 +1,4 @@
-﻿using DeskBox.Models;
+using DeskBox.Models;
 using DeskBox.Services;
 
 namespace DeskBox.Tests;
@@ -28,7 +28,8 @@ public sealed class FeatureWidgetKindContractTests
                 WidgetKind.Tree,
                 WidgetKind.Aquarium,
                 WidgetKind.DingTalkGroupDocs,
-                WidgetKind.Calendar
+                WidgetKind.Calendar,
+                WidgetKind.SevenPaws
             },
             FeatureWidgetSettings.FeatureKinds);
     }

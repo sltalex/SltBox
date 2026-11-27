@@ -9,8 +9,9 @@ require_once __DIR__ . '/town_world_events.php';
 require_once __DIR__ . '/town_world_clock.php';
 require_once __DIR__ . '/town_agent.php';
 require_once __DIR__ . '/town_npc_stats.php';
+require_once __DIR__ . '/town_npc_personality.php';
 
-const TOWN_NPC_ACTIONS = ['walk', 'work', 'rest', 'talk', 'trade', 'follow', 'player_talk'];
+const TOWN_NPC_ACTIONS = ['walk', 'work', 'rest', 'talk', 'trade', 'use_item', 'observe', 'help', 'follow', 'player_talk'];
 const TOWN_NPC_OCCUPATIONS = ['farmer', 'merchant', 'craftsman'];
 
 /** Apply a transport-safe dialogue filter before text reaches the client. */
@@ -159,6 +160,7 @@ function town_npc_public(array $row): array
         'occupation' => (string)$row['occupation'], 'enabled' => (bool)$row['enabled'],
         'agent_paused' => (bool)$row['agent_paused'], 'profile' => $profile,
         'stats' => is_array($row['stats'] ?? null) ? $row['stats'] : town_npc_stat_public(town_npc_stat_defaults()),
+        'personality' => is_array($row['personality'] ?? null) ? $row['personality'] : town_npc_personality_public(town_npc_personality_defaults()),
         'schedule' => town_npc_decode($row['schedule_json'] ?? [], []),
         'home' => $home,
         'lifecycle' => $lifecycle,
@@ -175,8 +177,25 @@ function town_npc_public(array $row): array
             'capabilities' => town_navigation_capabilities($row['capabilities_json'] ?? []),
             'state_version' => (int)($row['state_version'] ?? 1),
             'updated_at' => (string)($row['runtime_updated_at'] ?? ''),
+            'current_goal' => (string)($row['current_goal'] ?? ''),
+            'desire' => town_npc_decode($row['desire_json'] ?? [], []),
+            'plan' => town_npc_decode($row['runtime_plan_json'] ?? [], []),
+            'needs' => town_npc_decode($row['needs_json'] ?? [], []),
+            'last_decision_context' => town_npc_decode($row['last_decision_context_json'] ?? [], []),
+            'last_reflection_at' => ($row['last_reflection_at'] ?? null) !== null ? (string)$row['last_reflection_at'] : null,
         ],
     ];
+}
+
+/** Select optional life-loop columns without breaking older rolling schemas. */
+function town_npc_runtime_cognition_select(PDO $pdo, string $alias = 'r'): string
+{
+    $parts = [];
+    foreach (['current_goal','desire_json','needs_json','last_decision_context_json','last_reflection_at'] as $column) {
+        $parts[] = town_npc_life_column_exists($pdo, 'town_npc_runtime_states', $column) ? $alias . '.' . $column : 'NULL AS ' . $column;
+    }
+    $parts[] = town_npc_life_column_exists($pdo, 'town_npc_runtime_states', 'plan_json') ? $alias . '.plan_json AS runtime_plan_json' : 'NULL AS runtime_plan_json';
+    return implode(',', $parts);
 }
 
 function town_npc_runtime_height_column(PDO $pdo): bool
@@ -266,12 +285,12 @@ function town_npc_rows(PDO $pdo, bool $includeDisabled = false): array
         : '';
     $query = $pdo->query('SELECT n.*, p.personality_json,p.family_background,p.short_term_goal,p.long_term_goal,'
         . 'p.speech_style,p.values_json,p.fears_json,r.tile_x,r.tile_y,' . town_npc_runtime_height_select($pdo) . ',r.state AS runtime_state,r.current_task_id,'
-        . 'r.dialogue,r.mood_json,r.capabilities_json,r.state_version,r.updated_at AS runtime_updated_at,'
+        . 'r.dialogue,r.mood_json,r.capabilities_json,r.state_version,r.updated_at AS runtime_updated_at,' . town_npc_runtime_cognition_select($pdo) . ','
         . '(SELECT JSON_ARRAYAGG(JSON_OBJECT("weekday",s.weekday,"start_minute",s.start_minute,"end_minute",s.end_minute,'
         . '"action",s.action,"target_id",s.target_id,"job",s.job,"priority",s.priority' . $schedulePayload . ')) FROM town_npc_schedules s WHERE s.npc_id=n.npc_id) AS schedule_json '
         . 'FROM town_npcs n LEFT JOIN town_npc_profiles p ON p.npc_id=n.npc_id '
         . 'LEFT JOIN town_npc_runtime_states r ON r.npc_id=n.npc_id' . $where . ' ORDER BY n.created_at,n.npc_id');
-    $rows = town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC)));
+    $rows = town_npc_attach_personality($pdo, town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC))));
     return town_npc_attach_inventory($pdo, array_map('town_npc_public', $rows));
 }
 
@@ -316,13 +335,20 @@ function town_npc_memory_rows(PDO $pdo, ?string $npcId = null, int $limit = 200,
             $where = ' WHERE m.npc_id=:npc';
             $params[':npc'] = $npcId;
         }
-        $query = $pdo->prepare('SELECT m.memory_id,m.npc_id,n.name AS npc_name,m.memory_type,m.content,m.importance,m.created_at,m.expires_at '
+        $memoryColumns = 'm.memory_id,m.npc_id,n.name AS npc_name,m.memory_type,m.content,m.importance,m.created_at';
+        foreach (['expires_at','observation','interpretation','thought_summary','reasoning_summary','belief','conclusion','intention','plan_json','confidence','source_event_id','source_task_id','memory_state','channel'] as $column) {
+            if (town_npc_life_column_exists($pdo, 'town_npc_memories', $column)) $memoryColumns .= ',m.' . $column;
+        }
+        $query = $pdo->prepare('SELECT ' . $memoryColumns . ' '
             . 'FROM town_npc_memories m LEFT JOIN town_npcs n ON n.npc_id=m.npc_id' . $where
             . ' ORDER BY m.memory_id DESC LIMIT ' . $offset . ',' . $limit);
         $query->execute($params);
         return array_map(static function (array $row): array {
             $row['memory_id'] = (int)$row['memory_id'];
             $row['importance'] = (int)$row['importance'];
+            foreach (['observation','interpretation','thought_summary','reasoning_summary','belief','conclusion','intention'] as $field) $row[$field] = (string)($row[$field] ?? '');
+            $row['plan'] = town_npc_decode($row['plan_json'] ?? [], []); unset($row['plan_json']);
+            if (array_key_exists('confidence', $row) && $row['confidence'] !== null) $row['confidence'] = (float)$row['confidence'];
             return $row;
         }, $query->fetchAll(PDO::FETCH_ASSOC));
     } catch (PDOException $error) {
@@ -375,9 +401,9 @@ function town_npc_rows_safe(PDO $pdo, bool $includeDisabled = false): array
     catch (PDOException $error) {
         $where = $includeDisabled ? '' : ' WHERE n.enabled=1';
         $query = $pdo->query('SELECT n.*,p.personality_json,p.family_background,p.short_term_goal,p.long_term_goal,p.speech_style,p.values_json,p.fears_json,'
-            . 'r.tile_x,r.tile_y,' . town_npc_runtime_height_select($pdo) . ',r.state AS runtime_state,r.current_task_id,r.dialogue,r.capabilities_json,r.state_version,r.updated_at AS runtime_updated_at '
+            . 'r.tile_x,r.tile_y,' . town_npc_runtime_height_select($pdo) . ',r.state AS runtime_state,r.current_task_id,r.dialogue,r.capabilities_json,r.state_version,r.updated_at AS runtime_updated_at,' . town_npc_runtime_cognition_select($pdo) . ' '
             . 'FROM town_npcs n LEFT JOIN town_npc_profiles p ON p.npc_id=n.npc_id LEFT JOIN town_npc_runtime_states r ON r.npc_id=n.npc_id' . $where . ' ORDER BY n.created_at,n.npc_id');
-        $rows = town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC)));
+        $rows = town_npc_attach_personality($pdo, town_npc_attach_stats($pdo, town_npc_attach_life_data($pdo, $query->fetchAll(PDO::FETCH_ASSOC))));
         return town_npc_attach_inventory($pdo, array_map('town_npc_public', $rows));
     }
 }
@@ -434,7 +460,7 @@ function town_npc_search_memories(PDO $pdo, string $npcId, string $queryText, Da
     $queryText = trim((string)$queryText);
     try {
         $memoryColumns = 'memory_id,memory_type,content,importance,created_at,expires_at';
-        foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version'] as $column) {
+        foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version', 'observation', 'interpretation', 'thought_summary', 'reasoning_summary', 'belief', 'conclusion', 'intention', 'plan_json', 'confidence', 'source_event_id', 'source_task_id', 'memory_state', 'channel'] as $column) {
             if (town_npc_life_column_exists($pdo, 'town_npc_memories', $column)) $memoryColumns .= ',' . $column;
         }
         $query = $pdo->prepare('SELECT ' . $memoryColumns . ' FROM town_npc_memories WHERE npc_id=:npc AND (expires_at IS NULL OR expires_at>:now) ORDER BY memory_id DESC LIMIT 200');
@@ -465,7 +491,7 @@ function town_npc_search_memories(PDO $pdo, string $npcId, string $queryText, Da
 
 function town_npc_agent_context(PDO $pdo, string $npcId, ?DateTimeImmutable $now = null, ?string $memoryQuery = null): array
 {
-    $empty = ['relationships' => [], 'memories' => [], 'observations' => [], 'navigation_version' => town_navigation_version($pdo)];
+    $empty = ['relationships' => [], 'memories' => [], 'observations' => [], 'navigation_version' => town_navigation_version($pdo), 'decision_context' => town_npc_decision_context($pdo, $npcId, $now)];
     $now ??= api_clock();
     try {
         $relationships = $pdo->prepare('SELECT other_npc_id,affinity,relationship_json,updated_at FROM town_npc_relationships WHERE npc_id=:npc ORDER BY affinity DESC,updated_at DESC LIMIT 8');
@@ -500,16 +526,16 @@ function town_npc_agent_context(PDO $pdo, string $npcId, ?DateTimeImmutable $now
         if (is_string($memoryQuery) && trim($memoryQuery) !== '') {
             $selected = town_npc_search_memories($pdo, $npcId, $memoryQuery, $now, 12);
             foreach ($selected as $row) $memoryRows[] = town_npc_memory_public($row);
-            return ['relationships' => $relationshipRows, 'memories' => $memoryRows, 'observations' => $observations, 'navigation_version' => $navigationVersion];
+            return ['relationships' => $relationshipRows, 'memories' => $memoryRows, 'observations' => $observations, 'navigation_version' => $navigationVersion, 'decision_context' => town_npc_decision_context($pdo, $npcId, $now)];
         }
         $memoryColumns = 'memory_type,content,importance,created_at,expires_at';
-        foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version'] as $column) {
+        foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version', 'observation', 'interpretation', 'thought_summary', 'reasoning_summary', 'belief', 'conclusion', 'intention', 'plan_json', 'confidence', 'source_event_id', 'source_task_id', 'memory_state', 'channel'] as $column) {
             if (town_npc_life_column_exists($pdo, 'town_npc_memories', $column)) $memoryColumns .= ',' . $column;
         }
         $memories = $pdo->prepare('SELECT ' . $memoryColumns . ' FROM town_npc_memories WHERE npc_id=:npc AND (expires_at IS NULL OR expires_at>:now) ORDER BY importance DESC,memory_id DESC LIMIT 12');
         $memories->execute([':npc' => $npcId, ':now' => auth_sql_time($now)]);
         foreach ($memories->fetchAll(PDO::FETCH_ASSOC) as $row) $memoryRows[] = town_npc_memory_public($row);
-        return ['relationships' => $relationshipRows, 'memories' => $memoryRows, 'observations' => $observations, 'navigation_version' => $navigationVersion];
+        return ['relationships' => $relationshipRows, 'memories' => $memoryRows, 'observations' => $observations, 'navigation_version' => $navigationVersion, 'decision_context' => town_npc_decision_context($pdo, $npcId, $now)];
     } catch (PDOException $error) {
         // Keep rolling upgrades safe until migration 028 is present.
         return $empty;
@@ -526,6 +552,12 @@ function town_npc_memory_public(array $row): array
         'created_at' => (string)($row['created_at'] ?? ''),
         'expires_at' => ($row['expires_at'] ?? null) !== null ? (string)$row['expires_at'] : null,
     ];
+    foreach (['observation', 'interpretation', 'thought_summary', 'reasoning_summary', 'belief', 'conclusion', 'intention', 'source_event_id', 'source_task_id', 'memory_state', 'channel'] as $key) {
+        if (array_key_exists($key, $row) && $row[$key] !== null && trim((string)$row[$key]) !== '') $result[$key] = substr((string)$row[$key], 0, 1000);
+    }
+    foreach (['memory_state', 'channel'] as $key) if (array_key_exists($key, $row) && $row[$key] !== null) $result[$key] = (string)$row[$key];
+    if (array_key_exists('plan_json', $row) && $row['plan_json'] !== null) $result['plan'] = town_npc_decode($row['plan_json'], []);
+    if (array_key_exists('confidence', $row) && $row['confidence'] !== null) $result['confidence'] = max(0.0, min(1.0, (float)$row['confidence']));
     foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version'] as $key) {
         if (array_key_exists($key, $row) && $row[$key] !== null) $result[$key] = in_array($key, ['tile_x', 'tile_y', 'navigation_version'], true) ? (int)$row[$key] : (string)$row[$key];
     }
@@ -541,11 +573,42 @@ function town_npc_insert_spatial_memory(PDO $pdo, string $npcId, string $memoryT
     if (town_npc_life_column_exists($pdo, 'town_npc_memories', 'expires_at')) {
         $columns[] = 'expires_at'; $values[] = ':expires'; $parameters[':expires'] = $expiresAt ? auth_sql_time($expiresAt) : null;
     }
-    foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version'] as $key) {
+    foreach (['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y', 'navigation_version', 'observation', 'interpretation', 'thought_summary', 'reasoning_summary', 'belief', 'conclusion', 'intention', 'plan_json', 'confidence', 'source_event_id', 'source_task_id', 'memory_state', 'channel'] as $key) {
         if (!array_key_exists($key, $spatial) || !town_npc_life_column_exists($pdo, 'town_npc_memories', $key)) continue;
-        $columns[] = $key; $values[] = ':' . $key; $parameters[':' . $key] = $spatial[$key];
+        $columns[] = $key; $values[] = ':' . $key;
+        $parameters[':' . $key] = $key === 'plan_json'
+            ? json_encode(is_array($spatial[$key]) ? $spatial[$key] : town_npc_decode($spatial[$key], []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)
+            : $spatial[$key];
     }
     $pdo->prepare('INSERT INTO town_npc_memories (' . implode(',', $columns) . ') VALUES (' . implode(',', $values) . ')')->execute($parameters);
+}
+
+/** Persist a private, bounded cognition record while retaining the short memory content. */
+function town_npc_insert_cognitive_memory(PDO $pdo, string $npcId, string $memoryType, string $content, int $importance, DateTimeImmutable $now, array $cognition = [], array $spatial = [], ?DateTimeImmutable $expiresAt = null): void
+{
+    $fields = ['observation','interpretation','thought_summary','reasoning_summary','belief','conclusion','intention','plan_json','confidence','source_event_id','source_task_id','memory_state','channel'];
+    foreach ($fields as $field) if (array_key_exists($field, $cognition)) $spatial[$field] = $cognition[$field];
+    town_npc_insert_spatial_memory($pdo, $npcId, $memoryType, $content, $importance, $now, $spatial, $expiresAt);
+}
+
+function town_npc_affordance_labels(array $affordances): array
+{
+    $labels = [
+        'rest' => '休息', 'sleep' => '睡觉', 'shelter' => '避雨', 'shop' => '商店',
+        'buy' => '购买', 'sell' => '出售', 'farm' => '农事', 'plant' => '播种',
+        'water_crops' => '浇水', 'harvest' => '收获', 'workshop' => '工坊工作',
+        'craft' => '制作', 'repair' => '维修', 'read' => '阅读', 'learn' => '学习',
+        'talk' => '交谈', 'gather_water' => '取水', 'fish' => '钓鱼', 'observe' => '观察',
+        'gather' => '采集', 'meet' => '碰面',
+    ];
+    $actions = $affordances['actions'] ?? [];
+    if (!is_array($actions)) return [];
+    $result = [];
+    foreach ($actions as $action) {
+        $key = strtolower(trim((string)$action));
+        if (isset($labels[$key])) $result[$key] = $labels[$key];
+    }
+    return $result;
 }
 
 /**
@@ -572,12 +635,21 @@ function town_npc_observe_environment_if_due(PDO $pdo, array $npc, DateTimeImmut
         return town_navigation_visibility_between($pdo, $x, $y, $targetX, $targetY, $observerHeight)['visible'];
     };
     try {
-        $query = $pdo->prepare('SELECT o.asset_id,o.tile_x,o.tile_y,o.footprint_json,COALESCE(i.name,\'\') AS asset_name,COALESCE(i.category,\'\') AS category,COALESCE(i.navigation_json,\'\') AS navigation_json FROM town_objects o LEFT JOIN town_asset_items i ON i.asset_id=o.asset_id WHERE o.world_id=:world AND o.deleted_at IS NULL AND o.tile_x BETWEEN :min_x AND :max_x AND o.tile_y BETWEEN :min_y AND :max_y ORDER BY o.tile_y,o.tile_x LIMIT 64');
+        $affordanceSelect = town_npc_life_column_exists($pdo, 'town_asset_items', 'affordance_json') ? ",COALESCE(i.affordance_json,'') AS affordance_json" : ",' ' AS affordance_json";
+        $assetSql = "SELECT o.asset_id,o.tile_x,o.tile_y,o.footprint_json,COALESCE(i.name,'') AS asset_name,COALESCE(i.category,'') AS category,COALESCE(i.navigation_json,'') AS navigation_json" . $affordanceSelect . " FROM town_objects o LEFT JOIN town_asset_items i ON i.asset_id=o.asset_id WHERE o.world_id=:world AND o.deleted_at IS NULL AND o.tile_x BETWEEN :min_x AND :max_x AND o.tile_y BETWEEN :min_y AND :max_y ORDER BY o.tile_y,o.tile_x LIMIT 64";
+        $query = $pdo->prepare($assetSql);
         $query->execute([':world' => SHARED_TOWN_WORLD_ID, ':min_x' => max(0, $x - $radius), ':max_x' => min(SHARED_TOWN_MAP_SIZE - 1, $x + $radius), ':min_y' => max(0, $y - $radius), ':max_y' => min(SHARED_TOWN_MAP_SIZE - 1, $y + $radius)]);
         foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $name = trim((string)($row['asset_name'] ?? '')); $assetId = (string)$row['asset_id']; $ox = (int)$row['tile_x']; $oy = (int)$row['tile_y'];
             if (!$canObserve($ox, $oy)) continue;
-            $observations[] = ['type' => 'asset', 'asset_id' => $assetId, 'asset_name' => $name, 'category' => (string)($row['category'] ?? ''), 'tile_x' => $ox, 'tile_y' => $oy, 'description' => '看到素材“' . ($name !== '' ? $name : $assetId) . '”（' . $assetId . '），位于 (' . $ox . ',' . $oy . ')'];
+            $affordances = [];
+            if (is_string($row['affordance_json'] ?? null) && trim((string)$row['affordance_json']) !== '') {
+                $decoded = json_decode((string)$row['affordance_json'], true);
+                if (is_array($decoded)) $affordances = $decoded;
+            }
+            $affordanceLabels = town_npc_affordance_labels($affordances);
+            $affordanceText = $affordanceLabels ? '，可以' . implode('、', array_values($affordanceLabels)) : '';
+            $observations[] = ['type' => 'asset', 'asset_id' => $assetId, 'asset_name' => $name, 'category' => (string)($row['category'] ?? ''), 'tile_x' => $ox, 'tile_y' => $oy, 'affordance_labels' => array_values($affordanceLabels), 'affordance_label' => (string)($affordances['label'] ?? ''), 'description' => '看到素材“' . ($name !== '' ? $name : $assetId) . '”（' . $assetId . '），位于 (' . $ox . ',' . $oy . ')' . $affordanceText];
         }
     } catch (PDOException $error) {
         // During a rolling deployment the asset catalog may be unavailable;
@@ -618,7 +690,19 @@ function town_npc_observe_environment_if_due(PDO $pdo, array $npc, DateTimeImmut
     foreach (array_slice($observations, 0, 64) as $observation) {
         $spatial = array_intersect_key($observation, array_flip(['subject_npc_id', 'asset_id', 'asset_name', 'tile_x', 'tile_y']));
         $spatial['navigation_version'] = $navigationVersion;
-        town_npc_insert_spatial_memory($pdo, $npcId, 'environment_observation', (string)$observation['description'], 2, $now, $spatial, $expires);
+        $affordanceLabels = is_array($observation['affordance_labels'] ?? null) ? $observation['affordance_labels'] : [];
+        $hasAffordances = $affordanceLabels !== [];
+        town_npc_insert_cognitive_memory($pdo, $npcId, 'environment_observation', (string)$observation['description'], 2, $now, [
+            'observation' => (string)$observation['description'],
+            'interpretation' => $hasAffordances ? '这是一个可以实际使用的地点，我需要把它的用途和位置一起记住。' : '这是一个需要继续观察和验证的环境线索。',
+            'thought_summary' => $hasAffordances ? '如果当前目标需要这些用途，我可以走到这里执行动作。' : '我先记住它的位置和名称，之后根据需要决定是否前往。',
+            'reasoning_summary' => '信息来自当前可见范围内的服务器观察。',
+            'belief' => $hasAffordances ? '这个地点的已知用途可以作为后续计划的可执行目标。' : '这个地点可能与之后的工作或交谈有关。',
+            'conclusion' => $hasAffordances ? '已记录地点、坐标和可执行用途。' : '暂时记录为已知地点。',
+            'intention' => $hasAffordances ? '需要时按用途前往并先检查通行条件。' : '需要时前往确认。',
+            'plan_json' => ['next' => 'revisit_if_relevant'],
+            'confidence' => 0.65,
+        ], $spatial, $expires);
     }
 }
 
@@ -627,7 +711,9 @@ function town_npc_snapshot(PDO $pdo, bool $forAgent = false): array
     $rows = town_npc_rows_safe($pdo);
     if ($forAgent) {
         foreach ($rows as $index => $row) {
+            try { town_npc_tick_life($pdo, (string)$row['npc_id'], api_clock(), null, 1); } catch (Throwable $error) { }
             town_npc_observe_environment_if_due($pdo, $row, api_clock());
+            try { town_npc_reflect_if_due($pdo, (string)$row['npc_id'], api_clock()); } catch (Throwable $error) { }
             $profile = is_array($row['profile'] ?? null) ? $row['profile'] : [];
             $runtime = is_array($row['runtime'] ?? null) ? $row['runtime'] : [];
             $memoryQuery = trim(implode(' ', array_filter([
@@ -767,7 +853,7 @@ function town_npc_route_capabilities(PDO $pdo, array $route): array
 /** Resolve the authoritative destination for an existing task during re-planning. */
 function town_npc_task_destination(PDO $pdo, string $action, array $payload): ?array
 {
-    if (in_array($action, ['talk', 'trade'], true)) {
+    if (in_array($action, ['talk', 'trade', 'help'], true)) {
         $approach = town_npc_array($payload['approach_tile'] ?? []);
         $approachX = filter_var($approach['tile_x'] ?? $approach['x'] ?? null, FILTER_VALIDATE_INT);
         $approachY = filter_var($approach['tile_y'] ?? $approach['y'] ?? null, FILTER_VALIDATE_INT);
@@ -777,7 +863,7 @@ function town_npc_task_destination(PDO $pdo, string $action, array $payload): ?a
     $x = filter_var($target['tile_x'] ?? $target['x'] ?? null, FILTER_VALIDATE_INT);
     $y = filter_var($target['tile_y'] ?? $target['y'] ?? null, FILTER_VALIDATE_INT);
     if ($x !== false && $y !== false) return ['tile_x' => (int)$x, 'tile_y' => (int)$y];
-    if ($action === 'work') {
+    if (in_array($action, ['work', 'observe'], true)) {
         $point = town_npc_target_point((string)($payload['target_id'] ?? ''), $pdo);
         if (is_array($point) && isset($point['tile_x'], $point['tile_y'])) return ['tile_x' => (int)$point['tile_x'], 'tile_y' => (int)$point['tile_y']];
     }
@@ -1101,7 +1187,17 @@ function town_npc_record_talk_result(PDO $pdo, string $npcId, string $taskId, ar
                 'tile_y' => $approachY === false ? null : (int)$approachY,
                 'navigation_version' => (int)$navigationVersion,
             ];
-            town_npc_insert_spatial_memory($pdo, $owner, 'conversation', $memory, 3, $now, $spatial);
+            town_npc_insert_cognitive_memory($pdo, $owner, 'conversation', $memory, 3, $now, [
+                'observation' => '我与村民 ' . $counterpart . ' 面对面交谈。',
+                'interpretation' => '对方愿意在这个地点与我交流，谈话内容值得结合之后的行动判断。',
+                'thought_summary' => '我需要记住对方的态度和这次谈话发生的位置。',
+                'reasoning_summary' => '这是一次面对面的实际交谈，可信度高于转述。',
+                'belief' => '对方目前愿意与我保持联系。',
+                'conclusion' => '这次交流使关系产生了小幅变化。',
+                'intention' => '之后根据谈话内容决定是否再次联系。',
+                'plan_json' => ['next' => 'consider_follow_up'],
+                'confidence' => 0.8,
+            ], $spatial);
             town_npc_compact_memories($pdo, $owner, $now);
         }
         $conversation = ['task_id' => $taskId, 'other_npc_id' => $otherId, 'dialogue' => $dialogue, 'affinity_delta' => 1,
@@ -1345,7 +1441,9 @@ function town_npc_continue_player_talk(PDO $pdo, string $npcId, string $userId, 
         if ($photoSource !== null) $playerDetail['photo'] = $photoSource + ['extracted_text' => mb_substr((string)($source['extracted_text'] ?? ''), 0, 240, 'UTF-8')];
         town_npc_activity_log($pdo, $npcId, 'player_speech', $playerDialogue, $playerDetail, $now);
         town_npc_activity_log($pdo, $npcId, 'speech', $reply, ['dialogue' => $reply, 'action' => 'player_talk', 'task_id' => (string)$row['current_task_id'], 'target_player_user_id' => $userId, 'source' => $modelReply['source'] ?? 'fallback', 'mood' => $modelReply['mood'] ?? [], 'next_action' => $modelReply['next_action'] ?? []], $now, is_string($modelReply['run_id'] ?? null) ? $modelReply['run_id'] : null);
-        town_npc_insert_spatial_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . $userId . ' 面对面交谈：玩家说“' . $playerDialogue . '”，NPC 回复“' . $reply . '”', 3, $now, ['tile_x' => $x, 'tile_y' => $y, 'navigation_version' => town_navigation_version($pdo)], $now->modify('+30 days'));
+        $playerMemory = ['tile_x' => $x, 'tile_y' => $y, 'navigation_version' => town_navigation_version($pdo)];
+        if (function_exists('town_npc_insert_cognitive_memory')) town_npc_insert_cognitive_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . $userId . ' 面对面交谈：玩家说“' . $playerDialogue . '”，NPC 回复“' . $reply . '”', 3, $now, ['observation' => '玩家在面对面交谈中说：' . $playerDialogue, 'interpretation' => '玩家愿意直接告诉我这件事，需要结合关系和当前目标判断。', 'thought_summary' => '我先回应玩家，再决定是否调整计划。', 'reasoning_summary' => '这是现场对话，坐标和回复都由服务器确认。', 'belief' => '玩家会根据我的回答继续行动。', 'conclusion' => '这轮对话已完成，后续意图需要再次校验。', 'intention' => '根据对话内容决定下一步。', 'plan_json' => ['next_action' => $modelReply['next_action'] ?? []], 'confidence' => 0.8], $playerMemory, $now->modify('+30 days'));
+        else town_npc_insert_spatial_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . $userId . ' 面对面交谈：玩家说“' . $playerDialogue . '”，NPC 回复“' . $reply . '”', 3, $now, $playerMemory, $now->modify('+30 days'));
         town_npc_compact_memories($pdo, $npcId, $now);
         town_npc_emit_event($pdo, $npcId, 'player_conversation', ['user_id' => $userId, 'task_id' => (string)$row['current_task_id'], 'player_dialogue' => $playerDialogue, 'dialogue' => $reply, 'tile_x' => $x, 'tile_y' => $y, 'source' => $modelReply['source'] ?? 'fallback', 'next_action' => $modelReply['next_action'] ?? []], $now);
         $messageId = null;
@@ -1384,6 +1482,11 @@ function town_npc_apply_action(PDO $pdo, array $body, DateTimeImmutable $now, bo
             throw new ApiError('npc_lifecycle_inactive', 'NPC 当前不在岗，暂时不能执行行动。', 409);
         }
         if ((bool)$npc['agent_paused'] && !$admin) throw new ApiError('npc_paused', 'NPC agent is paused.', 409);
+        town_npc_action_allowed_by_values($pdo, $npcId, $action);
+        // Every action begins with a fresh server-side read of personality,
+        // state and needs. The resulting context is persisted for audit and
+        // is never accepted from the model payload.
+        try { town_npc_record_decision_context($pdo, $npcId, town_npc_decision_context($pdo, $npcId, $now), $now); } catch (Throwable $error) { }
         if ($action === 'player_talk' && (string)($npc['state'] ?? '') !== 'rest') {
             throw new ApiError('npc_busy', '我现在正在忙，请先等一等。', 409);
         }
@@ -1427,7 +1530,7 @@ function town_npc_apply_action(PDO $pdo, array $body, DateTimeImmutable $now, bo
         $declaredCapabilities = is_array($payload['required_capabilities'] ?? null)
             ? array_values($payload['required_capabilities']) : [];
         town_npc_validate_plan_envelope($payload, $action, $capabilities);
-        if ($action === 'walk') {
+        if (in_array($action, ['walk', 'observe'], true)) {
             $target = town_npc_array($payload['target'] ?? $payload);
             $toX = filter_var($target['tile_x'] ?? $target['x'] ?? null, FILTER_VALIDATE_INT);
             $toY = filter_var($target['tile_y'] ?? $target['y'] ?? null, FILTER_VALIDATE_INT);
@@ -1444,10 +1547,22 @@ function town_npc_apply_action(PDO $pdo, array $body, DateTimeImmutable $now, bo
             if (!$route['found']) throw new ApiError('no_route', 'NPC cannot reach the requested target.', 409);
             $tileX = (int)$toX; $tileY = (int)$toY; $tileHeight = town_npc_navigation_height($pdo, $tileX, $tileY); $payload['route'] = $route['path']; $payload['navigation_version'] = $route['navigation_version'];
         }
-        if (in_array($action, ['work', 'talk', 'trade'], true)) {
+        if (in_array($action, ['work', 'talk', 'trade', 'help'], true)) {
             $target = town_npc_array($payload['target'] ?? []); $targetId = (string)($payload['target_id'] ?? '');
             if ($targetId === '') $targetId = town_npc_schedule_target($pdo, $npcId, $action) ?? '';
             if ($targetId !== '') $payload['target_id'] = $targetId;
+            if ($action === 'help') {
+                $helpTarget = trim((string)($payload['target_npc_id'] ?? $targetId));
+                if (!preg_match('/\A[a-f0-9]{32}\z/D', $helpTarget) || $helpTarget === $npcId) throw new ApiError('invalid_help_target', '帮助行动必须指定另一个村民。', 400);
+                $targetRow = town_npc_talk_target($pdo, $helpTarget);
+                if (!is_array($targetRow)) throw new ApiError('help_target_missing', '帮助对象当前不可用。', 409);
+                $knownTarget = town_npc_array($payload['known_target'] ?? []);
+                $knownX = filter_var($knownTarget['tile_x'] ?? null, FILTER_VALIDATE_INT); $knownY = filter_var($knownTarget['tile_y'] ?? null, FILTER_VALIDATE_INT);
+                if ($knownX === false || $knownY === false) { $knownX=(int)$targetRow['tile_x']; $knownY=(int)$targetRow['tile_y']; }
+                $helpRoute = town_npc_find_talk_route($pdo, $fromX, $fromY, ['npc_id'=>$helpTarget,'tile_x'=>$knownX,'tile_y'=>$knownY], $capabilities);
+                if (!is_array($helpRoute)) throw new ApiError('help_no_route', '无法到达需要帮助的村民旁边。', 409);
+                $target=$helpRoute['approach_tile']; $targetId=$helpTarget; $payload['target_npc_id']=$helpTarget; $payload['known_target']=['tile_x'=>$knownX,'tile_y'=>$knownY]; $payload['target_tile']=['tile_x'=>$knownX,'tile_y'=>$knownY]; $payload['approach_tile']=$helpRoute['approach_tile']; $payload['facing']=town_npc_talk_face_direction($fromX,$fromY,$knownX,$knownY); $payload['navigation_version']=(int)$helpRoute['navigation_version']; $payload['route']=$helpRoute['path'];
+            }
             if ($action === 'talk') {
                 $talkTarget = trim((string)($payload['target_npc_id'] ?? $targetId));
                 if (!$admin && preg_match('/\A[a-f0-9]{32}\z/D', $talkTarget) && $talkTarget !== $npcId) {
@@ -1563,12 +1678,20 @@ function town_npc_apply_action(PDO $pdo, array $body, DateTimeImmutable $now, bo
         $dialogueResult = town_npc_moderate_dialogue((string)($payload['dialogue'] ?? ''));
         if (!$dialogueResult['allowed']) throw new ApiError('dialogue_rejected', 'NPC dialogue contains unsupported markup.', 400);
         $dialogue = (string)$dialogueResult['text'];
+        if ($action === 'help' && $dialogue === '') $dialogue = '我来帮你一起处理。';
         if ($action === 'talk' || $dialogue !== '') $payload['dialogue'] = $dialogue;
         $runId = is_string($payload['run_id'] ?? null) && preg_match('/\A[a-f0-9]{32}\z/D', (string)$payload['run_id']) ? (string)$payload['run_id'] : null;
         $mood = town_npc_array($payload['mood'] ?? []); $payload['route_cursor'] = 0;
         $duration = filter_var($payload['duration_minutes'] ?? null, FILTER_VALIDATE_INT); if ($duration === false) $duration = in_array($action, ['walk', 'trade'], true) ? 0 : 20; $payload['duration_minutes'] = max(0, min(1440, (int)$duration));
         $route = $payload['route'];
         $requiredCapabilities = town_npc_route_capabilities($pdo, $route);
+        if ($action === 'use_item') {
+            $item = trim((string)($payload['item_id'] ?? $payload['capability'] ?? ''));
+            if (!in_array($item, TOWN_NAVIGATION_CAPABILITIES, true)) throw new ApiError('invalid_item_action', 'NPC 只能使用已配置的道具能力。', 400);
+            $requiredCapabilities[] = $item;
+            $requiredCapabilities = array_values(array_unique($requiredCapabilities));
+            $payload['item_id'] = $item;
+        }
         $declaredAvailable = array_fill_keys(array_values(array_unique(array_merge($capabilities, $requiredCapabilities))), true);
         foreach ($declaredCapabilities as $capability) {
             if (!isset($declaredAvailable[$capability])) {
@@ -1602,7 +1725,9 @@ function town_npc_apply_action(PDO $pdo, array $body, DateTimeImmutable $now, bo
         if ($action === 'player_talk' && trim((string)($payload['player_dialogue'] ?? '')) !== '') {
             $playerLine = trim((string)$payload['player_dialogue']);
             town_npc_activity_log($pdo, $npcId, 'player_speech', $playerLine, ['dialogue' => $playerLine, 'action' => $action, 'task_id' => $taskId, 'target_player_user_id' => $payload['target_player_user_id'] ?? null], $now, $runId);
-            town_npc_insert_spatial_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . (string)($payload['target_player_user_id'] ?? '') . ' 面对面交谈：玩家说“' . $playerLine . '”，NPC 回复“' . $dialogue . '”', 3, $now, ['tile_x' => $fromX, 'tile_y' => $fromY, 'navigation_version' => town_navigation_version($pdo)], $now->modify('+30 days'));
+            $playerMemory = ['tile_x' => $fromX, 'tile_y' => $fromY, 'navigation_version' => town_navigation_version($pdo)];
+            if (function_exists('town_npc_insert_cognitive_memory')) town_npc_insert_cognitive_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . (string)($payload['target_player_user_id'] ?? '') . ' 面对面交谈：玩家说“' . $playerLine . '”，NPC 回复“' . $dialogue . '”', 3, $now, ['observation' => '玩家在面对面交谈中说：' . $playerLine, 'interpretation' => '玩家的表达需要结合我的状态和记忆理解。', 'thought_summary' => '我先回应，再考虑是否执行后续行动。', 'reasoning_summary' => '这是服务器确认的连续对话。', 'belief' => '玩家可能会继续追问或需要帮助。', 'conclusion' => '这轮对话已记录。', 'intention' => '根据对话内容重新评估计划。', 'plan_json' => ['next_action' => $payload['next_action'] ?? []], 'confidence' => 0.8], $playerMemory, $now->modify('+30 days'));
+            else town_npc_insert_spatial_memory($pdo, $npcId, 'player_conversation', '与玩家 ' . (string)($payload['target_player_user_id'] ?? '') . ' 面对面交谈：玩家说“' . $playerLine . '”，NPC 回复“' . $dialogue . '”', 3, $now, $playerMemory, $now->modify('+30 days'));
             town_npc_emit_event($pdo, $npcId, 'player_conversation', ['user_id' => $payload['target_player_user_id'] ?? null, 'task_id' => $taskId, 'player_dialogue' => $playerLine, 'dialogue' => $dialogue, 'tile_x' => $fromX, 'tile_y' => $fromY, 'source' => $payload['reply_source'] ?? 'fallback', 'next_action' => $payload['next_action'] ?? []], $now);
         }
         if (count($route) > 1) town_npc_activity_log($pdo, $npcId, 'path', '已规划路线：(' . $fromX . ',' . $fromY . ') → (' . $tileX . ',' . $tileY . ')', ['from' => ['tile_x' => $fromX, 'tile_y' => $fromY], 'to' => ['tile_x' => $tileX, 'tile_y' => $tileY], 'route' => $route, 'route_length' => count($route), 'navigation_version' => $payload['navigation_version'] ?? null], $now, $runId);
@@ -1756,7 +1881,7 @@ function town_npc_advance_task(PDO $pdo, string $npcId, DateTimeImmutable $now, 
         $x = (int)$runtime['tile_x']; $y = (int)$runtime['tile_y']; $currentHeight = town_npc_navigation_height($pdo, $x, $y);
         $route = is_array($payload['route'] ?? null) ? array_values($payload['route']) : []; if ($route === []) $route = [['x' => $x, 'y' => $y, 'height' => $currentHeight]];
          $cursor = max(0, min(count($route) - 1, (int)($payload['route_cursor'] ?? 0))); $action = (string)$task['action']; $tradeResult = null; $capabilities = array_values(array_unique(array_merge(town_navigation_capabilities($runtime['capabilities_json'] ?? []), town_npc_inventory_capabilities($pdo, $npcId), array_keys($consumedItems))));
-        $fail = static function (string $reason, array $detail) use ($pdo, $npcId, $taskId, $now, $x, $y, $currentHeight, $currentVersion, $consumedItems): array { town_npc_refund_route_items($pdo, $npcId, $consumedItems, $now); town_npc_release_work_point($pdo, $taskId, 'failed', $now); $pdo->prepare('UPDATE town_npc_tasks SET status=\'failed\',failure_reason=:reason,completed_at=:completed WHERE task_id=:task AND npc_id=:npc')->execute([':reason' => substr($reason, 0, 255), ':completed' => auth_sql_time($now), ':task' => $taskId, ':npc' => $npcId]); town_npc_sync_social_task_if_available($pdo, $taskId, $npcId, 'failed', $reason, $now); $heightUpdate = town_npc_runtime_height_column($pdo) ? ',height=:height' : ''; $stateParams = [':updated' => auth_sql_time($now), ':npc' => $npcId]; if ($heightUpdate !== '') $stateParams[':height'] = $currentHeight; $pdo->prepare('UPDATE town_npc_runtime_states SET current_task_id=NULL,state=\'rest\',dialogue=\'\',state_version=state_version+1,updated_at=:updated' . $heightUpdate . ' WHERE npc_id=:npc')->execute($stateParams); town_npc_emit_event($pdo, $npcId, 'task_failed', ['task_id' => $taskId, 'task_status' => 'failed', 'failure_reason' => $reason, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'navigation_version' => $currentVersion] + $detail, $now); town_npc_activity_log($pdo, $npcId, 'path', '任务停止：' . $reason, $detail + ['task_id' => $taskId, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight], $now); return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $taskId, 'task_status' => 'failed', 'failure_reason' => $reason, 'state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'route_cursor' => $detail['route_cursor'] ?? 0, 'route_remaining' => [], 'navigation_version' => $currentVersion]; };
+        $fail = static function (string $reason, array $detail) use ($pdo, $npcId, $taskId, $now, $x, $y, $currentHeight, $currentVersion, $consumedItems): array { town_npc_refund_route_items($pdo, $npcId, $consumedItems, $now); town_npc_release_work_point($pdo, $taskId, 'failed', $now); $pdo->prepare('UPDATE town_npc_tasks SET status=\'failed\',failure_reason=:reason,completed_at=:completed WHERE task_id=:task AND npc_id=:npc')->execute([':reason' => substr($reason, 0, 255), ':completed' => auth_sql_time($now), ':task' => $taskId, ':npc' => $npcId]); town_npc_sync_social_task_if_available($pdo, $taskId, $npcId, 'failed', $reason, $now); $heightUpdate = town_npc_runtime_height_column($pdo) ? ',height=:height' : ''; $stateParams = [':updated' => auth_sql_time($now), ':npc' => $npcId]; if ($heightUpdate !== '') $stateParams[':height'] = $currentHeight; $pdo->prepare('UPDATE town_npc_runtime_states SET current_task_id=NULL,state=\'rest\',dialogue=\'\',state_version=state_version+1,updated_at=:updated' . $heightUpdate . ' WHERE npc_id=:npc')->execute($stateParams); town_npc_emit_event($pdo, $npcId, 'task_failed', ['task_id' => $taskId, 'task_status' => 'failed', 'failure_reason' => $reason, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'navigation_version' => $currentVersion] + $detail, $now); town_npc_activity_log($pdo, $npcId, 'path', '任务停止：' . $reason, $detail + ['task_id' => $taskId, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight], $now); try { town_npc_tick_life($pdo, $npcId, $now, (string)($detail['action'] ?? ''), 1); town_npc_record_action_cognition($pdo, $npcId, (string)($detail['action'] ?? ''), 'failed', $detail + ['task_id' => $taskId], $now, $reason); } catch (Throwable $error) { } return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $taskId, 'task_status' => 'failed', 'failure_reason' => $reason, 'state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'route_cursor' => $detail['route_cursor'] ?? 0, 'route_remaining' => [], 'navigation_version' => $currentVersion]; };
         $replan = static function (string $reason = 'navigation_changed') use ($pdo, $npcId, $taskId, $now, $currentVersion, $currentWeather, $plannedWeather, $action, &$payload, &$consumedItems, &$route, &$cursor, $x, $y, $currentHeight, $runtime, $capabilities): ?array {
             $destination = town_npc_task_destination($pdo, $action, $payload);
             if (!is_array($destination)) return null;
@@ -1983,7 +2108,7 @@ function town_npc_advance_task(PDO $pdo, string $npcId, DateTimeImmutable $now, 
              }
              $pdo->exec('RELEASE SAVEPOINT ' . $tradeSavepoint);
          }
-         $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,payload_json=:payload WHERE task_id=:task AND npc_id=:npc')->execute([':completed' => auth_sql_time($now), ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':task' => $taskId, ':npc' => $npcId]); town_npc_sync_social_task_if_available($pdo, $taskId, $npcId, 'completed', null, $now); $stateSql = 'UPDATE town_npc_runtime_states SET current_task_id=NULL,state=\'rest\',dialogue=\'\'' . (town_npc_runtime_height_column($pdo) ? ',height=:height' : '') . ',state_version=state_version+1,updated_at=:updated'; $stateParams = [':updated' => auth_sql_time($now), ':npc' => $npcId]; if (town_npc_runtime_height_column($pdo)) $stateParams[':height'] = $currentHeight; $stateSql .= ' WHERE npc_id=:npc'; $pdo->prepare($stateSql)->execute($stateParams); town_npc_emit_event($pdo, $npcId, 'task_completed', ['state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'task_id' => $taskId, 'task_status' => 'completed', 'action' => $action, 'navigation_version' => $currentVersion, 'trade' => $tradeResult], $now); town_npc_activity_log($pdo, $npcId, 'action', '任务完成：' . $action, ['task_id' => $taskId, 'action' => $action, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'trade' => $tradeResult], $now); if ($action === 'trade' && is_array($tradeResult)) { $counterparty = (string)($tradeResult['seller_npc_id'] ?? '') === $npcId ? (string)($tradeResult['buyer_npc_id'] ?? '') : (string)($tradeResult['seller_npc_id'] ?? ''); if (preg_match('/\A[a-f0-9]{32}\z/D', $counterparty)) { town_npc_emit_event($pdo, $counterparty, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); town_npc_activity_log($pdo, $counterparty, 'action', '收到 NPC 交易', $tradeResult + ['initiator_npc_id' => $npcId], $now); } town_npc_emit_event($pdo, $npcId, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); } $homeReturn = null; if ($action === 'work') { town_npc_record_work_result($pdo, $npcId, $taskId, $payload, $now); town_npc_release_work_point($pdo, $taskId, 'completed', $now); $homeReturn = town_npc_queue_home_rest($pdo, $npcId, $now); } elseif ($action === 'talk') { town_npc_record_talk_result($pdo, $npcId, $taskId, $payload, $now); } $pdo->commit(); $followup = $action === 'player_talk' ? town_npc_queue_player_talk_followup($pdo, $npcId, town_npc_array($payload['next_action'] ?? []), $now) : null; if (is_array($homeReturn)) return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $homeReturn['task_id'], 'completed_task_id' => $taskId, 'action' => 'rest', 'task_status' => 'running', 'state' => $homeReturn['state'], 'tile_x' => $homeReturn['tile_x'], 'tile_y' => $homeReturn['tile_y'], 'height' => $currentHeight, 'route_cursor' => 0, 'route' => $homeReturn['route'], 'route_remaining' => $homeReturn['route'], 'navigation_version' => town_navigation_version($pdo), 'home_return' => true]; return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $taskId, 'action' => $action, 'task_status' => 'completed', 'state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'route_cursor' => $cursor, 'route_remaining' => [], 'navigation_version' => $currentVersion, 'trade' => $tradeResult];
+         $pdo->prepare('UPDATE town_npc_tasks SET status=\'completed\',completed_at=:completed,payload_json=:payload WHERE task_id=:task AND npc_id=:npc')->execute([':completed' => auth_sql_time($now), ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), ':task' => $taskId, ':npc' => $npcId]); town_npc_sync_social_task_if_available($pdo, $taskId, $npcId, 'completed', null, $now); $stateSql = 'UPDATE town_npc_runtime_states SET current_task_id=NULL,state=\'rest\',dialogue=\'\'' . (town_npc_runtime_height_column($pdo) ? ',height=:height' : '') . ',state_version=state_version+1,updated_at=:updated'; $stateParams = [':updated' => auth_sql_time($now), ':npc' => $npcId]; if (town_npc_runtime_height_column($pdo)) $stateParams[':height'] = $currentHeight; $stateSql .= ' WHERE npc_id=:npc'; $pdo->prepare($stateSql)->execute($stateParams); town_npc_emit_event($pdo, $npcId, 'task_completed', ['state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'task_id' => $taskId, 'task_status' => 'completed', 'action' => $action, 'navigation_version' => $currentVersion, 'trade' => $tradeResult], $now); town_npc_activity_log($pdo, $npcId, 'action', '任务完成：' . $action, ['task_id' => $taskId, 'action' => $action, 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'trade' => $tradeResult], $now); try { town_npc_tick_life($pdo, $npcId, $now, $action, (int)($payload['duration_minutes'] ?? 0)); if (!in_array($action, ['talk', 'player_talk'], true)) town_npc_record_action_cognition($pdo, $npcId, $action, 'completed', $payload + ['task_id' => $taskId], $now, '服务器确认行动已完成。'); } catch (Throwable $error) { } if ($action === 'trade' && is_array($tradeResult)) { $counterparty = (string)($tradeResult['seller_npc_id'] ?? '') === $npcId ? (string)($tradeResult['buyer_npc_id'] ?? '') : (string)($tradeResult['seller_npc_id'] ?? ''); if (preg_match('/\A[a-f0-9]{32}\z/D', $counterparty)) { town_npc_emit_event($pdo, $counterparty, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); town_npc_activity_log($pdo, $counterparty, 'action', '收到 NPC 交易', $tradeResult + ['initiator_npc_id' => $npcId], $now); } town_npc_emit_event($pdo, $npcId, 'trade', $tradeResult + ['initiator_npc_id' => $npcId], $now); } $homeReturn = null; if ($action === 'work') { town_npc_record_work_result($pdo, $npcId, $taskId, $payload, $now); town_npc_release_work_point($pdo, $taskId, 'completed', $now); $homeReturn = town_npc_queue_home_rest($pdo, $npcId, $now); } elseif (in_array($action, ['talk', 'help'], true)) { town_npc_record_talk_result($pdo, $npcId, $taskId, $payload, $now); } $pdo->commit(); $followup = $action === 'player_talk' ? town_npc_queue_player_talk_followup($pdo, $npcId, town_npc_array($payload['next_action'] ?? []), $now) : null; if (is_array($homeReturn)) return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $homeReturn['task_id'], 'completed_task_id' => $taskId, 'action' => 'rest', 'task_status' => 'running', 'state' => $homeReturn['state'], 'tile_x' => $homeReturn['tile_x'], 'tile_y' => $homeReturn['tile_y'], 'height' => $currentHeight, 'route_cursor' => 0, 'route' => $homeReturn['route'], 'route_remaining' => $homeReturn['route'], 'navigation_version' => town_navigation_version($pdo), 'home_return' => true]; return ['ok' => true, 'npc_id' => $npcId, 'task_id' => $taskId, 'action' => $action, 'task_status' => 'completed', 'state' => 'rest', 'tile_x' => $x, 'tile_y' => $y, 'height' => $currentHeight, 'route_cursor' => $cursor, 'route_remaining' => [], 'navigation_version' => $currentVersion, 'trade' => $tradeResult];
     } catch (Throwable $error) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $error; }
 }
 

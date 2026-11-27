@@ -260,7 +260,10 @@ public enum WidgetKind
     FourWheelDrive,
 
     /// <summary>Monthly calendar with optional todo due-date markers.</summary>
-    Calendar
+    Calendar,
+
+    /// <summary>Local 7paws interactive 3D cat.</summary>
+    SevenPaws
 }
 
 public sealed class WidgetKindJsonConverter : JsonConverter<WidgetKind>

@@ -9,7 +9,7 @@ require dirname(__DIR__) . '/api/_app/admin_web.php';
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $pdo->exec('PRAGMA foreign_keys=ON'); $pdo->exec(file_get_contents(__DIR__ . '/schema.sqlite.sql'));
 $pdo->exec("CREATE TABLE town_asset_sheets (sheet_id TEXT PRIMARY KEY, original_name TEXT NOT NULL, storage_path TEXT NOT NULL, mime_type TEXT NOT NULL, file_size INTEGER NOT NULL, image_width INTEGER NOT NULL, image_height INTEGER NOT NULL, sha256 TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'draft', uploaded_by TEXT NOT NULL REFERENCES auth_users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE town_asset_items (asset_id TEXT PRIMARY KEY, sheet_id TEXT NOT NULL REFERENCES town_asset_sheets(sheet_id) ON DELETE CASCADE, name TEXT NOT NULL, category TEXT NOT NULL, subcategory TEXT NOT NULL DEFAULT '', tags_json TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, region_width INTEGER NOT NULL, region_height INTEGER NOT NULL, display_width INTEGER NOT NULL, display_height INTEGER NOT NULL, anchor_json TEXT NOT NULL, footprint_json TEXT NOT NULL, collision_json TEXT NOT NULL, frames_json TEXT NOT NULL, manual_locked INTEGER NOT NULL DEFAULT 1, updated_by TEXT NOT NULL REFERENCES auth_users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE town_asset_items (asset_id TEXT PRIMARY KEY, sheet_id TEXT NOT NULL REFERENCES town_asset_sheets(sheet_id) ON DELETE CASCADE, name TEXT NOT NULL, category TEXT NOT NULL, subcategory TEXT NOT NULL DEFAULT '', tags_json TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, region_width INTEGER NOT NULL, region_height INTEGER NOT NULL, display_width INTEGER NOT NULL, display_height INTEGER NOT NULL, anchor_json TEXT NOT NULL, footprint_json TEXT NOT NULL, collision_json TEXT NOT NULL, frames_json TEXT NOT NULL, navigation_json TEXT, affordance_json TEXT, manual_locked INTEGER NOT NULL DEFAULT 1, updated_by TEXT NOT NULL REFERENCES auth_users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE town_asset_releases (release_id TEXT PRIMARY KEY, release_version INTEGER NOT NULL UNIQUE, config_json TEXT NOT NULL, config_sha256 TEXT NOT NULL, published_by CHAR(32) NOT NULL REFERENCES auth_users(id), published_at TEXT NOT NULL);
 CREATE TABLE town_asset_active_release (singleton_id INTEGER PRIMARY KEY, release_id TEXT NOT NULL REFERENCES town_asset_releases(release_id));
 CREATE TABLE town_objects (object_id TEXT PRIMARY KEY, world_id TEXT NOT NULL, asset_id TEXT NOT NULL, chunk_x INTEGER NOT NULL, chunk_y INTEGER NOT NULL, footprint_json TEXT NOT NULL, deleted_at TEXT);
@@ -24,8 +24,9 @@ try {
 } catch (ApiError $error) {
     if ($error->apiCode !== 'invalid_region') throw $error;
 }
-$item = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],'name'=>'测试树','category'=>'tree','subcategory'=>'forest','x'=>'0','y'=>'0','width'=>'16','height'=>'16','display_width'=>'16','display_height'=>'16','footprint'=>'{"width":1,"height":1}'], $now);
+$item = town_asset_save_item($pdo, $user, ['asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],'name'=>'测试树','category'=>'tree','subcategory'=>'forest','x'=>'0','y'=>'0','width'=>'16','height'=>'16','display_width'=>'16','display_height'=>'16','footprint'=>'{"width":1,"height":1}','affordances'=>'{"actions":["observe","gather"],"interaction_points":[{"x":0,"y":0}],"label":"测试树"}'], $now);
 if ($item['id'] !== 'town-source-test-tree') throw new RuntimeException('Draft item was not saved.');
+if (($item['affordances']['actions'] ?? []) !== ['observe', 'gather']) throw new RuntimeException('Asset affordances were not normalized and returned.');
 $adminItems = town_asset_read_admin_items($pdo);
 if (($adminItems[0]['id'] ?? '') !== 'town-source-test-tree' || !array_key_exists('frames', $adminItems[0])) {
     throw new RuntimeException('Admin draft items were not normalized to the public shape.');
@@ -83,6 +84,9 @@ try { town_asset_validate_navigation(['type' => 'plain', 'required_capabilities'
 catch (ApiError $error) { if ($error->apiCode !== 'invalid_navigation') throw $error; }
 try { town_asset_validate_navigation(['type' => 'blocked', 'required_capabilities' => ['teleport']]); throw new RuntimeException('Unknown navigation capability was accepted.'); }
 catch (ApiError $error) { if ($error->apiCode !== 'invalid_navigation') throw $error; }
+if (town_asset_validate_affordances(['actions' => 'rest, sleep', 'interaction_points' => [['x' => 2, 'y' => 3]], 'label' => '家'])['actions'] !== ['rest', 'sleep']) throw new RuntimeException('Affordances were not normalized.');
+try { town_asset_validate_affordances(['actions' => ['teleport']]); throw new RuntimeException('Unknown affordance action was accepted.'); }
+catch (ApiError $error) { if ($error->apiCode !== 'invalid_affordance') throw $error; }
 admin_page_mutate($pdo, ['user_id'=>$user], ['csrf'=>$_SESSION['csrf'],'operation'=>'town_asset_item','asset_id'=>'town-source-test-tree','sheet_id'=>$sheet['sheet_id'],'name'=>'测试树已编辑','category'=>'tree','subcategory'=>'forest','x'=>'0','y'=>'0','width'=>'16','height'=>'16','display_width'=>'16','display_height'=>'16']);
 if (town_asset_read_draft_items($pdo)[0]['name'] !== '测试树已编辑') throw new RuntimeException('Admin edit dispatch did not update the draft item.');
 $release = town_asset_publish($pdo, $user, $now); if ($release['items'] !== 1) throw new RuntimeException('Release did not contain draft item.');

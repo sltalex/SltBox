@@ -6,6 +6,22 @@ namespace DeskBox.Tests;
 public sealed class WidgetRegistryTests
 {
     [Fact]
+    public void SevenPaws_EnableStateSurvivesSettingsRoundTripAndGatesWindowRestore()
+    {
+        var settings = new AppSettings();
+        var widget = new WidgetConfig { WidgetKind = WidgetKind.SevenPaws };
+        Assert.False(WidgetRegistry.Default.IsAvailableForSession(widget, settings));
+
+        FeatureWidgetSettings.SetEnabled(settings, WidgetKind.SevenPaws, true);
+        string json = System.Text.Json.JsonSerializer.Serialize(settings);
+        var restored = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json)!;
+
+        FeatureWidgetSettings.Normalize(restored);
+        Assert.True(WidgetRegistry.Default.IsAvailableForSession(widget, restored));
+        Assert.False(TestServices.CreateWidgetContentFactory().CanCreateDetachedContent(WidgetKind.SevenPaws));
+    }
+
+    [Fact]
     public void Default_KnowsFutureWidgetKindsAndCreatesImplementedWindows()
     {
         var registry = WidgetRegistry.Default;

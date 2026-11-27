@@ -36,7 +36,7 @@ export class ResidentReads {
   history() { return [...this.records.values()].sort((a, b) => a.event_id - b.event_id); }
 }
 
-const states = { walk: '行走', work: '工作', rest: '休息', talk: '交谈', player_talk: '与玩家交谈', follow: '跟随', wait: '等待' };
+const states = { walk: '行走', work: '工作', rest: '休息', talk: '交谈', help: '帮助', observe: '观察', use_item: '使用道具', player_talk: '与玩家交谈', follow: '跟随', wait: '等待' };
 const jobs = { farmer: '农民', merchant: '商人', craftsman: '工匠' };
 const label = npc => `${jobs[npc.occupation] || npc.occupation || '村民'} · ${states[npc.runtime?.state] || npc.runtime?.state || '休息'}`;
 const element = (tag, text, className) => Object.assign(document.createElement(tag), { textContent: text ?? '', ...(className ? { className } : {}) });
@@ -324,6 +324,8 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
       add('人格', text(d.profile?.personality)); add('说话方式', d.profile?.speech_style);
       add('家庭背景', d.profile?.family_background); add('价值观', text(d.profile?.values)); add('恐惧', text(d.profile?.fears));
       add('近期目标', d.profile?.short_term_goal); add('长期目标', d.profile?.long_term_goal);
+      add('当前目标', d.runtime?.current_goal || d.profile?.short_term_goal);
+      add('欲望/需求', d.runtime?.needs ? Object.entries(d.runtime.needs).map(([key, value]) => `${key}：${value}`).join('、') : '');
       add('家', d.home ? `${d.home.home_asset_name || d.home.home_asset_id} (${d.home.tile_x}, ${d.home.tile_y})` : '');
       add('余额', String(d.balance ?? 0)); add('库存', (d.inventory || []).map(i => `${i.item_id} × ${i.quantity}`).join('、') || '空');
       add('当前任务', d.task ? `${states[d.task.action] || d.task.action} · ${d.task.target_id || '当前位置'} · ${d.task.status}（路线 ${d.task.route_cursor}/${Math.max(0,d.task.route_length-1)}）` : '暂无任务');
@@ -347,6 +349,19 @@ export function createResidents({ host, locate, stopFollowing, avatarUrl, clearK
         card.append(head, track, element('small', statLevels[key] || '一般')); statGrid.append(card);
       });
       body.append(statGrid);
+      const personalityNames = { courage: '勇气', kindness: '善良', curiosity: '好奇', sociability: '社交', diligence: '勤奋', caution: '谨慎', creativity: '创造力', independence: '独立性' };
+      const personalityProjection = d.personality && typeof d.personality === 'object' ? d.personality : {};
+      const personalityValues = personalityProjection.values || {};
+      const personalityLevels = personalityProjection.levels || {};
+      const personalityGrid = element('div', '', 'resident-stat-grid');
+      Object.entries(personalityNames).forEach(([key, name]) => {
+        const value = Math.max(1, Math.min(100, Number(personalityValues[key] ?? 50)));
+        const card = element('div', '', 'resident-stat');
+        const head = element('div', '', 'resident-stat-head'); head.append(element('span', name), element('strong', `${value}`));
+        const track = element('div', '', 'resident-meter'); const fill = element('i'); fill.style.width = `${value}%`; track.append(fill);
+        card.append(head, track, element('small', personalityLevels[key] || '一般')); personalityGrid.append(card);
+      });
+      const personalityTitle = element('h3', '稳定人格'); personalityTitle.style.margin = '8px 0 4px'; body.append(personalityTitle, personalityGrid);
       const metrics = element('div', '', 'resident-metrics');
       const meter = (name, value, detail) => {
         if (!Number.isFinite(value)) return;

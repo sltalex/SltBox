@@ -61,7 +61,8 @@ public enum WidgetTitleIconKind
     Tree,
     Aquarium,
     DingTalkGroupDocs,
-    Calendar
+    Calendar,
+    SevenPaws
 }
 
 public static class WidgetTitleIconKindNames
@@ -81,6 +82,7 @@ public static class WidgetTitleIconKindNames
     public const string Aquarium = nameof(WidgetTitleIconKind.Aquarium);
     public const string DingTalkGroupDocs = nameof(WidgetTitleIconKind.DingTalkGroupDocs);
     public const string Calendar = nameof(WidgetTitleIconKind.Calendar);
+    public const string SevenPaws = nameof(WidgetTitleIconKind.SevenPaws);
 
     public static WidgetTitleIconKind NormalizeKind(string? value)
     {
@@ -107,6 +109,7 @@ public static class WidgetTitleIconKindNames
             WidgetTitleIconKind.Aquarium => Aquarium,
             WidgetTitleIconKind.DingTalkGroupDocs => DingTalkGroupDocs,
             WidgetTitleIconKind.Calendar => Calendar,
+            WidgetTitleIconKind.SevenPaws => SevenPaws,
             _ => Default
         };
     }
@@ -133,6 +136,7 @@ public static class WidgetTitleIconKindNames
             WidgetKind.Aquarium => Aquarium,
             WidgetKind.DingTalkGroupDocs => DingTalkGroupDocs,
             WidgetKind.Calendar => Calendar,
+            WidgetKind.SevenPaws => SevenPaws,
             _ => Default
         };
     }
@@ -176,6 +180,7 @@ public static class WidgetTitleIconKindNames
             WidgetTitleIconKind.Aquarium => "Widget.Settings.Aquarium",
             WidgetTitleIconKind.DingTalkGroupDocs => "Widget.Settings.DingTalkGroupDocs",
             WidgetTitleIconKind.Calendar => "Calendar.Title",
+            WidgetTitleIconKind.SevenPaws => "SevenPaws.Title",
             _ => "WidgetTitleIcon.Label.Default"
         };
     }
@@ -198,6 +203,7 @@ public static class WidgetTitleIconKindNames
             WidgetTitleIconKind.Aquarium => "aquarium",
             WidgetTitleIconKind.DingTalkGroupDocs => "dingtalk-group-docs",
             WidgetTitleIconKind.Calendar => "calendar",
+            WidgetTitleIconKind.SevenPaws => "seven-paws",
             _ => "default"
         };
     }

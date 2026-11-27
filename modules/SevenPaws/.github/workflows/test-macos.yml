@@ -1,0 +1,61 @@
+name: Test macOS arm64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  macos-arm64:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: aarch64-apple-darwin
+
+      - run: pnpm install --frozen-lockfile
+      - run: rustup target add aarch64-apple-darwin
+
+      - name: Build DMG (arm64)
+        run: pnpm tauri build --target aarch64-apple-darwin
+
+      - name: Verify Mach-O and code signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="src-tauri/target/aarch64-apple-darwin/release/7paws"
+          file "${binary}"
+          file "${binary}" | grep -q "arm64"
+          app="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/7paws.app"
+          codesign -dv --verbose=4 "${app}" 2>&1 | tee codesign.txt
+          grep -q "Identifier=com.qoder.7paws" codesign.txt
+          if grep -q "Info.plist=not bound" codesign.txt; then
+            echo "the app bundle is not signed with its Info.plist bound" >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-arm64-test
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error

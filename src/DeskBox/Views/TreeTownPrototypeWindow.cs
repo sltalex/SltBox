@@ -138,7 +138,7 @@ internal sealed partial class TreeTownPrototypeWindow : Window
             // WebView2 retains the virtual-host document in its profile cache;
             // changing only a module query string can therefore leave an old
             // two-slice index importing the previous renderer.
-            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html?v=20261120-dialogue-reply2");
+            _web.Source = new Uri($"https://{VirtualHost}/TownPrototype/index.html?v=20261120-npc-humanization1");
             _ = CheckReadyAsync();
         }
         catch (Exception ex) { ShowFailure(ex); }

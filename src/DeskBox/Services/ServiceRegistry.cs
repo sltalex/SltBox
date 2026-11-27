@@ -23,6 +23,8 @@ public static class ServiceRegistry
             new DeskBoxAuthSession(sp.GetRequiredService<ICredentialStore>()));
         services.AddSingleton<IAuthSession>(sp => sp.GetRequiredService<DeskBoxAuthSession>());
         services.AddSingleton<IAuthenticatedAccountApi>(sp => sp.GetRequiredService<DeskBoxAuthSession>());
+        services.AddSingleton<SevenPawsDesktopService>(sp => new SevenPawsDesktopService(
+            sp.GetRequiredService<IAuthSession>(), sp.GetRequiredService<IAuthenticatedAccountApi>()));
         services.AddSingleton<IDingTalkDwsClient>(_ => new DingTalkDwsClient());
         services.AddSingleton<DingTalkGroupDocumentCloudStore>(sp =>
             new DingTalkGroupDocumentCloudStore(sp.GetRequiredService<IAuthenticatedAccountApi>(),

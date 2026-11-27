@@ -1,4 +1,16 @@
 {
+  "SevenPaws.Shop.FishMeal": "Fish meal",
+  "SevenPaws.Shop.WoolBall": "Wool ball",
+  "SevenPaws.Shop.BellBadge": "Bell nameplate",
+  "SevenPaws.Shop.StarGlow": "Starlight effect",
+  "WidgetContent.SevenPaws.StatusLabel": "Ready",
+
+  "SevenPaws.Title": "7paws Cat",
+
+  "SevenPaws.LoadFailed": "The cat could not load. Reopen this widget to retry.",
+
+  "WidgetContent.SevenPaws.StatusDescription": "Transparent desktop cat with dragging, right-click settings, petting and keyboard/mouse reactions.",
+
   "DingTalkGroupDocs.Manual.Add": "Hinzufügen",
   "DingTalkGroupDocs.Manual.Name": "Dokumentname",
   "DingTalkGroupDocs.Manual.Url": "Dokument-URL (http:// oder https://)",

@@ -706,6 +706,7 @@ public sealed partial class WidgetManager
             WidgetKind.Tree => "Tree.Title",
             WidgetKind.Aquarium => "Aquarium.Title",
             WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
+            WidgetKind.SevenPaws => "SevenPaws.Title",
             _ => null
         };
         if (!string.IsNullOrWhiteSpace(localizationKey))

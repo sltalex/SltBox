@@ -433,7 +433,7 @@ public sealed class MarkdownAndSplitterContractTests
         Assert.Contains("DetailDraft", transientState, StringComparison.Ordinal);
         Assert.Contains("WidgetKind.QuickCapture,\n                async request => await CreateContentWidgetFromConfigAsync", manager.ReplaceLineEndings("\n"), StringComparison.Ordinal);
         Assert.Contains("CreateContentWidgetFromConfigAsync(config)", features, StringComparison.Ordinal);
-        Assert.Contains("return FeatureWidgetSettings.IsFeatureWidget(kind);", features, StringComparison.Ordinal);
+        Assert.Contains("return kind != WidgetKind.SevenPaws && FeatureWidgetSettings.IsFeatureWidget(kind);", features, StringComparison.Ordinal);
     }
 
     [Fact]

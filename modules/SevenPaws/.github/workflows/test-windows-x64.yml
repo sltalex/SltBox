@@ -1,0 +1,81 @@
+name: Test Windows x64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: x86_64-pc-windows-msvc
+
+      - run: pnpm install --frozen-lockfile
+      - run: rustup target add x86_64-pc-windows-msvc
+
+      - name: Build NSIS (x64)
+        run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis
+
+      - name: Verify PE architecture
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/x86_64-pc-windows-msvc/release/7paws.exe"
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          if ($machine -ne 0x8664) {
+            throw ("Unexpected PE machine 0x{0:X4}" -f $machine)
+          }
+          Write-Host ("PE machine OK: 0x{0:X4}" -f $machine)
+
+      - name: Package test artifacts
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $sha = $env:GITHUB_SHA
+          $shortSha = $sha.Substring(0, 7)
+          $release = "src-tauri/target/x86_64-pc-windows-msvc/release"
+          $out = "test-artifact"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $installer = Get-Item (Join-Path $release "bundle/nsis/*.exe")
+          Copy-Item $installer.FullName (Join-Path $out $installer.Name)
+          $portable = Join-Path $out "7paws_${version}_${shortSha}_x64-portable.zip"
+          Compress-Archive -Path (Join-Path $release "7paws.exe") -DestinationPath $portable -Force
+          $hashes = Get-ChildItem $out -File | Where-Object { $_.Extension -in ".exe", ".zip" } | Get-FileHash -Algorithm SHA256
+          $hashes | ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } | Set-Content (Join-Path $out "SHA256SUMS.txt") -Encoding utf8
+          @(
+            "7paws Windows x64 test build",
+            "Version: $version",
+            "Branch: $env:GITHUB_REF_NAME",
+            "Commit: $sha",
+            "Run: $env:GITHUB_RUN_ID"
+          ) | Set-Content (Join-Path $out "build-info.txt") -Encoding utf8
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: 7paws-windows-x64-test-${{ github.sha }}
+          path: test-artifact/*
+          if-no-files-found: error

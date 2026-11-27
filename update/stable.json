@@ -1,18 +1,21 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "2026111801",
-  "releaseDate": "2026-11-19",
+  "version": "2026112701",
+  "releaseDate": "2026-11-27",
   "mandatory": false,
-  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026111902/SltBox_Setup_2026111902_x64.exe",
-  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026111902_x64.exe",
+  "downloadUrl": "https://github.com/sltalex/SltBox/releases/download/v2026112701/SltBox_Setup_2026112701_x64.exe",
+  "mirrorUrl": "http://sltbox.2leaves.cn/releases/SltBox_Setup_2026112701_x64.exe",
   "manualDownloadUrl": "https://github.com/sltalex/SltBox/releases",
-  "sha256": "a220769fb988798109258077ac13df104e811ba0fbbc650f2047d264e10e9c4c",
-  "size": 158437535,
-  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026111902",
+  "sha256": "de6864468b7cafe92867d575d150b1a89aeb134a2f8d164ca447aedbe607532c",
+  "size": 160064583,
+  "releaseNotesUrl": "https://github.com/sltalex/SltBox/releases/tag/v2026112701",
   "summary": {
-    "zh-CN": "SltBox 2026111902：共享小镇、NPC 实时交互、素材编辑和随记待办体验更新。",
-    "en-US": "SltBox 2026111902 updates shared-town realtime NPC interaction, asset editing, and note/todo presentation."
+    "zh-CN": "SltBox 2026112701：桌面小猫、多账号互动、养成与共享金币商店；东部小镇独立运行。",
+    "en-US": "SltBox 2026112701 adds desktop cats, direct social play, pet growth and a shared account-coin shop; East Town runs separately."
+  },
+  "releaseNotes": {
+    "zh-CN": "# SltBox 2026112701\n\n## 桌面小猫，随时陪伴\n\n- 新增「7paws 小猫」功能开关。开启后，小猫直接显示在桌面上，支持拖动、右键设置、摸猫呼噜，以及跟随键盘和鼠标动作。\n- 打字时显示对应按键气泡；开启隐私模式后使用匿名拍爪，不上传键盘内容。\n- 猫咪外观和名字随 Box 账号同步，不同账号独立保存；位置、大小和键盘显示选项保留在本机。\n\n## 直接串门，一起专注\n\n- 可按账号、猫咪名字或猫咪码查找其他小猫，无需加好友或双方确认。\n- 支持赠送鱼干、串门 10 分钟、双人专注 25 分钟，以及挥爪、击掌和庆祝动作；双方均可随时结束陪伴。\n- 完成双人专注后，双方各获得 10 鱼干和 15 经验；每日可领取 5 鱼干。\n- 新增在线、忙碌和离线状态，以及最近互动记录和桌面提醒。\n\n## 养成与金币商店\n\n- 新增饱食度、心情、经验和等级。喂食、陪玩及完成专注可获得经验；升级解锁开心转圈、贴心伙伴名牌和爱心特效。\n- 商店使用 Box 账户金币，与水族箱及树装饰共用余额和消费记录。鱼干保留用于互动赠礼。\n- 小鱼饭 20 金币，毛线球 1500 金币，铃铛名牌 2000 金币，星光特效 3000 金币。小鱼饭为消耗品，其余物品购买一次可永久使用。\n- 购买支持余额校验、防重复扣款及失败回滚；不同账号的钱包和库存相互独立。\n- 「开饭啦」等提醒移至小猫上方，不再遮挡猫脸；保留小猫原有大小和点击穿透行为。\n\n## 其他调整\n\n- 东部小镇已拆分为独立应用，从 Box 控制面板移除，不再随本安装包分发。\n- 优化共享小镇的 NPC 状态、对话记录与地图资源刷新；改善待办步骤的右键交互。\n\n本次发布 Windows x64 官网版安装包。升级保留现有账号、格子设置和猫咪存档。\n\n验证：完整 x64 测试 5371 项通过，猫咪服务 88 项检查通过；原生 AOT 构建和安装载荷审计通过。\n",
+    "en-US": "## Desktop cats and account play\n\n- Add transparent desktop cats with account-isolated appearance sync and local positioning.\n- Browse accounts and interact directly without friend requests or mutual approval. Send fish, visit for 10 minutes, focus together for 25 minutes, and share waves, high-fives and celebration.\n- Add hunger, mood, experience, levels, rewards, recent activity and desktop notices.\n- Cat shop purchases now use the shared Box account-coin wallet and transaction ledger. Fish remain for gifts and companion rewards.\n- Shop prices: fish meal 20 coins, yarn ball 1,500, bell nameplate 2,000 and starlight effect 3,000.\n- Move reminder bubbles above the cat.\n- Extract East Town as a separate application; it is no longer packaged with Box.\n- Improve shared-town NPC status and map-asset refresh and refine todo context actions."
   }
 }
-

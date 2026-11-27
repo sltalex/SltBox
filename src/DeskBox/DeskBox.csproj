@@ -9,10 +9,10 @@
     <Product>SltBox</Product>
     <Title>SltBox</Title>
     <Description>SltBox desktop organizer</Description>
-    <Version>2026111902</Version>
-    <AssemblyVersion>2026.11.18.1</AssemblyVersion>
-    <FileVersion>2026.11.19.2</FileVersion>
-    <InformationalVersion>2026111801</InformationalVersion>
+    <Version>2026112701</Version>
+    <AssemblyVersion>2026.11.27.1</AssemblyVersion>
+    <FileVersion>2026.11.27.1</FileVersion>
+    <InformationalVersion>2026112701</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
@@ -298,6 +298,10 @@
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       </Content>
+    <Content Include="Assets\SevenPaws\native\**\*;Assets\SevenPaws\LICENSE.txt;Assets\SevenPaws\UPSTREAM.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Content Include="Assets\Tree\ThreeD\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

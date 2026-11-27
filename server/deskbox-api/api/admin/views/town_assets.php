@@ -168,7 +168,7 @@
 <label class="tn-f tn-span2" title="画到地图上时实际显示的高度，一般与框选高度一致"><span>显示高</span><input name="display_height" type="number" min="16" step="16" value="16" required></label>
 </div>
 <details class="tn-more">
-<summary>更多参数（拆分线 / 标签 / 锚点 / 占地 / 碰撞 / 导航）</summary>
+<summary>更多参数（拆分线 / 标签 / 锚点 / 占地 / 碰撞 / 导航 / 可供性）</summary>
 <div class="tn-grid">
 <label class="tn-f tn-wide" title="仅在“房屋前后景拆分”排序下生效：按从上到下填写 Y 像素分界；两条分界线会生成上方前景、中段随人物脚底排序、下方背景三段，例如 48,96。高建筑未填写时客户端会按三等分自动兜底"><span>拆分线 Y</span><input name="split_lines" type="text" inputmode="numeric" placeholder="三段示例：48,96"></label>
 <label class="tn-f tn-wide" title="给素材打的自定义标签，JSON 数组格式，例如 [&quot;house&quot;,&quot;autumn&quot;]，可留空"><span>标签</span><input name="tags" value="[]"></label>
@@ -176,6 +176,7 @@
 <label class="tn-f" title="占地格数，JSON 格式，例如 {&quot;width&quot;:4,&quot;height&quot;:5}；框选后会自动识别，也可以手动改"><span>占地</span><input name="footprint" value="" placeholder="框选后自动识别"><button type="button" data-recalculate-footprint>重新计算</button></label>
 <label class="tn-f" title="不可行走区域，JSON 格式；x/y/宽/高 都是相对素材的比例（0~1），留空表示整块都能走"><span>碰撞</span><input name="collision" value='{"x":0.1,"y":0.55,"width":0.8,"height":0.4}'></label>
 <label class="tn-f" title="NPC 通行规则，JSON 格式；type=blocked 表示阻挡，blocked_npc=true 表示 NPC 不能通过，required_capabilities 为通过所需能力"><span>导航</span><input name="navigation" value='{"type":"blocked","blocked_npc":true,"required_capabilities":[]}'></label>
+<label class="tn-f tn-wide" title="地点可执行用途，JSON 格式。未知动作会拒绝保存；例如房屋可配置 rest、sleep、shelter"><span>可供性</span><textarea name="affordances" rows="3" placeholder='{"actions":["rest","sleep","shelter"],"interaction_points":[{"x":0,"y":0}],"label":"村民的家"}'>{"actions":[],"interaction_points":[],"label":""}</textarea></label>
 <small class="tn-status" data-footprint-status></small>
 </div>
 </details>
@@ -238,7 +239,7 @@
 </label>
 </div>
 <details class="tai-more">
-<summary title="子分类、拆分线、显示尺寸、占地、碰撞与保存用的隐藏字段">更多参数（子分类 / 拆分线 / 显示尺寸 / 占地 / 碰撞）</summary>
+<summary title="子分类、拆分线、显示尺寸、占地、碰撞、可供性与保存用的隐藏字段">更多参数（子分类 / 拆分线 / 显示尺寸 / 占地 / 碰撞 / 可供性）</summary>
 <div class="grp grp-more">
 <label class="tf" title="自由填写的二级分类，仅用于筛选检索"><span>子分类</span><input form="<?= admin_page_escape($editId) ?>" name="subcategory" value="<?= admin_page_escape($item['subcategory']) ?>" placeholder="如 house" title="二级分类，仅用于筛选检索"></label>
 <label class="tf" title="仅“前后景拆分”层级生效"><span>拆分线Y</span><input form="<?= admin_page_escape($editId) ?>" name="split_lines" type="text" inputmode="numeric" value="<?= admin_page_escape(implode(',', array_map('intval', $item['split_lines'] ?? (($item['split_y'] ?? null) !== null ? [(int)$item['split_y']] : [])))) ?>" placeholder="三段示例：48,96" title="按从上到下填写 Y 像素分界；两条线生成上方前景、中段随人物脚底排序、下方背景；高建筑未填写时客户端按三等分自动兜底"></label>
@@ -246,6 +247,7 @@
 <label class="tf" title="素材在小镇里实际显示的宽高（像素）"><span>显示高</span><input form="<?= admin_page_escape($editId) ?>" name="display_height" type="number" min="16" step="16" value="<?= (int)$item['display_height'] ?>" title="显示高度（像素），默认等于裁切高度"></label>
 <label class="tf" title="占多少格：16 像素 = 1 格"><span>占地</span><input form="<?= admin_page_escape($editId) ?>" name="footprint" type="text" value="<?= admin_page_escape(json_encode($item['footprint'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>" title="JSON：{width,height} 表示占几格，框选后自动计算，可手改"></label>
 <label class="tf" title="可碰撞范围的相对比例"><span>碰撞</span><input form="<?= admin_page_escape($editId) ?>" name="collision" type="text" value="<?= admin_page_escape(json_encode($item['collision'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>" title="JSON：{x,y,width,height} 为碰撞范围占整张素材的比例"></label>
+<label class="tf tf-wide" title="地点可执行用途。动作只能使用 rest、sleep、shelter、shop、buy、sell、farm、plant、water_crops、harvest、workshop、craft、repair、read、learn、talk、gather_water、fish、observe、gather、meet"><span>可供性</span><textarea form="<?= admin_page_escape($editId) ?>" name="affordances" rows="3" title="JSON：actions、interaction_points、label"><?= admin_page_escape(admin_page_json($item['affordances'] ?? ['actions'=>[],'interaction_points'=>[],'label'=>''])) ?></textarea></label>
 </div>
 <form id="<?= admin_page_escape($editId) ?>" method="post">
 <input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">

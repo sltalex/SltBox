@@ -1,5 +1,7 @@
 # DeskBox
 
+当前官网版：**[SltBox 2026112701](https://github.com/sltalex/SltBox/releases/tag/v2026112701)**（Windows x64）。新增桌面小猫、账号互动、成长与金币商店；东部小镇独立运行，不再随 Box 打包。[完整更新说明](update/release-notes-2026112701.md)。
+
 **本地优先的 Windows 10/11 桌面整理工具：用格子管理文件、文件夹、时光、待办、随记、搜索、天气和音乐。**
 
 简体中文 | [English](README.md)

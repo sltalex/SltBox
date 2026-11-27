@@ -1122,6 +1122,7 @@ public partial class App : Application
                 WidgetManager = new WidgetManager(SettingsService, FileService, OrganizerService,
                     themeService, quickCaptureService, localizationService, _todoSettings,
                     _quickCaptureSettings, _searchSettings);
+                WidgetManager.ConfigureSevenPaws(Services.GetRequiredService<SevenPawsDesktopService>());
                 WidgetManager.TrayLayerStateChanged += UpdateTrayLayerStateText;
                 // Lets a quick-reveal raise promote already-open DeskBox surfaces
                 // (search popup, settings, desktop organization) above the raised

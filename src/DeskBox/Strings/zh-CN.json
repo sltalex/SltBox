@@ -1,4 +1,16 @@
 {
+  "SevenPaws.Shop.FishMeal": "小鱼饭",
+  "SevenPaws.Shop.WoolBall": "毛线球",
+  "SevenPaws.Shop.BellBadge": "铃铛名牌",
+  "SevenPaws.Shop.StarGlow": "星光特效",
+  "WidgetContent.SevenPaws.StatusLabel": "已就绪",
+
+  "SevenPaws.Title": "7paws 小猫",
+
+  "SevenPaws.LoadFailed": "小猫暂时无法显示，请重新打开格子。",
+
+  "WidgetContent.SevenPaws.StatusDescription": "桌面透明小猫，支持拖动、右键设置、摸猫呼噜和键鼠互动。",
+
   "DingTalkGroupDocs.Manual.Add": "添加",
   "DingTalkGroupDocs.Manual.Name": "文档名字",
   "DingTalkGroupDocs.Manual.Url": "文档地址（http:// 或 https://）",

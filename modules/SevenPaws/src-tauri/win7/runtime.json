@@ -1,0 +1,7 @@
+{
+  "version": "109.0.1518.78",
+  "architecture": "x64",
+  "size": 207090243,
+  "sha256": "7622281cf83de1a35e3a471f432f7a897d65f0a7d3975df08512b7b253dd45c7",
+  "url": "https://github.com/westinyang/WebView2RuntimeArchive/releases/download/109.0.1518.78/Microsoft.WebView2.FixedVersionRuntime.109.0.1518.78.x64.cab"
+}

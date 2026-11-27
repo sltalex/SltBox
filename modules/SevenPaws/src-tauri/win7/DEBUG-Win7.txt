@@ -1,0 +1,13 @@
+Win7 帧链路诊断
+
+1. 完全退出 7paws。
+2. 删除本目录旧的 win7-diagnostic.log（如果存在）。
+3. 在本目录打开 PowerShell，运行：
+
+$env:SEVENPAWS_WIN7_DEBUG = "1"
+Start-Process .\7paws.exe
+
+4. 等待约 5 秒，然后退出 7paws。
+5. 把本目录生成的 win7-diagnostic.log 发回。
+
+日志只包含窗口初始化、WebGL 状态、帧尺寸、alpha 统计和系统错误码，不包含按键或鼠标内容。

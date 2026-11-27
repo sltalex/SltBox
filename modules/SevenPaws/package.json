@@ -1,0 +1,25 @@
+{
+  "name": "7paws",
+  "version": "0.4.2",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:win7": "pnpm build && cargo build --manifest-path src-tauri/Cargo.toml --release --features win7 --target-dir src-tauri/target-win7",
+    "verify:win7": "node scripts/verify-win7-pe.mjs src-tauri/target-win7/release/7paws.exe"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.2.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.7",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

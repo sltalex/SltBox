@@ -61,7 +61,8 @@ public sealed class WidgetContentFactoryTests
             WidgetKind.Tree,
             WidgetKind.Aquarium,
             WidgetKind.DingTalkGroupDocs,
-            WidgetKind.Calendar
+            WidgetKind.Calendar,
+            WidgetKind.SevenPaws
         ], descriptors.Select(descriptor => descriptor.WidgetKind));
     }
 
@@ -139,7 +140,8 @@ public sealed class WidgetContentFactoryTests
             WidgetKind.Tree,
             WidgetKind.Aquarium,
             WidgetKind.DingTalkGroupDocs,
-            WidgetKind.Calendar
+            WidgetKind.Calendar,
+            WidgetKind.SevenPaws
         ], descriptors.Select(descriptor => descriptor.WidgetKind));
         Assert.DoesNotContain(descriptors, descriptor => descriptor.WidgetKind == WidgetKind.File);
         Assert.DoesNotContain(descriptors, descriptor => descriptor.IsPlanned);

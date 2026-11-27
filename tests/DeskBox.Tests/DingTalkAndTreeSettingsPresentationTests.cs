@@ -86,7 +86,7 @@ public sealed class DingTalkAndTreeSettingsPresentationTests
         string index = Read("src/DeskBox/Assets/Tree/TownPrototype/index.html");
         string renderer = Read("src/DeskBox/Assets/Tree/TownPrototype/town.js");
 
-        const string version = "20261117-house-split27";
+        const string version = "20261120-npc-humanization1";
         Assert.Contains($"index.html?v={version}", window, StringComparison.Ordinal);
         Assert.Contains($"town.js?v={version}", index, StringComparison.Ordinal);
         Assert.Contains($"town-depth.js?v={version}", renderer, StringComparison.Ordinal);

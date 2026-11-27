@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSInputMonitoringUsageDescription</key>
+  <string>7paws 需要读取全局键盘和鼠标输入来驱动小猫动作，不会记录、保存或上传按键内容。</string>
+</dict>
+</plist>

@@ -153,10 +153,21 @@ function town_story_event_sanitize_draft(PDO $pdo, array $draft, array $policy):
             $relationship['affinity'] = max(-10, min(10, (int)($rawRelationship['affinity'] ?? 0)));
         }
         $memory = is_array($effect['memory'] ?? null) ? $effect['memory'] : [];
-        $memory = ['content' => mb_substr(trim((string)($memory['content'] ?? ($title . '：' . $summary))), 0, 500, 'UTF-8'), 'importance' => max(1, min(5, (int)($memory['importance'] ?? 3)))];
+        $memory = [
+            'content' => mb_substr(trim((string)($memory['content'] ?? ($title . '：' . $summary))), 0, 500, 'UTF-8'),
+            'importance' => max(1, min(5, (int)($memory['importance'] ?? 3))),
+            'observation' => mb_substr(trim((string)($memory['observation'] ?? '')), 0, 800, 'UTF-8'),
+            'interpretation' => mb_substr(trim((string)($memory['interpretation'] ?? '')), 0, 800, 'UTF-8'),
+            'thought' => mb_substr(trim((string)($memory['thought'] ?? '')), 0, 800, 'UTF-8'),
+            'reasoning' => mb_substr(trim((string)($memory['reasoning'] ?? '')), 0, 800, 'UTF-8'),
+            'belief' => mb_substr(trim((string)($memory['belief'] ?? '')), 0, 800, 'UTF-8'),
+            'conclusion' => mb_substr(trim((string)($memory['conclusion'] ?? '')), 0, 800, 'UTF-8'),
+            'intention' => mb_substr(trim((string)($memory['intention'] ?? '')), 0, 800, 'UTF-8'),
+            'plan' => is_array($memory['plan'] ?? null) ? town_story_event_normalize_value($memory['plan']) : [],
+        ];
         $task = is_array($effect['task'] ?? null) ? $effect['task'] : [];
         $taskAction = strtolower(trim((string)($task['action'] ?? '')));
-        if (!in_array($taskAction, ['walk', 'work', 'rest', 'talk', 'trade'], true)) $task = [];
+        if (!in_array($taskAction, ['walk', 'work', 'rest', 'talk', 'trade', 'observe', 'help', 'use_item'], true)) $task = [];
         else {
             $taskTargetNpc = trim((string)($task['target_npc_id'] ?? ''));
             $knownTarget = town_story_event_normalize_value($task['known_target'] ?? []);
@@ -176,6 +187,17 @@ function town_story_event_sanitize_draft(PDO $pdo, array $draft, array $policy):
     }
     foreach ($participants as $npcId => $_) if (!isset($effects[$npcId])) $effects[$npcId] = ['npc_id' => $npcId, 'stat_delta' => [], 'relationship_delta' => [], 'memory' => ['content' => $title . '：' . $summary, 'importance' => 3], 'task' => []];
     return ['title' => $title, 'summary' => $summary, 'story' => $story, 'participants' => array_values($participants), 'effects' => array_values($effects), 'template_key' => mb_substr(trim((string)($draft['template_key'] ?? 'ai_story')), 0, 64, 'UTF-8') ?: 'ai_story'];
+}
+
+/** Every participant receives a physical task. Missing model tasks use a deterministic role-aware fallback. */
+function town_story_event_default_task(array $template, int $index, array $selected, string $summary): array
+{
+    $base = is_array($template['task'] ?? null) ? $template['task'] : ['action' => 'walk', 'target_id' => 'town-square', 'job' => 'observe_event', 'duration_minutes' => 5];
+    if ($index === 0) { $base['dialogue'] = $summary; return $base; }
+    return [
+        'action' => 'observe', 'target_id' => (string)($base['target_id'] ?? 'town-square'),
+        'job' => 'join_event', 'duration_minutes' => 5,
+    ];
 }
 
 function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed = null, ?array $draft = null, ?string $modelRunId = null, ?string $templateKeyOverride = null, bool $manual = false): array
@@ -239,14 +261,8 @@ function town_story_event_generate(PDO $pdo, DateTimeImmutable $now, ?int $seed 
         $relationship = is_array($draftEffect) ? ($draftEffect['relationship_delta'] ?? []) : [];
         $memory = is_array($draftEffect) ? ($draftEffect['memory'] ?? []) : ['content' => $title . '：' . $summary, 'importance' => 3];
         $task = is_array($draftEffect) ? ($draftEffect['task'] ?? []) : [];
-        // Rule events always produce at least one durable participant task.
-        // The second participant is left as an observation participant; this
-        // avoids two NPCs racing to reserve the same face-to-face interaction.
-        if (!is_array($modelStory) && $index === 0 && count($selected) > 1) {
-            $task = is_array($template['task'] ?? null) ? $template['task'] : ['action' => 'talk', 'target_npc_id' => (string)$selected[1]['npc_id'], 'known_target' => [], 'duration_minutes' => 5, 'dialogue' => $summary];
-            if (($task['action'] ?? '') === 'talk') $task['target_npc_id'] = (string)$selected[1]['npc_id'];
-            $task['dialogue'] = $summary;
-        }
+        if (!is_array($modelStory) && ($task === [] || $index > 0)) $task = town_story_event_default_task($template, $index, $selected, $summary);
+        if ($task === []) $task = town_story_event_default_task($template, $index, $selected, $summary);
         $task = town_story_event_normalize_value($task); if (!is_array($task)) $task = [];
         $effectInsert = $pdo->prepare('INSERT INTO town_story_event_effects (event_id,npc_id,stat_delta_json,relationship_delta_json,memory_json,task_payload_json) VALUES (:event,:npc,:delta,:relationship,:memory,:task)');
         $effectInsert->execute([':event' => $eventId, ':npc' => $npcId, ':delta' => json_encode($delta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':relationship' => json_encode($relationship, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':memory' => json_encode($memory, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':task' => json_encode($task, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
@@ -342,7 +358,23 @@ function town_story_event_resolve(PDO $pdo, string $eventId, DateTimeImmutable $
         $before = town_npc_stats_for($pdo, (string)$effect['npc_id']); $values = $before['values']; foreach ($delta as $key => $amount) if (in_array($key, TOWN_NPC_STAT_KEYS, true)) $values[$key] = max(1, min(100, (int)$values[$key] + max(-15, min(15, (int)$amount))));
         town_npc_stats_save($pdo, (string)$effect['npc_id'], $values, 'story_event', $eventId, (string)$event['title'], $now);
         $memory = json_decode((string)$effect['memory_json'], true);
-        if (!$participantFailed && is_array($memory) && function_exists('town_npc_insert_spatial_memory')) town_npc_insert_spatial_memory($pdo, (string)$effect['npc_id'], 'story_event', (string)($memory['content'] ?? $event['title']), max(1, min(5, (int)($memory['importance'] ?? 3))), $now);
+        if (is_array($memory)) {
+            $memoryContent = (string)($memory['content'] ?? $event['title']);
+            $cognition = [
+                'observation' => (string)($memory['observation'] ?? $event['title'] . '：' . $event['summary']),
+                'interpretation' => (string)($memory['interpretation'] ?? '我需要把事件中的实际行动和结果结合起来判断。'),
+                'thought_summary' => (string)($memory['thought'] ?? ($participantFailed ? '这次行动没有按计划完成。' : '这次经历让我更了解小镇。')),
+                'reasoning_summary' => (string)($memory['reasoning'] ?? '根据我的状态、人格和行动结果形成判断。'),
+                'belief' => (string)($memory['belief'] ?? ''),
+                'conclusion' => $participantFailed ? '参与任务失败：' . (string)($participantState['task_status'] ?? 'blocked') : (string)($memory['conclusion'] ?? '事件任务已完成。'),
+                'intention' => (string)($memory['intention'] ?? '重新评估下一步计划。'),
+                'plan_json' => is_array($memory['plan'] ?? null) ? $memory['plan'] : ['next' => $participantFailed ? 'find_alternative' : 'reflect'],
+                'confidence' => $participantFailed ? 0.55 : 0.8,
+                'source_event_id' => $eventId,
+            ];
+            if (function_exists('town_npc_insert_cognitive_memory')) town_npc_insert_cognitive_memory($pdo, (string)$effect['npc_id'], 'story_event', $memoryContent, max(1, min(5, (int)($memory['importance'] ?? 3))), $now, $cognition);
+            elseif (function_exists('town_npc_insert_spatial_memory')) town_npc_insert_spatial_memory($pdo, (string)$effect['npc_id'], 'story_event', $memoryContent, max(1, min(5, (int)($memory['importance'] ?? 3))), $now);
+        }
         $relationship = json_decode((string)($effect['relationship_delta_json'] ?? '{}'), true);
         if (!$participantFailed && is_array($relationship) && preg_match('/\A[a-f0-9]{32}\z/D', (string)($relationship['target_npc_id'] ?? '')) && function_exists('town_npc_save_relationship') && town_npc_life_table_exists($pdo, 'town_npc_relationships')) {
             $targetNpc = (string)$relationship['target_npc_id'];

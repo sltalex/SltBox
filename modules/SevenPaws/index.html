@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>7paws</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        function show(message) {
+          var el = document.createElement("div");
+          el.style.cssText =
+            "position:fixed;z-index:9999;left:0;right:0;top:0;padding:8px 10px;" +
+            "background:#b3261e;color:#fff;font:12px/1.45 Consolas,monospace;white-space:pre-wrap;";
+          el.textContent = "启动失败: " + message;
+          document.body.appendChild(el);
+        }
+        window.addEventListener("error", function (e) {
+          if (e && e.message) show(e.message);
+          else if (e && e.target && e.target.src) show("failed to load " + e.target.src);
+        }, true);
+        window.addEventListener("unhandledrejection", function (e) {
+          show(String((e && e.reason) || e));
+        });
+      })();
+    </script>
+    <div id="stage" role="img" aria-label="7paws 小猫桌宠预览"></div>
+
+    <div id="permNotice" class="perm hidden" role="status">
+      macOS 需要「辅助功能」（macOS 26/27 显示为「设备控制与数据访问」）和「输入监控」权限：系统设置 → 隐私与安全性，勾选 7paws 后完全退出并重新打开应用。
+    </div>
+
+    <script src="/vendor/three.min.js"></script>
+    <script src="/vendor/7paws.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

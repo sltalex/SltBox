@@ -189,7 +189,17 @@ public sealed class WidgetContentFactory
             IsFeatureWidget: true,
             SettingsSectionTag: "CalendarSettings",
             ChromeCategory: WidgetChromeCategory.Display,
-            DefaultChromeMode: WidgetChromeMode.Overlay)
+            DefaultChromeMode: WidgetChromeMode.Overlay),
+        new(
+            WidgetKind.SevenPaws,
+            "7paws",
+            "\uE8F1",
+            WidgetContentStage.Implemented,
+            CanShowInCreateEntry: false,
+            WidgetContentAvailability.Available,
+            "WidgetContent.SevenPaws.StatusLabel",
+            "WidgetContent.SevenPaws.StatusDescription",
+            IsFeatureWidget: true)
     ];
 
     private static readonly IReadOnlyDictionary<WidgetKind, WidgetContentDescriptor> Descriptors =

@@ -148,7 +148,9 @@ $npcValues = is_array($profile['values'] ?? null) ? $profile['values'] : [];
 $npcFears = is_array($profile['fears'] ?? null) ? $profile['fears'] : [];
 $entries = is_array($npc['schedule'] ?? null) ? array_values($npc['schedule']) : [];
 $npcStats = is_array($npc['stats']['values'] ?? null) ? $npc['stats']['values'] : town_npc_stat_defaults();
+$npcPersonality = is_array($npc['personality']['values'] ?? null) ? $npc['personality']['values'] : town_npc_personality_defaults();
 $npcStatHistory = town_npc_stat_history_recent($pdo, (string)$npc['npc_id'], 12);
+$npcCognitiveMemories = town_npc_memory_rows($pdo, (string)$npc['npc_id'], 8, 0);
 $rowCount = max(7, count($entries));
 ?>
 <div class="npc-card" data-npc-id="<?= admin_page_escape($npc['npc_id']) ?>">
@@ -210,6 +212,7 @@ $rowCount = max(7, count($entries));
 <button type="button" class="npc-tab" data-tab="home">住房</button>
 <button type="button" class="npc-tab" data-tab="policy">决策策略</button>
 <button type="button" class="npc-tab" data-tab="stats">个体数值</button>
+<button type="button" class="npc-tab" data-tab="personality">稳定人格</button>
 <button type="button" class="npc-tab" data-tab="economy">经济</button>
 <button type="button" class="npc-tab" data-tab="tools">道具</button>
 <button type="button" class="npc-tab" data-tab="memory">记忆与任务</button>
@@ -339,6 +342,23 @@ $rowCount = max(7, count($entries));
 <?php foreach (array_reverse($npcStatHistory) as $change): $deltaParts = []; foreach (($change['delta'] ?? []) as $key => $delta) $deltaParts[] = ($statLabels[$key] ?? $key) . ' ' . ((int)$delta > 0 ? '+' : '') . (int)$delta; ?><tr><td><?= admin_page_escape((string)($change['created_at'] ?? '')) ?></td><td><?= admin_page_escape((string)($change['source_type'] ?? '')) ?></td><td><?= admin_page_escape(implode('、', $deltaParts)) ?></td><td><?= admin_page_escape((string)($change['reason'] ?? '')) ?></td></tr><?php endforeach; ?>
 </tbody></table></div><?php endif; ?></details>
 </div>
+<div class="npc-tab-panel" data-panel="personality">
+<p class="npc-sub">稳定人格会和心情、体能、压力等当前状态一起参与每次决策。每次行动前服务端都会重新读取并记录决策上下文。</p>
+<form method="post" class="form-row">
+<input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
+<input type="hidden" name="operation" value="town_npc_personality_save">
+<input type="hidden" name="panel" value="town_npcs">
+<input type="hidden" name="npc_id" value="<?= admin_page_escape($npc['npc_id']) ?>">
+<?php $personalityLabels = ['courage'=>'勇气','kindness'=>'善良','curiosity'=>'好奇','sociability'=>'社交','diligence'=>'勤奋','caution'=>'谨慎','creativity'=>'创造力','independence'=>'独立性']; foreach ($personalityLabels as $personalityKey => $personalityLabel): ?>
+<label><?= $personalityLabel ?><input name="<?= $personalityKey ?>" type="number" min="1" max="100" value="<?= (int)($npcPersonality[$personalityKey] ?? 50) ?>"></label>
+<?php endforeach; ?>
+<label style="min-width:240px">调整原因<input name="personality_reason" maxlength="255" placeholder="例如：根据人物设定初始化人格" required></label>
+<button type="submit">保存稳定人格</button>
+</form>
+<div class="table-scroll" style="margin-top:8px"><table><thead><tr><th>维度</th><th>分数</th><th>解释</th></tr></thead><tbody>
+<?php foreach ($personalityLabels as $personalityKey => $personalityLabel): ?><tr><td><?= $personalityLabel ?></td><td><?= (int)($npcPersonality[$personalityKey] ?? 50) ?></td><td><?= admin_page_escape((string)($npc['personality']['levels'][$personalityKey] ?? '一般')) ?></td></tr><?php endforeach; ?>
+</tbody></table></div>
+</div>
 <div class="npc-tab-panel" data-panel="economy">
 <form method="post" class="form-row">
 <input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
@@ -365,6 +385,11 @@ foreach ($economyInventory as $inventoryRow) if (is_array($inventoryRow) && isse
 </form>
 </div>
 <div class="npc-tab-panel" data-panel="memory">
+<p class="npc-sub">当前目标：<?= admin_page_escape((string)($runtime['current_goal'] ?? $profile['short_term_goal'] ?? '未设置')) ?>；欲望：<?= admin_page_escape(admin_page_json($runtime['desire'] ?? [])) ?>；计划：<?= admin_page_escape(admin_page_json($runtime['plan'] ?? [])) ?></p>
+<div class="table-scroll" style="margin-bottom:10px"><table><thead><tr><th>时间</th><th>类型</th><th>观察</th><th>理解 / 推理</th><th>想法 / 结论</th><th>下一步</th></tr></thead><tbody>
+<?php if ($npcCognitiveMemories === []): ?><tr><td colspan="6">暂无认知记忆，NPC 执行观察或行动后会自动记录。</td></tr>
+<?php else: foreach ($npcCognitiveMemories as $memory): ?><tr><td><?= admin_page_escape((string)($memory['created_at'] ?? '')) ?></td><td><?= admin_page_escape((string)($memory['memory_type'] ?? '')) ?></td><td><?= admin_page_escape((string)($memory['observation'] ?? $memory['content'] ?? '')) ?></td><td><?= admin_page_escape((string)($memory['interpretation'] ?? '')) ?><br><small><?= admin_page_escape((string)($memory['reasoning_summary'] ?? '')) ?></small></td><td><?= admin_page_escape((string)($memory['thought_summary'] ?? '')) ?><br><small><?= admin_page_escape((string)($memory['conclusion'] ?? '')) ?></small></td><td><?= admin_page_escape((string)($memory['intention'] ?? '')) ?></td></tr><?php endforeach; endif; ?>
+</tbody></table></div>
 <div class="actions" style="margin-top:0">
 <form method="post">
 <input type="hidden" name="csrf" value="<?= admin_page_escape($csrf) ?>">
@@ -385,11 +410,15 @@ foreach ($economyInventory as $inventoryRow) if (is_array($inventoryRow) && isse
 <option value="walk">行走</option>
 <option value="work">工作</option>
 <option value="talk">交谈</option>
+<option value="observe">观察</option>
+<option value="help">帮助</option>
+<option value="use_item">使用道具</option>
 <option value="rest">休息</option>
 </select></label>
 <label>目标 ID<input name="force_target_id" placeholder="farm-zone-3"></label>
 <label>目标 X/Y<span class="inline-inputs"><input name="force_tile_x" type="number" min="0" value="<?= (int)($runtime['tile_x'] ?? 0) ?>"><input name="force_tile_y" type="number" min="0" value="<?= (int)($runtime['tile_y'] ?? 0) ?>"></span></label>
 <label>工作内容<input name="force_job" placeholder="water_crop"></label>
+<label>使用道具 ID<input name="force_item_id" placeholder="ladder 或 bridge_kit"></label>
 <label>持续分钟<input name="force_duration_minutes" type="number" min="0" max="1440" value="20"></label>
 <label>对话<input name="force_dialogue" maxlength="500"></label>
 <button type="submit">分配任务</button>

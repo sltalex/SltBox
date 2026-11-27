@@ -379,6 +379,7 @@ public sealed partial class WidgetManager
             WidgetKind.SystemMonitor => "SystemMonitor.Title",
             WidgetKind.DingTalkGroupDocs => "DingTalkGroupDocs.Title",
             WidgetKind.Calendar => "Calendar.Title",
+            WidgetKind.SevenPaws => "SevenPaws.Title",
             _ => string.Empty
         };
 
@@ -436,6 +437,7 @@ public sealed partial class WidgetManager
                 WidgetKind.SystemMonitor => 380,
                 WidgetKind.DingTalkGroupDocs => 420,
                 WidgetKind.Calendar => 380,
+                WidgetKind.SevenPaws => 520,
                 _ => Math.Max(_settingsService.Settings.DefaultWidgetWidth, 320)
             },
             Height = kind switch
@@ -449,6 +451,7 @@ public sealed partial class WidgetManager
                 WidgetKind.SystemMonitor => 320,
                 WidgetKind.DingTalkGroupDocs => 460,
                 WidgetKind.Calendar => 460,
+                WidgetKind.SevenPaws => 400,
                 _ => Math.Max(_settingsService.Settings.DefaultWidgetHeight, 360)
             }
         };
@@ -1110,6 +1113,12 @@ public sealed partial class WidgetManager
             return;
         }
 
+        if (kind == WidgetKind.SevenPaws)
+        {
+            await SetSevenPawsDesktopEnabledAsync(false);
+            return;
+        }
+
         await DetachFeatureWidgetsFromGroupsAsync(kind);
         var suppressedClosedIds = _settingsService.Settings.Widgets
             .Where(widget => widget.WidgetKind == kind)
@@ -1436,7 +1445,7 @@ public sealed partial class WidgetManager
 
     private static bool IsContentFeatureWidgetKind(WidgetKind kind)
     {
-        return FeatureWidgetSettings.IsFeatureWidget(kind);
+        return kind != WidgetKind.SevenPaws && FeatureWidgetSettings.IsFeatureWidget(kind);
     }
 
     private async Task CommitFeatureWidgetStateAsync(WidgetKind kind, bool enabled)
